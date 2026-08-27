@@ -10,7 +10,7 @@ import {
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
@@ -164,18 +164,19 @@ describe('FreebuffModelSelector tier layout', () => {
     // premium or the tier headers it is being ordered against don't apply to
     // it, non-hero or the landing picker opens collapsed and there are no tier
     // headers at all. The hero is GPT-5.6 Luna since 2026-08-24, which leaves
-    // V4 Pro as the only row that is both. Flash filled this slot until
+    // GLM 5.3 Flash as the only row that is both. Flash filled this slot until
     // 2026-08-24, when it left FREEBUFF_PREMIUM_MODEL_IDS and moved down into
-    // UNLIMITED -- below the header this asserts it sits above.
+    // UNLIMITED -- below the header this asserts it sits above; V4 Pro until
+    // its withdrawal on 2026-08-26.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
 
     const setup = await renderSelector()
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
     const recommendedModelIndex = frame.indexOf('GPT-5.6 Luna')
-    const selectedModelIndex = frame.indexOf('DeepSeek V4 Pro')
+    const selectedModelIndex = frame.indexOf('GLM 5.3 Flash')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
@@ -185,7 +186,7 @@ describe('FreebuffModelSelector tier layout', () => {
     // 2026-08-20 and left the picker entirely.
     expect(unlimitedHeaderIndex).toBeGreaterThan(selectedModelIndex)
     // The cursor sits on the SAVED pick, not on the recommendation.
-    expect(frame).toContain('› DeepSeek V4 Pro')
+    expect(frame).toContain('› GLM 5.3 Flash')
     expect(frame).not.toContain('› GPT-5.6 Luna')
   })
 
@@ -377,7 +378,7 @@ describe('FreebuffModelSelector tier layout', () => {
     })
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID)
+      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     const setup = await renderSelector()
 
     flushSync(() => {
@@ -486,16 +487,16 @@ describe('FreebuffModelSelector tier layout', () => {
       accessTier: 'full',
       // Flash sends no pool row at all since 2026-08-24: it is unmetered.
       rateLimitsByModel: {
-        [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: pool(
-          FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: pool(
+          FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
           'premium',
           'Premium',
           4,
         ),
-        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: pool(
-          FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-          'luna',
-          'Luna',
+        [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: pool(
+          FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+          'glm_v53_flash',
+          'GLM 5.3 Flash',
           2,
         ),
       },
@@ -505,8 +506,8 @@ describe('FreebuffModelSelector tier layout', () => {
       // NOT the hero, so the picker opens expanded and the chip under test is
       // drawn at all. Luna took the hero slot on 2026-08-24; selecting it here
       // collapses the list to a single row and the chip disappears. Flash also
-      // supplies the warning-ONLY second line asserted below, which no premium
-      // row has any more now that V4 Pro's carries the chip as well.
+      // supplies the warning-ONLY second line asserted below, which the chip
+      // row cannot: every row carrying a pool row here also carries a chip.
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
     const frame = (await renderSelector()).captureCharFrame()
@@ -522,11 +523,13 @@ describe('FreebuffModelSelector tier layout', () => {
       ]
     }
     const lines = frame.split('\n')
-    // V4 Pro's second line carries the training warning AND the chip. Anchored
-    // on the chip, so a chip that stops being drawn fails here rather than
-    // quietly re-measuring some warning-only line instead.
-    const chipLine = lines.find((l) => l.includes('Premium: 0 of 4 used'))
-    // Flash's carries the same warning with nothing after it — the shape the
+    // GLM 5.3 Flash's second line carries its per-model ceiling chip. Anchored
+    // on the chip text, so a chip that stops being drawn fails here rather than
+    // quietly re-measuring some warning-only line instead. Deliberately the
+    // PER-MODEL pool rather than the shared one: its label is the longest the
+    // caps table can produce, which is the case the width math has to survive.
+    const chipLine = lines.find((l) => l.includes('GLM 5.3 Flash: 0 of 2 used'))
+    // Flash carries the training warning with nothing after it — the shape the
     // width math already handled, which is the "ordinary warning line" above.
     const warningOnlyLine = lines.find(
       (l) => l.includes('May use data for AI training') && !l.includes('used'),
