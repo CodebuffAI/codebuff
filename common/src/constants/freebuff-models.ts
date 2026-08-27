@@ -171,6 +171,63 @@ export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
  *  entitlement-gated model — the quota pool is chosen by model id, so an extra
  *  id is an extra door. */
 export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
+/**
+ * GLM 5.3 Flash, served through OpenRouter. The id is OpenRouter's own slug, so
+ * it falls through to the default OpenRouter route with no provider-specific
+ * handler — the same arrangement as GPT-5.6 Luna and Ox Alpha.
+ *
+ * NOT a second door onto GLM 5.2. The name and the `z-ai/` prefix are shared,
+ * but this is a different model on a different lane and a different pool, and
+ * that distinction is load-bearing: 5.2 is the REFERRAL reward metered by
+ * FREEBUFF_GLM_V52_MODEL_IDS, and the whole reason `crof/glm-5.2` had to be
+ * deleted (see above) is that a second id for an earned model is a second free
+ * entitlement. Every GLM predicate in this file is written against an explicit
+ * id list for that reason — none of them prefix-match `z-ai/glm`, and none of
+ * them should be rewritten to.
+ *
+ * PREMIUM AND CAPPED, which is the point of adding it. It replaces DeepSeek V4
+ * Pro as the catalog's deep row at a fraction of the price: $[redacted] in /
+ * $[redacted] cache read / $0.25 out per M on the cheap endpoints (Z.ai, NovitaAI,
+ * GMICloud, read off OpenRouter 2026-08-26), against Pro's $0.66 / $[redacted] /
+ * $1.98 off-peak on DeepSeek direct — roughly 8.8x on fresh input and 7.9x on
+ * output, and cheaper on the cache reads that dominate an agent turn.
+ *
+ * Three of the six listed endpoints charge exactly 2x the other three, so the
+ * route carries FREEBUFF_GLM_V53_FLASH_MAX_PRICE. Without it OpenRouter is free
+ * to land a session on a double-priced host and nothing anywhere would say so —
+ * the shape of bill this repo has already paid twice (the retired OpenRouter
+ * DeepSeek lane; the Kimi/Infron unit-price doubling).
+ */
+export const FREEBUFF_GLM_V53_FLASH_MODEL_ID = 'z-ai/glm-5.3-flash'
+/**
+ * The price ceiling GLM 5.3 Flash routes under, in dollars per MILLION tokens
+ * (OpenRouter's `provider.max_price` unit).
+ *
+ * BETWEEN the two bands, not at either one. OpenRouter lists this model on six
+ * endpoints in exactly two price bands — $[redacted]/$[redacted]/$0.25 (Z.ai, NovitaAI,
+ * GMICloud) and $0.15/$0.03/$0.50 (Cloudflare, DeepInfra, io.net) — so the
+ * ceiling has an unusually wide gap to sit in, and it must sit strictly inside
+ * it at BOTH ends:
+ *
+ *   - Strictly ABOVE the cheap band. OpenRouter compares strictly, which is not
+ *     a guess: shipping Luna's exact list price 404'd every request with "No
+ *     endpoints found that satisfy the max price" (see
+ *     FREEBUFF_GPT_5_6_LUNA_MAX_PRICE, verified against the live API). A
+ *     ceiling equal to list is an outage waiting on a rounding change.
+ *   - Strictly BELOW the dear band, which is the whole reason the fence exists.
+ *
+ * Fallbacks stay ALLOWED, so this bounds cost without pinning a host: three
+ * endpoints sit under it, which is enough that losing one is not an outage.
+ * When every endpoint under the ceiling is down OpenRouter returns 404 rather
+ * than serving above it, and — as on Ox Alpha — the fix for that 404 is never
+ * to raise the number. `max_price` takes prompt and completion only; the cache
+ * read that dominates an agent turn is not expressible here, and the two bands
+ * move together anyway.
+ */
+export const FREEBUFF_GLM_V53_FLASH_MAX_PRICE = {
+  prompt: 0.1,
+  completion: 0.3,
+} as const
 /** GPT-5.6 Luna (OpenAI), served through OpenRouter. The id is OpenRouter's own
  *  slug, so it falls through to the default OpenRouter route with no
  *  provider-specific handler (same as Ling 3.0 Flash).
@@ -779,6 +836,12 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   // 1_000_000 for the same reason as the two above: a published number is not
   // an observed rejection, and the asymmetry here punishes guessing high.
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 1_000_000,
+  // OpenRouter publishes 1,310,720 for GLM 5.3 Flash (131,072 max completion
+  // tokens). Entered as 1_000_000, again for the reason above: this is a
+  // published figure rather than an observed rejection, and guessing high
+  // wedges a thread forever while guessing low only prunes early. Correct it
+  // upward once a real rejection quotes the number.
+  [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 1_000_000,
 }
 
 /** Window assumed for any model missing from FREEBUFF_MODEL_CONTEXT_WINDOWS.
@@ -1115,6 +1178,68 @@ const GLM_V52_MODEL = {
 } as const satisfies FreebuffModelOption
 
 /**
+ * GLM 5.3 Flash — the catalog's deep row, and DeepSeek V4 Pro's replacement.
+ *
+ * PREMIUM AND CAPPED AT TWO A DAY, which is one decision expressed in two
+ * places: `premium: true` here puts it in the shared daily pool (via
+ * FREEBUFF_PREMIUM_MODEL_IDS), and its FREEBUFF_PER_MODEL_SESSION_CAPS entry is
+ * the ceiling on top of that. A capped session therefore costs a user both a
+ * premium unit and one of the two — which is the arrangement that lets the row
+ * exist at all while Pro could not.
+ *
+ * Why capped when it is CHEAPER than the rows that are not: the cap table is a
+ * claim about price, and the claim here is about the price of being WRONG. This
+ * is a new row on a lane we have never run at fleet scale, and the two things
+ * we cannot yet price are the cache-hit rate an agent turn actually gets on it
+ * (the term that decides everything — see the DeepSeek/Crof cutover, which
+ * needed ~90% and delivered 60-85%) and which of the three cheap endpoints
+ * OpenRouter lands us on hour to hour. Two a day bounds what one account can
+ * cost us while those are measured; it is meant to be RAISED once they are, and
+ * lifting it is a one-line table edit.
+ *
+ * Unlike GLM 5.2 next door this is not entitlement-earned — it is granted to
+ * every full-access account like Luna, so it needs no referral pool and must
+ * never be added to FREEBUFF_GLM_V52_MODEL_IDS.
+ */
+const GLM_V53_FLASH_MODEL = {
+  id: FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+  // Undated. The wire id carries the build ('5.3-flash') and there is no second
+  // snapshot to tell apart, so the rule the DeepSeek rows follow — date a name
+  // whose wire id auto-updates — has nothing to bite on here.
+  displayName: 'GLM 5.3 Flash',
+  // Describes the row rather than ranking it, like every other tagline since
+  // the catalog stopped recommending anything. "Deep reasoning" is the slot V4
+  // Pro vacated and the reason a user reaches for this one.
+  tagline: 'Deep reasoning',
+  // OPEN AT EVERY HOUR. Nothing about this lane is time-of-day priced — the
+  // peak/off-peak split that closes DeepSeek rows is DeepSeek's card, not
+  // OpenRouter's — so there is no expensive window to hide from, and closing it
+  // would cost users the model for nothing. If it ever moves to a lane with a
+  // peak card, close it and check what else is closed in the same commit.
+  availability: 'always',
+  // Z.ai's terms for this endpoint carry no training grant to pass on and no
+  // assurance to repeat, so `service` is the conservative reading: we assert no
+  // training warning we cannot substantiate, and no safety we cannot either.
+  // Load-bearing beyond the copy — FREEBUFF_TRACED_MODEL_IDS keys off this
+  // field, so 'training' here would start storing hour-long agent traces of a
+  // model nobody granted us traces on.
+  dataUse: 'service',
+  premium: true,
+  // OpenRouter reports text + image + video in, text out.
+  multimodal: true,
+  // NO effort ladder and no `reasoningEffort`. OpenRouter lists no reasoning
+  // levels for this model, so a control here would be a compatibility alias
+  // rather than a native setting — the same reason MiniMax M3 and both GLM 5.2
+  // routes show none. Add one only when the concrete endpoint reports distinct
+  // supported levels.
+  //
+  // No `supersededBy` and no RECOMMENDED badge: nothing in this catalog nudges
+  // anyone anywhere, and a notice here would rewrite saved picks on every load
+  // (see migrateSupersededFreebuffModelPreference).
+  isNew: true,
+} as const satisfies FreebuffModelOption
+
+/**
  * Kimi K3 (Eco), CrofAI. God-only, for testing, and the cost is part of why.
  *
  * List price per M (CrofAI catalog, read from the live /v1/models endpoint on
@@ -1281,6 +1406,7 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   MINIMAX_M3_MODEL,
   GPT_5_6_LUNA_MODEL,
   GLM_V52_MODEL,
+  GLM_V53_FLASH_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
   MIMO_V25_MODEL,
   FABLE_5_MODEL,
@@ -1301,13 +1427,18 @@ export const SUPPORTED_FREEBUFF_MODELS = [
 // unlimited fallback it steps down to follows, then the rest of the full-access
 // grid.
 //
-// DeepSeek V4 Pro is PAUSED for free mode (2026-08-18) and left this list — the
-// row is gone from every picker. It stays in SUPPORTED_FREEBUFF_MODELS on
+// DeepSeek V4 Pro is WITHDRAWN (2026-08-26) and left this list — the row is gone
+// from every picker and every pool. It stays in SUPPORTED_FREEBUFF_MODELS on
 // purpose: released clients hold their catalog in the binary and keep asking for
 // it, and an id the server does not RECOGNISE cannot be coerced, only refused.
 // Recognising it is what lets admission substitute (see
 // FREEBUFF_PAUSED_FREE_MODEL_IDS) instead of wedging those clients the way
 // #1801 wedged the limited tier.
+//
+// GLM 5.3 Flash takes the slot it vacated — the row a user reaches for depth —
+// at roughly an eighth of the price per token. That substitution is the whole
+// change: the catalog keeps a deep option, and the line that could not be
+// afforded goes.
 export const FREEBUFF_MODELS = [
   // LUNA LEADS as of 2026-08-24, and the position is not a preference — a test
   // pins FREEBUFF_MODELS[0] to DEFAULT_FREEBUFF_MODEL_ID, so this moved because
@@ -1337,10 +1468,12 @@ export const FREEBUFF_MODELS = [
   // experimental row must never become the thing a new user lands on before
   // they know the catalog exists.
   OX_ALPHA_MODEL,
-  // LAST again: capped at one session a day, closed for ten hours, and the
-  // dearest row we serve. Somewhere a user reaches deliberately rather than by
-  // scanning from the top.
-  DEEPSEEK_V4_PRO_MODEL,
+  // LAST, in the slot V4 Pro held and for the same reason: capped at two
+  // sessions a day, so it is somewhere a user reaches deliberately rather than
+  // by scanning from the top. Ordering is still the only steer in this list —
+  // nothing here is badged RECOMMENDED and nothing supersedes anything — so
+  // moving this row up is a product decision, not housekeeping.
+  GLM_V53_FLASH_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 // Flash joined this list on 2026-08-18 and LEFT it on 2026-08-24, once the
@@ -1354,13 +1487,20 @@ export const FREEBUFF_MODELS = [
 // This is the FULL-ACCESS pool only. The limited tier meters by region rather
 // than model and reads LIMITED_FREEBUFF_MODEL_IDS, so nothing here reaches it.
 //
-// Pro never left for long: it was pulled from the catalog entirely on 08-18 and
-// restored on 08-19, because both monitoring its cost and routing its provider
-// require it to serve traffic. What changed instead is that nothing recommends
-// it — see its supersededBy and its place at the end of FREEBUFF_MODELS.
+// V4 Pro LEFT this list for good on 2026-08-26. It was pulled from the catalog
+// for a day on 08-18 and restored on 08-19 because monitoring its cost and
+// routing its provider both needed it to serve traffic; this time it is
+// withdrawn outright (FREEBUFF_PAUSED_FREE_MODEL_IDS) because the cost is the
+// reason. Dropping it here is not what stops it being served — the pause is —
+// but leaving it would meter a model nothing may admit.
+//
+// GLM 5.3 Flash takes its place in the pool AND carries a ceiling of its own
+// (FREEBUFF_PER_MODEL_SESSION_CAPS). Both, not either: a capped model still has
+// to be metered by the shared pool, or its two sessions would cost a user
+// nothing else and sit outside every number the picker shows.
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
 ] as const
 
 /**
@@ -1387,49 +1527,40 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
 export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   Record<string, { limit: number; pool: string; poolLabel: string }>
 > = {
-  // V4 Pro came out on 2026-08-21 and should stay out: it moved to a flat
-  // $[redacted]/M cache read, which is the cheapest premium row we serve. Capping
-  // the cheap row is what the table exists NOT to do.
-  //
-  // Luna is capped at TWO — half the shared premium pool, not all of it — and
-  // the number is a comparison rather than a budget. At $[redacted]/M cache read it
-  // is ~3x Pro's, so a pool spent entirely on Luna costs several times the same
-  // pool spent on Pro. Two lets a user run it alongside the cheaper row instead
-  // of choosing between them, while a full four would make the expensive row
-  // the default way to spend the day.
-  //
   // Anything added here is automatically a FIXED pool (no streak, referral or
   // grant may raise it) and automatically counts ADMISSIONS rather than session
   // units. The second is not optional — units floor at 0.1, so a unit-counted
   // "2 a day" is really 20 a day. That was a real prod bug on 2026-08-20.
   //
-  // Flash was never here and still should not be: it is the recommended
-  // default, and capping the row most users are steered onto would push them
-  // off the catalog's cheapest competent option after a single hour.
-  // V4 PRO IS UNCAPPED as of 2026-08-22, metered only by the shared premium
-  // session pool like Flash. The cap tracked Pro being the dearest row per
-  // token on DeepSeek direct ($[redacted]/M off-peak, $[redacted]/M at peak); on Cheaper
-  // Inference it reads cache at $[redacted]/M FLAT, which makes it the cheapest
-  // premium row we serve. Capping the cheap row is what this table exists not
-  // to do.
+  // Flash was never here and still should not be: it is the catalog's cheapest
+  // competent row, and capping the row most users end up on would push them off
+  // it after a single hour. Luna came out on 2026-08-23 and Pro on 08-22, both
+  // because the entries were claims about relative price and both claims had
+  // inverted once the lanes were measured on the rates they actually bill.
   //
-  // If Pro ever returns to DeepSeek direct, the cap comes back with it — the
-  // entry is a claim about price, and that is the price that changed.
-  // LUNA IS UNCAPPED as of 2026-08-23, metered only by the shared premium
-  // pool like Pro and Flash. The cap said Luna was ~3x Pro on cache reads; it
-  // is not, and the comparison that set the number was reading a broken card.
-  // Measured on the settled rates both lanes actually bill:
+  // GLM 5.3 FLASH IS THE ONE ENTRY, at TWO a day, and it is the first cap here
+  // that is not a claim about price per token — it is by some distance the
+  // cheapest premium row we serve ($[redacted]/$[redacted]/$0.25 per M against Luna's
+  // $0.10/$[redacted]/$0.60). It is a claim about UNCERTAINTY: this is a brand-new
+  // row on a lane we have never run at fleet scale, and the number that decides
+  // its real cost is the cache-hit rate an agent turn gets on it, which no rate
+  // card states. The DeepSeek/Crof cutover needed ~90% and delivered 60-85%,
+  // which is the difference between the cheapest row and a 2.9x one, and it was
+  // only visible in production.
   //
-  //   Luna  $[redacted]/M cache read   ->  $[redacted]/session on Cheaper Inference
-  //   Pro   $[redacted]/M           ->  $[redacted]/session
-  //
-  // Luna is now the CHEAPER of the two per session, so a pool spent on it costs
-  // less than the same pool spent on the row that was left uncapped. The entry
-  // was a claim about relative price, and the claim inverted.
-  //
-  // The table is deliberately EMPTY rather than deleted. It is the lever that
-  // gets pulled under cost pressure, and the argument above for which rows
-  // belong in it is the part worth keeping.
+  // So the cap is a measurement window, not a budget, and it is meant to come
+  // off. Raise or remove it once the fleet cache rate on this lane is known —
+  // one number in this table, nothing in any client.
+  [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: {
+    limit: 2,
+    // Its own pool, like every entry here. Sharing one between two capped
+    // models silently halves both.
+    pool: 'glm_v53_flash',
+    // Ships to installed CLIs and Desktops over the wire (FreebuffSessionRateLimit)
+    // and is rendered verbatim next to the count, so it reads as a row label
+    // rather than as an id.
+    poolLabel: 'GLM 5.3 Flash',
+  },
 }
 
 /** Whether `model` carries a ceiling of its own beyond the shared pool. */
@@ -1465,14 +1596,10 @@ export const FREEBUFF_DEEPSEEK_SESSION_WINDOW_HOURS =
  * So: out of every picker, out of every quota list, still recognised, and
  * coerced to the tier's default at admission and at the session gate.
  *
- * EMPTY as of 2026-08-19. V4 Pro was the only entry, for one day, and came
- * back because monitoring its cost and routing its provider both need it to
- * serve traffic — it is de-recommended instead (see its supersededBy).
- *
- * The machinery stays. It is the tested answer to a question that keeps coming
- * up under cost pressure, and the expensive way to learn it is the one already
- * paid for in #1801: the coercion has to exist BEFORE a model is taken away,
- * because the clients that need it are the ones already installed.
+ * This is the tested answer to a question that keeps coming up under cost
+ * pressure, and the expensive way to learn it is the one already paid for in
+ * #1801: the coercion has to exist BEFORE a model is taken away, because the
+ * clients that need it are the ones already installed.
  */
 export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly string[] = [
   // Withdrawn from free mode entirely on 2026-08-20. It reached $[redacted]/hr — the
@@ -1486,6 +1613,24 @@ export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly string[] = [
   // admissions in #1801. Listed here it stays recognised, is coerced to the
   // fallback at admission, and is served to nobody.
   FREEBUFF_MINIMAX_M3_MODEL_ID,
+  // Withdrawn from free mode entirely on 2026-08-26, on cost. Pro was the
+  // dearest row we serve — $0.66 in / $[redacted] cache read / $1.98 out per M
+  // off-peak on DeepSeek direct, exactly double inside the peak windows — and
+  // the catalog now has a deep row (GLM 5.3 Flash) at roughly an eighth of
+  // that. Withdrawing it is not a judgement on the model; it is that the same
+  // slot can be filled for a fraction of the money.
+  //
+  // PAUSED rather than deleted, for the reason above it: every released CLI and
+  // Desktop holds this id in its compiled-in catalog and will keep sending it.
+  // The row stays in SUPPORTED_FREEBUFF_MODELS and its agent entries stay in
+  // FREE_MODE_AGENT_MODELS so sessions admitted before the deploy drain instead
+  // of failing mid-turn — the door is shut in front of them, not under them.
+  //
+  // NOT withdrawn with it: FREEBUFF_DEEPSEEK_V4_PRO_MAX_MODEL_ID, the
+  // provisioned extended-context tier. That is granted per account rather than
+  // picked, so it is not part of what free mode hands out, and pausing it would
+  // break the accounts it was granted to without any of them asking.
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
 ]
 
 /**
@@ -1709,8 +1854,16 @@ export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
  *  multi-tab today. Before making one so, key admit rows by instance id. */
 export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
+  // V4 Pro left with its withdrawal (2026-08-26); GLM 5.3 Flash takes the slot.
+  // Here for the CONCURRENCY reason the doc above insists on deciding
+  // separately — but note it is also the one row that is metered AND would
+  // otherwise be multi-tab, which the last paragraph above forbids outright:
+  // `buildAdmitStampStatement` pairs a window to its admit row on
+  // `(user, model, access_tier, admitted_at)`, so two tabs of one metered row
+  // admitted in the same millisecond make that pairing arbitrary. Until admit
+  // rows are keyed by instance id, a metered row belongs in this bucket.
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
 ] as const
 
 /** Concurrent Freebuff Desktop sessions per model bucket. Premium is also
@@ -2449,6 +2602,22 @@ export function isFreebuffGlmV52ModelId(
   return FREEBUFF_GLM_V52_MODEL_IDS.some((modelId) =>
     freebuffModelIdMatches(id, modelId),
   )
+}
+
+/** Whether the requested model is GLM 5.3 Flash, tolerating the dated snapshot
+ *  suffix. Used by the OpenRouter layer to apply this row's price ceiling, so a
+ *  dated variant cannot dodge it.
+ *
+ *  DISTINCT FROM isFreebuffGlmV52ModelId and never a widening of it. The two
+ *  share a name and a `z-ai/` prefix and nothing else: 5.2 is the referral
+ *  reward metered by its own earned pool, 5.3 Flash is a premium-pool row every
+ *  full-access account gets. A predicate that prefix-matched `z-ai/glm` would
+ *  hand one model's entitlement to the other — the exact failure that made
+ *  `crof/glm-5.2` a quota-bypass route for five days. */
+export function isFreebuffGlmV53FlashModelId(
+  id: string | null | undefined,
+): boolean {
+  return freebuffModelIdMatches(id, FREEBUFF_GLM_V53_FLASH_MODEL_ID)
 }
 
 /** Whether the requested model is GPT-5.6 Luna, tolerating the dated snapshot

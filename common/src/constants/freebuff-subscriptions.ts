@@ -1,8 +1,6 @@
+import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from './freebuff-model-ids'
 import {
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-} from './freebuff-model-ids'
-import {
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   getFreebuffWebModel,
@@ -30,9 +28,13 @@ import {
  */
 
 /** Models a subscription's pooled allowance can be spent on. */
+// DeepSeek V4 Pro left this set on 2026-08-26 with its withdrawal from free
+// mode (FREEBUFF_PAUSED_FREE_MODEL_IDS). A subscribable model has to be a model
+// admission will actually open a session on, or the plan sells a row whose
+// first send fails; GLM 5.3 Flash takes its place in the same slot.
 export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze(
   [
-    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     FREEBUFF_KIMI_K3_ECO_MODEL_ID,
@@ -56,7 +58,15 @@ export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze(
  */
 export const FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS: readonly string[] =
   Object.freeze([
-    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+    // GLM 5.3 Flash is here in V4 Pro's place, and NOT on Pro's argument. It is
+    // cheaper per token than every other model in the pool, so the 4-5x
+    // measurement above does not describe it. It is here because it is the free
+    // catalog's capped row (FREEBUFF_PER_MODEL_SESSION_CAPS) while its cost at
+    // fleet scale is still being measured, and a plan that let a subscriber
+    // spend an entire day's allowance on the one row we have not finished
+    // pricing would be the only way to reach that scale by surprise. Revisit
+    // together with the free cap — they answer the same open question.
+    FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   ])
 
@@ -72,10 +82,7 @@ export function isFreebuffSubscriptionPremiumModelId(modelId: string): boolean {
  * decided to pause is the kind of change that should require an edit here.
  */
 export const FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS: readonly string[] =
-  Object.freeze([
-    FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-  ])
+  Object.freeze([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID])
 
 export function isFreebuffSubscriptionPeakPausedModelId(
   modelId: string,
@@ -141,7 +148,7 @@ export interface FreebuffSubscriptionTier {
   monthlySpendLimitUsd: number
   /**
    * How many of the DAILY sessions may be spent on premium models
-   * (Luna / DeepSeek V4 Pro). The rest must go to the cheaper pool.
+   * (Luna / GLM 5.3 Flash). The rest must go to the cheaper pool.
    */
   dailyPremiumSessions: number
   /**
@@ -225,7 +232,7 @@ export function freebuffSubscriptionTierDisclaimers(
     // sentence would describe a restriction that does not exist.
     ...(tier.dailyPremiumSessions < tier.dailySessions
       ? [
-          `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or DeepSeek V4 Pro; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
+          `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or GLM 5.3 Flash; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
         ]
       : []),
     'The 5-day limit is a rolling window — it frees up as your oldest sessions age out, rather than resetting on a fixed day',
@@ -260,15 +267,25 @@ export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 5
  * these are available to subscribers ONLY, so a free account cannot start one
  * at all.
  *
- * Deliberately EMPTY today: the two rows this was built for do not exist yet.
- * GLM 5.3 Flash has not shipped, and DeepSeek refuses every dated slug (the
- * direct API serves only the undated `deepseek-v4-pro`, so an 08/13-pinned
- * peak-disabled row has no wire id to point at). Adding one later is a single
- * entry here — the badge, the picker gating and the admission refusal all read
- * this list, and `FREEBUFF_PRO_ONLY_MODEL_IDS` can add ids without a deploy.
+ * EMPTY AGAIN as of 2026-08-26, and back to the state this comment originally
+ * described. V4 Pro was its one entry for a few hours (#2254) and has since
+ * been withdrawn from free mode entirely on cost — a row nothing may admit
+ * cannot be sold, so leaving it here would advertise a paid tier whose first
+ * send fails for subscribers too.
+ *
+ * GLM 5.3 Flash, which that comment named as the row this was built for, ships
+ * in the same change as a FREE premium row capped at two sessions a day
+ * (FREEBUFF_PER_MODEL_SESSION_CAPS) rather than a paid one. That is a product
+ * decision and a deliberately reversible one: the machinery below is untouched,
+ * so moving it behind the paywall later is one entry here — or, without a
+ * deploy at all, one id in `FREEBUFF_PRO_ONLY_MODEL_IDS`.
+ *
+ * Everything else #2254 built stays live and simply has nothing to act on: the
+ * service-account surface check, the off-peak closure, the DeepSeek-direct
+ * route pin and the admission refusal are all still here and still tested.
  */
 export const FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS: readonly string[] =
-  Object.freeze([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID])
+  Object.freeze([])
 
 /**
  * The Pro rows are enforced on **Freebuff Web only**, for now.
