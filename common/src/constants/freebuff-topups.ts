@@ -59,6 +59,16 @@ export const AD_TOP_UP_CURRENCY = 'usd'
 /** Credit made available after a placements advertiser saves a card. */
 export const AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS = 25_000
 
+/** Launch promotion: match the first $500 of collected placements spend. */
+export const AD_PROMO_MATCH_MILESTONES_CENTS = [25_000, 50_000] as const
+export const AD_PROMO_MATCH_GRANT_CENTS = 25_000
+
+/** Reward the referring advertiser once the referred account collects $500. */
+export const AD_PROMO_REFERRER_REWARD_CENTS = 50_000
+export const AD_PROMO_REFERRER_REWARD_CAP = 10
+export const AD_PROMO_CREDIT_EXPIRY_DAYS = 60
+export const AD_PROMO_REFERRAL_PROGRAM = 'placements_launch_2026'
+
 /**
  * Keep collection provenance through Stripe's refund/dispute exposure window.
  * Account deletion is blocked while a collection is pending or this recent.
@@ -162,6 +172,10 @@ export const AD_SPEND_LEDGER_REASONS = [
   'collection_refund',
   /** A disputed postpaid collection pulled back by the network. Negative. */
   'collection_chargeback',
+  /** Time-limited promotional balance with separate grant provenance. */
+  'promo_credit',
+  /** Unspent promotional balance removed at expiry or after a reversal. */
+  'promo_reversal',
 ] as const
 export type AdSpendLedgerReason = (typeof AD_SPEND_LEDGER_REASONS)[number]
 
@@ -191,14 +205,21 @@ export function statementKindForReason(
   if (
     reason === 'chargeback' ||
     reason === 'collection_refund' ||
-    reason === 'collection_chargeback'
+    reason === 'collection_chargeback' ||
+    reason === 'promo_reversal'
   ) {
     return 'adjustment'
   }
+  if (reason === 'promo_credit') return 'adjustment'
   return reason
 }
 
 /** Reasons that add money. Everything else subtracts. */
 export function isCreditReason(reason: AdSpendLedgerReason): boolean {
-  return reason === 'topup' || reason === 'refund' || reason === 'collection'
+  return (
+    reason === 'topup' ||
+    reason === 'refund' ||
+    reason === 'collection' ||
+    reason === 'promo_credit'
+  )
 }
