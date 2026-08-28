@@ -80,9 +80,25 @@ export function isFreebuffSubscriptionPremiumModelId(modelId: string): boolean {
  * Named explicitly rather than matched on an id prefix: a prefix would sweep in
  * any future `deepseek/*` id automatically, and silently pausing a model nobody
  * decided to pause is the kind of change that should require an edit here.
+ *
+ * EMPTY since 2026-08-28, when the peak pause was removed along with Flash's
+ * own peak closure. Emptied rather than deleted: the pause is a lever we may
+ * want again if a provider reprices, and the list is the whole of it.
+ *
+ * Flash had to leave for a reason worth recording. While it was `off_peak_only`
+ * this membership was INVISIBLE -- the row was already shut at peak, so the
+ * plan-pause label suppressed itself and nothing rendered. Reopening the row
+ * un-suppressed it, and the label immediately began advertising "Plan paused
+ * 5:00 PM - 3:00 AM PDT" for a pause whose enforcement had just been deleted.
+ * A test caught it; nothing else would have, because the string had never been
+ * reachable before.
+ *
+ * The general shape: removing one gate can expose copy that a second gate was
+ * silently hiding. Two suppressions on one string means neither is load-bearing
+ * until the other goes.
  */
 export const FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS: readonly string[] =
-  Object.freeze([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID])
+  Object.freeze([])
 
 export function isFreebuffSubscriptionPeakPausedModelId(
   modelId: string,
@@ -156,7 +172,6 @@ export interface FreebuffSubscriptionTier {
    * windows (common/constants/freebuff-peak-hours.ts). Surfaced to clients as
    * a disclaimer on the plan.
    */
-  deepseekPeakHoursExcluded: boolean
 }
 
 export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
@@ -181,7 +196,6 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       // enforcement stay in place — set it lower again to reinstate the cap
       // without touching code.
       dailyPremiumSessions: 3,
-      deepseekPeakHoursExcluded: true,
     },
     {
       id: 'plus',
@@ -198,7 +212,6 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       monthlySpendLimitUsd: 100,
       // Equal to dailySessions — sub-cap lifted; see the starter tier note.
       dailyPremiumSessions: 7,
-      deepseekPeakHoursExcluded: true,
     },
   ] satisfies FreebuffSubscriptionTier[])
 
@@ -253,9 +266,6 @@ export function freebuffSubscriptionTierDisclaimers(
     `Up to $${tier.monthlySpendLimitUsd} of ${FREEBUFF_SPEND_UNIT_LABEL} per month; plan sessions pause if reached, free sessions keep working`,
   )
   out.push('Limits are subject to change')
-  if (tier.deepseekPeakHoursExcluded) {
-    out.push('DeepSeek models are unavailable during weekday peak hours')
-  }
   return out
 }
 

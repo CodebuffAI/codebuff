@@ -1029,7 +1029,36 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   // when Pro was the flat-priced row; it is now merely the same price as the
   // row being closed, so redirecting there would shut a model for no saving —
   // the worst of both outcomes.
-  availability: 'off_peak_only',
+  // REOPENED 2026-08-28. The closure above was correct on its own measurement
+  // and was invalidated by its own effect.
+  //
+  // That 08-24 reading priced Luna at $[redacted]/msg -- its WARM price, taken
+  // before Flash's traffic was displaced onto it. Closing Flash is what moved
+  // ~[redacted] msg/hr of unfamiliar prefixes onto Luna's lane, and a prefix cache is
+  // the whole cost of these rows: Luna fell from ~95% cache to 59-68% inside
+  // the window and its price went with it. Re-measured 2026-08-28, hourly:
+  //
+  //   Luna @ Cheaper Inf. (absorbing)  $[redacted]/msg   59-68% cache
+  //   Flash @ DeepSeek peak            $[redacted]-0.0057/msg
+  //   Flash @ LUMINAL                  $[redacted]/msg   96% cache, NO peak card
+  //
+  // The ordering inverted: the row we closed to save money is now half the
+  // price of the row we sent its traffic to, and Luminal -- which is not
+  // DeepSeek and so has no peak surcharge at all -- is cheaper than both by 4x.
+  // Measured at 01:00Z, the hour peak pricing begins: DeepSeek $[redacted],
+  // Luminal $[redacted], same model, same minute.
+  //
+  // Cost of the closure, measured over 04:00-12:00Z: ~$[redacted]/day of excess Luna
+  // spend, against a saving premised on a price that no longer exists.
+  //
+  // A closure justified by a measurement must be rechecked when the thing it
+  // measured is downstream of the closure itself. This one was not, for four
+  // days.
+  //
+  // The peak PRICE is untouched and still real -- `deepseekPricingWindow` still
+  // bills the 2x card, because DeepSeek still charges it. What is removed is
+  // only the decision to stop SERVING inside that window.
+  availability: 'always',
   unavailableFallback: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   warning: FREEBUFF_AI_TRAINING_NOTICE,
   dataUse: 'training',
