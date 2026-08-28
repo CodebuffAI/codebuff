@@ -15,6 +15,7 @@ import {
   effectiveDailyBudgetCents,
   engagementsForDailyBudget,
   glidedDailyBudgetCents,
+  pacedDailyAllowance,
   type BudgetGlide,
 } from '../constants/freebuff-ads'
 
@@ -25,6 +26,7 @@ const GLIDE: BudgetGlide = {
   days: 21,
   jitterBps: 1_000,
   startedOn: '2026-08-27',
+  curve: 'linear',
 }
 const SEED = '4cf06ebe-f759-4a1c-8f62-78c6d5dd3a12'
 
@@ -152,5 +154,91 @@ describe('effectiveDailyBudgetCents', () => {
         today: '2026-09-03',
       }),
     ).toBe(45_000)
+  })
+})
+
+describe('the exponential curve', () => {
+  const DECAY: BudgetGlide = {
+    startCents: 15_000, // 300/day
+    targetCents: 2_500, // 50/day
+    days: 14,
+    jitterBps: 0,
+    startedOn: '2026-08-28',
+    curve: 'exponential',
+  }
+  const capOnDay = (day: number) =>
+    engagementsForDailyBudget(
+      glidedDailyBudgetCents({
+        glide: DECAY,
+        seed: SEED,
+        today: new Date(Date.parse('2026-08-28T00:00:00Z') + day * 86_400_000)
+          .toISOString()
+          .slice(0, 10),
+      }),
+    )
+
+  test('lands on both endpoints exactly', () => {
+    expect(capOnDay(0)).toBe(300)
+    expect(capOnDay(14)).toBe(50)
+    expect(capOnDay(40)).toBe(50)
+  })
+
+  test('front-loads the cut: more comes off in the first quarter than the last', () => {
+    // This is the whole reason the shape exists. A linear taper still runs at
+    // half volume halfway through, which reads as "still going" on a chart.
+    const firstQuarter = capOnDay(0) - capOnDay(3)
+    const lastQuarter = capOnDay(11) - capOnDay(14)
+    expect(firstQuarter).toBeGreaterThan(lastQuarter * 2)
+  })
+
+  test('is below the straight line at every point in between', () => {
+    for (let day = 1; day < 14; day++) {
+      const linear = 300 - (250 * day) / 14
+      expect(capOnDay(day)).toBeLessThan(linear)
+    }
+  })
+
+  test('never increases from one day to the next', () => {
+    for (let day = 1; day <= 14; day++) {
+      expect(capOnDay(day)).toBeLessThanOrEqual(capOnDay(day - 1))
+    }
+  })
+})
+
+describe('pacedDailyAllowance', () => {
+  test('opens the day with an hour of allowance, not zero', () => {
+    // Zero would turn away whoever opens Earn first thing, against a cap that
+    // is not spent.
+    expect(pacedDailyAllowance({ capEngagements: 240, fractionOfDayElapsed: 0 })).toBe(10)
+  })
+
+  test('tracks the day: half elapsed, half available', () => {
+    expect(
+      pacedDailyAllowance({ capEngagements: 240, fractionOfDayElapsed: 0.5 }),
+    ).toBe(120)
+  })
+
+  test('the full cap is available by the end of the day', () => {
+    expect(
+      pacedDailyAllowance({ capEngagements: 240, fractionOfDayElapsed: 1 }),
+    ).toBe(240)
+  })
+
+  test('unspent allowance accrues rather than expiring', () => {
+    // Nothing here depends on what was delivered earlier, so a quiet morning
+    // leaves the afternoon with everything the morning did not use.
+    const morning = pacedDailyAllowance({ capEngagements: 300, fractionOfDayElapsed: 0.25 })
+    const evening = pacedDailyAllowance({ capEngagements: 300, fractionOfDayElapsed: 0.9 })
+    expect(evening).toBeGreaterThan(morning)
+    expect(evening).toBe(270)
+  })
+
+  test('clamps a nonsense fraction instead of inventing allowance', () => {
+    expect(pacedDailyAllowance({ capEngagements: 100, fractionOfDayElapsed: 4 })).toBe(100)
+    expect(pacedDailyAllowance({ capEngagements: 100, fractionOfDayElapsed: -1 })).toBe(5)
+  })
+
+  test('a zero cap paces to nothing', () => {
+    expect(pacedDailyAllowance({ capEngagements: 0, fractionOfDayElapsed: 0.5 })).toBe(0)
   })
 })

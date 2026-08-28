@@ -126,6 +126,17 @@ export interface BudgetGlide {
   /** Randomization around the curve, in basis points (1_000 = 10%). */
   jitterBps: number
   /**
+   * Shape of the descent.
+   *
+   * `linear` walks down in equal steps. `exponential` takes the same ratio off
+   * every day, so most of the reduction happens immediately and the tail is
+   * long and shallow — which is what "make it drop off" actually looks like on
+   * a cumulative chart, and what a linear taper cannot produce: halfway
+   * through a linear taper the campaign is still delivering half its original
+   * volume, and the curve people are looking at is still visibly climbing.
+   */
+  curve: 'linear' | 'exponential'
+  /**
    * Pacific calendar day the taper starts, `YYYY-MM-DD`.
    *
    * A plain date, not a timestamp: every cap in this system is keyed to a
@@ -185,8 +196,15 @@ export function glidedDailyBudgetCents(params: {
   }
 
   const progress = elapsed / glide.days
+  // Geometric for `exponential`: the same PROPORTION comes off each day, so
+  // day one takes the biggest absolute cut and the approach to the target is
+  // asymptotic. Falls back to linear if either end is zero, where a ratio is
+  // undefined.
   const straight =
-    glide.startCents + (glide.targetCents - glide.startCents) * progress
+    glide.curve === 'exponential' && glide.startCents > 0 && glide.targetCents > 0
+      ? glide.startCents *
+        Math.pow(glide.targetCents / glide.startCents, progress)
+      : glide.startCents + (glide.targetCents - glide.startCents) * progress
 
   // Hash to [-1, 1], then scaled by the jitter width.
   const unit = (glideHash(`${seed}:${today}`) / 0xffffffff) * 2 - 1
@@ -221,6 +239,37 @@ export function effectiveDailyBudgetCents(params: {
     seed: params.seed,
     today: params.today,
   })
+}
+
+/**
+ * How much of today's cap may have been delivered by now.
+ *
+ * A daily cap is not a schedule. A campaign with a 300/day ceiling and a
+ * queue of willing users spends all 300 in the first couple of hours, and
+ * then serves nothing for twenty-two — which is both a worse experience for
+ * the people who open Earn later and, for a campaign being deliberately wound
+ * down, a delivery curve made of vertical steps.
+ *
+ * So a tapering campaign drips: the allowance is the share of the Pacific day
+ * that has elapsed, with one hour's worth available from the start so the
+ * first users of the day are not turned away against a zero allowance.
+ * Unspent allowance is not lost — it accrues as the day goes — so a full day
+ * still delivers a full cap when demand is there.
+ *
+ * Only campaigns under a taper are paced. For everyone else the daily cap is
+ * something the advertiser bought and may spend as fast as their audience
+ * shows up.
+ */
+export function pacedDailyAllowance(params: {
+  capEngagements: number
+  /** 0 at midnight Pacific, 1 at the end of the day. */
+  fractionOfDayElapsed: number
+}): number {
+  const cap = Math.max(0, Math.floor(params.capEngagements))
+  if (cap === 0) return 0
+  const fraction = Math.min(1, Math.max(0, params.fractionOfDayElapsed))
+  const opening = Math.ceil(cap / 24)
+  return Math.min(cap, Math.max(opening, Math.ceil(cap * fraction)))
 }
 
 /** Snap an arbitrary cent amount onto the ladder the slider offers. Applied
