@@ -85,6 +85,144 @@ export function engagementsForDailyBudget(cents: number): number {
   return Math.floor(cents / AD_ENGAGEMENT_PRICE_CENTS)
 }
 
+/**
+ * A scheduled taper of a campaign's delivery cap.
+ *
+ * ## Why a campaign would want to go DOWN
+ *
+ * A campaign that works can outrun what the advertiser wanted from it. Weave's
+ * GitHub-star campaign went 21 -> 288 -> 531 approved engagements in three
+ * days and they asked us to hold it near 300/day for a few weeks — not to stop
+ * it, and not to cliff-edge it either. Editing the budget straight to the
+ * target does that in the crudest way available: the cap binds mid-afternoon,
+ * the feed empties for the rest of the day, and the delivery curve gets a step
+ * in it that nobody reading the numbers later can explain.
+ *
+ * ## Why the cap is randomized
+ *
+ * A ceiling that steps down on a published schedule is a ceiling anyone can
+ * predict — including accounts that watch this feed for supply and time their
+ * claims to the start of a Pacific day. Jitter costs the advertiser nothing
+ * (the curve still lands on the target) and stops the day's ceiling from being
+ * a number anyone can read off a calendar.
+ *
+ * ## Why it is computed, never written
+ *
+ * No job walks campaigns lowering budgets. Deployed web route timers do not
+ * fire here (see the repo's ops notes), and a daily writer is one more thing
+ * that can stop silently — leaving a campaign pinned at whatever cap it
+ * happened to reach, which is exactly the failure a taper must not have. The
+ * glide is a pure function of the campaign row and today's Pacific date, so
+ * every read is correct whether or not anything ran, and a missed day heals
+ * itself.
+ */
+export interface BudgetGlide {
+  /** Cap the taper starts from, in cents/day. */
+  startCents: number
+  /** Cap it lands on and stays at, in cents/day. */
+  targetCents: number
+  /** Days from `startedOn` to reach `targetCents`. */
+  days: number
+  /** Randomization around the curve, in basis points (1_000 = 10%). */
+  jitterBps: number
+  /**
+   * Pacific calendar day the taper starts, `YYYY-MM-DD`.
+   *
+   * A plain date, not a timestamp: every cap in this system is keyed to a
+   * Pacific DAY, and a timestamp here would invite exactly the offset bugs
+   * that keep finding this repo.
+   */
+  startedOn: string
+}
+
+/** Deterministic 32-bit hash (FNV-1a). Same campaign, same day, same cap — a
+ *  jitter that moved between two reads inside one day would let a caller
+ *  reroll the ceiling by retrying. */
+function glideHash(input: string): number {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash
+}
+
+/** Whole days between two `YYYY-MM-DD` Pacific dates. */
+function daysBetweenPacificDays(from: string, to: string): number {
+  const start = Date.parse(`${from}T00:00:00Z`)
+  const end = Date.parse(`${to}T00:00:00Z`)
+  if (Number.isNaN(start) || Number.isNaN(end)) return 0
+  return Math.round((end - start) / 86_400_000)
+}
+
+/**
+ * Today's cap for a glide, in cents.
+ *
+ * Linear from `startCents` to `targetCents`, with jitter applied only WHILE
+ * descending: the taper wobbles, the floor does not. An advertiser told "it
+ * settles around 300 a day" should get 300, not 270 on an unlucky Tuesday six
+ * weeks later.
+ *
+ * Clamped to the two endpoints in both directions, so jitter can never lift
+ * the cap above where it started nor push it under the target — the only two
+ * numbers anyone actually agreed to.
+ */
+export function glidedDailyBudgetCents(params: {
+  glide: BudgetGlide
+  /** Stable per-campaign seed; the campaign id. */
+  seed: string
+  /** Today, as a Pacific `YYYY-MM-DD`. */
+  today: string
+}): number {
+  const { glide, seed, today } = params
+  const low = Math.min(glide.startCents, glide.targetCents)
+  const high = Math.max(glide.startCents, glide.targetCents)
+
+  const elapsed = daysBetweenPacificDays(glide.startedOn, today)
+  if (elapsed <= 0) return normalizeDailyBudgetCents(glide.startCents)
+  if (glide.days <= 0 || elapsed >= glide.days) {
+    return normalizeDailyBudgetCents(glide.targetCents)
+  }
+
+  const progress = elapsed / glide.days
+  const straight =
+    glide.startCents + (glide.targetCents - glide.startCents) * progress
+
+  // Hash to [-1, 1], then scaled by the jitter width.
+  const unit = (glideHash(`${seed}:${today}`) / 0xffffffff) * 2 - 1
+  const jittered = straight * (1 + (unit * glide.jitterBps) / 10_000)
+
+  return normalizeDailyBudgetCents(Math.min(high, Math.max(low, jittered)))
+}
+
+/**
+ * The daily budget the DELIVERY rules should use for a campaign.
+ *
+ * The fence is the point: a glide is ignored on a campaign with a live
+ * subscription. There, `daily_budget_cents` is the PRICE as well as the cap,
+ * and quietly delivering less than the advertiser is charged for is the bug
+ * fixed on 2026-08-27 wearing a different hat. Tapering a paying campaign
+ * means moving its price too — an explicit budget edit, which syncs Stripe —
+ * never a schedule the invoice knows nothing about.
+ */
+export function effectiveDailyBudgetCents(params: {
+  dailyBudgetCents: number
+  glide: BudgetGlide | null
+  /** Whether Stripe is charging for this campaign. */
+  billedBySubscription: boolean
+  seed: string
+  today: string
+}): number {
+  if (!params.glide || params.billedBySubscription) {
+    return params.dailyBudgetCents
+  }
+  return glidedDailyBudgetCents({
+    glide: params.glide,
+    seed: params.seed,
+    today: params.today,
+  })
+}
+
 /** Snap an arbitrary cent amount onto the ladder the slider offers. Applied
  *  server-side as well as in the UI: the API is public and a hand-rolled
  *  request must not be able to buy $10.37/day. */
