@@ -15,6 +15,7 @@ import {
   effectiveDailyBudgetCents,
   engagementsForDailyBudget,
   glidedDailyBudgetCents,
+  deliverySpacingSeconds,
   deliveryWindowLimit,
   type BudgetGlide,
 } from '../constants/freebuff-ads'
@@ -270,5 +271,49 @@ describe('deliveryWindowLimit', () => {
 
   test('a zero cap delivers nothing', () => {
     expect(limit(0, '2026-08-28T03')).toBe(0)
+  })
+})
+
+describe('deliverySpacingSeconds', () => {
+  const gap = (cap: number, windowKey = '2026-08-28T09', jitterBps = 2_500) =>
+    deliverySpacingSeconds({ capEngagements: cap, seed: SEED, windowKey, jitterBps })
+
+  test('a day divided into the day: 300/day is roughly five minutes apart', () => {
+    const value = gap(300)
+    expect(value).toBeGreaterThan(200)
+    expect(value).toBeLessThan(380)
+  })
+
+  test('a smaller cap is spaced further apart', () => {
+    // The tail of a taper delivers less often, not in a shorter burst.
+    expect(gap(50)).toBeGreaterThan(gap(300))
+    expect(gap(300)).toBeGreaterThan(gap(2_000))
+  })
+
+  test('an hour of spacing roughly reproduces the hourly ceiling', () => {
+    // Spacing and the window limit are two expressions of the same rate; if
+    // they disagreed badly, one of them would be doing nothing.
+    const perHour = 3_600 / gap(300)
+    expect(perHour).toBeGreaterThan(9)
+    expect(perHour).toBeLessThan(18)
+  })
+
+  test('bounded at both ends', () => {
+    // A huge cap still gets a floor, so delivery is never instantaneous...
+    expect(gap(1_000_000)).toBe(15)
+    // ...and a tiny one never waits longer than the window it lives in.
+    expect(gap(1)).toBe(3_600)
+  })
+
+  test('stable within the hour, different across hours', () => {
+    expect(gap(300, '2026-08-28T09')).toBe(gap(300, '2026-08-28T09'))
+    const hours = Array.from({ length: 12 }, (_, h) =>
+      gap(300, `2026-08-28T${String(h).padStart(2, '0')}`),
+    )
+    expect(new Set(hours).size).toBeGreaterThan(6)
+  })
+
+  test('a zero cap has no spacing to compute', () => {
+    expect(gap(0)).toBe(0)
   })
 })

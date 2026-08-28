@@ -308,6 +308,44 @@ export function deliveryWindowLimit(params: {
   return Math.max(1, Math.min(cap, Math.round(jittered)))
 }
 
+/**
+ * The smallest gap between two deliveries on a tapering campaign, in seconds.
+ *
+ * The window limit above bounds an HOUR; it does nothing inside one. Thirteen
+ * engagements are allowed in the first minute of the window and then nothing
+ * for fifty-nine — and because the window is trailing, the next batch becomes
+ * available exactly as the last one ages out, so the campaign settles into a
+ * pulse. That is the reset problem again at a smaller scale: bursty, and
+ * something a user can learn the rhythm of.
+ *
+ * Spacing turns the hour's allowance into a drip: a day's cap divided into the
+ * day, jittered per hour so it is a rhythm rather than a metronome.
+ *
+ * This gates OFFERING only. It is deliberately not applied when a submission
+ * arrives: someone who was shown a post and did the work must not be refused
+ * because another user's engagement landed forty seconds earlier. The daily
+ * cap and the window are what enforce totals; this shapes when the feed hands
+ * work out.
+ */
+export function deliverySpacingSeconds(params: {
+  capEngagements: number
+  seed: string
+  /** The Pacific hour, `YYYY-MM-DDTHH`. */
+  windowKey: string
+  jitterBps: number
+}): number {
+  const cap = Math.max(0, Math.floor(params.capEngagements))
+  if (cap <= 0) return 0
+  const even = 86_400 / cap
+  const unit =
+    (glideHash(`gap:${params.seed}:${params.windowKey}`) / 0xffffffff) * 2 - 1
+  const jittered = even * (1 + (unit * params.jitterBps) / 10_000)
+  // A floor, so a campaign still on a large cap is spaced rather than
+  // instantaneous, and a ceiling of an hour, so the tail of a taper does not
+  // spend the day waiting on a gap longer than the window it lives in.
+  return Math.min(3_600, Math.max(15, Math.round(jittered)))
+}
+
 /** Snap an arbitrary cent amount onto the ladder the slider offers. Applied
  *  server-side as well as in the UI: the API is public and a hand-rolled
  *  request must not be able to buy $10.37/day. */
