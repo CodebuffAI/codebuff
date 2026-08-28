@@ -44,6 +44,22 @@ export const PLACEMENTS_CONSOLE_ENABLED = true
  * real breakpoint, so the preview would have shown an advertiser nothing worth
  * seeing.
  */
+/**
+ * How many creative variants one campaign may carry.
+ *
+ * Lives here rather than beside the store because the campaign BUILDER needs
+ * it too, and the store imports the database client -- which cannot be pulled
+ * into a client component. It used to be duplicated as a literal in both
+ * places with a comment asking the reader to keep them in step, which is the
+ * arrangement where the API silently rejects what the form just let you build.
+ *
+ * Raised 10 -> 25 on 2026-08-28: the house subscription campaign wants a
+ * variant per angle per surface, and the CTR bias gets better the more it has
+ * to choose between. The ceiling exists to keep human review and the delivery
+ * rollup manageable, not to protect the picker.
+ */
+export const MAX_PLACEMENT_CREATIVES_PER_CAMPAIGN = 25
+
 export const PLACEMENT_PREVIEW_WIDTHS = [20, 48, 60] as const
 export type PlacementPreviewWidth = (typeof PLACEMENT_PREVIEW_WIDTHS)[number]
 
