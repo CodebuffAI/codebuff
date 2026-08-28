@@ -359,19 +359,36 @@ describe('freebuff model availability', () => {
    * lives in the quota config that derives from this table, so what this pins
    * is the table entry the derivation needs.
    */
-  test('GLM 5.3 Flash is capped at two sessions a day, in its own pool', () => {
-    const cap = getFreebuffPerModelSessionCap(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
-    expect(cap?.limit).toBe(2)
-    // Its own pool, never shared: two models capped at two each is four
-    // sessions, and folding them into one pool would silently halve both.
+  test('GLM 5.3 Flash is uncapped, and is still metered by the shared pool', () => {
+    // The 2-a-day cap came off on 2026-08-27 once the measurement window it
+    // existed for closed. What has to stay true is not the cap but the
+    // INVARIANT underneath it: a premium row must be metered by SOME pool.
+    // FREEBUFF_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
+    // premium model that falls out of every pool becomes UNLIMITED rather than
+    // stricter — which is the expensive direction to be wrong in.
+    expect(
+      getFreebuffPerModelSessionCap(FREEBUFF_GLM_V53_FLASH_MODEL_ID),
+    ).toBeUndefined()
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(true)
+    expect(
+      (FREEBUFF_STANDARD_MODEL_IDS as readonly string[]).includes(
+        FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+      ),
+    ).toBe(false)
+  })
+
+  test('every capped model, if any, owns its pool and stays premium-listed', () => {
+    // Shape-only, so it keeps working whether the table is empty or not. Two
+    // models sharing one pool would silently halve both; a capped row missing
+    // from the premium list would be metered by its ceiling alone and vanish
+    // from every premium count the picker shows.
     const pools = Object.values(FREEBUFF_PER_MODEL_SESSION_CAPS).map(
       (entry) => entry.pool,
     )
     expect(new Set(pools).size).toBe(pools.length)
-    // The cap sits ON TOP of the shared premium pool rather than instead of it.
-    // A capped row left out of the premium list would be metered by this
-    // ceiling alone and would vanish from every premium count the picker shows.
-    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(true)
+    for (const id of Object.keys(FREEBUFF_PER_MODEL_SESSION_CAPS)) {
+      expect(isFreebuffPremiumModelId(id)).toBe(true)
+    }
   })
 
   /**
@@ -498,12 +515,14 @@ describe('freebuff model availability', () => {
    * table's SHAPE rather than its emptiness: exactly one capped row, and every
    * other picker model on the shared pool alone.
    */
-  test('exactly one model is capped; every other uses the shared pool alone', () => {
-    expect(Object.keys(FREEBUFF_PER_MODEL_SESSION_CAPS)).toEqual([
-      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
-    ])
+  test('no model is capped; every picker row uses the shared pool alone', () => {
+    // EMPTY as of 2026-08-27. Every entry this table has ever held was a claim
+    // that expired: Luna's went 2 -> 3 -> gone across 2026-08-22/23, Pro's went
+    // on 08-22, and GLM 5.3 Flash's came off once its lane was measured. So the
+    // assertion is emptiness, and re-adding a row is a deliberate edit here
+    // rather than something that slips in.
+    expect(Object.keys(FREEBUFF_PER_MODEL_SESSION_CAPS)).toEqual([])
     for (const model of FREEBUFF_MODELS) {
-      if (model.id === FREEBUFF_GLM_V53_FLASH_MODEL_ID) continue
       expect(FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]).toBeUndefined()
     }
     // Flash was never here and still must not be: it is the catalog's cheapest
@@ -533,6 +552,14 @@ describe('freebuff model availability', () => {
     // The lifted cap's old promise must not survive anywhere in the string.
     expect(FREEBUFF_TIER_CHANGE_NOTICE).not.toContain('Pro is 1 session')
     expect(FREEBUFF_TIER_CHANGE_NOTICE).not.toMatch(/V4 Pro is \d/)
+
+    // THE REVERSE DIRECTION, which this test did not check and which let the
+    // notice promise "GLM 5.3 Flash is 2 sessions a day" for a commit after the
+    // cap was removed. A number quoted at users has to be backed by a live cap:
+    // when the table is empty the string must name no session count at all.
+    if (Object.keys(FREEBUFF_PER_MODEL_SESSION_CAPS).length === 0) {
+      expect(FREEBUFF_TIER_CHANGE_NOTICE).not.toMatch(/\d+\s*sessions?\s*a\s*day/i)
+    }
   })
 
   test('MiMo 2.5 remains supported and follows the UI rollout flag', () => {

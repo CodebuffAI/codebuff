@@ -50,6 +50,11 @@ export const SPEND_PROVIDER_IDS = [
   'luminal',
   // FusionCode: capped Flash front lane, added 2026-08-25.
   'fusioncode',
+  // Merge Gateway: a multi-vendor gateway, primary for GLM 5.3 Flash since
+  // 2026-08-27. It is the BILLER for every vendor it fronts — the `vendor`
+  // field it echoes back (`zai`, `particle`) names who ran the weights, not who
+  // invoices us, which is exactly the distinction this file exists to keep.
+  'merge',
   'meta',
   'minimax',
   'moonshot',
@@ -97,6 +102,7 @@ export function toSpendProvider(
 /** Display names. Only where casing or branding differs from the id. */
 const PROVIDER_LABELS: Partial<Record<SpendProviderId, string>> = {
   'cheaper-inference': 'Cheaper Inference',
+  merge: 'Merge Gateway',
   crof: 'CrofAI',
   deepseek: 'DeepSeek',
   luminal: 'Luminal',

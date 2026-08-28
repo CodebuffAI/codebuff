@@ -52,11 +52,19 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * with this string: it describes policy that moves, from a place no test reads.
  * Check it whenever a cap or an availability window changes.
  *
- * 2026-08-26: DeepSeek V4 Pro is withdrawn and GLM 5.3 Flash replaces it as the
- * catalog's deep row, capped at 2 starts a day while we measure what it
- * actually costs at scale. That cap is the one number this string names, and a
- * test pins it to the caps table — this comment has asked four times now to be
- * checked by hand and was wrong again by the time anyone read it.
+ * 2026-08-27: GLM 5.3 Flash's 2-a-day cap is GONE — the measurement window it
+ * existed for closed (93.7% cache on its pinned Merge vendor, 6.25x under the
+ * lane it replaced; see docs/freebuff-merge-gateway.md), so it now runs on the
+ * ordinary premium allowance like every other row.
+ * FREEBUFF_PER_MODEL_SESSION_CAPS is empty, and this string therefore names NO
+ * per-model number. The partial-time rule stays: it describes the SHARED
+ * allowance and is unrelated to the cap that came off.
+ *
+ * That is the failure mode this comment keeps warning about, arriving from the
+ * other direction: for one commit the cap was gone from the table while this
+ * string still promised users a number. The test now checks BOTH directions —
+ * a capped model's number must appear, and a per-model session count must not
+ * survive the cap that justified it.
  *
  * The withdrawn model is NOT named here. This notice explains the rules that
  * apply to the rows a user can see; the one who still has Pro saved gets
@@ -68,7 +76,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * our costs rather than anything they did.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'GLM 5.3 Flash is capped at 2 starts a day while we see what it costs; your shared premium allowance still charges partial time, rounded up to a tenth. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
+  'Every model runs on your normal daily sessions — no per-model caps; your shared premium allowance still charges partial time, rounded up to a tenth. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

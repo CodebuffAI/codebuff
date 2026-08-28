@@ -1637,16 +1637,24 @@ export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   // So the cap is a measurement window, not a budget, and it is meant to come
   // off. Raise or remove it once the fleet cache rate on this lane is known —
   // one number in this table, nothing in any client.
-  [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: {
-    limit: 2,
-    // Its own pool, like every entry here. Sharing one between two capped
-    // models silently halves both.
-    pool: 'glm_v53_flash',
-    // Ships to installed CLIs and Desktops over the wire (FreebuffSessionRateLimit)
-    // and is rendered verbatim next to the count, so it reads as a row label
-    // rather than as an id.
-    poolLabel: 'GLM 5.3 Flash',
-  },
+  // EMPTY SINCE 2026-08-27, and deliberately kept as a table rather than
+  // deleted. GLM 5.3 Flash was the only entry — capped at 2/day as a
+  // MEASUREMENT WINDOW while its true cost was unknown, exactly as the comment
+  // above describes. That window has now closed: the lane was measured at
+  // 93.6% cache on its pinned vendor and ~$[redacted] per model call, which is
+  // 6.2x under the OpenRouter route it replaced (see
+  // docs/freebuff-merge-gateway.md). The cap has therefore come off, and the
+  // model is metered by the SHARED premium pool alone — it is in
+  // FREEBUFF_WEB_PREMIUM_MODEL_IDS via FREEBUFF_PREMIUM_MODEL_IDS, so a
+  // full-access account may spend any of its FREEBUFF_PREMIUM_SESSION_LIMIT
+  // daily premium sessions on it.
+  //
+  // BEING IN SOME POOL IS THE INVARIANT, and it is why removing a cap is safe
+  // but removing a model from the premium lists is not:
+  // FREEBUFF_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
+  // premium model absent from every pool becomes UNLIMITED rather than
+  // stricter. Dropping the cap changes which pool meters this row, never
+  // whether one does.
 }
 
 /** Whether `model` carries a ceiling of its own beyond the shared pool. */

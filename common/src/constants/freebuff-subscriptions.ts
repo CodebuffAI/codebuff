@@ -294,11 +294,13 @@ export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 5
  * send fails for subscribers too.
  *
  * GLM 5.3 Flash, which that comment named as the row this was built for, ships
- * in the same change as a FREE premium row capped at two sessions a day
- * (FREEBUFF_PER_MODEL_SESSION_CAPS) rather than a paid one. That is a product
- * decision and a deliberately reversible one: the machinery below is untouched,
- * so moving it behind the paywall later is one entry here — or, without a
- * deploy at all, one id in `FREEBUFF_PRO_ONLY_MODEL_IDS`.
+ * as a FREE premium row rather than a paid one. It briefly carried a 2-a-day
+ * ceiling (FREEBUFF_PER_MODEL_SESSION_CAPS) as a measurement window; that came
+ * off on 2026-08-27 once its lane was measured, so it now draws on the ordinary
+ * premium allowance like every other row. Still a product decision and still a
+ * deliberately reversible one: the machinery below is untouched, so moving it
+ * behind the paywall later is one entry here — or, without a deploy at all, one
+ * id in `FREEBUFF_PRO_ONLY_MODEL_IDS`.
  *
  * Everything else #2254 built stays live and simply has nothing to act on: the
  * service-account surface check, the off-peak closure, the DeepSeek-direct
