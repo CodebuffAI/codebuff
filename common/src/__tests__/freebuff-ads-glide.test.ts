@@ -15,7 +15,7 @@ import {
   effectiveDailyBudgetCents,
   engagementsForDailyBudget,
   glidedDailyBudgetCents,
-  pacedDailyAllowance,
+  deliveryWindowLimit,
   type BudgetGlide,
 } from '../constants/freebuff-ads'
 
@@ -205,40 +205,70 @@ describe('the exponential curve', () => {
   })
 })
 
-describe('pacedDailyAllowance', () => {
-  test('opens the day with an hour of allowance, not zero', () => {
-    // Zero would turn away whoever opens Earn first thing, against a cap that
-    // is not spent.
-    expect(pacedDailyAllowance({ capEngagements: 240, fractionOfDayElapsed: 0 })).toBe(10)
+describe('deliveryWindowLimit', () => {
+  const limit = (cap: number, windowKey: string, jitterBps = 2_500) =>
+    deliveryWindowLimit({ capEngagements: cap, seed: SEED, windowKey, jitterBps })
+
+  test('an hour gets about a twenty-fourth of the day', () => {
+    const value = limit(240, '2026-08-28T09')
+    expect(value).toBeGreaterThanOrEqual(8)
+    expect(value).toBeLessThanOrEqual(13)
   })
 
-  test('tracks the day: half elapsed, half available', () => {
-    expect(
-      pacedDailyAllowance({ capEngagements: 240, fractionOfDayElapsed: 0.5 }),
-    ).toBe(120)
+  test('the whole day cannot be spent in one window', () => {
+    // The property that matters at the daily reset: the ceiling one minute
+    // after midnight is an hour's worth, not a day's.
+    for (let hour = 0; hour < 24; hour++) {
+      const key = `2026-08-28T${String(hour).padStart(2, '0')}`
+      expect(limit(300, key)).toBeLessThan(300 / 4)
+    }
   })
 
-  test('the full cap is available by the end of the day', () => {
-    expect(
-      pacedDailyAllowance({ capEngagements: 240, fractionOfDayElapsed: 1 }),
-    ).toBe(240)
+  test('the same hour always resolves to the same ceiling', () => {
+    const first = limit(300, '2026-08-28T00')
+    for (let i = 0; i < 20; i++) expect(limit(300, '2026-08-28T00')).toBe(first)
   })
 
-  test('unspent allowance accrues rather than expiring', () => {
-    // Nothing here depends on what was delivered earlier, so a quiet morning
-    // leaves the afternoon with everything the morning did not use.
-    const morning = pacedDailyAllowance({ capEngagements: 300, fractionOfDayElapsed: 0.25 })
-    const evening = pacedDailyAllowance({ capEngagements: 300, fractionOfDayElapsed: 0.9 })
-    expect(evening).toBeGreaterThan(morning)
-    expect(evening).toBe(270)
+  test('adjacent hours mostly differ — the regression that shipped first', () => {
+    // The keys handed to the hash are a long shared prefix plus two changing
+    // characters, and raw FNV-1a leaves those in the low bits. Reading the
+    // high bits gave 24 consecutive hours TWO distinct ceilings between them:
+    // a "randomized" pace that was a constant with a step in it. The finalizer
+    // in `glideHash` is what this asserts.
+    const hours = Array.from({ length: 24 }, (_, hour) =>
+      limit(300, `2026-08-28T${String(hour).padStart(2, '0')}`),
+    )
+    const changes = hours.filter((value, i) => i > 0 && value !== hours[i - 1])
+    expect(changes.length).toBeGreaterThan(12)
   })
 
-  test('clamps a nonsense fraction instead of inventing allowance', () => {
-    expect(pacedDailyAllowance({ capEngagements: 100, fractionOfDayElapsed: 4 })).toBe(100)
-    expect(pacedDailyAllowance({ capEngagements: 100, fractionOfDayElapsed: -1 })).toBe(5)
+  test('the ceiling moves between hours, so the cadence is not a clock', () => {
+    const seen = new Set<number>()
+    for (let hour = 0; hour < 24; hour++) {
+      seen.add(limit(300, `2026-08-28T${String(hour).padStart(2, '0')}`))
+    }
+    expect(seen.size).toBeGreaterThan(3)
   })
 
-  test('a zero cap paces to nothing', () => {
-    expect(pacedDailyAllowance({ capEngagements: 0, fractionOfDayElapsed: 0.5 })).toBe(0)
+  test('a day of windows adds up to roughly the daily cap', () => {
+    let total = 0
+    for (let hour = 0; hour < 24; hour++) {
+      total += limit(300, `2026-08-28T${String(hour).padStart(2, '0')}`)
+    }
+    // Jitter is symmetric, so the windows should sum near the cap rather than
+    // systematically over- or under-delivering it.
+    expect(total).toBeGreaterThan(240)
+    expect(total).toBeLessThan(360)
+  })
+
+  test('never drops to zero while the campaign is still running', () => {
+    // A taper that has reached 50/day still has to deliver something; a floor
+    // of zero would strand its whole tail at no delivery at all.
+    expect(limit(50, '2026-08-28T03')).toBeGreaterThanOrEqual(1)
+    expect(limit(1, '2026-08-28T03')).toBe(1)
+  })
+
+  test('a zero cap delivers nothing', () => {
+    expect(limit(0, '2026-08-28T03')).toBe(0)
   })
 })

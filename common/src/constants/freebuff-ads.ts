@@ -146,16 +146,32 @@ export interface BudgetGlide {
   startedOn: string
 }
 
-/** Deterministic 32-bit hash (FNV-1a). Same campaign, same day, same cap — a
- *  jitter that moved between two reads inside one day would let a caller
- *  reroll the ceiling by retrying. */
+/**
+ * Deterministic 32-bit hash. Same campaign, same day, same cap — a jitter that
+ * moved between two reads inside one day would let a caller reroll the ceiling
+ * by retrying.
+ *
+ * FNV-1a, then an avalanche finalizer, and the finalizer is not optional here.
+ * Every key this is called with is a long shared prefix plus a couple of
+ * changing characters at the end (`<campaign id>:2026-08-28T09`), and raw
+ * FNV-1a leaves those last characters in the LOW bits. Scaling the raw value
+ * by 0xffffffff reads mostly the high bits, so twenty-four consecutive hours
+ * came out with two distinct values between them — a "randomized" ceiling that
+ * was, in practice, a constant.
+ */
 function glideHash(input: string): number {
   let hash = 0x811c9dc5
   for (let i = 0; i < input.length; i++) {
     hash ^= input.charCodeAt(i)
     hash = Math.imul(hash, 0x01000193) >>> 0
   }
-  return hash
+  // lowbias32 finalizer: spreads the low bits across the whole word.
+  hash ^= hash >>> 16
+  hash = Math.imul(hash, 0x7feb352d) >>> 0
+  hash ^= hash >>> 15
+  hash = Math.imul(hash, 0x846ca68b) >>> 0
+  hash ^= hash >>> 16
+  return hash >>> 0
 }
 
 /** Whole days between two `YYYY-MM-DD` Pacific dates. */
@@ -241,35 +257,55 @@ export function effectiveDailyBudgetCents(params: {
   })
 }
 
+/** Length of the rolling window a tapering campaign is rate-limited over. */
+export const DELIVERY_PACE_WINDOW_MINUTES = 60
+
 /**
- * How much of today's cap may have been delivered by now.
+ * The most a tapering campaign may deliver in any TRAILING hour.
  *
- * A daily cap is not a schedule. A campaign with a 300/day ceiling and a
- * queue of willing users spends all 300 in the first couple of hours, and
- * then serves nothing for twenty-two — which is both a worse experience for
- * the people who open Earn later and, for a campaign being deliberately wound
- * down, a delivery curve made of vertical steps.
+ * ## Why a rolling window, and not a share of the day
  *
- * So a tapering campaign drips: the allowance is the share of the Pacific day
- * that has elapsed, with one hour's worth available from the start so the
- * first users of the day are not turned away against a zero allowance.
- * Unspent allowance is not lost — it accrues as the day goes — so a full day
- * still delivers a full cap when demand is there.
+ * The first version of pacing compared today's delivery against the fraction
+ * of the Pacific day that had elapsed. That stops a campaign spending its
+ * whole day before lunch, and nothing else — because unspent allowance
+ * accumulates, which is the same as saying a burst is always available if you
+ * wait for one. A quiet morning makes 150 engagements claimable in a single
+ * minute at 6pm, and the moment of the daily reset is the worst case of all:
+ * the cumulative rule is satisfied instantly at midnight, so a queue of people
+ * waiting for the reset empties the opening allowance the second it lands.
  *
- * Only campaigns under a taper are paced. For everyone else the daily cap is
- * something the advertiser bought and may spend as fast as their audience
- * shows up.
+ * A trailing window has no stockpile. The ceiling is the same at 00:01 as at
+ * 18:00, so the reset stops being an event worth waiting for, and a wind-down
+ * is spread over the hours it is supposed to be spread over.
+ *
+ * The trade, stated plainly: a day whose demand is lumpy under-delivers
+ * against its daily cap, because the capacity a quiet hour did not use is
+ * gone. For a campaign being deliberately wound down that is the point. It is
+ * also why only tapering campaigns are paced — an advertiser paying a daily
+ * rate bought a day of delivery, not a delivery schedule.
+ *
+ * The per-window jitter is seeded on the hour, so the cadence is not a clock
+ * anyone can set a timer to, for the same reason the daily cap is jittered.
  */
-export function pacedDailyAllowance(params: {
+export function deliveryWindowLimit(params: {
+  /** Today's cap, in engagements. */
   capEngagements: number
-  /** 0 at midnight Pacific, 1 at the end of the day. */
-  fractionOfDayElapsed: number
+  /** Stable per-campaign seed; the campaign id. */
+  seed: string
+  /** The Pacific hour, `YYYY-MM-DDTHH`. */
+  windowKey: string
+  jitterBps: number
 }): number {
   const cap = Math.max(0, Math.floor(params.capEngagements))
   if (cap === 0) return 0
-  const fraction = Math.min(1, Math.max(0, params.fractionOfDayElapsed))
-  const opening = Math.ceil(cap / 24)
-  return Math.min(cap, Math.max(opening, Math.ceil(cap * fraction)))
+  const windows = 1_440 / DELIVERY_PACE_WINDOW_MINUTES
+  const base = cap / windows
+  const unit = (glideHash(`${params.seed}:${params.windowKey}`) / 0xffffffff) * 2 - 1
+  const jittered = base * (1 + (unit * params.jitterBps) / 10_000)
+  // At least one an hour: a campaign tapered to 50/day still has to be able to
+  // deliver, and a floor of zero would strand the last stretch of every taper
+  // at no delivery rather than a slow one.
+  return Math.max(1, Math.min(cap, Math.round(jittered)))
 }
 
 /** Snap an arbitrary cent amount onto the ladder the slider offers. Applied
