@@ -85,6 +85,8 @@ interface UseSendMessageOptions {
   continueChat: boolean
   continueChatId?: string
   subscriptionData?: SubscriptionResponse | null
+  /** Dependency injection seam for component-level run lifecycle tests. */
+  getClient?: typeof getCodebuffClient
 }
 
 // Choose the agent definition by explicit selection or mode-based fallback.
@@ -136,6 +138,7 @@ export const useSendMessage = ({
   continueChat,
   continueChatId,
   subscriptionData,
+  getClient = getCodebuffClient,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -457,7 +460,7 @@ export const useSendMessage = ({
       // Get SDK client
       let client: Awaited<ReturnType<typeof getCodebuffClient>>
       try {
-        client = await getCodebuffClient()
+        client = await getClient()
       } catch (error) {
         if (releaseIfStopped()) return
         logger.error(
@@ -599,6 +602,7 @@ export const useSendMessage = ({
             if (abortController.signal.aborted || !runChatIsCurrent()) {
               return
             }
+            previousRunStateRef.current = snapshot
             // Persist asynchronously and coalescing: the periodic snapshot
             // fires ~every 5s at step boundaries, and a synchronous save of the
             // (growing) transcript on the render/input thread is what stalls
@@ -642,7 +646,7 @@ export const useSendMessage = ({
         // context, and previousRunStateRef/setRunState would leak this run's
         // agent state into the other chat. (A plain Esc interrupt keeps the
         // same chat, so the interrupted turn is still saved as before.)
-        if (runChatIsCurrent()) {
+        if (!abortController.signal.aborted && runChatIsCurrent()) {
           // Finalize: persist state and mark complete
           previousRunStateRef.current = runState
           setRunState(runState)
@@ -758,6 +762,7 @@ export const useSendMessage = ({
       setInputFocused,
       setIsRetrying,
       setMessages,
+      getClient,
       setRunState,
       setStreamStatus,
       setStreamingAgents,
