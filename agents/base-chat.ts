@@ -68,6 +68,8 @@ End every response by calling the suggest_followups tool with exactly 3 followup
       'stealth/ox-alpha': 1_000_000,
       // GLM 5.3 Flash: 1,310,720 published, entered low for the same reason.
       'z-ai/glm-5.3-flash': 1_000_000,
+      // Solar Pro 4: 524,288 published, entered low for the same reason.
+      'upstage/solar-pro4': 500_000,
     }
 
     /** For any model not listed above. Assuming a window is smaller than it is

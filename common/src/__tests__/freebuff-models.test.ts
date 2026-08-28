@@ -39,6 +39,8 @@ import {
   MUSE_SPARK_FALLBACK_MODEL_ID,
   MUSE_SPARK_FALLBACK_NOTICE,
   SUPPORTED_FREEBUFF_MODELS,
+  FREEBUFF_WEB_PREMIUM_MODEL_IDS,
+  isFreebuffDesktopPremiumBucketModelId,
   canFreebuffModelSpawnGeminiThinker,
   freebuffWithdrawnModelMessage,
   getFreebuffDeploymentAvailabilityLabel,
@@ -1424,6 +1426,25 @@ describe('freebuff model availability', () => {
       if (!superseded) continue
       expect(isFreebuffPausedFreeModelId(superseded.modelId)).toBe(false)
       expect(all).toContain(superseded.modelId)
+    }
+  })
+
+  test('gives every desktop-selectable metered model a one-tab slot', () => {
+    // buildAdmitStampStatement (web/src/server/free-session/store.ts) pairs a
+    // window to its admit row on (user_id, model, access_tier, admitted_at)
+    // with no instance id, so two Desktop tabs of one unit-metered model give
+    // that subquery two candidates and a `limit 1` that picks arbitrarily —
+    // one tab's session_units land on the other's admit. Fix a failure with a
+    // slot for the new row, or by keying admit rows by instance id.
+    //
+    // The premium pool, not "metered": Fable 5 is metered by an
+    // ADMISSION-counted pool, which the mis-pairing cannot corrupt.
+    const desktopSelectable: readonly string[] = SUPPORTED_FREEBUFF_MODELS.map(
+      (model) => model.id,
+    )
+    for (const id of FREEBUFF_WEB_PREMIUM_MODEL_IDS) {
+      if (!desktopSelectable.includes(id)) continue
+      expect(isFreebuffDesktopPremiumBucketModelId(id)).toBe(true)
     }
   })
 

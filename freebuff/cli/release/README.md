@@ -29,7 +29,7 @@ freebuff
 
 **How can it be free?** Freebuff is supported by text ads.
 
-**What models do you use?** In full mode, the regular picker includes DeepSeek V4 Flash 07/31, GPT-5.6 Luna, MiMo 2.5, and GLM 5.3 Flash. GPT-5.6 Luna is the CLI default, and the picker falls back to MiMo 2.5 once your daily premium sessions are used up. Limited mode uses MiMo 2.5. Most models draw on your normal daily sessions rather than a separate limit; GLM 5.3 Flash is capped at 2 starts a day, and MiMo 2.5 costs no session at all. Models may still serve from a quantized (Q8_0) build.
+**What models do you use?** In full mode, the regular picker includes DeepSeek V4 Flash 07/31, GPT-5.6 Luna, MiMo 2.5, Solar Pro 4, and GLM 5.3 Flash. Solar Pro 4 is a limited-time trial. GPT-5.6 Luna is the CLI default, and the picker falls back to MiMo 2.5 once your daily premium sessions are used up. Limited mode uses MiMo 2.5. Most models draw on your normal daily sessions rather than a separate limit; GLM 5.3 Flash is capped at 2 starts a day, and MiMo 2.5 costs no session at all. Models may still serve from a quantized (Q8_0) build.
 
 **Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
 

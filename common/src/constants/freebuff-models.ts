@@ -299,6 +299,25 @@ export const FREEBUFF_GPT_5_6_LUNA_MAX_PRICE = {
 } as const
 /** Reasoning effort every Luna turn runs at. */
 export const FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT = 'high' as const
+/** Solar Pro 4 (Upstage), served through OpenRouter and constrained to Upstage
+ *  by `applyOpenRouterProviderRouting`. Context 524,288, text in / text out,
+ *  and the `upstage/zdr` (zero data retention) tag.
+ *
+ *  PRICE: $0.30/M in, $1.20/M out. That is what we are BILLED, measured off
+ *  real turns (scripts/solar-pro-4-smoke.ts, 2026-08-25) — NOT the $0.03/$0.12
+ *  OpenRouter's card advertises. Two things make the card a decoy here:
+ *
+ *   - The endpoint carries `"discount": 0.9`, and the card shows the
+ *     discounted price. The discount applies to OpenRouter-served capacity.
+ *   - This route is BYOK (`usage.is_byok: true`) — OpenRouter serves it with
+ *     our own Upstage key, which does not get that discount. Top-level
+ *     `usage.cost` is therefore 0 and the real spend arrives in
+ *     `cost_details.upstream_inference_cost`. extractUsageAndCost takes the
+ *     max of the two, so the ledger is right; a naive read of `cost` is not.
+ *
+ *  So this is a dearer row than Luna ($0.10/$0.60 list), not a cheaper one.
+ *  Read the smoke test's implied $/M before quoting a price from the card. */
+export const FREEBUFF_SOLAR_PRO_4_MODEL_ID = 'upstage/solar-pro4'
 /**
  * Kimi K3 (Eco), served by CrofAI. God-only on Freebuff Web, for testing.
  *
@@ -848,6 +867,8 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   // wedges a thread forever while guessing low only prunes early. Correct it
   // upward once a real rejection quotes the number.
   [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 1_000_000,
+  // Solar Pro 4: 524,288 published, entered low for the same reason.
+  [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 500_000,
 }
 
 /** Window assumed for any model missing from FREEBUFF_MODEL_CONTEXT_WINDOWS.
@@ -1167,6 +1188,19 @@ const GPT_5_6_LUNA_MODEL = {
   // difference in either direction would not be.
 } as const satisfies FreebuffModelOption
 
+const SOLAR_PRO_4_MODEL = {
+  id: FREEBUFF_SOLAR_PRO_4_MODEL_ID,
+  displayName: 'Solar Pro 4',
+  tagline: 'Limited-time trial',
+  availability: 'always',
+  // `upstage/zdr` — zero data retention, so no training notice and no trace
+  // storage (FREEBUFF_TRACED_MODEL_IDS keys off this field).
+  dataUse: 'service',
+  premium: true,
+  multimodal: false,
+  experimental: true,
+} as const satisfies FreebuffModelOption
+
 const GLM_V52_MODEL = {
   id: FREEBUFF_GLM_V52_MODEL_ID,
   displayName: 'GLM 5.2',
@@ -1423,6 +1457,7 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   DEEPSEEK_V4_PRO_MODEL,
   MINIMAX_M3_MODEL,
   GPT_5_6_LUNA_MODEL,
+  SOLAR_PRO_4_MODEL,
   GLM_V52_MODEL,
   GLM_V53_FLASH_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
@@ -1488,7 +1523,7 @@ export const FREEBUFF_MODELS = [
   // what stops it being served. FREEBUFF_PAUSED_FREE_MODEL_IDS is, and the row
   // stays in SUPPORTED_FREEBUFF_MODELS so the id remains recognisable and
   // coercible for the installed binaries that still hold it.
-
+  SOLAR_PRO_4_MODEL,
   // LAST, in the slot V4 Pro held and for the same reason: capped at two
   // sessions a day, so it is somewhere a user reaches deliberately rather than
   // by scanning from the top. Ordering is still the only steer in this list —
@@ -1522,6 +1557,7 @@ export const FREEBUFF_MODELS = [
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+  FREEBUFF_SOLAR_PRO_4_MODEL_ID,
 ] as const
 
 /**
@@ -1923,6 +1959,8 @@ export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   // admitted in the same millisecond make that pairing arbitrary. Until admit
   // rows are keyed by instance id, a metered row belongs in this bucket.
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+  // Metered, so the same rule puts it here.
+  FREEBUFF_SOLAR_PRO_4_MODEL_ID,
 ] as const
 
 /** Concurrent Freebuff Desktop sessions per model bucket. Premium is also
