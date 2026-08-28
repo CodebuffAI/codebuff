@@ -70,3 +70,9 @@ scripts/_tmp-*
 # Local operator launch manifests contain real advertiser identifiers. The
 # checked-in example is intentionally non-routable.
 ads-pilot-launch.local.json
+
+# Linked git worktrees created by agent tooling. Each is a full checkout with
+# its own .git file, so committing one nests a second working tree inside this
+# one — and because a worktree carries its own generated migrations, it also
+# drags a DUPLICATE migration index into whichever branch swept it up.
+.claude/worktrees/
