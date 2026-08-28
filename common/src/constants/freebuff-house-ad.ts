@@ -98,7 +98,25 @@ export interface HouseAdCreative {
   imageUrl?: string
 }
 
-const FAVICON = `${FREEBUFF_WEB_URL_PROD}/favicon/favicon-32x32.ico`
+/**
+ * Our own mark, on BOTH mechanisms.
+ *
+ * Exported because the campaign needs it too, and cannot carry it any other
+ * way: a creative's icon comes from `image_public_token`, which resolves to
+ * `/api/ads/first-party/creative-image/{token}` and serves UPLOADED BYTES, so
+ * a static path is not expressible there. Uploading is also not a workable
+ * substitute -- the upload endpoint accepts only a campaign in `draft`, the
+ * console refuses to edit a paused one at all ("Campaign is no longer
+ * editable"), and the upload resets every creative on the campaign to
+ * `pending_review`. Measured on 2026-08-28 against the live console: three of
+ * four house campaigns could not be given a logo by any product path.
+ *
+ * The materializer falls back to this instead, which also means the promotion
+ * looks the same whichever mechanism filled the slot.
+ */
+export const HOUSE_AD_FAVICON_URL = `${FREEBUFF_WEB_URL_PROD}/favicon/favicon-32x32.ico`
+
+const FAVICON = HOUSE_AD_FAVICON_URL
 
 /**
  * What the inline renderer actually gives a creative, in characters.
