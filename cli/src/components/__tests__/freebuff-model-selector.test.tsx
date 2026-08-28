@@ -706,3 +706,77 @@ describe('FreebuffModelSelector limited-model offer', () => {
     expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
   })
 })
+
+describe('FreebuffModelSelector plan line', () => {
+  const PLAN_SESSION = {
+    status: 'none',
+    accessTier: 'full',
+    subscription: {
+      tierId: 'starter',
+      tiers: [
+        {
+          id: 'starter',
+          displayName: 'Starter',
+          priceUsd: 8,
+          firstPeriodPriceUsd: 2.5,
+          dailySessions: 2,
+          fiveDaySessions: 6,
+          monthlySessions: 50,
+          monthlySpendLimitUsd: 40,
+          dailyPremiumSessions: 2,
+          disclaimers: [],
+          current: true,
+          upgrade: false,
+          downgrade: false,
+        },
+      ],
+      usage: {
+        dayUsed: 1.3,
+        dayLimit: 2,
+        fiveDayUsed: 3,
+        fiveDayLimit: 6,
+        monthUsed: 11,
+        monthLimit: 50,
+        dayPremiumUsed: 1,
+        dayPremiumLimit: 2,
+        dayResetAt: new Date(FIXED_NOW_MS + 3 * 3600_000).toISOString(),
+        periodEndsAt: new Date(
+          FIXED_NOW_MS + 20 * 24 * 3600_000,
+        ).toISOString(),
+        monthSpendUsd: 3.21,
+        monthSpendLimitUsd: 40,
+      },
+    },
+  } as never
+
+  test('a subscriber sees their plan windows under the catalog', async () => {
+    useFreebuffSessionStore.getState().setSession(PLAN_SESSION)
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain('STARTER PLAN')
+    expect(frame).toContain('today 1.3 of 2')
+    expect(frame).toContain('5-day 3 of 6')
+    expect(frame).toContain('month 11 of 50')
+  })
+
+  test('a blocking limit names itself and its reset', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      ...(PLAN_SESSION as Record<string, unknown>),
+      subscription: {
+        ...(PLAN_SESSION as { subscription: Record<string, unknown> })
+          .subscription,
+        blockedBy: 'daily',
+      },
+    } as never)
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain("today's plan sessions are used")
+    expect(frame).toContain('resets in 3h')
+  })
+
+  test('no plan means no plan line', async () => {
+    useFreebuffSessionStore
+      .getState()
+      .setSession({ status: 'none', accessTier: 'full' } as never)
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).not.toContain('PLAN ·')
+  })
+})

@@ -36,6 +36,11 @@ import {
   getSubscriptionInfo,
 } from '@codebuff/common/types/freebuff-session'
 
+import {
+  formatPlanWindows,
+  freebuffPlanSummary,
+} from '@codebuff/common/util/freebuff-plan-summary'
+
 import { startFreebuffSession } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
@@ -233,7 +238,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // `subscription.tierId` is non-null exactly when the server resolved an
   // ENTITLING plan row, so the picker widens on the server's own verdict rather
   // than on anything it decides for itself.
-  const hasPaidSubscription = Boolean(getSubscriptionInfo(session)?.tierId)
+  const subscriptionInfo = getSubscriptionInfo(session)
+  const hasPaidSubscription = Boolean(subscriptionInfo?.tierId)
+  // The paid plan's own windows, rendered as a single muted line below the
+  // catalog — the CLI counterpart of the web dropdown's plan panel. The same
+  // shared summary drives Desktop and the web usage page, so all three name
+  // the same binding limit and the same reset.
+  const planSummary = freebuffPlanSummary(subscriptionInfo)
   const availableModels = useMemo(
     () => gridModels(accessTier, hasPaidSubscription),
     [accessTier, hasPaidSubscription],
@@ -780,6 +791,15 @@ const testSuffixLen = ' · TEST'.length
         y += rowHeight(m)
       })
     })
+    // The plan summary contributes real rows like everything else here: left
+    // out of the estimate, the first frame's viewport ends exactly one row
+    // short per line — the plan line steals the toggle's row and the blocked
+    // row is clipped outright, which is precisely the row a blocked user
+    // needs.
+    if (planSummary) {
+      y += SECTION_GAP + 1
+      if (planSummary.blocked) y += 1
+    }
     if (canCollapse) {
       y += TOGGLE_MARGIN
       y += 1
@@ -792,6 +812,7 @@ const testSuffixLen = ' · TEST'.length
     canCollapse,
     showStandaloneRecommended,
     supersededNoticeFor,
+    planSummary,
   ])
 
   // When a referral exists, start at the parent's full allowance until the
@@ -1208,6 +1229,30 @@ const testSuffixLen = ' · TEST'.length
         {showStandaloneRecommended &&
           renderModelButton(recommendedModel, { recommended: true })}
         {sectionsContent}
+        {planSummary && (
+          <text
+            style={{ fg: theme.muted, wrapMode: 'none', marginTop: SECTION_GAP }}
+          >
+            {planSummary.tierName.toUpperCase()} PLAN ·{' '}
+            {formatPlanWindows(planSummary)}
+          </text>
+        )}
+        {/* The blocking limit gets its own row: appended to the windows line it
+            overruns the card width, and wrapMode 'none' clips it silently — the
+            one part of the summary a blocked user actually needs was the part
+            that vanished. */}
+        {planSummary?.blocked && (
+          <text style={{ fg: theme.secondary, wrapMode: 'none' }}>
+            {planSummary.blocked.label}
+            {planSummary.blocked.resetsAt
+              ? ` · resets in ${formatFreebuffPremiumResetCountdown(
+                  new Date(planSummary.blocked.resetsAt),
+                  now,
+                  { withDays: true },
+                )}`
+              : ''}
+          </text>
+        )}
         {toggleContent}
         {belowToggle}
         {referral && (
