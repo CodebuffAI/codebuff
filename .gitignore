@@ -25,6 +25,9 @@ npm-app/src/__tests__/data/
 debug/
 .context/
 docs/bot-detection.md
+# Issue-specific plans/specs belong in Linear, not the repository. Existing
+# tracked historical specs remain tracked; this keeps new local artifacts out.
+docs/specs/
 .codex
 
 # Nx cache directories

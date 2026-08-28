@@ -8,6 +8,7 @@ import {
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
   ADS_FIRST_PARTY_VIEW_ACK_EVENT,
   ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+  ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
   STREAM_RECOVERY_EVENT,
@@ -270,6 +271,71 @@ describe('getAxiomOnlyLogEvent', () => {
         yield_live_evidence_status: 'scheduled',
       },
     })
+  })
+
+  test('keeps Imprezia completion telemetry bounded and identity-free', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
+        outcome: 'provider_error',
+        selection_reason: 'fallback',
+        experiment_arm: 'control',
+        surface: 'freebuff_web_chat',
+        ad_count: 0,
+        duration_ms: 42,
+        test_mode: false,
+        failure_class: 'provider_failure',
+        userId: 'user-private',
+        sessionId: 'session-private',
+        requestId: 'request-private',
+        request: 'private prompt',
+        response: 'private response',
+        ad: { title: 'private creative' },
+        clickUrl: 'https://private.example/click',
+        error: new Error('private raw provider error'),
+      }),
+    ).toEqual({
+      event: ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
+      data: {
+        outcome: 'provider_error',
+        selection_reason: 'fallback',
+        experiment_arm: 'control',
+        surface: 'freebuff_web_chat',
+        ad_count: 0,
+        duration_ms: 42,
+        test_mode: false,
+        failure_class: 'provider_failure',
+      },
+    })
+  })
+
+  test('rejects unbounded or incomplete Imprezia completion dimensions', () => {
+    const valid = {
+      axiomEvent: ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
+      outcome: 'no_fill',
+      selection_reason: 'primary',
+      experiment_arm: 'imprezia_first',
+      surface: 'freebuff_web_chat',
+      ad_count: 0,
+      duration_ms: 42,
+      test_mode: false,
+    }
+    for (const invalid of [
+      { ...valid, outcome: 'private raw error' },
+      { ...valid, selection_reason: 'campaign-123' },
+      { ...valid, experiment_arm: 'user-123' },
+      { ...valid, surface: 'https://private.example' },
+      { ...valid, ad_count: 2 },
+      { ...valid, outcome: 'fill', ad_count: 0 },
+      { ...valid, duration_ms: -1 },
+      { ...valid, duration_ms: 60_001 },
+      { ...valid, failure_class: 'raw upstream stack trace' },
+      { ...valid, test_mode: 'false' },
+      // Every dimension except failure_class is required.
+      { ...valid, experiment_arm: undefined },
+    ]) {
+      expect(getAxiomOnlyLogEvent(invalid)).toBeNull()
+    }
   })
 
   test('names and sanitizes first-party selection telemetry', () => {
