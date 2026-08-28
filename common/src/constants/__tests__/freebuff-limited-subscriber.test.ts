@@ -2,7 +2,12 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   FREEBUFF_WEB_LIMITED_MODEL_IDS,
+  LIMITED_FREEBUFF_MODEL_ID,
+  getFreebuffModelsForAccessTier,
   isFreebuffSessionModelAllowedForAccessTier,
+  isFreebuffWebModelAllowedForLimitedTier,
+  resolveFreebuffSessionModelForAccessTier,
+  resolveFreebuffWebModelForLimitedTier,
 } from '../freebuff-models'
 import { FREEBUFF_SUBSCRIPTION_MODEL_IDS } from '../freebuff-subscriptions'
 
@@ -63,5 +68,73 @@ describe('paid plans at limited access', () => {
       ).toBe(true)
     }
     expect(FREEBUFF_SUBSCRIPTION_MODEL_IDS).toHaveLength(4)
+  })
+})
+
+/**
+ * Allowing a model and RESOLVING it are separate questions, and the second one
+ * is what the first shipped without.
+ *
+ * Admission resolves the pick before it binds a session row, so with the flag
+ * missing here a limited subscriber's Luna pick was rewritten to MiMo, the row
+ * was bound to MiMo, and the chat gate's own substitution then ran the turn as
+ * MiMo — against a request that the widened `isFreebuff...AllowedForAccessTier`
+ * had just approved. Nothing refused, nothing logged, and the user watched the
+ * model they had paid for answer as the free one.
+ */
+describe('a plan model survives resolution, not just the allowlist', () => {
+  test('unpaid limited access still coerces every plan model to MiMo', () => {
+    for (const model of FREEBUFF_SUBSCRIPTION_MODEL_IDS) {
+      expect(
+        resolveFreebuffSessionModelForAccessTier(model, 'limited'),
+      ).toBe(LIMITED_FREEBUFF_MODEL_ID)
+    }
+  })
+
+  test('a paid plan keeps the pick intact', () => {
+    for (const model of FREEBUFF_SUBSCRIPTION_MODEL_IDS) {
+      expect(
+        resolveFreebuffSessionModelForAccessTier(model, 'limited', {
+          hasPaidSubscription: true,
+        }),
+      ).toBe(model)
+    }
+  })
+
+  test('the Web picker offers and keeps plan rows for a subscriber', () => {
+    for (const model of FREEBUFF_SUBSCRIPTION_MODEL_IDS) {
+      // The picker's own allowlist — the one whose coercion effect reset a
+      // subscriber's selection back to MiMo on the next render.
+      expect(isFreebuffWebModelAllowedForLimitedTier(model)).toBe(false)
+      expect(isFreebuffWebModelAllowedForLimitedTier(model, true)).toBe(true)
+      expect(resolveFreebuffWebModelForLimitedTier(model, true)).toBe(model)
+      expect(resolveFreebuffWebModelForLimitedTier(model)).toBe(
+        LIMITED_FREEBUFF_MODEL_ID,
+      )
+    }
+  })
+
+  test('the CLI/Desktop tier catalog gains the plan rows and keeps the free ones', () => {
+    const free = getFreebuffModelsForAccessTier('limited').map((m) => m.id)
+    const paid = getFreebuffModelsForAccessTier('limited', true).map(
+      (m) => m.id,
+    )
+    // The free limited rows are untouched: a plan TOPS UP the free pools, so
+    // what the account can still run for free has to stay on offer.
+    for (const id of free) expect(paid).toContain(id)
+    expect(paid.slice(0, free.length)).toEqual(free)
+    // And it gained at least one row it could not pick before.
+    expect(paid.length).toBeGreaterThan(free.length)
+    for (const id of paid) {
+      expect(isFreebuffSessionModelAllowedForAccessTier(id, 'limited', true)).toBe(
+        true,
+      )
+    }
+  })
+
+  test('full access is untouched by the widened catalog', () => {
+    expect(getFreebuffModelsForAccessTier('full', true).map((m) => m.id)).toEqual(
+      getFreebuffModelsForAccessTier('full').map((m) => m.id),
+    )
   })
 })

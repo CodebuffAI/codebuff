@@ -2394,6 +2394,8 @@ export const FREEBUFF_WEB_LIMITED_MODEL_IDS = [
 
 export function isFreebuffWebModelAllowedForLimitedTier(
   id: string | null | undefined,
+  /** See `hasPaidSubscription` on isFreebuffSessionModelAllowedForAccessTier. */
+  hasPaidSubscription = false,
 ): boolean {
   if (!id) return false
   // GLM 5.2 is selectable from a limited region when the user holds a bounty
@@ -2401,9 +2403,16 @@ export function isFreebuffWebModelAllowedForLimitedTier(
   // (see isGlmRedeemableAtLimitedTier). Without this the Web picker coerced a
   // GLM pick straight back to the flash model, so a bounty reward earned in a
   // limited region was unspendable no matter what the server allowed.
+  //
+  // A paid plan is the same shape of problem and had the same bug: the server
+  // widened admission for subscribers (see the predicate above) while this
+  // allowlist did not, so the Web picker coerced every plan model straight back
+  // to MiMo. A limited-region subscriber paid and could select nothing they
+  // had bought.
   return (
     isGlmRedeemableAtLimitedTier(id) ||
-    FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === id)
+    FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === id) ||
+    (hasPaidSubscription && isFreebuffSubscriptionModelIdForAccessTier(id))
   )
 }
 
@@ -2412,17 +2421,35 @@ export function isFreebuffWebModelAllowedForLimitedTier(
  * paused for this tier) to LIMITED_FREEBUFF_MODEL_ID. */
 export function resolveFreebuffWebModelForLimitedTier(
   id: string | null | undefined,
+  /** See `hasPaidSubscription` on isFreebuffSessionModelAllowedForAccessTier. */
+  hasPaidSubscription = false,
 ): string {
-  return isFreebuffWebModelAllowedForLimitedTier(id)
+  return isFreebuffWebModelAllowedForLimitedTier(id, hasPaidSubscription)
     ? (id as string)
     : LIMITED_FREEBUFF_MODEL_ID
 }
 
 export function getFreebuffModelsForAccessTier(
   accessTier: FreebuffAccessTier | null | undefined,
+  /** See `hasPaidSubscription` on isFreebuffSessionModelAllowedForAccessTier.
+   *
+   *  Read from the session response's `subscription.tierId` — non-null exactly
+   *  when the server resolved an ENTITLING row — rather than from anything the
+   *  client decides for itself. A picker that widened on its own belief would
+   *  offer rows admission then refuses. */
+  hasPaidSubscription = false,
 ): readonly FreebuffModelOption[] {
-  if (accessTier === 'limited') return LIMITED_FREEBUFF_MODELS
-  return FREEBUFF_MODELS
+  if (accessTier !== 'limited') return FREEBUFF_MODELS
+  if (!hasPaidSubscription) return LIMITED_FREEBUFF_MODELS
+  // Plan rows are appended rather than merged in catalog order: the limited
+  // rows are what this account can still run for free once the plan's windows
+  // are spent, so they stay first and keep their picker position.
+  const planModels = FREEBUFF_MODELS.filter(
+    (model) =>
+      isFreebuffSubscriptionModelIdForAccessTier(model.id) &&
+      !LIMITED_FREEBUFF_MODELS.some((limited) => limited.id === model.id),
+  )
+  return [...LIMITED_FREEBUFF_MODELS, ...planModels]
 }
 
 /** The model the CLI/Desktop picker highlights as the "recommended" hero so a
@@ -2484,12 +2511,20 @@ export function isGlmRedeemableAtLimitedTier(
 export function isFreebuffModelAllowedForAccessTier(
   model: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
+  /** See `hasPaidSubscription` on isFreebuffSessionModelAllowedForAccessTier.
+   *  Defaults false, so a caller that cannot answer keeps today's behaviour. */
+  hasPaidSubscription = false,
 ): boolean {
   if (!model) return false
   if (accessTier !== 'limited') return isFreebuffModelId(model)
   return (
     isGlmRedeemableAtLimitedTier(model) ||
-    LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model)
+    LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model) ||
+    // A plan reaches limited regions. Gated on isFreebuffModelId as well, so
+    // this only ever widens to a row this catalog actually offers.
+    (hasPaidSubscription &&
+      isFreebuffSubscriptionModelIdForAccessTier(model) &&
+      isFreebuffModelId(model))
   )
 }
 
@@ -2561,8 +2596,17 @@ export function isFreebuffSessionModelAllowedForAccessTier(
  * Duplicated from `freebuff-subscriptions.ts` rather than imported because
  * that module imports THIS one; the two ids are asserted equal by a test so
  * they cannot drift.
+ *
+ * Exported because the limited-tier widening it drives is not one gate but a
+ * CHAIN — picker catalog, explicit-pick resolution, session admission, the
+ * session row's tier compatibility, and the chat gate's coercion. Every one of
+ * them has to agree on the same set of ids or a subscriber sees a row they
+ * cannot start, or starts a session that silently runs a different model.
  */
-function isFreebuffSubscriptionModelIdForAccessTier(model: string): boolean {
+export function isFreebuffSubscriptionModelIdForAccessTier(
+  model: string | null | undefined,
+): boolean {
+  if (!model) return false
   return (
     // GLM 5.3 Flash sits in the slot DeepSeek V4 Pro held until its withdrawal
     // from free mode on 2026-08-26; a plan can only cover a model admission
@@ -2624,6 +2668,8 @@ export function resolveFreebuffWebModel(
 export function resolveFreebuffModelForAccessTier(
   id: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
+  /** See `hasPaidSubscription` on isFreebuffSessionModelAllowedForAccessTier. */
+  hasPaidSubscription = false,
 ):
   | FreebuffModelId
   | typeof FREEBUFF_GLM_V52_MODEL_ID
@@ -2632,7 +2678,9 @@ export function resolveFreebuffModelForAccessTier(
     // GLM survives the coercion at limited tier so a bounty-earned session is
     // launchable from any region; the pool decides whether it is joinable.
     if (id === FREEBUFF_GLM_V52_MODEL_ID) return id
-    return isFreebuffModelAllowedForAccessTier(id, accessTier)
+    // A plan model survives it for the same reason: the plan's own windows
+    // decide whether the session is joinable, not this allowlist.
+    return isFreebuffModelAllowedForAccessTier(id, accessTier, hasPaidSubscription)
       ? (id as FreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID
   }
@@ -2647,10 +2695,27 @@ export function resolveFreebuffModelForAccessTier(
 export function resolveFreebuffSessionModelForAccessTier(
   id: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
-  options: { includeGodOnly?: boolean } = {},
+  options: {
+    includeGodOnly?: boolean
+    /**
+     * See `hasPaidSubscription` on isFreebuffSessionModelAllowedForAccessTier.
+     *
+     * This is the coercion that made the server-side widening dead code. The
+     * chat gate admitted a limited subscriber's plan model, but admission had
+     * already resolved their session row to MiMo, so the gate's own
+     * substitution ran the turn as MiMo and the user watched the model they
+     * paid for answer as the free one — with nothing anywhere reporting an
+     * error. Every caller on the admission path has to pass this.
+     */
+    hasPaidSubscription?: boolean
+  } = {},
 ): SupportedFreebuffModelId | FreebuffWebModelId {
   if (accessTier === 'limited') {
-    return isFreebuffSessionModelAllowedForAccessTier(id, accessTier)
+    return isFreebuffSessionModelAllowedForAccessTier(
+      id,
+      accessTier,
+      options.hasPaidSubscription ?? false,
+    )
       ? (id as SupportedFreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID
   }

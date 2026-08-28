@@ -33,6 +33,7 @@ import {
   getRateLimitsByModel,
   getGlmPromo,
   getReferralInfo,
+  getSubscriptionInfo,
 } from '@codebuff/common/types/freebuff-session'
 
 import { startFreebuffSession } from '../hooks/use-freebuff-session'
@@ -161,8 +162,14 @@ interface FreebuffModelSelectorProps {
  *  model, so it reaches the user through FreebuffReferralBanner instead. */
 function gridModels(
   accessTier: FreebuffAccessTier,
+  /** Live paid plan. A plan reaches limited regions, so a subscriber there is
+   *  offered the rows their plan meters instead of MiMo alone — the server
+   *  admits them (see `hasPaidSubscription` on
+   *  isFreebuffSessionModelAllowedForAccessTier), and a picker that hid them
+   *  would sell a plan whose models never appear. */
+  hasPaidSubscription = false,
 ): readonly FreebuffModelOption[] {
-  return getFreebuffModelsForAccessTier(accessTier).filter(
+  return getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription).filter(
     (m) => !isFreebuffGlmV52ModelId(m.id),
   )
 }
@@ -178,8 +185,13 @@ function gridModels(
  *  renders the action when the server reports sessions left — and the tier never was. */
 export function freebuffCliOfferedModelIds(
   accessTier: FreebuffAccessTier,
+  /** See gridModels. */
+  hasPaidSubscription = false,
 ): readonly string[] {
-  return [...gridModels(accessTier).map((m) => m.id), FREEBUFF_GLM_V52_MODEL_ID]
+  return [
+    ...gridModels(accessTier, hasPaidSubscription).map((m) => m.id),
+    FREEBUFF_GLM_V52_MODEL_ID,
+  ]
 }
 
 export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
@@ -211,7 +223,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const [pending, setPending] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
-  const availableModels = useMemo(() => gridModels(accessTier), [accessTier])
+  // `subscription.tierId` is non-null exactly when the server resolved an
+  // ENTITLING plan row, so the picker widens on the server's own verdict rather
+  // than on anything it decides for itself.
+  const hasPaidSubscription = Boolean(getSubscriptionInfo(session)?.tierId)
+  const availableModels = useMemo(
+    () => gridModels(accessTier, hasPaidSubscription),
+    [accessTier, hasPaidSubscription],
+  )
   // Capacity-limited models the SERVER decided to offer on this response. The
   // client has no catalog of its own for these on purpose: when the wave's pool
   // empties (or the offer is switched off) the payload stops arriving and every
