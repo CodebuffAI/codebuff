@@ -9,6 +9,7 @@ import {
   getFreebuffInstanceId,
   markFreebuffSessionEnded,
 } from './use-freebuff-session'
+import { getSelectedFreebuffReasoningEffort } from '../state/freebuff-model-store'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { AGENT_MODE_TO_COST_MODE, IS_FREEBUFF } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
@@ -578,6 +579,16 @@ export const useSendMessage = ({
         })
 
         const freebuffInstanceId = getFreebuffInstanceId()
+        // The user's `/reasoning` pick, when they made one. Read HERE rather
+        // than captured earlier so a mid-session change lands on the very next
+        // message without restarting the session. Null means "send nothing",
+        // which is what makes the server fall back to the catalog default —
+        // sending the default explicitly instead would make every turn look
+        // like a deliberate user choice and would override an agent's own
+        // declared reasoning (see applyFreebuffReasoningDefaults).
+        const freebuffReasoningEffort = IS_FREEBUFF
+          ? getSelectedFreebuffReasoningEffort()
+          : null
         const runConfig = createRunConfig({
           logger,
           agent: resolvedAgent,
@@ -590,7 +601,12 @@ export const useSendMessage = ({
           costMode: AGENT_MODE_TO_COST_MODE[agentMode],
           extraCodebuffMetadata:
             IS_FREEBUFF && freebuffInstanceId
-              ? { freebuff_instance_id: freebuffInstanceId }
+              ? {
+                  freebuff_instance_id: freebuffInstanceId,
+                  ...(freebuffReasoningEffort
+                    ? { freebuff_reasoning_effort: freebuffReasoningEffort }
+                    : {}),
+                }
               : undefined,
           onStateSnapshot: (snapshot) => {
             latestRunStateSnapshot = snapshot

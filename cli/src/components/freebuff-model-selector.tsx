@@ -208,6 +208,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const { contentMaxWidth } = useTerminalDimensions()
   const selectedModel = useFreebuffModelStore((s) => s.selectedModel)
   const setSelectedModel = useFreebuffModelStore((s) => s.setSelectedModel)
+  // Subscribed, not read imperatively: `/reasoning` can change a row's effort
+  // while the picker is unmounted, and the width maths below memoizes on this
+  // value. Reading the store outside React would leave the memo stale and
+  // truncate the row it just widened.
+  const reasoningEffortByModel = useFreebuffModelStore(
+    (s) => s.reasoningEffortByModel,
+  )
   const session = useFreebuffSessionStore((s) => s.session)
   const accessTier =
     (session && 'accessTier' in session ? session.accessTier : undefined) ??
@@ -599,6 +606,32 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     setSelectedModel,
   ])
 
+  // What the row advertises as this model's reasoning: the user's `/reasoning`
+  // pick when they made one, otherwise the effort the server pins from the
+  // catalog. ONE function for both the width maths and the render — they were
+  // separate strings before the picker gained an override, and a row whose
+  // suffix outgrows what the width maths budgeted for is a truncated row.
+  //
+  // A model with a LADDER but no pinned `reasoningEffort` (Fable 5) still shows
+  // nothing until the user picks: its default is the provider's own, and
+  // spending row width to restate it pushed the "see all models" toggle off a
+  // short terminal. The suffix appears the moment it carries information the
+  // user did not already have.
+  const reasoningSuffixFor = useCallback(
+    (model: FreebuffModelOption): string => {
+      const chosen = reasoningEffortByModel[model.id]
+      if (chosen && model.efforts?.includes(chosen)) {
+        // The '*' marks a rung the USER chose, so a pick is distinguishable
+        // from the catalog default without a second line.
+        return ` · Reasoning: ${chosen}*`
+      }
+      return model.reasoningEffort
+        ? ` · Reasoning: ${model.reasoningEffort}`
+        : ''
+    },
+    [reasoningEffortByModel],
+  )
+
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column
 
@@ -640,7 +673,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         m.multimodal ? 9 : 0
       // Same treatment for the " · Reasoning: high" effort suffix.
       const reasoningSuffixLen = (m: FreebuffModelOption) =>
-        m.reasoningEffort ? 14 + m.reasoningEffort.length : 0
+        reasoningSuffixFor(m).length
       // Same treatment for the " · NEW" badge (6 chars).
       const newSuffixLen = 6
 // Ox Alpha reached the CLI on 2026-08-24 as an experimental row. The badge is
@@ -714,6 +747,7 @@ const testSuffixLen = ' · TEST'.length
       availableModels,
       offerModels,
       contentMaxWidth,
+      reasoningSuffixFor,
       rowDetailsText,
       supersededNoticeFor,
     ])
@@ -942,11 +976,7 @@ const testSuffixLen = ' · TEST'.length
     // see pixels.
     const imagesSuffix = model.multimodal ? ' · Images' : ''
 
-    // The effort the server runs this model at (the same catalog field the
-    // completions layer sends) — see FreebuffModelOption.reasoningEffort.
-    const reasoningSuffix = model.reasoningEffort
-      ? ` · Reasoning: ${model.reasoningEffort}`
-      : ''
+    const reasoningSuffix = reasoningSuffixFor(model)
 
     return (
       <Button
