@@ -89,6 +89,23 @@ export const AD_PLACEMENT_CPC_REPRICE_MAX_MOVE_BPS = 2_500
 export const AD_PLACEMENT_CPC_REPRICE_MIN_CLICKS = 50
 
 /**
+ * The lowest price a single geo-adjusted click may bill, after the country
+ * multiplier is applied.
+ *
+ * DISTINCT from `AD_PLACEMENT_CPC_FLOOR_CENTS`, and the two are not
+ * interchangeable. That one is the minimum a CAMPAIGN may be priced at -- the
+ * rate-card minimum an operator sets and the repricer clamps to. This one is
+ * the minimum a single CLICK may bill at once the campaign's base rate has
+ * been scaled down for a low-conversion country. A campaign based at $4.50
+ * clears the campaign floor comfortably while individual clicks from the
+ * limited tier settle here.
+ *
+ * Keeping them separate is why geo pricing needs no migration:
+ * `ck_ad_placement_campaign_cpc_floor` still guards the base rate, unchanged.
+ */
+export const AD_PLACEMENT_CPC_GEO_FLOOR_CENTS = 50
+
+/**
  * There is deliberately NO `normalizeTopUpCents`.
  *
  * `normalizeDailyBudgetCents` snaps and then clamps, which is right for a
