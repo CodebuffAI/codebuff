@@ -14,8 +14,8 @@ import type { CiEnv } from '@codebuff/common/types/contracts/env'
 // User schema
 const userSchema = z.object({
   id: z.string().optional(),
-  name: z.string(),
-  email: z.string(),
+  name: z.string().nullish(),
+  email: z.string().nullish(),
   authToken: z.string(),
   fingerprintId: z.string().optional(),
   fingerprintHash: z.string().optional(),
