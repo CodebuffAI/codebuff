@@ -43,6 +43,10 @@ export function startNewChat() {
   return currentChatId
 }
 
+export function getMissionScopeId() {
+  return getCurrentChatId()
+}
+
 // Get the project-specific data directory
 export function getProjectDataDir(): string {
   const root = getProjectRoot()

@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { useCallback, useEffect, useRef } from 'react'
 
-import { setCurrentChatId } from '../project-files'
+import { setCurrentChatId, getMissionScopeId, getProjectRoot } from '../project-files'
+import { loadMission, buildMissionContinuation } from '../missions/mission-store'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
 import {
@@ -93,12 +94,13 @@ const resolveAgent = (
   agentId: string | undefined,
   agentDefinitions: AgentDefinition[],
 ): AgentDefinition | string => {
+  const targetId = agentId ?? getAgentIdForMode(agentMode)
   const selectedAgentDefinition =
-    agentId && agentDefinitions.length > 0
-      ? agentDefinitions.find((definition) => definition.id === agentId)
+    agentDefinitions.length > 0
+      ? agentDefinitions.find((definition) => definition.id === targetId)
       : undefined
 
-  return selectedAgentDefinition ?? agentId ?? getAgentIdForMode(agentMode)
+  return selectedAgentDefinition ?? targetId
 }
 
 // Respect bash context, but avoid sending empty prompts when only images are attached.
@@ -250,7 +252,7 @@ export const useSendMessage = ({
   )
 
   const sendMessage = useCallback<SendMessageFn>(
-    async ({ content, agentMode, postUserMessage, attachments }) => {
+    async function runSendMessage({ content, agentMode, postUserMessage, attachments }) {
       // CRITICAL: Set chain in progress immediately (synchronously) before any async work.
       // This ensures the router can detect that we're busy and queue subsequent messages.
       // Set the ref directly first to guarantee immediate visibility to other code paths,
@@ -540,7 +542,17 @@ export const useSendMessage = ({
       // Execute SDK run with streaming handlers
       try {
         const agentDefinitions = loadAgentDefinitions()
-        const resolvedAgent = resolveAgent(agentMode, agentId, agentDefinitions)
+        let resolvedAgent = resolveAgent(agentMode, agentId, agentDefinitions)
+
+        // INJECT MISSION INTO SYSTEM PROMPT SO HE NEVER FORGETS IT DURING LONG LOOPS
+        try {
+          const root = getProjectRoot() || process.cwd()
+          const scopeId = getMissionScopeId()
+          const mission = loadMission(root, scopeId)
+          if (mission && mission.status === 'active' && typeof resolvedAgent !== 'string' && resolvedAgent.systemPrompt) {
+            resolvedAgent = { ...resolvedAgent, systemPrompt: resolvedAgent.systemPrompt + '\n\n' + buildMissionContinuation(root, mission, scopeId) }
+          }
+        } catch(e) {}
 
         const promptWithBashContext = bashContextForPrompt
           ? bashContextForPrompt + finalContent
@@ -692,6 +704,30 @@ export const useSendMessage = ({
             isQueuePausedRef,
             hasReceivedContent: hasReceivedContentRef.current,
           })
+
+          const errorStr = (error instanceof Error ? error.message : String(error)).toLowerCase()
+          const isNetworkError =
+            errorStr.includes('internal server error') ||
+            errorStr.includes('fetch failed') ||
+            errorStr.includes('network') ||
+            errorStr.includes('socket hang up') ||
+            errorStr.includes('econnreset')
+
+          // Extract retryCount from the first argument (hidden property)
+          const currentRetry = (arguments[0] as any).retryCount || 0
+
+          if (isNetworkError && currentRetry < 5) {
+            const retryContent = hasReceivedContentRef.current ? 'continue' : (typeof content === 'string' ? content : 'continue')
+            const backoff = Math.min(3000 * Math.pow(1.5, currentRetry), 15000)
+            setTimeout(() => {
+              if (runChatIsCurrent() && !abortController.signal.aborted) {
+                const nextArgs = { content: retryContent, agentMode, postUserMessage: false, attachments: [] }
+                ;(nextArgs as any).retryCount = currentRetry + 1
+                runSendMessage(nextArgs as any)
+              }
+            }, backoff)
+          }
+
           // Persist the last checkpoint plus the error banner so a restart
           // after a failed run still shows this turn. Settle async checkpoints
           // first so a stale write can't clobber this one. Skipped after a

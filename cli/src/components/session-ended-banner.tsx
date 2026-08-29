@@ -7,7 +7,7 @@ import {
 import { getRateLimitsByModel } from '@codebuff/common/types/freebuff-session'
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
 
 import { Button } from './button'
 import {
@@ -28,6 +28,8 @@ interface SessionEndedBannerProps {
    *  grace window. Swaps the Enter-to-rejoin affordance for a "let it
    *  finish" hint so the user doesn't abort their in-flight work. */
   isStreaming: boolean
+  onSessionRenewed?: () => void
+  autoRestart?: boolean
 }
 
 /**
@@ -37,6 +39,8 @@ interface SessionEndedBannerProps {
  */
 export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   isStreaming,
+  onSessionRenewed,
+  autoRestart,
 }) => {
   const theme = useTheme()
   const [pendingAction, setPendingAction] = useState<
@@ -112,8 +116,19 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
     }
     // Re-POST with the currently selected model and keep the chat/run state
     // intact so the next prompt continues the same conversation.
-    refreshFreebuffSession().catch(() => setPendingAction(null))
-  }, [canRestart, continueOnFallback])
+    refreshFreebuffSession()
+      .then(() => {
+        onSessionRenewed?.()
+      })
+      .catch(() => setPendingAction(null))
+  }, [canRestart, continueOnFallback, onSessionRenewed])
+
+  useEffect(() => {
+    if (autoRestart && canRestart) {
+      const timer = setTimeout(startSameChatSession, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [autoRestart, canRestart, startSameChatSession])
 
   useKeyboard(
     useCallback(

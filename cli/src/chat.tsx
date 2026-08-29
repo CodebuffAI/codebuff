@@ -14,7 +14,14 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
+import { MissionTodosTracker } from './components/mission-todos-tracker'
 import { SingleAdBanner } from './components/ad-banner'
+import {
+  buildMissionContinuation,
+  loadMission,
+  refreshMissionCompletion,
+} from './missions/mission-store'
+import { getMissionAutopilotAction } from './missions/mission-autopilot'
 import { ChatInputBar } from './components/chat-input-bar'
 import { ChatHeader } from './components/chat-header'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
@@ -52,7 +59,7 @@ import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
 import { WEBSITE_URL } from './login/constants'
-import { getProjectRoot } from './project-files'
+import { getMissionScopeId, getProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
 import { useQueuePanelStore } from './state/queue-panel-store'
@@ -569,6 +576,13 @@ export const Chat = ({
       }
     },
   )
+
+  const missionAutopilotPendingRef = useRef(false)
+  let missionAutopilotActive = false
+  try {
+    missionAutopilotActive =
+      loadMission(getProjectRoot(), getMissionScopeId())?.status === 'active'
+  } catch {}
 
   // Retire onboarding suggested prompts once the user submits anything
   // (typed or clicked), persisting so they don't return on future launches.
@@ -1486,6 +1500,52 @@ export const Chat = ({
     IS_FREEBUFF && freebuffSession?.status === 'active'
   const isFreebuffSessionOver =
     IS_FREEBUFF && freebuffSession?.status === 'ended'
+
+  // A mission is a persistent worker, not a single assistant turn. Whenever
+  // its chat becomes idle, re-check the authoritative plan and start the next
+  // turn. The per-chat mission file prevents parallel terminals from sharing
+  // or completing each other's work.
+  useEffect(() => {
+    let root: string
+    let scopeId: string
+    try {
+      root = getProjectRoot()
+      scopeId = getMissionScopeId()
+    } catch {
+      return
+    }
+    const mission = refreshMissionCompletion(root, scopeId)
+    const action = getMissionAutopilotAction({
+      active: mission?.status === 'active',
+      idle:
+        !isStreaming &&
+        !isWaitingForResponse &&
+        !isChainInProgressRef.current &&
+        !askUserState &&
+        !reviewMode,
+      sessionOver: isFreebuffSessionOver,
+    })
+    if (action !== 'continue' || !mission || missionAutopilotPendingRef.current) return
+
+    missionAutopilotPendingRef.current = true
+    const timer = setTimeout(() => {
+      const current = refreshMissionCompletion(root, scopeId)
+      if (!current || current.status !== 'active') {
+        missionAutopilotPendingRef.current = false
+        return
+      }
+      onSubmitPrompt(buildMissionContinuation(root, current, scopeId), agentMode)
+        .catch((error) => logger.error({ error }, '[mission-autopilot] Failed to continue mission'))
+        .finally(() => {
+          missionAutopilotPendingRef.current = false
+        })
+    }, 1500)
+    return () => {
+      clearTimeout(timer)
+      missionAutopilotPendingRef.current = false
+    }
+  }, [messages.length, isStreaming, isWaitingForResponse, isFreebuffSessionOver, askUserState, reviewMode, agentMode, onSubmitPrompt])
+
   const shouldShowStatusLine =
     !feedbackMode &&
     (hasStatusIndicatorContent ||
@@ -1628,6 +1688,8 @@ export const Chat = ({
           />
         )}
 
+        <MissionTodosTracker messages={messages} />
+
         {reviewMode ? (
           // Review and ask_user take precedence over the session-ended banner:
           // during the grace window the agent may still be asking to run tools
@@ -1649,9 +1711,10 @@ export const Chat = ({
             width={separatorWidth}
             maxVisibleRows={isCompactHeight ? 4 : 8}
           />
-        ) : isFreebuffSessionOver && !askUserState ? (
+        ) : isFreebuffSessionOver && !askUserState && !isStreaming && !isWaitingForResponse ? (
           <SessionEndedBanner
             isStreaming={isStreaming || isWaitingForResponse}
+            autoRestart={missionAutopilotActive}
           />
         ) : (
           <>
