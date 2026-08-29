@@ -25,6 +25,8 @@ export type LoadedMCPConfig = {
   mcpServers: Record<string, MCPConfig>
   /** The file path this config was loaded from */
   _sourceFilePath: string
+  /** Every compatible config file merged, from lowest to highest precedence. */
+  _sourceFilePaths: string[]
 }
 
 /**
@@ -86,28 +88,46 @@ function resolveMcpConfigEnv(config: MCPFileConfig): void {
   }
 }
 
-const MCP_CONFIG_FILE_NAME = 'mcp.json'
-
 /**
- * Get default directories to search for mcp.json.
- * Matches the agent loading directories for consistency.
+ * Compatible config paths ordered from lowest to highest precedence.
+ * Supports Freebuff/Codebuff, the MCP root convention, and Cursor projects.
  */
-const getDefaultMcpConfigDirs = (): string[] => {
-  const cwdAgents = path.join(process.cwd(), '.agents')
-  const parentAgents = path.join(process.cwd(), '..', '.agents')
-  const homeAgents = path.join(os.homedir(), '.agents')
-  return [cwdAgents, parentAgents, homeAgents]
+export const getDefaultMcpConfigPaths = (): string[] => {
+  const cwd = process.cwd()
+  const parent = path.dirname(cwd)
+  const home = os.homedir()
+  const realHome =
+    process.env.REAL_USERPROFILE ||
+    (process.env.SystemDrive && process.env.HOMEPATH
+      ? path.join(process.env.SystemDrive, process.env.HOMEPATH)
+      : null) ||
+    (process.env.USERNAME
+      ? path.join('C:', 'Users', process.env.USERNAME)
+      : null) ||
+    home
+
+  const paths = [
+    path.join(realHome, '.config', 'freebuff', 'mcp.json'),
+    path.join(realHome, '.agents', 'mcp.json'),
+    path.join(home, '.config', 'freebuff', 'mcp.json'),
+    path.join(home, '.agents', 'mcp.json'),
+    path.join(parent, '.mcp.json'),
+    path.join(parent, '.cursor', 'mcp.json'),
+    path.join(parent, '.agents', 'mcp.json'),
+    path.join(cwd, '.mcp.json'),
+    path.join(cwd, '.cursor', 'mcp.json'),
+    path.join(cwd, '.agents', 'mcp.json'),
+    path.join(cwd, 'node_modules', '.freebuff', 'mcp.json'),
+  ]
+
+  return Array.from(new Set(paths))
 }
 
 /**
- * Load MCP configuration from `mcp.json` files in `.agents` directories.
+ * Load and merge MCP configuration from Freebuff, MCP, Cursor and `.agents`
+ * locations. Project-local files override parent and global files.
  *
- * By default, searches for mcp.json in:
- * - `{cwd}/.agents/mcp.json`
- * - `{cwd}/../.agents/mcp.json`
- * - `{homedir}/.agents/mcp.json`
- *
- * Later directories take precedence, so project MCP servers override global ones.
+ * The complete ordered path list is returned by getDefaultMcpConfigPaths().
  * Environment variable references (e.g., `$API_KEY`) are resolved from process.env.
  *
  * @param options.verbose - Whether to log errors during loading
@@ -132,12 +152,10 @@ export async function loadMCPConfig(options: {
   const mergedConfig: LoadedMCPConfig = {
     mcpServers: {},
     _sourceFilePath: '',
+    _sourceFilePaths: [],
   }
 
-  const mcpConfigDirs = getDefaultMcpConfigDirs()
-
-  for (const dir of mcpConfigDirs) {
-    const configPath = path.join(dir, MCP_CONFIG_FILE_NAME)
+  for (const configPath of getDefaultMcpConfigPaths()) {
 
     try {
       // Check if file exists asynchronously
@@ -182,6 +200,7 @@ export async function loadMCPConfig(options: {
       // Track the last successfully loaded config path
       if (Object.keys(parsedConfig.mcpServers).length > 0) {
         mergedConfig._sourceFilePath = configPath
+        mergedConfig._sourceFilePaths.push(configPath)
       }
     } catch (error) {
       if (verbose) {
@@ -197,7 +216,7 @@ export async function loadMCPConfig(options: {
 }
 
 /**
- * Synchronously load MCP configuration from `mcp.json` files in `.agents` directories.
+ * Synchronously load MCP configuration from all compatible locations.
  * This is a sync version for use in contexts where async is not available.
  *
  * @param options.verbose - Whether to log errors during loading
@@ -211,12 +230,10 @@ export function loadMCPConfigSync(options: {
   const mergedConfig: LoadedMCPConfig = {
     mcpServers: {},
     _sourceFilePath: '',
+    _sourceFilePaths: [],
   }
 
-  const mcpConfigDirs = getDefaultMcpConfigDirs()
-
-  for (const dir of mcpConfigDirs) {
-    const configPath = path.join(dir, MCP_CONFIG_FILE_NAME)
+  for (const configPath of getDefaultMcpConfigPaths()) {
 
     try {
       if (!fs.existsSync(configPath)) {
@@ -258,6 +275,7 @@ export function loadMCPConfigSync(options: {
       // Track the last successfully loaded config path
       if (Object.keys(parsedConfig.mcpServers).length > 0) {
         mergedConfig._sourceFilePath = configPath
+        mergedConfig._sourceFilePaths.push(configPath)
       }
     } catch (error) {
       if (verbose) {

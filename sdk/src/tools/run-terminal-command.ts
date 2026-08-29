@@ -17,7 +17,7 @@ import {
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
-const COMMAND_OUTPUT_LIMIT = 50_000
+const COMMAND_OUTPUT_LIMIT = 10_000
 const TRUNCATION_MARKER = '\n[...TRUNCATED DUE TO LENGTH...]\n'
 const MAX_PENDING_COLOR_SEQUENCE_LENGTH = 32
 const INCOMPLETE_COLOR_SEQUENCE_REGEX = /\x1B\[[0-9;]*$/
@@ -319,6 +319,10 @@ export function runTerminalCommand({
     const isWindows = os.platform() === 'win32'
     const processEnv = {
       ...getSystemProcessEnv(),
+      CI: 'true',
+      DEBIAN_FRONTEND: 'noninteractive',
+      FORCE_COLOR: '0',
+      NONINTERACTIVE: '1',
       ...(env ?? {}),
     } as NodeJS.ProcessEnv
     if (isWindows) {

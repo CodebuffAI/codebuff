@@ -89,7 +89,14 @@ async function applyChange(params: {
       await fs.writeFile(fullPath, content)
     } else {
       const oldContent = await fs.readFile(fullPath, 'utf-8')
-      const newContent = applyPatch(oldContent, content)
+      let newContent = applyPatch(oldContent, content, { fuzzFactor: 2 })
+      
+      if (newContent === false) {
+        const normalizedOld = oldContent.replace(/\r\n/g, '\n')
+        const normalizedPatch = content.replace(/\r\n/g, '\n')
+        newContent = applyPatch(normalizedOld, normalizedPatch, { fuzzFactor: 3 })
+      }
+      
       if (newContent === false) {
         return { status: 'patchFailed', file: relativePath, patch: content }
       }

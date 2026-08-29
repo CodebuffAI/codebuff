@@ -132,6 +132,54 @@ describe('loadMCPConfigSync', () => {
     expect(result._sourceFilePath).toContain('mcp.json')
   })
 
+  it('loads standard root .mcp.json and Cursor .cursor/mcp.json files', () => {
+    fs.mkdirSync(path.join(tempDir, '.cursor'), { recursive: true })
+    fs.writeFileSync(
+      path.join(tempDir, '.mcp.json'),
+      JSON.stringify({
+        mcpServers: { rootServer: { command: 'root-mcp' } },
+      }),
+    )
+    fs.writeFileSync(
+      path.join(tempDir, '.cursor', 'mcp.json'),
+      JSON.stringify({
+        mcpServers: { cursorServer: { command: 'cursor-mcp' } },
+      }),
+    )
+
+    const result = loadMCPConfigSync({ verbose: false })
+
+    expect(result.mcpServers.rootServer).toBeDefined()
+    expect(result.mcpServers.cursorServer).toBeDefined()
+    expect(result._sourceFilePaths).toContain(path.join(tempDir, '.mcp.json'))
+    expect(result._sourceFilePaths).toContain(
+      path.join(tempDir, '.cursor', 'mcp.json'),
+    )
+  })
+
+  it('gives project .agents/mcp.json precedence over compatible files', () => {
+    fs.mkdirSync(path.join(tempDir, '.agents'), { recursive: true })
+    fs.writeFileSync(
+      path.join(tempDir, '.mcp.json'),
+      JSON.stringify({
+        mcpServers: { shared: { command: 'root-command' } },
+      }),
+    )
+    fs.writeFileSync(
+      path.join(tempDir, '.agents', 'mcp.json'),
+      JSON.stringify({
+        mcpServers: { shared: { command: 'project-command' } },
+      }),
+    )
+
+    const result = loadMCPConfigSync({ verbose: false })
+    const shared = result.mcpServers.shared
+
+    expect(shared && isStdioConfig(shared) ? shared.command : '').toBe(
+      'project-command',
+    )
+  })
+
   it('should resolve environment variable references', () => {
     const agentsDir = path.join(tempDir, '.agents')
     fs.mkdirSync(agentsDir, { recursive: true })

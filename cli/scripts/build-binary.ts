@@ -168,6 +168,17 @@ async function main() {
     ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
     ['process.env.CODEBUFF_CLI_TARGET', `"${getCliTargetLabel(targetInfo)}"`],
     ['process.env.FREEBUFF_MODE', `"${process.env.FREEBUFF_MODE ?? 'false'}"`],
+    ['process.env.NEXT_PUBLIC_API_URL', '"https://www.codebuff.com"'],
+    ['process.env.NEXT_PUBLIC_CODEBUFF_APP_URL', '"https://www.codebuff.com"'],
+    ['process.env.NEXT_PUBLIC_SUPERTOKENS_APP_URL', '"https://www.codebuff.com"'],
+    ['process.env.NEXT_PUBLIC_CB_ENVIRONMENT', '"prod"'],
+    ['process.env.NEXT_PUBLIC_SUPPORT_EMAIL', '"support@codebuff.com"'],
+    ['process.env.NEXT_PUBLIC_POSTHOG_API_KEY', '"dummy"'],
+    ['process.env.NEXT_PUBLIC_POSTHOG_HOST_URL', '"https://app.posthog.com"'],
+    ['process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', '"pk_dummy"'],
+    ['process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL', '"https://stripe.com"'],
+    ['process.env.NEXT_PUBLIC_WEB_PORT', '"3000"'],
+    ['process.env.NEXT_PUBLIC_IS_FREEBUFF', '"true"'],
     ...nextPublicEnvVars,
   ]
 

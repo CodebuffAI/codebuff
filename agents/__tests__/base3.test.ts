@@ -160,4 +160,10 @@ describe('base3 CLI roots', () => {
     // Codebuff's paid modes explain credits; Freebuff has none to explain.
     expect(base3.systemPrompt).toContain('/usage')
   })
+
+  test('ships the optimization rules for long-running commands and anti-looping', () => {
+    expect(base3FreeDeepseek.systemPrompt).toContain('LONG-RUNNING COMMANDS (PREVENT HANGS)')
+    expect(base3FreeDeepseek.systemPrompt).toContain('ANTI-LOOPING')
+    expect(base3FreeDeepseek.systemPrompt).toContain('write_todos')
+  })
 })

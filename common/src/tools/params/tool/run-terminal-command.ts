@@ -20,7 +20,7 @@ import type { $ToolParams } from '../../constants'
  * two better doors that this does not touch: `-1` for an explicit indefinite
  * wait, and `process_type: BACKGROUND` for long-running processes.
  */
-export const MAX_TERMINAL_TIMEOUT_SECONDS = 600
+export const MAX_TERMINAL_TIMEOUT_SECONDS = 180
 export const MAX_TERMINAL_TIMEOUT_MINUTES = MAX_TERMINAL_TIMEOUT_SECONDS / 60
 
 /** Clamp a model-supplied timeout, preserving the -1 "no timeout" sentinel and
