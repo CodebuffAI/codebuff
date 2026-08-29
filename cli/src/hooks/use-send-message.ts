@@ -93,12 +93,13 @@ const resolveAgent = (
   agentId: string | undefined,
   agentDefinitions: AgentDefinition[],
 ): AgentDefinition | string => {
+  const targetId = agentId ?? getAgentIdForMode(agentMode)
   const selectedAgentDefinition =
-    agentId && agentDefinitions.length > 0
-      ? agentDefinitions.find((definition) => definition.id === agentId)
+    agentDefinitions.length > 0
+      ? agentDefinitions.find((definition) => definition.id === targetId)
       : undefined
 
-  return selectedAgentDefinition ?? agentId ?? getAgentIdForMode(agentMode)
+  return selectedAgentDefinition ?? targetId
 }
 
 // Respect bash context, but avoid sending empty prompts when only images are attached.
@@ -250,7 +251,7 @@ export const useSendMessage = ({
   )
 
   const sendMessage = useCallback<SendMessageFn>(
-    async ({ content, agentMode, postUserMessage, attachments }) => {
+    async function runSendMessage({ content, agentMode, postUserMessage, attachments }) {
       // CRITICAL: Set chain in progress immediately (synchronously) before any async work.
       // This ensures the router can detect that we're busy and queue subsequent messages.
       // Set the ref directly first to guarantee immediate visibility to other code paths,
@@ -692,6 +693,23 @@ export const useSendMessage = ({
             isQueuePausedRef,
             hasReceivedContent: hasReceivedContentRef.current,
           })
+
+          const errorStr = (error instanceof Error ? error.message : String(error)).toLowerCase()
+          if (
+            errorStr.includes('internal server error') ||
+            errorStr.includes('fetch failed') ||
+            errorStr.includes('network') ||
+            errorStr.includes('socket hang up') ||
+            errorStr.includes('econnreset')
+          ) {
+            const retryContent = hasReceivedContentRef.current ? 'continue' : (typeof content === 'string' ? content : 'continue')
+            setTimeout(() => {
+              if (runChatIsCurrent() && !abortController.signal.aborted) {
+                runSendMessage({ content: retryContent, agentMode, postUserMessage: false, attachments: [] })
+              }
+            }, 3000)
+          }
+
           // Persist the last checkpoint plus the error banner so a restart
           // after a failed run still shows this turn. Settle async checkpoints
           // first so a stale write can't clobber this one. Skipped after a

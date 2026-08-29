@@ -49,6 +49,17 @@ const FREEBUFF_ONLY_COMMAND_IDS = new Set([
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
+    id: 'mission',
+    label: 'mission',
+    description: 'Start, resume, inspect, or finish a persistent autonomous mission',
+    aliases: ['goal'],
+  },
+  {
+    id: 'mcp',
+    label: 'mcp',
+    description: 'Inspect, reload, and test Model Context Protocol servers',
+  },
+  {
     id: 'help',
     label: 'help',
     description: 'Display keyboard shortcuts and tips',

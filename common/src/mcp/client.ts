@@ -4,6 +4,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
 import { getErrorObject } from '../util/error'
+import { MCPClientPool, withTimeout } from './client-pool'
 
 import type { MCPConfig } from '../types/mcp'
 import type { ToolResultOutput } from '../types/messages/content-part'
@@ -18,11 +19,12 @@ import type {
 // message — enough to show the real failure without unbounded growth.
 const STDERR_BUFFER_CAP = 8192
 
-const runningClients: Record<string, Client> = {}
-const listToolsCache: Record<
+const LIST_TOOLS_TIMEOUT_MS = 30_000
+const CALL_TOOL_TIMEOUT_MS = 120_000
+const listToolsCache = new Map<
   string,
   ReturnType<typeof Client.prototype.listTools>
-> = {}
+>()
 
 /**
  * Substitutes environment variable references ($VAR_NAME) in a string with their values.
@@ -80,12 +82,7 @@ function hashConfig(config: MCPConfig): string {
   )
 }
 
-export async function getMCPClient(config: MCPConfig): Promise<string> {
-  let key = hashConfig(config)
-  if (key in runningClients) {
-    return key
-  }
-
+async function connectMCPClient(config: MCPConfig): Promise<Client> {
   let transport: Transport
   // Buffer the child process's stderr so that a server which crashes during
   // startup produces an actionable error instead of the opaque MCP SDK message
@@ -154,23 +151,68 @@ export async function getMCPClient(config: MCPConfig): Promise<string> {
       `${baseMessage}. Failed to connect to MCP server at ${config.url}.`,
     )
   }
-  runningClients[key] = client
+  return client
+}
 
-  return key
+export function getMCPClientId(config: MCPConfig): string {
+  return hashConfig(config)
+}
+
+const clientPool = new MCPClientPool<Client, MCPConfig>({
+  keyOf: hashConfig,
+  connect: connectMCPClient,
+  close: async (client) => client.close(),
+})
+
+export async function getMCPClient(config: MCPConfig): Promise<string> {
+  return (await clientPool.get(config)).id
+}
+
+export type MCPClientStatus = ReturnType<typeof clientPool.statuses>[number]
+
+export function getMCPClientStatuses(): MCPClientStatus[] {
+  return clientPool.statuses()
+}
+
+export async function closeMCPClient(clientId: string): Promise<boolean> {
+  listToolsCache.delete(clientId)
+  return clientPool.close(clientId)
+}
+
+export async function closeAllMCPClients(): Promise<void> {
+  listToolsCache.clear()
+  await clientPool.closeAll()
+}
+
+export async function reloadMCPClient(config: MCPConfig): Promise<string> {
+  const clientId = hashConfig(config)
+  await closeMCPClient(clientId)
+  return getMCPClient(config)
 }
 
 export function listMCPTools(
   clientId: string,
   ...args: Parameters<typeof Client.prototype.listTools>
 ): ReturnType<typeof Client.prototype.listTools> {
-  const client = runningClients[clientId]
+  const client = clientPool.getReady(clientId)
   if (!client) {
     throw new Error(`listTools: client not found with id: ${clientId}`)
   }
-  if (!listToolsCache[clientId]) {
-    listToolsCache[clientId] = client.listTools(...args)
-  }
-  return listToolsCache[clientId]
+  const cached = listToolsCache.get(clientId)
+  if (cached) return cached
+
+  const request = withTimeout(
+    client.listTools(...args),
+    LIST_TOOLS_TIMEOUT_MS,
+    `MCP listTools timed out after ${LIST_TOOLS_TIMEOUT_MS}ms`,
+  ) as ReturnType<typeof Client.prototype.listTools>
+  listToolsCache.set(clientId, request)
+  request.catch(() => {
+    if (listToolsCache.get(clientId) === request) {
+      listToolsCache.delete(clientId)
+    }
+  })
+  return request
 }
 
 function getResourceData(
@@ -185,11 +227,15 @@ export async function callMCPTool(
   clientId: string,
   ...args: Parameters<typeof Client.prototype.callTool>
 ): Promise<ToolResultOutput[]> {
-  const client = runningClients[clientId]
+  const client = clientPool.getReady(clientId)
   if (!client) {
     throw new Error(`callTool: client not found with id: ${clientId}`)
   }
-  const callResult = await client.callTool(...args)
+  const callResult = await withTimeout(
+    client.callTool(...args),
+    CALL_TOOL_TIMEOUT_MS,
+    `MCP callTool timed out after ${CALL_TOOL_TIMEOUT_MS}ms`,
+  )
   const result = callResult as CallToolResult
   const content = result.content
 

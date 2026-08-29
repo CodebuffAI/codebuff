@@ -176,6 +176,19 @@ ${
 }
 
 ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
+
+# LONG-RUNNING COMMANDS (PREVENT HANGS)
+- Commands like "bun run build:freebuff", compilations, or dev servers MUST use process_type: "BACKGROUND".
+- NEVER run a compilation in SYNC mode, as it will deadlock the terminal.
+- To wait for a background build, pipe its output (e.g., "> build.log 2>&1 < NUL") and then use "sleep 2" or "sleep 5" in SYNC mode repeatedly as a biological timer, then read the log to check if it finished.
+
+# ANTI-LOOPING
+- If you find yourself repeatedly executing the exact same tool calls without progress (e.g. reading the same file continuously), you MUST STOP. Change your approach, write to a different file, run a different search, or ask the user for help. Do NOT loop blindly.
+
+# METAS E SUBMETAS (write_todos)
+- Você DEVE EXECUTAR A FERRAMENTA/TOOL \`write_todos\` no início de qualquer tarefa para quebrar o objetivo em etapas hiper-granulares.
+- Conforme você avança, chame a tool \`write_todos\` novamente para atualizar o progresso.
+- NUNCA escreva os seus TODOs no texto normal do chat como markdown. Use APENAS a tool \`write_todos\` para que a UI possa ler os dados.
 `
 }
 

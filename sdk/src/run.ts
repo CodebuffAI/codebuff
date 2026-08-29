@@ -589,6 +589,9 @@ async function runOnce({
     }
   }
 
+  let identicalToolCount = 0
+  let lastToolSignature = ''
+
   const agentRuntimeImpl = getAgentRuntimeImpl({
     logger,
     traceWriter,
@@ -597,6 +600,30 @@ async function runOnce({
       // Does nothing for now
     },
     requestToolCall: async ({ userInputId, toolName, input, mcpConfig }) => {
+      const signature = JSON.stringify({ toolName, input })
+      if (signature === lastToolSignature) {
+        identicalToolCount++
+      } else {
+        lastToolSignature = signature
+        identicalToolCount = 1
+      }
+
+      if (identicalToolCount > 3) {
+        return {
+          output: [
+            {
+              type: 'json',
+              value: {
+                message:
+                  'ANTI-LOOPING TRIGGERED: You have repeated the exact same tool call ' +
+                  identicalToolCount +
+                  ' times without progress. STOP LOOPING. You MUST completely change your strategy, try a different approach, or ask the user for help.',
+              },
+            },
+          ],
+        }
+      }
+
       return handleToolCall({
         action: {
           type: 'tool-call-request',

@@ -13,6 +13,10 @@ import {
 } from './router-utils'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
 import { getProjectRoot } from '../project-files'
+import {
+  buildMissionContinuation,
+  loadMission,
+} from '../missions/mission-store'
 import { useChatStore } from '../state/chat-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { trackEvent } from '../utils/analytics'
@@ -457,7 +461,13 @@ export async function routeUserPrompt(
     return
   }
 
-  sendMessage({ content: trimmed, agentMode })
+  const projectRoot = getProjectRoot() || process.cwd()
+  const mission = loadMission(projectRoot)
+  const content =
+    mission?.status === 'active'
+      ? trimmed + buildMissionContinuation(projectRoot, mission)
+      : trimmed
+  sendMessage({ content, agentMode })
 
   setTimeout(() => {
     scrollToLatest()

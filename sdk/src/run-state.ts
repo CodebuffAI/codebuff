@@ -1083,8 +1083,13 @@ export function withMessageHistory({
   runState: RunState
   messages: Message[]
 }): RunState {
-  // Deep copy
-  const newRunState = JSON.parse(JSON.stringify(runState)) as typeof runState
+  // Deep copy safely
+  let newRunState: typeof runState
+  try {
+    newRunState = JSON.parse(JSON.stringify(runState)) as typeof runState
+  } catch {
+    newRunState = cloneDeep(runState)
+  }
 
   if (newRunState.sessionState) {
     newRunState.sessionState.mainAgentState.messageHistory = messages
@@ -1111,10 +1116,15 @@ export async function applyOverridesToSessionState(
     maxAgentSteps?: number
   },
 ): Promise<SessionState> {
-  // Deep clone to avoid mutating the original session state
-  const sessionState = JSON.parse(
-    JSON.stringify(baseSessionState),
-  ) as SessionState
+  // Deep clone to avoid mutating the original session state safely
+  let sessionState: SessionState
+  try {
+    sessionState = JSON.parse(
+      JSON.stringify(baseSessionState),
+    ) as SessionState
+  } catch {
+    sessionState = cloneDeep(baseSessionState)
+  }
 
   // Apply maxAgentSteps override
   if (overrides.maxAgentSteps !== undefined) {

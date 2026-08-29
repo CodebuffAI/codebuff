@@ -4,6 +4,8 @@ import { handleAdsEnable, handleAdsDisable } from './ads'
 import { handleCopyConversationCommand } from './copy-conversation'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
+import { runMCPCommand } from './mcp'
+import { runMissionCommand } from './mission'
 import { handleInitializationFlowLocally } from './init'
 import {
   collectProcessDiagnostics,
@@ -186,6 +188,40 @@ const FREEBUFF_ONLY_COMMANDS = new Set([
 ])
 
 const ALL_COMMANDS: CommandDefinition[] = [
+  defineCommandWithArgs({
+    name: 'mcp',
+    handler: async (params, args) => {
+      const input = params.inputValue.trim()
+      params.saveToHistory(input)
+      clearInput(params)
+      const message = await runMCPCommand(args)
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(input),
+        getSystemMessage(message),
+      ])
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'mission',
+    aliases: ['goal'],
+    handler: (params, args) => {
+      const input = params.inputValue.trim()
+      params.saveToHistory(input)
+      clearInput(params)
+      const result = runMissionCommand(args)
+      if (result.kind === 'start') {
+        params.sendMessage({ content: result.prompt, agentMode: params.agentMode })
+        setTimeout(() => params.scrollToLatest(), 0)
+        return
+      }
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(input),
+        getSystemMessage(result.message),
+      ])
+    },
+  }),
   defineCommand({
     name: 'ads:enable',
     handler: (params) => {

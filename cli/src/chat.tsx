@@ -11,10 +11,14 @@ import {
   useState,
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import fs from 'node:fs'
+import path from 'node:path'
 
 import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
+import { MissionTodosTracker } from './components/mission-todos-tracker'
 import { SingleAdBanner } from './components/ad-banner'
+import { getMissionPath } from './missions/mission-store'
 import { ChatInputBar } from './components/chat-input-bar'
 import { ChatHeader } from './components/chat-header'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
@@ -1628,6 +1632,8 @@ export const Chat = ({
           />
         )}
 
+        <MissionTodosTracker messages={messages} />
+
         {reviewMode ? (
           // Review and ask_user take precedence over the session-ended banner:
           // during the grace window the agent may still be asking to run tools
@@ -1652,6 +1658,19 @@ export const Chat = ({
         ) : isFreebuffSessionOver && !askUserState ? (
           <SessionEndedBanner
             isStreaming={isStreaming || isWaitingForResponse}
+            onSessionRenewed={() => {
+              const missionPath = getMissionPath(getProjectRoot() ?? process.cwd())
+              try {
+                if (fs.existsSync(missionPath)) {
+                  const missionData = JSON.parse(fs.readFileSync(missionPath, 'utf8'))
+                  if (missionData.status === 'active') {
+                    setTimeout(() => {
+                      onSubmitPrompt('continue', agentMode).catch(() => {})
+                    }, 100)
+                  }
+                }
+              } catch (e) {}
+            }}
           />
         ) : (
           <>
