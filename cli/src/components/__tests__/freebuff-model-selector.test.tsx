@@ -11,6 +11,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+  FREEBUFF_SOLAR_PRO_4_MODEL_ID,
   FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
@@ -164,19 +165,21 @@ describe('FreebuffModelSelector tier layout', () => {
     // premium or the tier headers it is being ordered against don't apply to
     // it, non-hero or the landing picker opens collapsed and there are no tier
     // headers at all. The hero is GPT-5.6 Luna since 2026-08-24, which leaves
-    // GLM 5.3 Flash as the only row that is both. Flash filled this slot until
-    // 2026-08-24, when it left FREEBUFF_PREMIUM_MODEL_IDS and moved down into
-    // UNLIMITED -- below the header this asserts it sits above; V4 Pro until
-    // its withdrawal on 2026-08-26.
+    // exactly one other premium row — Solar Pro 4 today.
+    //
+    // The occupants keep leaving downward: V4 Flash left
+    // FREEBUFF_PREMIUM_MODEL_IDS on 2026-08-24, V4 Pro was withdrawn on 08-26,
+    // GLM 5.3 Flash was un-premiumed on 08-28 and moved into UNLIMITED — below
+    // the header this asserts it sits above. Read the list, not this comment.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+      .setSelectedModel(FREEBUFF_SOLAR_PRO_4_MODEL_ID)
 
     const setup = await renderSelector()
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
     const recommendedModelIndex = frame.indexOf('GPT-5.6 Luna')
-    const selectedModelIndex = frame.indexOf('GLM 5.3 Flash')
+    const selectedModelIndex = frame.indexOf('Solar Pro 4')
     const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
@@ -186,7 +189,7 @@ describe('FreebuffModelSelector tier layout', () => {
     // 2026-08-20 and left the picker entirely.
     expect(unlimitedHeaderIndex).toBeGreaterThan(selectedModelIndex)
     // The cursor sits on the SAVED pick, not on the recommendation.
-    expect(frame).toContain('› GLM 5.3 Flash')
+    expect(frame).toContain('› Solar Pro 4')
     expect(frame).not.toContain('› GPT-5.6 Luna')
   })
 
@@ -459,12 +462,11 @@ describe('FreebuffModelSelector tier layout', () => {
     //
     // WHICH row wears it is arithmetic, not semantic: getFreebuffSectionQuotas
     // gives the header to the pool MOST rows share and breaks ties toward the
-    // earlier row. With Flash in the section that was 2-1 for the shared
-    // premium pool, so Luna's one-a-day ceiling wore the chip. Flash left that
-    // pool on 2026-08-24, leaving Luna and V4 Pro tied 1-1, so the header now
-    // speaks for Luna and it is V4 PRO that carries its own count. The
-    // invariant under test — a second line the width and height math must
-    // both know about — is unchanged; only the row it lands on moved.
+    // earlier row. The occupant has moved with every premium departure — Flash
+    // out on 2026-08-24, V4 Pro withdrawn 08-26, GLM 5.3 Flash un-premiumed
+    // 08-28. The invariant under test — a second line the width and height math
+    // must both know about — is unchanged; only the row it lands on moves, so
+    // this drives it from the CURRENT premium list rather than naming a row.
     const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     const pool = (
       model: string,
@@ -493,10 +495,16 @@ describe('FreebuffModelSelector tier layout', () => {
           'Premium',
           4,
         ),
-        [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: pool(
-          FREEBUFF_GLM_V53_FLASH_MODEL_ID,
-          'glm_v53_flash',
-          'GLM 5.3 Flash',
+        // A row answering to a pool the section header does NOT speak for, so
+        // it carries its own chip. SYNTHESISED rather than read from
+        // FREEBUFF_PER_MODEL_SESSION_CAPS, which is empty since 2026-08-28 —
+        // this test is about the width and height math around a second line,
+        // not about which model happens to be capped this week, and tying it to
+        // a real cap is what made it break every time one moved.
+        [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: pool(
+          FREEBUFF_SOLAR_PRO_4_MODEL_ID,
+          'solar_trial',
+          'Solar Pro 4',
           2,
         ),
       },
@@ -505,9 +513,10 @@ describe('FreebuffModelSelector tier layout', () => {
       .getState()
       // NOT the hero, so the picker opens expanded and the chip under test is
       // drawn at all. Luna took the hero slot on 2026-08-24; selecting it here
-      // collapses the list to a single row and the chip disappears. Flash also
-      // supplies the warning-ONLY second line asserted below, which the chip
-      // row cannot: every row carrying a pool row here also carries a chip.
+      // collapses the list to a single row and the chip disappears. V4 Flash
+      // also supplies the warning-ONLY second line asserted below, which the
+      // chip row cannot: every row carrying a pool row here also carries a
+      // chip.
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
     const frame = (await renderSelector()).captureCharFrame()
@@ -523,12 +532,11 @@ describe('FreebuffModelSelector tier layout', () => {
       ]
     }
     const lines = frame.split('\n')
-    // GLM 5.3 Flash's second line carries its per-model ceiling chip. Anchored
-    // on the chip text, so a chip that stops being drawn fails here rather than
-    // quietly re-measuring some warning-only line instead. Deliberately the
-    // PER-MODEL pool rather than the shared one: its label is the longest the
-    // caps table can produce, which is the case the width math has to survive.
-    const chipLine = lines.find((l) => l.includes('GLM 5.3 Flash: 0 of 2 used'))
+    // The second line carrying a per-row chip. Anchored on the chip TEXT, so a
+    // chip that stops being drawn fails here rather than quietly re-measuring
+    // some warning-only line instead. A per-row label is longer than the shared
+    // one, which is the case the width math has to survive.
+    const chipLine = lines.find((l) => l.includes('Solar Pro 4: 0 of 2 used'))
     // Flash carries the training warning with nothing after it — the shape the
     // width math already handled, which is the "ordinary warning line" above.
     const warningOnlyLine = lines.find(

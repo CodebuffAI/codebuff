@@ -52,31 +52,25 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * with this string: it describes policy that moves, from a place no test reads.
  * Check it whenever a cap or an availability window changes.
  *
- * 2026-08-27: GLM 5.3 Flash's 2-a-day cap is GONE — the measurement window it
- * existed for closed (93.7% cache on its pinned Merge vendor, 6.25x under the
- * lane it replaced; see docs/freebuff-merge-gateway.md), so it now runs on the
- * ordinary premium allowance like every other row.
- * FREEBUFF_PER_MODEL_SESSION_CAPS is empty, and this string therefore names NO
- * per-model number. The partial-time rule stays: it describes the SHARED
- * allowance and is unrelated to the cap that came off.
+ * 2026-08-28: GLM 5.3 Flash is now UNMETERED, joining MiMo and DeepSeek V4
+ * Flash. The 2-a-day cap came off on 08-27 when its measurement window closed;
+ * a day of production spend then settled the cost question outright — it bills
+ * $[redacted]/msg, the cheapest row we serve, 4.6x under MiMo and 8.9x under V4
+ * Flash, both of which already ran uncapped. Keeping a ceiling on the cheapest
+ * model while the dearer ones had none inverted the reason ceilings exist.
  *
- * That is the failure mode this comment keeps warning about, arriving from the
- * other direction: for one commit the cap was gone from the table while this
- * string still promised users a number. The test now checks BOTH directions —
- * a capped model's number must appear, and a per-model session count must not
- * survive the cap that justified it.
+ * This string therefore names THREE unmetered rows and no per-model number.
+ * The partial-time sentence describes the SHARED premium allowance and is
+ * unrelated to any of them — it stays.
  *
- * The withdrawn model is NOT named here. This notice explains the rules that
- * apply to the rows a user can see; the one who still has Pro saved gets
- * freebuffWithdrawnModelMessage, which names it and says what to use instead.
- *
- * Signed, because this is us asking users to accept less than they had. An
- * unsigned notice reads as a system message; a signed one reads as someone
- * taking responsibility for it, which is the honest framing when the cause is
- * our costs rather than anything they did.
+ * The failure this comment keeps warning about, in both directions: for one
+ * commit the cap was gone from the table while this string still promised
+ * users "2 sessions a day". The test now checks BOTH — a capped model's number
+ * must appear, and a per-model session count must not survive the cap that
+ * justified it.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Every model runs on your normal daily sessions — no per-model caps; your shared premium allowance still charges partial time, rounded up to a tenth. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
+  'Every model runs on your normal daily sessions — no per-model caps; your shared premium allowance still charges partial time, rounded up to a tenth. MiMo, DeepSeek V4 Flash and GLM 5.3 Flash are unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

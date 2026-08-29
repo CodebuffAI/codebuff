@@ -14,6 +14,8 @@ import {
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_IDS,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+  FREEBUFF_WEB_LIMITED_MODEL_IDS,
+  FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS,
   FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MAX_PRICE,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
@@ -303,16 +305,19 @@ describe('freebuff model availability', () => {
     // and nothing supersedes anything — so this pins a product decision.
     const all = FREEBUFF_MODELS.map((model) => model.id)
     expect(all).toContain(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
-    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(true)
+    // UNMETERED since 2026-08-28 — see the metering test below. Ordering is a
+    // product decision and is independent of how the row is metered.
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(false)
     expect(isFreebuffPausedFreeModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(
       false,
     )
 
     expect(all[all.length - 1]).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
-    // And it is nobody's starting pick. Not an availability argument here — the
-    // row is open at every hour — but a quota one: it is capped at two sessions
-    // a day, and a default a new user lands on before they know the catalog
-    // exists must not be the row that runs out first.
+    // And it is nobody's starting pick. The original reason was a quota one —
+    // it was capped at two a day — and that is now gone, so the argument is
+    // purely about depth: this is the deliberate deep row, and a default a new
+    // user lands on before they know the catalog exists should be the fast,
+    // cheap one. Keep it off both defaults.
     expect(DEFAULT_FREEBUFF_MODEL_ID).not.toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).not.toBe(
       FREEBUFF_GLM_V53_FLASH_MODEL_ID,
@@ -337,10 +342,23 @@ describe('freebuff model availability', () => {
     expect(FREEBUFF_GLM_V52_MODEL_IDS).not.toContain(
       FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
-    // 5.3 Flash is in the shared daily premium pool; 5.2 is deliberately not,
-    // because its entitlement is earned rather than granted.
-    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(true)
+    // NEITHER is premium-listed, and for opposite reasons — which is exactly
+    // why this asserts the predicates and not just the flags. 5.3 Flash is
+    // UNMETERED (cheapest row we serve); 5.2 is entitlement-EARNED, so it is
+    // metered by its own referral/bounty pool rather than the premium one.
+    // Same boolean, different mechanism: do not collapse these two.
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(false)
     expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V52_MODEL_ID)).toBe(false)
+    expect(
+      (FREEBUFF_STANDARD_MODEL_IDS as readonly string[]).includes(
+        FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      (FREEBUFF_STANDARD_MODEL_IDS as readonly string[]).includes(
+        FREEBUFF_GLM_V52_MODEL_ID,
+      ),
+    ).toBe(false)
     // Suffix tolerance holds on both, so a dated provider snapshot cannot dodge
     // either pool — and still does not cross between them.
     expect(isFreebuffGlmV53FlashModelId('z-ai/glm-5.3-flash-20260601')).toBe(
@@ -359,22 +377,72 @@ describe('freebuff model availability', () => {
    * lives in the quota config that derives from this table, so what this pins
    * is the table entry the derivation needs.
    */
-  test('GLM 5.3 Flash is uncapped, and is still metered by the shared pool', () => {
-    // The 2-a-day cap came off on 2026-08-27 once the measurement window it
-    // existed for closed. What has to stay true is not the cap but the
-    // INVARIANT underneath it: a premium row must be metered by SOME pool.
-    // FREEBUFF_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
-    // premium model that falls out of every pool becomes UNLIMITED rather than
-    // stricter — which is the expensive direction to be wrong in.
+  test('GLM 5.3 Flash is UNMETERED, and the two flags that say so agree', () => {
+    // Unmetered on 2026-08-28, matching DeepSeek V4 Flash and MiMo. It was
+    // premium-pooled while its cost was unknown; measured prod spend settled
+    // that at $[redacted]/msg — the cheapest row we serve, 8.9x under the
+    // already-unmetered V4 Flash. Capping the cheapest model while the dearer
+    // ones run uncapped inverts the reason caps exist.
     expect(
       getFreebuffPerModelSessionCap(FREEBUFF_GLM_V53_FLASH_MODEL_ID),
     ).toBeUndefined()
-    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(true)
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(false)
     expect(
       (FREEBUFF_STANDARD_MODEL_IDS as readonly string[]).includes(
         FREEBUFF_GLM_V53_FLASH_MODEL_ID,
       ),
-    ).toBe(false)
+    ).toBe(true)
+  })
+
+  test('GLM 5.3 Flash: unmetered for FULL access, still closed to LIMITED', () => {
+    // The four properties this change had to deliver, asserted together
+    // because they are separately true and separately breakable.
+    const id = FREEBUFF_GLM_V53_FLASH_MODEL_ID
+
+    // 1. NOT METERED — no per-model cap, and out of the shared premium pool.
+    expect(getFreebuffPerModelSessionCap(id)).toBeUndefined()
+    expect(isFreebuffPremiumModelId(id)).toBe(false)
+    expect((FREEBUFF_STANDARD_MODEL_IDS as readonly string[])).toContain(id)
+
+    // 2. PARITY with the row the change was specified against. If DeepSeek V4
+    //    Flash is ever re-metered, this fails and forces the pair to be
+    //    reconsidered together rather than drifting apart silently.
+    expect(isFreebuffPremiumModelId(id)).toBe(
+      isFreebuffPremiumModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
+    )
+    expect((FREEBUFF_STANDARD_MODEL_IDS as readonly string[])).toContain(
+      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    )
+
+    // 3. STILL CLOSED TO THE LIMITED TIER. Unmetering works through the
+    //    `premium` flag; limited access works through two explicit allowlists.
+    //    They are independent, and this pins that they stayed independent —
+    //    limited-region users must not have gained the row as a side effect.
+    expect(LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).not.toContain(id)
+    expect(FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS as readonly string[]).not.toContain(id)
+    expect(FREEBUFF_WEB_LIMITED_MODEL_IDS as readonly string[]).not.toContain(id)
+    expect(isFreebuffWebModelAllowedForLimitedTier(id, false)).toBe(false)
+
+    // 4. FULLY AVAILABLE to full access: in the catalog, open at every hour,
+    //    not paused, and reachable on every surface's model list.
+    expect(FREEBUFF_MODELS.map((m) => m.id)).toContain(id)
+    expect(isFreebuffPausedFreeModelId(id)).toBe(false)
+    expect(FREEBUFF_MODELS.find((m) => m.id === id)?.availability).toBe('always')
+  })
+
+  test('every model is premium-listed and premium-flagged, or neither', () => {
+    // THE INVARIANT THAT REPLACED "a premium row must be in some pool".
+    // `isFreebuffPremiumModelId` reads FREEBUFF_PREMIUM_MODEL_IDS while
+    // FREEBUFF_STANDARD_MODEL_IDS is derived from the catalog `premium` flag.
+    // If those two ever disagree a row is premium for the endpoint rate
+    // limiter and unmetered for the session pool at the same time — which is
+    // exactly the half-migrated state this change had to pass through.
+    for (const model of FREEBUFF_MODELS) {
+      expect({
+        id: model.id,
+        listed: isFreebuffPremiumModelId(model.id),
+      }).toEqual({ id: model.id, listed: Boolean(model.premium) })
+    }
   })
 
   test('every capped model, if any, owns its pool and stays premium-listed', () => {

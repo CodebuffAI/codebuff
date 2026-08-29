@@ -1293,7 +1293,33 @@ const GLM_V53_FLASH_MODEL = {
   // field, so 'training' here would start storing hour-long agent traces of a
   // model nobody granted us traces on.
   dataUse: 'service',
-  premium: true,
+  // UNMETERED, like DeepSeek V4 Flash and MiMo — the two other rows in
+  // FREEBUFF_STANDARD_MODEL_IDS. It was premium-pooled while its true cost was
+  // unknown; measured production spend has now settled that, and it is the
+  // CHEAPEST row we serve:
+  //
+  //   glm-5.3-flash (Merge, 91.7% cache)   $[redacted]/msg   $[redacted]/session
+  //   deepseek-v4-flash (already unmetered) $[redacted]/msg   $[redacted]/session
+  //   mimo-v2.5         (already unmetered) $[redacted]/msg   $[redacted]/session
+  //
+  // So this row is 4.6x cheaper per session than MiMo and 8.9x cheaper than V4
+  // Flash, both of which already run with no ceiling at all. Keeping a session
+  // cap on the cheapest model while the dearer ones are uncapped inverts the
+  // reason caps exist.
+  //
+  // WHAT THIS ALSO DROPS, deliberately: `premium` gates
+  // FREE_MODE_PREMIUM_RATE_LIMITS, the endpoint-level ceiling that catches
+  // callers who script /v1/chat/completions and never create an agent_run. That
+  // protection goes with the flag. It is the same posture V4 Flash already runs
+  // — by volume the largest row in the fleet — and the exposure per request
+  // here is 8.9x SMALLER, so if that trade is acceptable there it is acceptable
+  // here first. Revisit both together if scripted abuse appears, not this one
+  // alone.
+  //
+  // NOT a limited-tier change. That tier reads the explicit
+  // LIMITED_FREEBUFF_MODEL_IDS / FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS allowlists,
+  // not this flag, so limited-region users are unaffected.
+  premium: false,
   // OpenRouter reports text + image + video in, text out.
   multimodal: true,
   // NO effort ladder and no `reasoningEffort`. OpenRouter lists no reasoning
@@ -1585,7 +1611,13 @@ export const FREEBUFF_MODELS = [
 // nothing else and sit outside every number the picker shows.
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+  // GLM 5.3 Flash left on 2026-08-28: measured production spend put it at
+  // $[redacted]/msg, the cheapest row we serve and 8.9x under the already-
+  // unmetered V4 Flash. See GLM_V53_FLASH_MODEL for what leaving here also
+  // drops. This list and that entry's `premium` flag must always agree —
+  // isFreebuffPremiumModelId reads this one while FREEBUFF_STANDARD_MODEL_IDS
+  // is derived from the flag, so a disagreement makes a row premium for the
+  // rate limiter and unmetered for the session pool at the same time.
   FREEBUFF_SOLAR_PRO_4_MODEL_ID,
 ] as const
 
