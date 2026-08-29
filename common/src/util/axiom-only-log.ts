@@ -382,6 +382,9 @@ export function createFirstPartyViewAckTelemetry(
  * must not grow into an attribution/debugging record: the database owns that
  * drill-down and Axiom receives only bounded operational dimensions. */
 const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
+  // Which ingress reported: 's2s' (key-authenticated postback) or 'client'
+  // (the keyless browser endpoint). Two-valued, never a partner identifier.
+  channel: 'string',
   outcome: 'string',
   rejection_reason: 'string',
   event_type: 'string',

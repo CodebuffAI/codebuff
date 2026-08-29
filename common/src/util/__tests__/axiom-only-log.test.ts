@@ -505,6 +505,7 @@ describe('getAxiomOnlyLogEvent', () => {
     expect(
       getAxiomOnlyLogEvent({
         axiomEvent: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+        channel: 'client',
         outcome: 'accepted',
         rejection_reason: 'none',
         event_type: 'signup_completed',
@@ -528,6 +529,7 @@ describe('getAxiomOnlyLogEvent', () => {
     ).toEqual({
       event: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
       data: {
+        channel: 'client',
         outcome: 'accepted',
         rejection_reason: 'none',
         event_type: 'signup_completed',
@@ -538,5 +540,21 @@ describe('getAxiomOnlyLogEvent', () => {
         duration_ms: 8,
       },
     })
+  })
+
+  test('drops a non-string channel from the postback census', () => {
+    const result = getAxiomOnlyLogEvent({
+      axiomEvent: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+      channel: 42,
+      outcome: 'accepted',
+      rejection_reason: 'none',
+      event_type: 'signup_completed',
+      traffic_class: 'test',
+      primary_allocation_cohort: 'drizz',
+      settlement_status: 'not_billable',
+      charged_cents: 0,
+      duration_ms: 8,
+    })
+    expect(result?.data).not.toHaveProperty('channel')
   })
 })
