@@ -8,7 +8,7 @@ import AdmZip from 'adm-zip'
 import fetch from 'node-fetch'
 
 // Ripgrep version to download
-const RIPGREP_VERSION = '14.1.1'
+const RIPGREP_VERSION = '15.2.0'
 
 // Platform configurations
 const PLATFORMS = [
@@ -17,6 +17,12 @@ const PLATFORMS = [
     url: `https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-pc-windows-msvc.zip`,
     executable: 'rg.exe',
     archivePath: `ripgrep-${RIPGREP_VERSION}-x86_64-pc-windows-msvc/rg.exe`,
+  },
+  {
+    name: 'arm64-win32',
+    url: `https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-aarch64-pc-windows-msvc.zip`,
+    executable: 'rg.exe',
+    archivePath: `ripgrep-${RIPGREP_VERSION}-aarch64-pc-windows-msvc/rg.exe`,
   },
   {
     name: 'x64-darwin',

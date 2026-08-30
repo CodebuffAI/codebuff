@@ -1,5 +1,7 @@
 import { PostHog } from 'posthog-node'
 
+import { createExceptionBeforeSend } from './util/exception-budget'
+
 /**
  * Shared analytics core module.
  * Provides common interfaces, types, and utilities used by both
@@ -52,12 +54,21 @@ export interface PostHogClientOptions {
 /**
  * Default PostHog client factory.
  * Creates a real PostHog client instance.
+ *
+ * Every client gets the exception budget, per process: it is the one place all
+ * three posthog-node surfaces (CLI, Desktop, server) pass through, and both
+ * ways an exception reaches PostHog — `captureException` from the CLI's error
+ * logger and `enableExceptionAutocapture`'s uncaught/unhandled handlers — run
+ * `before_send`. See util/exception-budget.ts for what a loop costs without it.
  */
 export function createPostHogClient(
   apiKey: string,
   options: PostHogClientOptions,
 ): AnalyticsClientWithIdentify {
-  return new PostHog(apiKey, options) as AnalyticsClientWithIdentify
+  return new PostHog(apiKey, {
+    ...options,
+    before_send: createExceptionBeforeSend(),
+  }) as AnalyticsClientWithIdentify
 }
 
 /**

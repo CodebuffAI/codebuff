@@ -34,6 +34,32 @@ describe('freebuff rows the CLI offers', () => {
     })
   }
 
+  // A paid plan reaches limited regions, so a limited-region subscriber's grid gains the models
+  // their plan meters. Its own surface: the CLI's own resolver has to keep the pick too, or the
+  // user picks the model they bought and the session starts on MiMo.
+  test('are all usable on the limited tier for a subscriber', () => {
+    expect(
+      freebuffOfferViolations({
+        surface: 'cli picker + referral banner (limited, subscriber)',
+        accessTier: 'limited',
+        hasPaidSubscription: true,
+        offered: freebuffCliOfferedModelIds('limited', true),
+        accepts: (model) =>
+          resolveFreebuffModelForAccessTier(model, 'limited', true) === model,
+        rootAgentIdFor: getFreebuffRootAgentIdForModel,
+        catalog: 'supported',
+      }),
+    ).toEqual([])
+  })
+
+  // The plan widens what may be PICKED, never what the free pools give.
+  test('the limited grid keeps every free row for a subscriber', () => {
+    const free = freebuffCliOfferedModelIds('limited')
+    const paid = freebuffCliOfferedModelIds('limited', true)
+    for (const id of free) expect(paid).toContain(id)
+    expect(paid.length).toBeGreaterThan(free.length)
+  })
+
   test('the earned reward is offered on BOTH tiers, and the grid never shows it', () => {
     // Limited access included: a bounty grant is redeemable there, so the row has to be
     // reachable there. The banner still only renders it against a live balance.

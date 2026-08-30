@@ -3,15 +3,18 @@ import path from 'path'
 
 import {
   FREEBUFF_MODELS,
+  getFreebuffModelEfforts,
   isFreebuffModelId,
   migrateSupersededFreebuffModelPreference,
 } from '@codebuff/common/constants/freebuff-models'
+import { isReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
 
 import { getConfigDir } from './auth'
 import { AGENT_MODES } from './constants'
 import { logger } from './logger'
 
 import type { AgentMode } from './constants'
+import type { ReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
 
 const DEFAULT_SETTINGS: Settings = {
   mode: 'DEFAULT' as const,
@@ -30,6 +33,13 @@ export interface Settings {
    *  next freebuff launch so users land in the queue for their preferred
    *  model without re-picking. Persisted as the canonical model id. */
   freebuffModel?: string
+  /** Reasoning effort the user picked per model, keyed by canonical model id.
+   *  Per-model rather than a single value because the ladders differ: DeepSeek
+   *  V4 offers low/high/max while Luna offers low..max, so one shared value
+   *  would silently become a different rung on every model switch. A model
+   *  absent from this map runs its catalog default, which is also what the
+   *  server does when the client sends nothing. */
+  freebuffReasoningEfforts?: Record<string, ReasoningEffort>
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
   alwaysUseALaCarte?: boolean
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
@@ -131,6 +141,24 @@ const validateSettings = (parsed: unknown): Settings => {
   )
   if (replacement) settings.freebuffModel = replacement
 
+  // Validate saved efforts against BOTH the effort vocabulary and each model's
+  // own ladder. A rung dropped from a catalog row (or a model that stopped
+  // offering a choice at all) must not survive in the file and get sent as a
+  // request the server would only have to clamp.
+  if (obj.freebuffReasoningEfforts && typeof obj.freebuffReasoningEfforts === 'object') {
+    const efforts: Record<string, ReasoningEffort> = {}
+    for (const [modelId, effort] of Object.entries(
+      obj.freebuffReasoningEfforts as Record<string, unknown>,
+    )) {
+      if (!isReasoningEffort(effort)) continue
+      if (!getFreebuffModelEfforts(modelId)?.includes(effort)) continue
+      efforts[modelId] = effort
+    }
+    if (Object.keys(efforts).length > 0) {
+      settings.freebuffReasoningEfforts = efforts
+    }
+  }
+
   // Validate alwaysUseALaCarte (legacy)
   if (typeof obj.alwaysUseALaCarte === 'boolean') {
     settings.alwaysUseALaCarte = obj.alwaysUseALaCarte
@@ -206,6 +234,39 @@ export const loadFreebuffModelPreference = (): string | undefined => {
 export const saveFreebuffModelPreference = (model: string): void => {
   if (!isFreebuffModelId(model)) return
   saveSettings({ freebuffModel: model })
+}
+
+/**
+ * Load every saved per-model reasoning effort. Already validated against the
+ * current catalog by `loadSettings`.
+ */
+export const loadFreebuffReasoningEfforts = (): Record<
+  string,
+  ReasoningEffort
+> => {
+  return loadSettings().freebuffReasoningEfforts ?? {}
+}
+
+/**
+ * Persist (or clear) the reasoning effort for one model.
+ *
+ * Passing `undefined` REMOVES the entry rather than storing a null, so "back to
+ * the model default" and "never chose" are the same state on disk — the client
+ * then sends no effort at all and the catalog default applies, exactly as it
+ * does for a user who never touched the control.
+ */
+export const saveFreebuffReasoningEffort = (
+  model: string,
+  effort: ReasoningEffort | undefined,
+): void => {
+  const existing = loadSettings().freebuffReasoningEfforts ?? {}
+  const next = { ...existing }
+  if (effort === undefined) {
+    delete next[model]
+  } else {
+    next[model] = effort
+  }
+  saveSettings({ freebuffReasoningEfforts: next })
 }
 
 /**
