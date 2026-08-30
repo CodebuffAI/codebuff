@@ -13,10 +13,12 @@ import {
   AD_PLATFORMS,
   AD_PLATFORM_ACTIONS,
   AD_PLATFORM_LABELS,
+  adEvidenceAttestation,
   engagementsForDailyBudget,
   isValidDailyBudgetCents,
   normalizeDailyBudgetCents,
   platformForUrl,
+  platformRequiresComment,
 } from '../constants/freebuff-ads'
 
 describe('pricing', () => {
@@ -67,12 +69,15 @@ describe('normalizeDailyBudgetCents', () => {
 })
 
 describe('platformForUrl', () => {
-  it('recognises the three platforms and their alternate hosts', () => {
+  it('recognises the four platforms and their alternate hosts', () => {
     expect(platformForUrl('https://x.com/acme/status/123')).toBe('twitter')
     expect(platformForUrl('https://twitter.com/acme/status/123')).toBe('twitter')
     expect(platformForUrl('https://www.linkedin.com/posts/acme_x-activity-1')).toBe('linkedin')
+    // LinkedIn's own shortener — what the share sheet hands people.
+    expect(platformForUrl('https://lnkd.in/p/gJpFPcbf')).toBe('linkedin')
     expect(platformForUrl('https://www.reddit.com/r/programming/comments/abc/')).toBe('reddit')
     expect(platformForUrl('https://redd.it/abc')).toBe('reddit')
+    expect(platformForUrl('https://github.com/workweave/router')).toBe('github')
   })
 
   it('matches subdomains but not lookalike domains', () => {
@@ -83,6 +88,7 @@ describe('platformForUrl', () => {
     expect(platformForUrl('https://x.com.evil.example/a')).toBeNull()
     expect(platformForUrl('https://notx.com/a')).toBeNull()
     expect(platformForUrl('https://mylinkedin.com/a')).toBeNull()
+    expect(platformForUrl('https://mygithub.com/a')).toBeNull()
   })
 
   it('refuses anything that is not an http(s) URL', () => {
@@ -107,6 +113,28 @@ describe('platform copy', () => {
     const reddit = AD_PLATFORM_ACTIONS.reddit.join(' ').toLowerCase()
     expect(reddit).not.toContain('repost')
     expect(reddit).toContain('upvote')
+  })
+
+  it('asks a GitHub user only to star — no comment, no repost', () => {
+    // GitHub has neither comments-on-a-post nor reposts; the engagement is a
+    // star and the instructions must not describe anything else.
+    const github = AD_PLATFORM_ACTIONS.github.join(' ').toLowerCase()
+    expect(github).toContain('star')
+    expect(github).not.toContain('comment')
+    expect(github).not.toContain('repost')
+  })
+
+  it('knows which platforms involve writing a comment', () => {
+    expect(platformRequiresComment('twitter')).toBe(true)
+    expect(platformRequiresComment('linkedin')).toBe(true)
+    expect(platformRequiresComment('reddit')).toBe(true)
+    expect(platformRequiresComment('github')).toBe(false)
+  })
+
+  it('attests to the action the platform actually asks for', () => {
+    expect(adEvidenceAttestation('twitter')).toContain('commented')
+    expect(adEvidenceAttestation('github')).toContain('starred')
+    expect(adEvidenceAttestation('github')).not.toContain('commented')
   })
 })
 

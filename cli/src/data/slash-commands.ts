@@ -45,6 +45,7 @@ const FREEBUFF_ONLY_COMMAND_IDS = new Set([
   'plan',
   'end-session',
   'dashboard',
+  'reasoning',
 ])
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
@@ -178,6 +179,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     id: 'theme:toggle',
     label: 'theme:toggle',
     description: 'Toggle between light and dark mode',
+  },
+  {
+    id: 'reasoning',
+    label: 'reasoning',
+    description: 'Set how hard the current model thinks (low / high / max)',
+    aliases: ['effort', 'think'],
   },
   {
     id: 'end-session',

@@ -333,7 +333,7 @@ export function levelProgress(trust: number): FreebuffLevelProgress {
   const into = clamped - tier.trustRequired
   const remaining = next ? Math.max(0, next.trustRequired - clamped) : null
   return {
-    trust,
+    trust: clamped,
     level: tier.level,
     levelName: tier.name,
     trustPerEngagement: tier.trustPerEngagement,

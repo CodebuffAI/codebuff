@@ -40,12 +40,15 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 
 | Model                       | Access                  | Best for                                                          |
 | --------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| **DeepSeek V4 Flash 07/31** | Full access             | The default everywhere in full mode; fast coding and tool use     |
-| **GPT-5.6 Luna**            | Full access             | Strong all-around with native images; two sessions a day          |
+| **GLM 5.3 Flash**           | Full access             | The default in full mode; deepest reasoning, unmetered            |
+| **GPT-5.6 Luna**            | Full access             | Strong all-around with native images                              |
+| **DeepSeek V4 Flash 07/31** | Full access             | Fast coding and tool use; pauses during peak hours                |
 | **MiMo 2.5**                | Full and limited access | The limited-mode default; balanced performance with image support |
-| **DeepSeek V4 Pro**         | Full access             | Deepest reasoning; one session a day                              |
+| **Solar Pro 4**             | Full access             | Limited-time trial; 524K context, text only                       |
 
-These limits are **temporary**, and they exist because the providers serving DeepSeek now charge more than free mode can carry. V4 Pro is one session a day; GPT-5.6 Luna is two sessions a day; models may serve from a quantized (Q8_0) build. MiMo 2.5 stays unlimited. All of it is intended to be reverted.
+Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash and MiMo 2.5 are unmetered and cost no session at all. Models may still serve from a quantized (Q8_0) build.
+
+DeepSeek V4 Pro was retired from the catalog; GLM 5.3 Flash replaces it as the deep-reasoning pick.
 
 Beyond the regular picker:
 

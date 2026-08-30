@@ -96,7 +96,8 @@ const impreziaTrackersSchema = z.object({
 
 export type ImpreziaTrackers = z.infer<typeof impreziaTrackersSchema>
 
-const impreziaBeaconTokenSchema = z.object({
+/** Shared with the display API, which issues the same signed token. */
+export const impreziaBeaconTokenSchema = z.object({
   token: z.string(),
   issuedAt: z.number(),
   kid: z.string(),
@@ -342,8 +343,11 @@ export function impreziaImpressionFields(params: {
     adText: ad.creative.description,
     title: ad.creative.title,
     cta: ad.creative.cta,
-    // Imprezia returns one tracked click URL and no separate landing page.
-    url: ad.clickUrl,
+    // Imprezia returns one tracked click URL and no landing page, and its
+    // destination is an opaque token, so there is no advertiser domain to
+    // show. Empty like Carbon's `statlink`, so renderers name no destination
+    // rather than the ad network. Clicks still go through `clickUrl`.
+    url: '',
     clickUrl: ad.clickUrl,
     favicon: ad.creative.logoUrl ?? '',
     impUrl: impreziaImpressionUrl(ad.impression.impressionUuid),
