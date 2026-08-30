@@ -209,6 +209,10 @@ describe('levelProgress', () => {
     expect(below.progress).toBeGreaterThanOrEqual(0)
     expect(below.trustToNextLevel).toBeGreaterThan(0)
   })
+
+  it('clamps a negative rendered Trust score', () => {
+    expect(levelProgress(-404).trust).toBe(FREEBUFF_TRUST_MIN_BALANCE)
+  })
 })
 
 describe('prompt costs', () => {

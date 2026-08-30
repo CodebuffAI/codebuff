@@ -2,6 +2,9 @@
 .idea/
 .vercel
 
+# Exported user lists (PII) - scripts/export-user-emails.ts
+user-emails-*.csv
+
 # Environment files (secrets) - Bun loads .env.* files natively
 .env
 .env.*
@@ -25,6 +28,9 @@ npm-app/src/__tests__/data/
 debug/
 .context/
 docs/bot-detection.md
+# Issue-specific plans/specs belong in Linear, not the repository. Existing
+# tracked historical specs remain tracked; this keeps new local artifacts out.
+docs/specs/
 .codex
 
 # Nx cache directories
@@ -66,3 +72,13 @@ scratch-*
 
 # Ad-hoc investigation scripts — scratch, never committed
 scripts/_tmp-*
+
+# Local operator launch manifests contain real advertiser identifiers. The
+# checked-in example is intentionally non-routable.
+ads-pilot-launch.local.json
+
+# Linked git worktrees created by agent tooling. Each is a full checkout with
+# its own .git file, so committing one nests a second working tree inside this
+# one — and because a worktree carries its own generated migrations, it also
+# drags a DUPLICATE migration index into whichever branch swept it up.
+.claude/worktrees/

@@ -167,6 +167,9 @@ export enum AnalyticsEvent {
   ADS_FETCH_COMPLETED = 'ads.fetch_completed',
   ADS_IMPRESSION_RECORDED = 'ads.impression_recorded',
   ADS_CLICKED = 'ads.clicked',
+  ADS_FIRST_PARTY_DECISION = 'ads.first_party_decision',
+  ADS_FIRST_PARTY_SETTLEMENT = 'ads.first_party_settlement',
+  ADS_FIRST_PARTY_VIEW_ACK = 'ads.first_party_view_ack',
 
   // Web - Token Count API
   TOKEN_COUNT_REQUEST = 'api.token_count_request',

@@ -5,6 +5,9 @@ import {
   DEEPSEEK_WEEKEND_OFFPEAK_EFFECTIVE_AT_UTC,
   deepSeekExpensiveWindowEndsAt,
   deepseekPricingWindow,
+  formatDeepSeekExpensiveWindowLocal,
+  formatDeepSeekExpensiveWindowReturn,
+  formatDeepSeekOffPeakWindowLocal,
   isBeijingWeekend,
   isDeepSeekExpensiveWindow,
 } from '../constants/freebuff-peak-hours'
@@ -68,10 +71,10 @@ describe('the expensive window', () => {
 
 describe('the Beijing weekend boundary', () => {
   test.each([
-    ['2026-08-28T15:00:00Z', false], // Friday 23:00 in Beijing
-    ['2026-08-28T16:00:00Z', true], // Saturday 00:00 in Beijing
-    ['2026-08-30T15:00:00Z', true], // Sunday 23:00 in Beijing
-    ['2026-08-30T16:00:00Z', false], // Monday 00:00 in Beijing
+    ['2026-08-28T15:00:00Z', false],
+    ['2026-08-28T16:00:00Z', true],
+    ['2026-08-30T15:00:00Z', true],
+    ['2026-08-30T16:00:00Z', false],
   ])('%s isBeijingWeekend=%p', (instant, weekend) => {
     expect(isBeijingWeekend(new Date(instant as string))).toBe(
       weekend as boolean,
@@ -106,3 +109,49 @@ test.each(['2026-08-29T02:00:00Z', '2026-08-30T02:00:00Z'])(
     expect(isDeepSeekExpensiveWindow(date)).toBe(false)
   },
 )
+
+/**
+ * The 2026-08-26 report: a user in Germany was told V4 Flash was back "again at
+ * 10:00 AM" at 10:34 on their own clock — a moment that read as already past.
+ * It was 10:00 UTC, so noon for them, and nothing in the sentence said which
+ * clock it meant. These formatters run on the server as often as in a picker,
+ * so the zone is not optional decoration; it is what makes the string answerable
+ * by a reader who is not in the process that wrote it.
+ */
+describe('every window names the clock it is quoted in', () => {
+  const insideWindow = at(8)
+
+  test('the return time says UTC when the caller asks for UTC', () => {
+    expect(formatDeepSeekExpensiveWindowReturn(insideWindow, 'UTC')).toBe(
+      'again at 10:00 AM UTC',
+    )
+  })
+
+  test('the same instant, quoted for a reader in Berlin, is noon — and says so', () => {
+    const berlin = formatDeepSeekExpensiveWindowReturn(
+      insideWindow,
+      'Europe/Berlin',
+    )
+    expect(berlin).toContain('12:00 PM')
+    expect(berlin).not.toContain('10:00 AM')
+    expect(berlin).toMatch(/GMT\+2|CEST/)
+  })
+
+  test('a range labels its zone ONCE, at the end', () => {
+    const closed = formatDeepSeekExpensiveWindowLocal(insideWindow, 'UTC')
+    expect(closed).toBe('12:00 AM – 10:00 AM UTC')
+    expect(closed.match(/UTC/g)).toHaveLength(1)
+  })
+
+  test('the open window is the closed one inverted, and labelled too', () => {
+    expect(formatDeepSeekOffPeakWindowLocal(insideWindow, 'UTC')).toBe(
+      '10:00 AM – 12:00 AM UTC',
+    )
+  })
+
+  test('an unknown zone falls back to UTC rather than to the host process', () => {
+    expect(formatDeepSeekExpensiveWindowReturn(insideWindow, 'UTC')).toBe(
+      formatDeepSeekExpensiveWindowReturn(insideWindow, 'Etc/UTC'),
+    )
+  })
+})

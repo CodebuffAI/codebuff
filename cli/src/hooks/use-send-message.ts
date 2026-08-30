@@ -9,6 +9,7 @@ import {
   getFreebuffInstanceId,
   markFreebuffSessionEnded,
 } from './use-freebuff-session'
+import { getSelectedFreebuffReasoningEffort } from '../state/freebuff-model-store'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { AGENT_MODE_TO_COST_MODE, IS_FREEBUFF } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
@@ -85,6 +86,8 @@ interface UseSendMessageOptions {
   continueChat: boolean
   continueChatId?: string
   subscriptionData?: SubscriptionResponse | null
+  /** Dependency injection seam for component-level run lifecycle tests. */
+  getClient?: typeof getCodebuffClient
 }
 
 // Choose the agent definition by explicit selection or mode-based fallback.
@@ -136,6 +139,7 @@ export const useSendMessage = ({
   continueChat,
   continueChatId,
   subscriptionData,
+  getClient = getCodebuffClient,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -457,7 +461,7 @@ export const useSendMessage = ({
       // Get SDK client
       let client: Awaited<ReturnType<typeof getCodebuffClient>>
       try {
-        client = await getCodebuffClient()
+        client = await getClient()
       } catch (error) {
         if (releaseIfStopped()) return
         logger.error(
@@ -575,6 +579,16 @@ export const useSendMessage = ({
         })
 
         const freebuffInstanceId = getFreebuffInstanceId()
+        // The user's `/reasoning` pick, when they made one. Read HERE rather
+        // than captured earlier so a mid-session change lands on the very next
+        // message without restarting the session. Null means "send nothing",
+        // which is what makes the server fall back to the catalog default —
+        // sending the default explicitly instead would make every turn look
+        // like a deliberate user choice and would override an agent's own
+        // declared reasoning (see applyFreebuffReasoningDefaults).
+        const freebuffReasoningEffort = IS_FREEBUFF
+          ? getSelectedFreebuffReasoningEffort()
+          : null
         const runConfig = createRunConfig({
           logger,
           agent: resolvedAgent,
@@ -587,7 +601,12 @@ export const useSendMessage = ({
           costMode: AGENT_MODE_TO_COST_MODE[agentMode],
           extraCodebuffMetadata:
             IS_FREEBUFF && freebuffInstanceId
-              ? { freebuff_instance_id: freebuffInstanceId }
+              ? {
+                  freebuff_instance_id: freebuffInstanceId,
+                  ...(freebuffReasoningEffort
+                    ? { freebuff_reasoning_effort: freebuffReasoningEffort }
+                    : {}),
+                }
               : undefined,
           onStateSnapshot: (snapshot) => {
             latestRunStateSnapshot = snapshot
@@ -599,6 +618,7 @@ export const useSendMessage = ({
             if (abortController.signal.aborted || !runChatIsCurrent()) {
               return
             }
+            previousRunStateRef.current = snapshot
             // Persist asynchronously and coalescing: the periodic snapshot
             // fires ~every 5s at step boundaries, and a synchronous save of the
             // (growing) transcript on the render/input thread is what stalls
@@ -642,7 +662,7 @@ export const useSendMessage = ({
         // context, and previousRunStateRef/setRunState would leak this run's
         // agent state into the other chat. (A plain Esc interrupt keeps the
         // same chat, so the interrupted turn is still saved as before.)
-        if (runChatIsCurrent()) {
+        if (!abortController.signal.aborted && runChatIsCurrent()) {
           // Finalize: persist state and mark complete
           previousRunStateRef.current = runState
           setRunState(runState)
@@ -758,6 +778,7 @@ export const useSendMessage = ({
       setInputFocused,
       setIsRetrying,
       setMessages,
+      getClient,
       setRunState,
       setStreamStatus,
       setStreamingAgents,

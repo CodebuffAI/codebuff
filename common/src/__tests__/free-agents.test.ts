@@ -682,7 +682,12 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-mimo': BASE2,
     'base2-free-minimax-m3': BASE2,
     'base2-free-luna': BASE2,
+    'base2-free-solar-pro4': BASE2,
     'base2-free-glm': BASE2,
+    // GLM 5.3 Flash's own root — a separate agent from 'base2-free-glm' above
+    // because the two models draw on different pools; createBase2('free', …)
+    // like its siblings.
+    'base2-free-glm-5-3-flash': BASE2,
     // God-only Kimi K3 test root; createBase2('free', …) like its siblings.
     'base2-free-kimi-k3-eco': BASE2,
     'base2-free-luna-es': BASE2,

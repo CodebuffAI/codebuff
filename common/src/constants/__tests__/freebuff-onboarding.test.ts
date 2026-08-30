@@ -104,17 +104,38 @@ describe('validateOnboardingSubmission', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('requires every question', () => {
-    // The form has no skip, so a partial submission is a stale or hand-rolled
-    // client rather than a user choice — and half a response would sit in the
-    // analytics looking like a real one.
-    const result = validateOnboardingSubmission({
-      answers: fullAnswers().slice(0, 2),
-    })
+  it('accepts a partial submission, keeping only what was answered', () => {
+    // Every question is individually skippable, so a partial submission is the
+    // normal case. Rejecting it is how answers used to be thrown away: the form
+    // posted what was filled in, this returned a 400, and the user was told
+    // their answers could not be saved.
+    const answered = fullAnswers().slice(0, 2)
+    const result = validateOnboardingSubmission({ answers: answered })
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('unreachable')
+    expect(result.answers.map((a) => a.questionId)).toEqual(
+      answered.map((a) => a.questionId),
+    )
+  })
+
+  it('refuses an entirely empty submission', () => {
+    // Saving nothing still marks the questionnaire as dealt with, so it has to
+    // be a skip rather than a submission.
+    const result = validateOnboardingSubmission({ answers: [] })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('unreachable')
-    expect(result.errors.length).toBeGreaterThan(0)
-    expect(result.errors.every((e) => e.questionId !== null)).toBe(true)
+    expect(result.errors).toEqual([
+      { questionId: null, message: 'Choose at least one answer.' },
+    ])
+  })
+
+  it('still rejects a malformed answer among skipped questions', () => {
+    // Leniency is about absence only. A present-but-wrong answer is a stale or
+    // forged client either way.
+    const result = validateOnboardingSubmission({
+      answers: [{ questionId: 'role', optionIds: ['ceo_of_mars'] }],
+    })
+    expect(result.ok).toBe(false)
   })
 
   it('rejects an unknown option id', () => {

@@ -3,7 +3,6 @@ import {
   getLastReadFilePaths,
 } from '@codebuff/common/project-file-tree'
 import { createMarkdownFileBlock } from '@codebuff/common/util/file'
-import { truncateString } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { truncateFileTreeBasedOnTokenBudget } from './truncate-file-tree'
@@ -194,23 +193,62 @@ export const getGitChangesPrompt = (fileContext: ProjectFileContext) => {
   if (!gitChanges) {
     return ''
   }
-  const maxLength = 30_000
+
+  const historyCountPrefix =
+    gitChanges.historyScanTruncated || gitChanges.historyIsShallow
+      ? 'at least '
+      : ''
+  const contributorStats =
+    gitChanges.humanContributorCount !== undefined
+      ? [
+          `human_contributors: ${historyCountPrefix}${gitChanges.humanContributorCount}`,
+          `bot_contributors: ${historyCountPrefix}${gitChanges.botContributorCount ?? 0}`,
+        ]
+      : gitChanges.contributorCount !== undefined
+        ? [`contributor_identities: ${gitChanges.contributorCount}`]
+        : []
+  const stats = [
+    gitChanges.branch ? `branch: ${gitChanges.branch}` : undefined,
+    `repository_visibility: ${gitChanges.repositoryVisibility ?? 'unknown'}`,
+    gitChanges.fileCount !== undefined
+      ? `indexed_project_files: ${gitChanges.fileCountIsLowerBound ? 'at least ' : ''}${gitChanges.fileCount}`
+      : undefined,
+    gitChanges.testFileCount !== undefined
+      ? `detected_test_files: ${gitChanges.fileCountIsLowerBound ? 'at least ' : ''}${gitChanges.testFileCount}`
+      : undefined,
+    gitChanges.commitCount !== undefined
+      ? `${gitChanges.historyIsShallow ? 'commits_in_shallow_clone' : 'total_commits'}: ${gitChanges.commitCount}`
+      : undefined,
+    gitChanges.commitDatePercentiles
+      ? `${gitChanges.historyIsShallow ? 'commit_dates_available_history' : 'commit_dates'}: first=${gitChanges.commitDatePercentiles.p0}, p25=${gitChanges.commitDatePercentiles.p25}, p50=${gitChanges.commitDatePercentiles.p50}, p75=${gitChanges.commitDatePercentiles.p75}, p100=${gitChanges.commitDatePercentiles.p100}`
+      : undefined,
+    gitChanges.mergedPullRequestCount !== undefined
+      ? `merged_pull_requests_detected: ${historyCountPrefix}${gitChanges.mergedPullRequestCount}`
+      : undefined,
+    ...contributorStats,
+  ].filter((line): line is string => line !== undefined)
+  const changedFiles = gitChanges.changedFiles ?? []
+  const gitAvailable =
+    gitChanges.gitAvailable ?? gitChanges.changedFiles !== undefined
+  const changedFileCount = gitChanges.changedFileCount ?? changedFiles.length
+  const countLabel = gitChanges.changedFileScanTruncated
+    ? `at least ${changedFileCount}`
+    : `${changedFileCount}`
+  const changedFilesLabel =
+    changedFiles.length < changedFileCount ||
+    gitChanges.changedFileScanTruncated
+      ? `showing ${changedFiles.length} of ${countLabel}`
+      : `${changedFileCount}`
+
   return `
-Git Changes:
-<git_status>
-${truncateString(gitChanges.status, maxLength / 10)}
-${closeXml('git_status')}
+Git repository summary captured at the start of the conversation. Repository visibility is a best-effort authenticated GitHub lookup; unknown does not imply private. Commit dates are chronological percentiles by committer date. A shallow clone labels them as available history rather than the full project timeline; truncated history omits them. Local file discovery respects repository ignore rules. Test files are detected from common language-agnostic path and filename conventions without reading file contents. Human and bot contributors are separated conservatively after Git mailmap alias canonicalization; aliases absent from .mailmap can still remain separate. Merged pull requests are detected from common merge and squash commit-subject formats, so histories that omit PR numbers can undercount them.
+<repository_stats>
+${stats.join('\n')}
+${closeXml('repository_stats')}
 
-<git_diff>
-${truncateString(gitChanges.diff, maxLength)}
-${closeXml('git_diff')}
-
-<git_diff_cached>
-${truncateString(gitChanges.diffCached, maxLength)}
-${closeXml('git_diff_cached')}
-
-<git_commit_messages_most_recent_first>
-${truncateString(gitChanges.lastCommitMessages, maxLength / 10)}
-${closeXml('git_commit_messages_most_recent_first')}
+Changed file paths (${gitAvailable ? changedFilesLabel : 'unavailable'}):
+<changed_file_paths>
+${gitAvailable ? (changedFiles.length > 0 ? changedFiles.join('\n') : '(none)') : '(Git metadata unavailable to this host)'}
+${closeXml('changed_file_paths')}
 `.trim()
 }

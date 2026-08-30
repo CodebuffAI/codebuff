@@ -1,5 +1,6 @@
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
+  freebuffWithdrawnModelMessage,
   getFreebuffModel,
   isFreebuffLimitedOfferModelId,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -9,6 +10,7 @@ import {
   getLimitedModelOffers,
   getRateLimitsByModel,
   getReferralInfo,
+  getSubscriptionInfo,
 } from '@codebuff/common/types/freebuff-session'
 import { useEffect } from 'react'
 
@@ -171,12 +173,16 @@ function toLandingSession(
   // GET is authoritative: if the wave has since been spent, the next response
   // simply omits the offer and the row disappears.
   const limitedModelOffers = getLimitedModelOffers(current)
+  // Same carry as rateLimitsByModel: the plan panel must not blink out
+  // between dropping to the picker and the refreshing GET.
+  const subscription = getSubscriptionInfo(current)
 
   return {
     status: 'none',
     ...(accessTier ? { accessTier } : {}),
     ...(rateLimitsByModel ? { rateLimitsByModel } : {}),
     ...(referral ? { referral } : {}),
+    ...(subscription ? { subscription } : {}),
     ...(limitedModelOffers.length > 0 ? { limitedModelOffers } : {}),
     ...(countryCode ? { countryCode } : {}),
     ...(countryBlockReason ? { countryBlockReason } : {}),
@@ -331,6 +337,7 @@ export function markFreebuffSessionEnded(): void {
     accessTier:
       current && 'accessTier' in current ? current.accessTier : undefined,
     rateLimitsByModel,
+    subscription: getSubscriptionInfo(current),
   })
 }
 
@@ -530,7 +537,21 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           // user pressed Enter on a row that was on screen a second ago and
           // would otherwise land on a different model with no explanation —
           // they lost a race for the wave's last slot.
-          if (isFreebuffLimitedOfferModelId(next.requestedModel)) {
+          //
+          // A WITHDRAWN model gets one too, and for a stronger reason: the
+          // flip below is permanent for that pick, so silence would leave the
+          // user's picker row looking fine forever while every session quietly
+          // started somewhere else.
+          if (next.withdrawn) {
+            useChatStore
+              .getState()
+              .setMessages((prev) => [
+                ...prev,
+                getSystemMessage(
+                  freebuffWithdrawnModelMessage(next.requestedModel),
+                ),
+              ])
+          } else if (isFreebuffLimitedOfferModelId(next.requestedModel)) {
             const requested = getFreebuffModel(next.requestedModel).displayName
             const fallback = getFreebuffModel(
               FALLBACK_FREEBUFF_MODEL_ID,
@@ -610,6 +631,8 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
                 ? current.accessTier
                 : undefined),
             rateLimitsByModel,
+            subscription:
+              getSubscriptionInfo(next) ?? getSubscriptionInfo(current),
           })
           return
         }
