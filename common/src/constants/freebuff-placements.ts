@@ -223,11 +223,22 @@ export interface PlacementTotals {
   clicks: number
   billableClicks: number
   /**
-   * Always the sum of the spend ledger, never recomputed from a campaign's
-   * current price — deriving it rewrites history the moment anyone edits that
-   * price.
+   * What the statement billed: at campaign grain, the sum of the spend
+   * ledger — back-bills, adjustments and campaign-scoped refunds included —
+   * never recomputed from a campaign's current price, which would rewrite
+   * history the moment anyone edits that price. At creative grain there is no
+   * ledger, so this equals {@link deliverySpendCents}.
    */
   spendCents: number
+  /**
+   * What the delivery and attribution rows themselves charged, summed from
+   * their frozen per-click/per-conversion prices. Rate metrics (eCPC, eCPM,
+   * cost per result) divide THIS, never {@link spendCents}: a ledger-only
+   * line like a manual back-bill pays for delivery the counters cannot see,
+   * so dividing billed spend by delivery counts bends every ratio away from
+   * the price actually charged.
+   */
+  deliverySpendCents: number
 }
 
 /**
