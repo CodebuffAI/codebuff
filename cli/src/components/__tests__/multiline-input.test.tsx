@@ -371,6 +371,36 @@ describe('MultilineInput - hardware cursor lifecycle', () => {
     }
   })
 
+  test('places the renderer cursor on the wrapped visual row', async () => {
+    const setup = await createTestRenderer({ width: 12, height: 8 })
+    const root = createRoot(setup.renderer)
+    const props = {
+      value: 'one two three',
+      onChange: () => {},
+      onSubmit: () => {},
+      onPaste: () => {},
+      cursorPosition: 13,
+      maxHeight: 5,
+      shouldBlinkCursor: false,
+      focused: true,
+    }
+
+    try {
+      flushSync(() => root.render(<MultilineInput {...props} />))
+      await setup.renderOnce()
+
+      // The wrapped second line is scrolled into the top viewport row.
+      expect(setup.renderer.getCursorState()).toMatchObject({
+        x: 7,
+        y: 1,
+        visible: true,
+      })
+    } finally {
+      flushSync(() => root.unmount())
+      setup.renderer.destroy()
+    }
+  })
+
   test('hides the hardware cursor when unfocused and on unmount', async () => {
     const setup = await createTestRenderer({ width: 30, height: 8 })
     const root = createRoot(setup.renderer)
