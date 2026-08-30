@@ -9,6 +9,10 @@ import {
   collectProcessDiagnostics,
   formatProcessDiagnostics,
 } from './process-diagnostics'
+import {
+  collectDoctorReport,
+  formatDoctorReport,
+} from './doctor'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
 import { handleReasoningCommand } from './reasoning'
 import { runBashCommand } from './router'
@@ -226,6 +230,17 @@ const ALL_COMMANDS: CommandDefinition[] = [
     handler: (params) => {
       const diagnostics = formatProcessDiagnostics(collectProcessDiagnostics())
       params.setMessages((prev) => [...prev, getSystemMessage(diagnostics)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'doctor',
+    aliases: ['check', 'health'],
+    handler: async (params) => {
+      const report = await collectDoctorReport()
+      const formatted = formatDoctorReport(report)
+      params.setMessages((prev) => [...prev, getSystemMessage(formatted)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
