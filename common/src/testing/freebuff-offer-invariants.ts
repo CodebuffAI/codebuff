@@ -46,6 +46,13 @@ export interface FreebuffOfferSurface {
   surface: string
   /** The tier whose rows `offered` describes — gates are tier-sensitive. */
   accessTier: FreebuffAccessTier
+  /** Whether `offered` describes what a LIVE PAID PLAN holder is shown.
+   *
+   *  A plan widens the limited catalog, so the same picker has two legitimate
+   *  offer sets at `limited` and they must be checked against different gate
+   *  answers. Without this the subscriber set fails checks 2 and 3 — which is
+   *  correct for a free limited user and wrong for a paying one. */
+  hasPaidSubscription?: boolean
   /** Every model id this surface can put in front of a user on that tier,
    *  INCLUDING earned/unlocked rows like the GLM referral reward. */
   offered: readonly string[]
@@ -87,7 +94,14 @@ function violationsForModel(
   }
 
   // 2. …and admit it for THIS tier, or admission answers model_not_allowed
-  if (!isFreebuffSessionModelAllowedForAccessTier(model, surface.accessTier)) {
+  const hasPaidSubscription = surface.hasPaidSubscription ?? false
+  if (
+    !isFreebuffSessionModelAllowedForAccessTier(
+      model,
+      surface.accessTier,
+      hasPaidSubscription,
+    )
+  ) {
     out.push(
       `${where} is offered to the ${surface.accessTier} tier, which session admission does not allow it on`,
     )
@@ -98,6 +112,7 @@ function violationsForModel(
   const resolved = resolveFreebuffSessionModelForAccessTier(
     model,
     surface.accessTier,
+    { hasPaidSubscription },
   )
   if (resolved !== model) {
     out.push(

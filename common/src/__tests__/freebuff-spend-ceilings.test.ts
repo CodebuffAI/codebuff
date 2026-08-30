@@ -260,6 +260,12 @@ describe('refusal copy', () => {
       'unverified_egress',
     ]) {
       expect(freebuffSpendNoticeFor(reason)).toBe(FREEBUFF_RESTRICTED_NOTICE)
+      // The whole point of naming the cause is that it carries an ACTION. A
+      // user throttled for VPN egress who is only told they ran out has no way
+      // to know that connecting directly restores the allowance -- which is
+      // exactly what was happening on the rate-limit path until 2026-08-24.
+      expect(FREEBUFF_RESTRICTED_NOTICE).toContain('VPN')
+      expect(FREEBUFF_RESTRICTED_NOTICE).toContain('connecting directly')
     }
   })
 

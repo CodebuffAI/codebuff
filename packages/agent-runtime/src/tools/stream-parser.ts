@@ -17,8 +17,14 @@ import {
   tryTransformAgentToolCall,
 } from './tool-executor'
 import { withSystemTags } from '../util/messages'
+import {
+  historyLeaksThinkTags,
+  stripThinkScaffolding,
+  ThinkTagStream,
+} from '../util/think-tag-stream'
 
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
+import type { ThinkStreamSegment } from '../util/think-tag-stream'
 import type { AgentTemplate } from '../templates/types'
 import type { FileProcessingState } from './handlers/tool/write-file'
 import type { ToolName } from '@codebuff/common/tools/constants'
@@ -169,6 +175,31 @@ export async function processStream(
     userId,
   } = params
   const fullResponseChunks: string[] = [fullResponse]
+
+  // === LEAKED-REASONING SPLIT ===
+  // Reasoning that a lane failed to put in its native field arrives here as
+  // ordinary text, tags and all. Reclassify it before it reaches a surface, so
+  // the thinking box is the only place a chain of thought is ever rendered.
+  // See util/think-tag-stream.ts for the three shapes and why the implicit-open
+  // rule is armed from the history rather than from a model id.
+  const thinkTagStream = new ThinkTagStream({
+    implicitOpen: historyLeaksThinkTags(agentState.messageHistory),
+  })
+  const emitThinkSegments = (segments: ThinkStreamSegment[]): void => {
+    for (const segment of segments) {
+      if (segment.type === 'text') {
+        onResponseChunk(segment.text)
+      } else {
+        onResponseChunk({
+          type: 'reasoning_delta',
+          text: segment.text,
+          ancestorRunIds,
+          runId,
+          agentId: agentState.agentId,
+        })
+      }
+    }
+  }
 
   // === MUTABLE STATE ===
   const toolResults: ToolMessage[] = []
@@ -358,7 +389,18 @@ export async function processStream(
     onResponseChunk: (chunk) => {
       if (chunk.type === 'text') {
         if (chunk.text) {
+          // Raw, like fullResponse: the history is where the leak evidence and
+          // the thinking-only turn-end signal live.
           assistantMessages.push(assistantMessage(chunk.text))
+        }
+        // This event is the CONSOLIDATED fallback for consumers that did not
+        // take the streamed deltas — the desktop harness renders it only when
+        // nothing streamed, which is exactly the thinking-only step where every
+        // delta above went to the thinking box instead. Forwarding it raw would
+        // put the scaffolding back on screen through the side door.
+        const visible = stripThinkScaffolding(chunk.text)
+        if (visible !== chunk.text) {
+          return onResponseChunk({ ...chunk, text: visible })
         }
       } else if (chunk.type === 'error') {
         // do nothing
@@ -433,6 +475,10 @@ export async function processStream(
           }
         }
         if (chunk.text) {
+          // A lane that populates the native reasoning field is by definition
+          // not putting the thought in `content`, so this step is not leaking
+          // and anything held on speculation is the answer.
+          emitThinkSegments(thinkTagStream.disarmImplicitOpen())
           onResponseChunk({
             type: 'reasoning_delta',
             text: chunk.text,
@@ -442,7 +488,11 @@ export async function processStream(
           })
         }
       } else if (chunk.type === 'text') {
-        onResponseChunk(chunk.text)
+        // Deliberately the RAW text into fullResponse and the message history:
+        // isThinkOnlyResponse reads it to keep a thinking-only step from ending
+        // the turn, and historyLeaksThinkTags reads it to arm the next step.
+        // Stripping it here would erase both signals.
+        emitThinkSegments(thinkTagStream.push(chunk.text))
         fullResponseChunks.push(chunk.text)
       } else if (chunk.type === 'error') {
         onResponseChunk(chunk)
@@ -503,6 +553,12 @@ export async function processStream(
       }
     }
 
+    // The step's content is complete: release anything the split still holds,
+    // before the tool-completion await below, so a released head keeps its
+    // place ahead of this step's tool events. `flush` is idempotent, so the
+    // safety-net call in `finally` is a no-op on this path.
+    emitThinkSegments(thinkTagStream.flush())
+
     // Retry-outcome signal: this step streamed to completion (no new
     // recovery, no user abort) while the history tail still carries a
     // recovery streak — meaning the forced-step retry rescued the turn.
@@ -541,6 +597,11 @@ export async function processStream(
     }
   } finally {
     // === FINALIZATION ===
+    // Release anything the think-tag split is still holding — a partial tag
+    // that never completed, or a head held for an orphan `</think>` that never
+    // came. Runs on the abort paths too, so speculation can never lose text.
+    emitThinkSegments(thinkTagStream.flush())
+
     // Trigger cleanup of the processStreamWithTools generator so it flushes any
     // remaining buffered text to assistantMessages before we build the history.
     // On path B (AbortError thrown mid-stream) the generator is already completed

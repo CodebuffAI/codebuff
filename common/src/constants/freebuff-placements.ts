@@ -17,21 +17,19 @@ import { AD_CAMPAIGN_STATUSES } from './freebuff-ads'
 import type { AdCampaignStatus } from './freebuff-ads'
 
 /**
- * The placements console is unbuilt inventory-side: nothing serves a
- * first-party ad yet, `ad_impression` carries no campaign id, and there is no
- * spend ledger. While this is `false` the console renders from fixtures and
- * must never be shown to an advertiser as their real numbers.
+ * The bare-bones placements control and delivery planes are wired: campaigns
+ * and creatives persist, first-party impressions carry campaign attribution,
+ * and clicks settle through the spend ledger.
  *
  * **This constant no longer decides who can reach the console.** That is the
  * `FREEBUFF_PLACEMENTS_AUDIENCE` env knob (`off` | `admin` | `all`, default
  * `off`), read by `placementsAudience()` in
  * `freebuff/web/src/server/advertisers/placements/access.ts`. What survives
- * here is the statement of FACT the knob is set against: the data behind these
- * screens is invented. It stays `false`, and stays exported, because the
- * fixture-vs-real distinction is what the UI cites — flip it only once
- * campaign attribution and the spend ledger actually exist.
+ * here is the implementation-state assertion the knob is set against. Delivery
+ * rollups expose coverage alongside delivery; an uncovered day is unknown,
+ * not a zero and never fixture data.
  */
-export const PLACEMENTS_CONSOLE_ENABLED = false
+export const PLACEMENTS_CONSOLE_ENABLED = true
 
 /**
  * Terminal widths the creative preview offers, chosen because these are the
@@ -46,6 +44,22 @@ export const PLACEMENTS_CONSOLE_ENABLED = false
  * real breakpoint, so the preview would have shown an advertiser nothing worth
  * seeing.
  */
+/**
+ * How many creative variants one campaign may carry.
+ *
+ * Lives here rather than beside the store because the campaign BUILDER needs
+ * it too, and the store imports the database client -- which cannot be pulled
+ * into a client component. It used to be duplicated as a literal in both
+ * places with a comment asking the reader to keep them in step, which is the
+ * arrangement where the API silently rejects what the form just let you build.
+ *
+ * Raised 10 -> 25 on 2026-08-28: the house subscription campaign wants a
+ * variant per angle per surface, and the CTR bias gets better the more it has
+ * to choose between. The ceiling exists to keep human review and the delivery
+ * rollup manageable, not to protect the picker.
+ */
+export const MAX_PLACEMENT_CREATIVES_PER_CAMPAIGN = 25
+
 export const PLACEMENT_PREVIEW_WIDTHS = [20, 48, 60] as const
 export type PlacementPreviewWidth = (typeof PLACEMENT_PREVIEW_WIDTHS)[number]
 
@@ -62,17 +76,99 @@ export const ACTIVATION_ATTRIBUTION_WINDOW_DAYS = 30
 export const ATTRIBUTION_WINDOW_COPY = `Activation counts within ${ACTIVATION_ATTRIBUTION_WINDOW_DAYS} days of the click`
 
 /**
- * Placements an advertiser can buy today. `cli_chat` is deliberately listed
- * and disabled rather than omitted: it is the placement every advertiser asks
- * about, and Gravity's exclusivity term is what blocks it, not our roadmap.
+ * Placements an advertiser can buy.
+ *
+ * EVERY ID HERE IS AN ID A SHIPPING CLIENT ACTUALLY SENDS. Verified against
+ * Axiom `ads.fetch_completed` over 7 days, 2026-08-23. That is a stricter test
+ * than "exists in the code", and it is the one that matters: an id nobody
+ * requests is a campaign that never delivers.
+ *
+ * Two ways to get this wrong, both of which we did:
+ *
+ * 1. A SURFACE NAME IS NOT A PLACEMENT. `cli_chat` was listed here once. It is
+ *    the surface; the transcript's placement is `CLI-Chat-Inline`.
+ *
+ * 2. `CLI-Chat-Inline-1..8` ARE NOT SELLABLE, despite existing in
+ *    `CLI_CHAT_BATCH_PLACEMENT_IDS`. `getPlacementIds` prefers an explicit
+ *    `placementId` over the surface, and every shipping client sends one, so
+ *    the batch list is reached only by CLI builds predating the lazy per-slot
+ *    auction. Measured: ~395 impressions/day across all eight and falling,
+ *    against ~99k/day for `CLI-Chat-Inline`. Do not sell a decaying legacy
+ *    path.
+ *
+ * Keep this in step with `getPlacementIds` in the ads route AND with what
+ * clients send. The three disagreeing is a campaign that silently never
+ * delivers.
+ *
+ * Chat was previously listed as unavailable on the grounds of a Gravity
+ * exclusivity term. That term does not exist, so chat is sellable -- and it is
+ * where nearly all the volume is.
+ *
+ * `Single-Ad-Unit-1` and `Desktop-Below-Chat` are live legacy slots as well as
+ * the primary inline units. They remain sellable until their clients retire;
+ * leaving either out would route an advertiser's inventory straight past a
+ * rendered surface.
  */
 export const PLACEMENT_SLOTS = [
   { id: 'waiting-room-1', surface: 'waiting_room', available: true },
   { id: 'waiting-room-2', surface: 'waiting_room', available: true },
   { id: 'waiting-room-3', surface: 'waiting_room', available: true },
   { id: 'waiting-room-4', surface: 'waiting_room', available: true },
-  { id: 'cli_chat', surface: 'cli_chat', available: false },
+  // The CLI transcript's inline slot. One id, re-auctioned per eligible slot.
+  { id: 'CLI-Chat-Inline', surface: 'cli_chat', available: true },
+  // Desktop's inline slot -- the largest single placement by fill volume.
+  { id: 'Desktop-Inline-Chat', surface: 'cli_chat', available: true },
+  { id: 'Desktop-Below-Chat', surface: 'cli_chat', available: true },
+  { id: 'Single-Ad-Unit-1', surface: 'cli_chat', available: true },
+  {
+    id: 'Web-Chat-After-User-Message',
+    surface: 'freebuff_web_chat',
+    available: true,
+  },
+  {
+    id: 'Web-Chat-After-Assistant-Message',
+    surface: 'freebuff_web_chat',
+    available: true,
+  },
+  {
+    id: 'Chat-Assistant-Above-Input',
+    surface: 'chat_assistant',
+    available: true,
+  },
 ] as const
+
+/**
+ * The reporting grain a TRACKED LINK click lands on.
+ *
+ * Deliberately NOT a `PLACEMENT_SLOTS` entry: a tracked link is not a slot,
+ * nothing auctions it, nothing serves an impression into it, and adding it to
+ * that list would put it in front of an advertiser choosing where their ad
+ * appears. But the delivery rollup groups by `placement_id` and `surface`, so
+ * an external click has to carry SOME value for both, and every surface that
+ * labels a placement will meet these two.
+ *
+ * `placementSlotLabel` below is what stops that meeting rendering `undefined`.
+ */
+export const TRACKED_LINK_PLACEMENT_ID = 'tracked-link'
+export const TRACKED_LINK_SURFACE = 'tracked_link'
+
+/**
+ * A human label for any `placement_id`, including grains no slot describes.
+ *
+ * `PLACEMENT_SLOTS` is a catalog of things an advertiser can BUY, and the
+ * reporting grain is strictly wider than it -- tracked links today, and
+ * whatever the next one is. So this is a formatter with a special case, not a
+ * dictionary lookup with a hole: `waiting-room-1` still becomes
+ * `Waiting room 1` and `CLI-Chat-Inline` still becomes `CLI Chat Inline`,
+ * exactly as the breakdown table already rendered them, and an unknown id
+ * degrades to a readable string rather than to `undefined`.
+ */
+export function placementSlotLabel(placementId: string): string {
+  if (placementId === TRACKED_LINK_PLACEMENT_ID) return 'Tracked links'
+  const [head, ...rest] = placementId.split('-')
+  if (!head) return placementId
+  return [head[0]!.toUpperCase() + head.slice(1), ...rest].join(' ')
+}
 
 /**
  * The metrics an advertiser sees, split by role.
@@ -83,32 +179,39 @@ export const PLACEMENT_SLOTS = [
  * network already ships.
  */
 export const PRIMARY_METRICS = [
+  'billableClicks',
   'activations',
-  'costPerActivation',
   'spend',
+  'avgCpc',
+  'avgCpa',
 ] as const
 export const DIAGNOSTIC_METRICS = [
   'impressions',
   'clicks',
-  'billableClicks',
   'ctr',
-  'avgCpc',
   'ecpm',
 ] as const
 
 export type PrimaryMetric = (typeof PRIMARY_METRICS)[number]
 export type DiagnosticMetric = (typeof DIAGNOSTIC_METRICS)[number]
-export type PlacementMetric = PrimaryMetric | DiagnosticMetric
+/** Legacy conversion labels remain addressable while conversion reporting is
+ * intentionally hidden from the CPC MVP UI. */
+export type PlacementMetric =
+  | PrimaryMetric
+  | DiagnosticMetric
+  | 'activations'
+  | 'costPerActivation'
 
 export const PLACEMENT_METRIC_LABELS: Record<PlacementMetric, string> = {
-  activations: 'Activations',
-  costPerActivation: 'Cost per activation',
+  activations: 'Billable activations',
+  costPerActivation: 'Avg CPA',
   spend: 'Spend',
   impressions: 'Impressions',
   clicks: 'Clicks',
   billableClicks: 'Billable',
   ctr: 'CTR',
   avgCpc: 'Avg CPC',
+  avgCpa: 'Avg CPA',
   ecpm: 'Effective CPM',
 }
 
@@ -120,11 +223,22 @@ export interface PlacementTotals {
   clicks: number
   billableClicks: number
   /**
-   * Always the sum of the spend ledger, never recomputed from a campaign's
-   * current price — deriving it rewrites history the moment anyone edits that
-   * price.
+   * What the statement billed: at campaign grain, the sum of the spend
+   * ledger — back-bills, adjustments and campaign-scoped refunds included —
+   * never recomputed from a campaign's current price, which would rewrite
+   * history the moment anyone edits that price. At creative grain there is no
+   * ledger, so this equals {@link deliverySpendCents}.
    */
   spendCents: number
+  /**
+   * What the delivery and attribution rows themselves charged, summed from
+   * their frozen per-click/per-conversion prices. Rate metrics (eCPC, eCPM,
+   * cost per result) divide THIS, never {@link spendCents}: a ledger-only
+   * line like a manual back-bill pays for delivery the counters cannot see,
+   * so dividing billed spend by delivery counts bends every ratio away from
+   * the price actually charged.
+   */
+  deliverySpendCents: number
 }
 
 /**
@@ -151,10 +265,10 @@ function ratio(numerator: number, denominator: number): number | null {
  * a viewability claim we sell against.
  */
 export function ctr(totals: PlacementTotals): number | null {
-  return ratio(totals.billableClicks, totals.impressionsViewed)
+  return ratio(totals.clicks, totals.impressionsViewed)
 }
 
-/** Spend per activation — the number an advertiser actually judges us on. */
+/** Conversion attribution is not part of the CPC MVP. Kept for broad types. */
 export function costPerActivation(totals: PlacementTotals): number | null {
   const perActivation = ratio(totals.spendCents, totals.activations)
   return perActivation === null ? null : perActivation / 100
@@ -164,6 +278,11 @@ export function costPerActivation(totals: PlacementTotals): number | null {
 export function avgCpc(totals: PlacementTotals): number | null {
   const perClick = ratio(totals.spendCents, totals.billableClicks)
   return perClick === null ? null : perClick / 100
+}
+
+/** Spend per verified, payable activation. */
+export function avgCpa(totals: PlacementTotals): number | null {
+  return costPerActivation(totals)
 }
 
 /**
@@ -244,6 +363,14 @@ export const NOT_SERVING_REASONS = [
   'paused',
   'flight_ended',
   'no_creatives',
+  // The two spend states. These name the same conditions the serve path
+  // refuses a fill for (`daily_cap_spent` / `total_budget_spent` in
+  // `ineligibleReason`), deliberately spelled identically: a campaign the
+  // auction has stopped filling and a console still showing a serving dot is
+  // the single disparity an advertiser is most likely to notice and least
+  // able to explain.
+  'daily_cap_spent',
+  'total_budget_spent',
 ] as const
 export type NotServingReason = (typeof NOT_SERVING_REASONS)[number]
 
@@ -275,6 +402,19 @@ export const NOT_SERVING_COPY: Record<
   no_creatives: {
     message: 'No approved creatives to serve',
     action: 'Add a creative',
+  },
+  // Says when it resumes, because it does. Without the reset time this reads
+  // as the same dead end as a spent total budget, and the two are a day and a
+  // cap change apart.
+  daily_cap_spent: {
+    message: 'Paused for today — daily cap reached, resumes at midnight PT',
+    action: 'Raise daily cap',
+  },
+  // No action beyond editing: the budget is spent, and the only way forward
+  // is a larger one.
+  total_budget_spent: {
+    message: 'This campaign spent its total budget',
+    action: 'Raise total budget',
   },
 }
 
