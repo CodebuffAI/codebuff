@@ -8,7 +8,10 @@ import {
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+  FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS,
   FREEBUFF_DESKTOP_SESSION_LIMITS,
+  freebuffDesktopSessionLimits,
+  occupiesFreebuffDesktopSlot,
   FREEBUFF_ENABLE_MIMO_MODELS_IN_UI,
   FREEBUFF_FABLE_5_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
@@ -192,6 +195,39 @@ describe('freebuff model availability', () => {
         'limited',
       ),
     ).toBe('premium')
+  })
+
+  test('a paid plan raises both ceilings and lifts the limited-tier one-tab rule', () => {
+    expect(freebuffDesktopSessionLimits(false)).toEqual(
+      FREEBUFF_DESKTOP_SESSION_LIMITS,
+    )
+    expect(freebuffDesktopSessionLimits(true)).toEqual({
+      premium: 3,
+      unlimited: 8,
+    })
+    // Strictly larger in both buckets, or the plan takes something away.
+    for (const bucket of ['premium', 'unlimited'] as const) {
+      expect(freebuffDesktopSessionLimits(true)[bucket]).toBeGreaterThan(
+        freebuffDesktopSessionLimits(false)[bucket],
+      )
+    }
+
+    // The limited-tier BLANKET rule is a backstop for an unmetered region, so a
+    // plan lifts it: the row falls back to being bucketed by the model list.
+    expect(
+      getFreebuffDesktopSessionBucket(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        'limited',
+        true,
+      ),
+    ).toBe('unlimited')
+    // The model list itself is a claim about PRICE, not about region, so a plan
+    // does not lift that — a subscriber simply gets more of those slots.
+    for (const model of FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS) {
+      for (const tier of ['full', 'limited'] as const) {
+        expect(occupiesFreebuffDesktopSlot(model, tier, true)).toBe(true)
+      }
+    }
   })
 
   test('DeepSeek Pro keeps its AI-training warning while paused', () => {

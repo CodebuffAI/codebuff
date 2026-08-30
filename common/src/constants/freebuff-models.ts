@@ -2129,9 +2129,13 @@ export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   FREEBUFF_SOLAR_PRO_4_MODEL_ID,
 ] as const
 
-/** Concurrent Freebuff Desktop sessions per model bucket. Premium is also
- * enforced by the database's partial unique index; unlimited is enforced by
- * the desktop soft gate and the chat-completions session gate. */
+/** Concurrent Freebuff Desktop sessions per model bucket, for a FREE account.
+ * Premium is also enforced by the database's partial unique index; unlimited is
+ * enforced by the desktop soft gate and the chat-completions session gate.
+ *
+ * Subscribers get `FREEBUFF_SUBSCRIBER_DESKTOP_SESSION_LIMITS` instead — always
+ * reach both through `freebuffDesktopSessionLimits` rather than indexing this
+ * directly, or a paid account is silently held to the free ceiling. */
 export const FREEBUFF_DESKTOP_SESSION_LIMITS = {
   premium: 1,
   unlimited: 3,
@@ -2139,26 +2143,63 @@ export const FREEBUFF_DESKTOP_SESSION_LIMITS = {
 export type FreebuffDesktopSessionBucket =
   keyof typeof FREEBUFF_DESKTOP_SESSION_LIMITS
 
-/** True when a desktop tab running `model` under `accessTier` occupies the
- *  single per-user concurrency slot. On the full tier that's the premium
- *  bucket; on the LIMITED tier EVERY model occupies it — limited users get one
+/**
+ * What a paid plan buys in CONCURRENCY, as opposed to allowance.
+ *
+ * A subscription's session pools (`freebuff-subscriptions.ts`) bound how many
+ * hours an account may spend; these bound how many may run at once. The free
+ * ceilings answer the second question for an account whose spend is already
+ * bounded by a handful of free sessions a day — a subscriber's is not, and one
+ * tab at a time on the expensive rows makes the plan unusable for the parallel
+ * work it is bought for.
+ *
+ * Raising `premium` needs no migration: the index is `(user_id, premium_slot)`
+ * and admission hands out `0..premium-1`.
+ */
+export const FREEBUFF_SUBSCRIBER_DESKTOP_SESSION_LIMITS = {
+  premium: 3,
+  unlimited: 8,
+} as const
+
+/** The concurrency ceilings that apply to this account. `hasPaidPlan` is the
+ *  same live-subscription answer every other tier gate takes — the server
+ *  resolves it from the subscription row, and clients read it off
+ *  `subscription.tierId` on the session response. */
+export function freebuffDesktopSessionLimits(
+  hasPaidPlan: boolean,
+): Record<FreebuffDesktopSessionBucket, number> {
+  return hasPaidPlan
+    ? FREEBUFF_SUBSCRIBER_DESKTOP_SESSION_LIMITS
+    : FREEBUFF_DESKTOP_SESSION_LIMITS
+}
+
+/** True when a desktop tab running `model` under `accessTier` occupies one of
+ *  the per-user premium concurrency slots. On the full tier that's the premium
+ *  bucket; on the LIMITED tier EVERY model occupies one — limited users get one
  *  freebuff tab at a time. THE shared definition of the one-tab rule: the
  *  server's admission path and the desktop's picker/soft-gate must both call
- *  this so the client can't drift from what the server enforces. */
+ *  this so the client can't drift from what the server enforces.
+ *
+ *  A PAID PLAN lifts the limited-tier blanket rule, and only that. That rule is
+ *  a backstop for an UNMETERED region and a subscriber is metered by their plan,
+ *  so holding them to one tab there means they cannot use what they bought. The
+ *  premium MODEL list still applies to them — a claim about price, not region —
+ *  they simply get more of those slots. */
 export function occupiesFreebuffDesktopSlot(
   model: string,
   accessTier: FreebuffAccessTier | null | undefined,
+  hasPaidPlan = false,
 ): boolean {
-  return (
-    accessTier === 'limited' || isFreebuffDesktopPremiumBucketModelId(model)
-  )
+  if (isFreebuffDesktopPremiumBucketModelId(model)) return true
+  return accessTier === 'limited' && !hasPaidPlan
 }
 
 export function getFreebuffDesktopSessionBucket(
   model: string,
   accessTier: FreebuffAccessTier | null | undefined,
+  hasPaidPlan = false,
 ): FreebuffDesktopSessionBucket {
-  return occupiesFreebuffDesktopSlot(model, accessTier)
+  return occupiesFreebuffDesktopSlot(model, accessTier, hasPaidPlan)
     ? 'premium'
     : 'unlimited'
 }

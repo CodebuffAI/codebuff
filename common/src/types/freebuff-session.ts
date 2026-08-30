@@ -700,16 +700,19 @@ export type FreebuffSessionServerResponse = (
       upgrade?: FreebuffUpgradeHint
     }
   | {
-      /** Freebuff Desktop multi-session only: the user already holds an active
-       *  premium-bucket session and tried to admit a second one. Only one
-       *  premium-bucket model (DeepSeek V4 Pro / MiMo 2.5 Pro / Kimi / MiniMax
-       *  M3 / GLM 5.2) may run at a time per user; on the full tier up to three
-       *  unlimited-model sessions (DeepSeek V4 Flash, MiMo 2.5) may run. On
-       *  the LIMITED tier every model occupies the slot — one freebuff tab at
-       *  a time. The desktop client surfaces this and steers the tab to an
-       *  unlimited model (or closes the holding tab). Never returned to
-       *  CLI/web, which run one
-       *  session per user. */
+      /** Freebuff Desktop multi-session only: every premium-bucket slot the
+       *  account holds is already running, and this tab asked for another.
+       *
+       *  A FREE account has one such slot and three unlimited-model sessions
+       *  (`FREEBUFF_DESKTOP_SESSION_LIMITS`); a SUBSCRIBER has three and eight
+       *  (`FREEBUFF_SUBSCRIBER_DESKTOP_SESSION_LIMITS`). Premium-bucket models
+       *  are the expensive rows (Luna / GLM / MiniMax M3 …); on the LIMITED
+       *  tier every model occupies a slot for a free account — one freebuff tab
+       *  at a time — while a subscriber there is metered by their plan instead.
+       *
+       *  The desktop client surfaces this and steers the tab to an unlimited
+       *  model (or closes the holding tab). Never returned to CLI/web, which
+       *  run one session per user. */
       status: 'premium_slot_taken'
       accessTier?: FreebuffAccessTier
       /** Model this tab tried to start. */
