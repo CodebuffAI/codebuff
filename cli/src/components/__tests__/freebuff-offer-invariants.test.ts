@@ -9,11 +9,34 @@ import { describe, expect, test } from 'bun:test'
 import { getFreebuffRootAgentIdForModel } from '@codebuff/common/constants/free-agents'
 import {
   FREEBUFF_GLM_V52_MODEL_ID,
-  resolveFreebuffModelForAccessTier,
+  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 import { freebuffOfferViolations } from '@codebuff/common/testing/freebuff-offer-invariants'
 
+import {
+  resolveFreebuffModelPickForSession,
+  resolveFreebuffModelSelectionForSession,
+} from '../../hooks/use-freebuff-session'
 import { freebuffCliOfferedModelIds } from '../freebuff-model-selector'
+
+import type { FreebuffAccessTier } from '@codebuff/common/constants/freebuff-models'
+import type { FreebuffSessionResponse } from '../../types/freebuff-session'
+
+function cliAcceptsModel(
+  model: string,
+  accessTier: FreebuffAccessTier,
+  hasPaidSubscription = false,
+): boolean {
+  const session: FreebuffSessionResponse = {
+    status: 'none',
+    accessTier,
+    ...(hasPaidSubscription
+      ? { subscription: { tierId: 'starter', tiers: [] } }
+      : {}),
+  }
+  return resolveFreebuffModelPickForSession(model, session) === model
+}
 
 describe('freebuff rows the CLI offers', () => {
   for (const accessTier of ['full', 'limited'] as const) {
@@ -25,8 +48,7 @@ describe('freebuff rows the CLI offers', () => {
           offered: freebuffCliOfferedModelIds(accessTier),
           // the CLI's own resolver, which every session start runs the selection through: a model
           // it coerces away is one the user picked and never got
-          accepts: (model) =>
-            resolveFreebuffModelForAccessTier(model, accessTier) === model,
+          accepts: (model) => cliAcceptsModel(model, accessTier),
           rootAgentIdFor: getFreebuffRootAgentIdForModel,
           catalog: 'supported',
         }),
@@ -44,8 +66,7 @@ describe('freebuff rows the CLI offers', () => {
         accessTier: 'limited',
         hasPaidSubscription: true,
         offered: freebuffCliOfferedModelIds('limited', true),
-        accepts: (model) =>
-          resolveFreebuffModelForAccessTier(model, 'limited', true) === model,
+        accepts: (model) => cliAcceptsModel(model, 'limited', true),
         rootAgentIdFor: getFreebuffRootAgentIdForModel,
         catalog: 'supported',
       }),
@@ -60,10 +81,37 @@ describe('freebuff rows the CLI offers', () => {
     expect(paid.length).toBeGreaterThan(free.length)
   })
 
+  test('a limited subscriber startup keeps their saved plan model selected', () => {
+    const paidSession: FreebuffSessionResponse = {
+      status: 'none',
+      accessTier: 'limited',
+      subscription: { tierId: 'starter', tiers: [] },
+    }
+    const unpaidSession: FreebuffSessionResponse = {
+      status: 'none',
+      accessTier: 'limited',
+    }
+
+    expect(
+      resolveFreebuffModelSelectionForSession(
+        FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        paidSession,
+      ),
+    ).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(
+      resolveFreebuffModelSelectionForSession(
+        FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        unpaidSession,
+      ),
+    ).toBe(LIMITED_FREEBUFF_MODEL_ID)
+  })
+
   test('the earned reward is offered on BOTH tiers, and the grid never shows it', () => {
     // Limited access included: a bounty grant is redeemable there, so the row has to be
     // reachable there. The banner still only renders it against a live balance.
-    expect(freebuffCliOfferedModelIds('full')).toContain(FREEBUFF_GLM_V52_MODEL_ID)
+    expect(freebuffCliOfferedModelIds('full')).toContain(
+      FREEBUFF_GLM_V52_MODEL_ID,
+    )
     expect(freebuffCliOfferedModelIds('limited')).toContain(
       FREEBUFF_GLM_V52_MODEL_ID,
     )
