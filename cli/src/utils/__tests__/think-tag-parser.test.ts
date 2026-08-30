@@ -103,6 +103,13 @@ describe('parseThinkTags', () => {
       { type: 'thinking', content: 'started thinking' },
     ])
   })
+
+  test('treats text before an orphan close tag as thinking', () => {
+    expect(parseThinkTags('private reasoning</think>answer')).toEqual([
+      { type: 'thinking', content: 'private reasoning' },
+      { type: 'text', content: 'answer' },
+    ])
+  })
 })
 
 describe('getPartialTagLength', () => {

@@ -11,10 +11,13 @@ import {
   PLACEMENT_METRIC_LABELS,
   PLACEMENT_PREVIEW_WIDTHS,
   PLACEMENT_SLOTS,
+  TRACKED_LINK_PLACEMENT_ID,
+  placementSlotLabel,
   PLACEMENT_STATUS_LABELS,
   PRIMARY_METRICS,
   UNDERSPEND_COPY,
   UNDERSPEND_REASONS,
+  avgCpa,
   avgCpc,
   costPerActivation,
   ctr,
@@ -34,6 +37,7 @@ function totals(overrides: Partial<PlacementTotals> = {}): PlacementTotals {
     clicks: 0,
     billableClicks: 0,
     spendCents: 0,
+    deliverySpendCents: overrides.spendCents ?? 0,
     ...overrides,
   }
 }
@@ -47,24 +51,24 @@ describe('derived metrics', () => {
       totals({
         impressionsServed: 2_000,
         impressionsViewed: 1_000,
-        billableClicks: 10,
+        clicks: 10,
       }),
     )
 
     expect(value).toBe(0.01)
   })
 
-  it('counts billable clicks in CTR, not raw clicks', () => {
-    // The invoice bills billable clicks, so the dashboard's rate has to use
-    // the same numerator or the two disagree in front of the advertiser.
+  it('keeps CTR diagnostic and counts raw clicks, not only billed clicks', () => {
+    // CPA does not bill a click. CTR must remain a diagnostic of actual click
+    // behaviour across both billing models rather than a disguised invoice rate.
     const value = ctr(
       totals({ impressionsViewed: 1_000, clicks: 20, billableClicks: 10 }),
     )
 
-    expect(value).toBe(0.01)
+    expect(value).toBe(0.02)
   })
 
-  it('computes cost per activation, average CPC and eCPM in dollars', () => {
+  it('computes CPA, CPC and eCPM in dollars', () => {
     const measured = totals({
       activations: 4,
       impressionsViewed: 10_000,
@@ -74,6 +78,7 @@ describe('derived metrics', () => {
     })
 
     expect(costPerActivation(measured)).toBe(15)
+    expect(avgCpa(measured)).toBe(15)
     expect(avgCpc(measured)).toBe(1.5)
     expect(ecpm(measured)).toBe(6)
     expect(spendUsd(measured)).toBe(60)
@@ -160,11 +165,10 @@ describe('display status', () => {
 })
 
 describe('copy and configuration', () => {
-  it('keeps the console off until there is something real to show', () => {
-    // Nothing serves a first-party ad yet: no campaign id on ad_impression, no
-    // rollup, no spend ledger. This flag going true before those exist would
-    // show an advertiser fixtures as their own delivery.
-    expect(PLACEMENTS_CONSOLE_ENABLED).toBe(false)
+  it('marks the DB-backed control and delivery planes as wired', () => {
+    // Rollups may still be zero, but campaign attribution and the spend ledger
+    // are real and the console no longer resolves users to a fixture account.
+    expect(PLACEMENTS_CONSOLE_ENABLED).toBe(true)
   })
 
   it('previews the widths where layout actually changes', () => {
@@ -179,12 +183,37 @@ describe('copy and configuration', () => {
     )
   })
 
-  it('offers cli_chat as visible but unavailable', () => {
-    // Blocked by Gravity's exclusivity term, not by our roadmap. Hiding it
-    // just means every advertiser asks.
-    const cliChat = PLACEMENT_SLOTS.find((slot) => slot.id === 'cli_chat')
-    expect(cliChat?.available).toBe(false)
-    expect(PLACEMENT_SLOTS.filter((slot) => slot.available).length).toBe(4)
+  it('sells every real slot, and only real slots', () => {
+    // Every id must be a PLACEMENT id, never a surface name. `cli_chat` was
+    // listed here once; it is a surface, and the transcript's real slots are
+    // `CLI-Chat-Inline-1..8`. A surface name here is a campaign sold against
+    // inventory that can never match at serve time.
+    const surfaceNames = new Set<string>(
+      PLACEMENT_SLOTS.map((slot) => slot.surface),
+    )
+    for (const slot of PLACEMENT_SLOTS) {
+      expect([slot.id, surfaceNames.has(slot.id)]).toEqual([slot.id, false])
+    }
+
+    expect(PLACEMENT_SLOTS.every((slot) => slot.available)).toBe(true)
+    expect(new Set(PLACEMENT_SLOTS.map((slot) => slot.id)).size).toBe(
+      PLACEMENT_SLOTS.length,
+    )
+  })
+
+  it('covers the chat surfaces, which are the larger pool', () => {
+    // Chat was blocked on a Gravity exclusivity term that does not exist. The
+    // transcript alone is twice the waiting room's slot count.
+    const bySurface = (surface: string) =>
+      PLACEMENT_SLOTS.filter((slot) => slot.surface === surface).length
+    // CLI transcript + its legacy single slot + both Desktop units. NOT the
+    // eight `CLI-Chat-Inline-N` ids:
+    // no shipping client requests those, so selling them would be selling a
+    // decaying legacy path.
+    expect(bySurface('cli_chat')).toBe(4)
+    expect(bySurface('waiting_room')).toBe(4)
+    expect(bySurface('freebuff_web_chat')).toBe(2)
+    expect(bySurface('chat_assistant')).toBe(1)
   })
 
   it('gives every not-serving and underspend reason copy', () => {
@@ -204,9 +233,64 @@ describe('copy and configuration', () => {
     }
   })
 
+  it('exposes both CPA and CPC primary facts for model-aware dashboards', () => {
+    expect(PRIMARY_METRICS).toEqual([
+      'billableClicks',
+      'activations',
+      'spend',
+      'avgCpc',
+      'avgCpa',
+    ])
+  })
+
   it('never labels impressions as a purchasable unit', () => {
     // eCPM is a derived yield figure for comparison against CPM inventory the
     // advertiser already buys. We do not sell impressions.
     expect(PLACEMENT_METRIC_LABELS.ecpm).toBe('Effective CPM')
+  })
+})
+
+/**
+ * The reporting grain is wider than the slot catalog, and the labeller has to
+ * know it.
+ *
+ * `PLACEMENT_SLOTS` lists what an advertiser can buy a position in. A tracked
+ * link is not one of those — nothing auctions it and nothing serves an
+ * impression into it — but the delivery rollup groups by `placement_id`, so
+ * every surface that labels a placement will meet it.
+ */
+describe('placementSlotLabel', () => {
+  it('renders every real slot exactly as the breakdown table already did', () => {
+    // This is a behaviour-preservation assertion, not a new format: these
+    // strings are what the table showed before the labeller moved here.
+    expect(placementSlotLabel('waiting-room-1')).toBe('Waiting room 1')
+    expect(placementSlotLabel('CLI-Chat-Inline')).toBe('CLI Chat Inline')
+    expect(placementSlotLabel('Web-Chat-After-User-Message')).toBe(
+      'Web Chat After User Message',
+    )
+    for (const slot of PLACEMENT_SLOTS) {
+      expect(placementSlotLabel(slot.id).length).toBeGreaterThan(0)
+    }
+  })
+
+  it('names the tracked-link grain, which no slot describes', () => {
+    expect(placementSlotLabel(TRACKED_LINK_PLACEMENT_ID)).toBe('Tracked links')
+    // That it is not a slot is proved by the compiler rather than asserted
+    // here: `PLACEMENT_SLOTS` is `as const`, so comparing a slot id against
+    // this constant is a type error ("no overlap"). Adding it to the catalog
+    // would put a tracked link in front of an advertiser choosing where their
+    // ad appears, which is not what it is.
+    expect(
+      (PLACEMENT_SLOTS as readonly { id: string }[]).some(
+        (slot) => slot.id === TRACKED_LINK_PLACEMENT_ID,
+      ),
+    ).toBe(false)
+  })
+
+  it('degrades an unknown grain to something readable, never undefined', () => {
+    // The next grain after tracked links must render as a string a human can
+    // read, not as a gap that looks like a bug in the numbers beside it.
+    expect(placementSlotLabel('some-future-grain')).toBe('Some future grain')
+    expect(placementSlotLabel('')).toBe('')
   })
 })

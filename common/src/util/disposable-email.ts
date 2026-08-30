@@ -171,6 +171,34 @@ const DISPOSABLE_EMAIL_DOMAINS = [
   'sendang.space',
   'yotube.id',
   'gusil.my.id',
+  // Added 2026-08-24. The 08-15 note above says this farm was "now priced by
+  // flaggedEmailDomain"; it was priced by the five entries above, and the rest
+  // of the family kept registering. These five are still signing up.
+  //
+  // Qualified on HONEYPOT PROBING, not on the >=75% account bar, which none of
+  // them clear. A honeypot hit is a request for a model id no shipped client
+  // can produce, so it is proof of intent rather than evidence to be weighed --
+  // and the share of a domain's accounts that probe separates these from
+  // ordinary mail cleanly. Baselines from the same query: gmail.com 0% of
+  // accounts probing, outlook.com 5%.
+  //
+  //   duojumbo.online  511 accts  61% banned  52% probing
+  //   gmaoiil.com    1,086 accts  47% banned  34% probing  (typosquat of gmail)
+  //   itesun.com       321 accts  87% banned  30% probing
+  //   duojumbo.com     620 accts  30% banned  24% probing  (same operator)
+  //   geusil.com       446 accts  57% banned  22% probing
+  //
+  // Deliberately NOT added, on the same reasoning that kept gmisel.com out:
+  //   gieemel.com   295 accts, 35% banned, 0% probing -- zero honeypot hits of
+  //                 any kind. Looks like the family, behaves like nothing.
+  //   bekri.site    306 accts, 23% banned, 18% probing -- ban rate identical to
+  //                 outlook.com's baseline.
+  //   gmatos.com    214 accts, 17% banned, 17% probing -- below that baseline.
+  'gmaoiil.com',
+  'duojumbo.online',
+  'duojumbo.com',
+  'itesun.com',
+  'geusil.com',
 ] as const
 
 /**

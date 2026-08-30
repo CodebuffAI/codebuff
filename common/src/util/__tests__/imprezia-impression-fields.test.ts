@@ -47,8 +47,8 @@ describe('imprezia impression fields', () => {
       adText: 'A tool for shipping',
       title: 'Ship faster',
       cta: 'Try it',
-      // One tracked click URL, no separate landing page.
-      url: 'https://click.imprezia.ai/abc',
+      // No landing page, so no domain for a renderer to show; see the mapper.
+      url: '',
       clickUrl: 'https://click.imprezia.ai/abc',
       favicon: 'https://cdn.example/logo.png',
     })
