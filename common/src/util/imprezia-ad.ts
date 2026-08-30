@@ -96,7 +96,8 @@ const impreziaTrackersSchema = z.object({
 
 export type ImpreziaTrackers = z.infer<typeof impreziaTrackersSchema>
 
-const impreziaBeaconTokenSchema = z.object({
+/** Shared with the display API, which issues the same signed token. */
+export const impreziaBeaconTokenSchema = z.object({
   token: z.string(),
   issuedAt: z.number(),
   kid: z.string(),

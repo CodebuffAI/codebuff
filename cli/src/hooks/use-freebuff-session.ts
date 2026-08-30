@@ -1,5 +1,6 @@
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
+  freebuffWithdrawnModelMessage,
   getFreebuffModel,
   isFreebuffLimitedOfferModelId,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -536,7 +537,21 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           // user pressed Enter on a row that was on screen a second ago and
           // would otherwise land on a different model with no explanation —
           // they lost a race for the wave's last slot.
-          if (isFreebuffLimitedOfferModelId(next.requestedModel)) {
+          //
+          // A WITHDRAWN model gets one too, and for a stronger reason: the
+          // flip below is permanent for that pick, so silence would leave the
+          // user's picker row looking fine forever while every session quietly
+          // started somewhere else.
+          if (next.withdrawn) {
+            useChatStore
+              .getState()
+              .setMessages((prev) => [
+                ...prev,
+                getSystemMessage(
+                  freebuffWithdrawnModelMessage(next.requestedModel),
+                ),
+              ])
+          } else if (isFreebuffLimitedOfferModelId(next.requestedModel)) {
             const requested = getFreebuffModel(next.requestedModel).displayName
             const fallback = getFreebuffModel(
               FALLBACK_FREEBUFF_MODEL_ID,

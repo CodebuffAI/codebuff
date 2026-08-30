@@ -29,7 +29,10 @@ export const IMPREZIA_EXPERIMENT = 'ads_imprezia_primary_2026_08'
 /** Share of signed-in users who get Imprezia first refusal. */
 export const IMPREZIA_EXPERIMENT_PERCENT = 10
 
-/** Stable salt: changing the percentage grows/shrinks one persistent cohort. */
+/**
+ * Stable salt for request sampling. The sample key rotates per ad request, but
+ * the hash must stay shared by the route gate and campaign allocator.
+ */
 export const FIRST_PARTY_ROUTING_EXPERIMENT =
   'ads_first_party_before_paid_networks_2026_08'
 
@@ -46,7 +49,7 @@ export type FirstPartyAdRoute =
   | 'gravity_then_first_party'
 
 export interface FirstPartyRoutingConfig {
-  /** Stable share, 0..100, that tries our book before paid networks. */
+  /** Request share, 0..100, that tries our book before paid networks. */
   primaryPercent: number
   /** Whether the remaining paid-network cohort uses our book as backfill. */
   backfill: boolean
@@ -63,6 +66,15 @@ export function firstPartyPrimaryBasisPoints(primaryPercent: number): number {
     ? primaryPercent
     : DEFAULT_FIRST_PARTY_PRIMARY_PERCENT
   return Math.round(Math.min(100, Math.max(0, configuredPercent)) * 100)
+}
+
+/**
+ * Map one server-minted request sample to the allocator's 10,000-bucket space.
+ * Both routing and campaign selection use this exact function so a request
+ * admitted to first-party inventory cannot land in a different campaign slice.
+ */
+export function firstPartyPrimaryBucket(sampleId: string): number {
+  return fnv1a(`${FIRST_PARTY_ROUTING_EXPERIMENT}:${sampleId}`) % 10_000
 }
 
 export type AdExperimentArm = 'imprezia_forced' | 'imprezia_first' | 'control'
@@ -108,16 +120,19 @@ export function adExperimentArmForUser(
 /**
  * Choose the request's routing policy.
  *
- * Percentage changes do not reshuffle users: raising 10 → 20 adds the next
- * ten points of the same 10,000-bucket cohort. The function clamps direct
- * callers defensively; the runtime env schema rejects out-of-range values.
+ * Production callers pass a fresh server-minted `sampleId` for each ad request
+ * so a percentage applies to requests, not a permanently pinned set of users.
+ * The fallback to `userId` preserves deterministic behavior for old callers
+ * and tests. The function clamps direct callers defensively; the runtime env
+ * schema rejects out-of-range values.
  */
 export function firstPartyAdRouteForUser(
   userId: string | null | undefined,
   config: FirstPartyRoutingConfig,
+  sampleId?: string,
 ): FirstPartyAdRoute {
   if (!userId) return 'paid_network_only'
-  const bucket = fnv1a(`${FIRST_PARTY_ROUTING_EXPERIMENT}:${userId}`) % 10_000
+  const bucket = firstPartyPrimaryBucket(sampleId || userId)
   if (bucket < firstPartyPrimaryBasisPoints(config.primaryPercent)) {
     return 'first_party_primary'
   }

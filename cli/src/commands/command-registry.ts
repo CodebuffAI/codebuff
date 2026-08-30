@@ -10,6 +10,7 @@ import {
   formatProcessDiagnostics,
 } from './process-diagnostics'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
+import { handleReasoningCommand } from './reasoning'
 import { runBashCommand } from './router'
 import { handleUsageCommand } from './usage'
 import { returnToFreebuffLanding } from '../hooks/use-freebuff-session'
@@ -183,6 +184,11 @@ const FREEBUFF_ONLY_COMMANDS = new Set([
   'plan',
   'end-session',
   'dashboard',
+  // Freebuff-only because the ladder it reads is the FREEBUFF catalog's, and
+  // the metadata it sets is honored only for free-mode traffic
+  // (isFreebuffOriginatedRequest). On Codebuff the command would take a value
+  // and silently drop it.
+  'reasoning',
 ])
 
 const ALL_COMMANDS: CommandDefinition[] = [
@@ -614,6 +620,24 @@ const ALL_COMMANDS: CommandDefinition[] = [
         getUserMessage(params.inputValue.trim()),
         getSystemMessage(`Switched to ${newTheme} theme.`),
       ])
+      clearInput(params)
+    },
+  }),
+  // /reasoning (freebuff-only) — read or set the thinking level for the
+  // selected model. Takes effect on the NEXT message: the effort rides
+  // codebuff_metadata on each request, so nothing about the live session has to
+  // be restarted for a change to land.
+  defineCommandWithArgs({
+    name: 'reasoning',
+    aliases: ['effort', 'think'],
+    handler: (params, args) => {
+      const { message } = handleReasoningCommand(args)
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage(message),
+      ])
+      params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
   }),

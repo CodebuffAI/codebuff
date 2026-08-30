@@ -12,10 +12,9 @@ import type { FreebuffStandingInfo } from '../constants/freebuff-trust'
 /**
  * Usage counter surfaced to the CLI so the UI can render
  * "N of M sessions used" alongside active state. Present when the
- * joined model consumes Freebuff sessions. `recentCount` is the
- * rounded session units since the current quota period began at the time the
- * response was produced — see also the standalone `rate_limited` status for
- * the reject path.
+ * joined model consumes Freebuff sessions. `recentCount` is usage since the
+ * current quota period began: fractional units normally, or session starts
+ * when `countsAdmissions` is set.
  */
 export interface FreebuffSessionEntitlementBreakdown {
   /** Sessions included without earning a referral or streak reward. */
@@ -45,12 +44,14 @@ export interface FreebuffSessionEntitlementBreakdown {
    * Sessions included by the account's PAID subscription tier
    * (`common/constants/freebuff-subscriptions.ts`).
    *
-   * When present it is the whole of `limit`, not an addition to it: a
-   * subscribable model is metered by the subscription instead of by the free
-   * pool that would otherwise cover it, so `base`/`referral`/`streak` are all
-   * zero on that row. A subscriber whose row read "4 subscription + 5 premium"
-   * would reasonably expect nine sessions, and the shared premium pool is
-   * exactly what the subscription replaces.
+   * An ADDITION to `base`, not a replacement for it — since 2026-08-26, when
+   * the plan started topping the free pools up rather than replacing them.
+   * Free sessions burn first and the plan covers what is left, so a row reading
+   * "5 base + 4 subscription" means nine sessions today and `limit` is nine.
+   *
+   * (It was the whole of `limit` under the older replace-semantics, with
+   * `base` zeroed. A client that sums the breakdown gets the right total under
+   * both, which is why the change needed no client release.)
    *
    * Omitted for everyone without a live subscription, so an older client that
    * never reads it still sums to the right `limit`.
@@ -112,6 +113,23 @@ export interface FreebuffSubscriptionUsage {
   /** Provider spend this billing period vs the tier's ceiling, USD. */
   monthSpendUsd: number
   monthSpendLimitUsd: number
+  /**
+   * The caller's FREE premium-session pool for today, which the plan tops up.
+   *
+   * Sent because a client cannot derive it: `rateLimitsByModel` carries one row
+   * per model — whichever pool the next admission will charge — so once the
+   * free pool is spent the free figures are simply not on the wire, and a
+   * client trying to add "free + plan" from it double-counts the plan row.
+   *
+   * Reported for quota-exempt accounts (god/admin) too: their free pool is not
+   * ENFORCED, but the entitlement is still the honest free half of the combined
+   * figure. Absent entirely from servers older than this field.
+   *
+   * The same numbers back the combined `rateLimitsByModel` rows, from one
+   * memoized read, so the panel and every picker header cannot disagree.
+   */
+  freeDayUsed?: number
+  freeDayLimit?: number
 }
 
 /**
@@ -152,6 +170,21 @@ export interface FreebuffSubscriptionInfo {
     | 'monthly_spend'
 }
 
+/**
+ * What to offer someone a refusal just stopped.
+ *
+ * Attached to `rate_limited` and `spend_limited` so the answer to "you are out
+ * of sessions" carries the way out, instead of leaving every client to invent
+ * its own copy and its own URL. Absent when there is nothing to sell — outside
+ * the rollout audience, or already on the largest plan.
+ *
+ * `url` is absolute so a terminal can print something clickable.
+ */
+export interface FreebuffUpgradeHint {
+  url: string
+  message: string
+}
+
 export interface FreebuffSessionRateLimit {
   model: string
   /**
@@ -173,6 +206,8 @@ export interface FreebuffSessionRateLimit {
    */
   pool?: string
   poolLabel?: string
+  /** `recentCount` counts starts rather than fractional session units. */
+  countsAdmissions?: true
   /** Additive detail for `limit`; omitted by older servers. New servers emit it
    * for session quotas with `limit = base + referral + streak + promo`. */
   entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
@@ -565,7 +600,43 @@ export type FreebuffSessionServerResponse = (
       status: 'model_unavailable'
       accessTier?: FreebuffAccessTier
       requestedModel: string
+      /**
+       * Prose, and quoted in UTC with the zone NAMED — the server cannot know
+       * where the reader is, and the container it runs in is not a guess worth
+       * making. Every client still renders this when `availableAt` is absent.
+       */
       availableHours: string
+      /**
+       * When the model comes back, as an ISO instant — present only for a
+       * closure with a computable return time (today, the DeepSeek peak
+       * window). An instant rather than a rendered time because the ONLY
+       * process that knows the reader's timezone is the client: this is what
+       * lets Desktop say "12:00 PM GMT+2" to a user in Berlin for the same
+       * moment the server calls 10:00 AM UTC. Absent on older servers, so
+       * `availableHours` stays the floor rather than the fallback.
+       */
+      availableAt?: string
+      /**
+       * The model is PRO-ONLY and this account has no paid plan — a different
+       * refusal from the deployment-hours one, and the only one an upgrade
+       * fixes. Older clients ignore it and still render `availableHours`,
+       * which carries the same sentence in prose.
+       */
+      requiresSubscription?: boolean
+      /**
+       * The model is WITHDRAWN from free mode (FREEBUFF_PAUSED_FREE_MODEL_IDS)
+       * rather than merely closed for the hour — permanent, so retrying later
+       * is not the advice. Set at ADMISSION, so no row is minted and no session
+       * unit is spent on a pick that cannot run a turn.
+       *
+       * Older clients ignore it and still render `availableHours`, which
+       * carries the same sentence in prose — the same arrangement
+       * `requiresSubscription` uses above, and for the same reason: every
+       * released binary keeps this id in its compiled-in catalog and keeps
+       * sending it, so the refusal has to read correctly on builds that predate
+       * the field.
+       */
+      withdrawn?: boolean
     }
   | {
       /** Account is banned. Returned from every endpoint so banned bots can't
@@ -596,6 +667,8 @@ export type FreebuffSessionServerResponse = (
        * for the CLI's current poll session; the user can exit and return later. */
       status: 'rate_limited'
       accessTier?: FreebuffAccessTier
+      /** The way out of this refusal, when there is one to sell. */
+      upgrade?: FreebuffUpgradeHint
       /** The freebuff model the user tried to join. */
       model: string
       /** Max session units permitted per period (e.g. the configured daily
@@ -623,18 +696,23 @@ export type FreebuffSessionServerResponse = (
       message: string
       resetAt: string
       retryAfterMs: number
+      /** The way out of this refusal, when there is one to sell. */
+      upgrade?: FreebuffUpgradeHint
     }
   | {
-      /** Freebuff Desktop multi-session only: the user already holds an active
-       *  premium-bucket session and tried to admit a second one. Only one
-       *  premium-bucket model (DeepSeek V4 Pro / MiMo 2.5 Pro / Kimi / MiniMax
-       *  M3 / GLM 5.2) may run at a time per user; on the full tier up to three
-       *  unlimited-model sessions (DeepSeek V4 Flash, MiMo 2.5) may run. On
-       *  the LIMITED tier every model occupies the slot — one freebuff tab at
-       *  a time. The desktop client surfaces this and steers the tab to an
-       *  unlimited model (or closes the holding tab). Never returned to
-       *  CLI/web, which run one
-       *  session per user. */
+      /** Freebuff Desktop multi-session only: every premium-bucket slot the
+       *  account holds is already running, and this tab asked for another.
+       *
+       *  A FREE account has one such slot and three unlimited-model sessions
+       *  (`FREEBUFF_DESKTOP_SESSION_LIMITS`); a SUBSCRIBER has three and eight
+       *  (`FREEBUFF_SUBSCRIBER_DESKTOP_SESSION_LIMITS`). Premium-bucket models
+       *  are the expensive rows (Luna / GLM / MiniMax M3 …); on the LIMITED
+       *  tier every model occupies a slot for a free account — one freebuff tab
+       *  at a time — while a subscriber there is metered by their plan instead.
+       *
+       *  The desktop client surfaces this and steers the tab to an unlimited
+       *  model (or closes the holding tab). Never returned to CLI/web, which
+       *  run one session per user. */
       status: 'premium_slot_taken'
       accessTier?: FreebuffAccessTier
       /** Model this tab tried to start. */

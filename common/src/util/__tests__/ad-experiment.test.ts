@@ -6,6 +6,7 @@ import {
   IMPREZIA_EXPERIMENT_PERCENT,
   adExperimentArmForUser,
   firstPartyAdRouteForUser,
+  firstPartyPrimaryBucket,
   firstPartyPrimaryBasisPoints,
   isImpreziaAudienceEmail,
 } from '../ad-experiment'
@@ -83,13 +84,48 @@ describe('first-party request routing', () => {
     }
   })
 
-  test('is stable for one user', () => {
+  test('keeps legacy callers stable when no request sample is supplied', () => {
     for (const id of ['abc', 'user-42', 'another-user']) {
       const config = { primaryPercent: 37.5, backfill: true }
       const first = firstPartyAdRouteForUser(id, config)
       for (let i = 0; i < 20; i++) {
         expect(firstPartyAdRouteForUser(id, config)).toBe(first)
       }
+    }
+  })
+
+  test('rotates the same user across independently sampled requests', () => {
+    const routes = new Set(
+      Array.from({ length: 10_000 }, (_, index) =>
+        firstPartyAdRouteForUser(
+          'same-user',
+          { primaryPercent: 1, backfill: false },
+          `request-${index}`,
+        ),
+      ),
+    )
+    expect(routes).toEqual(
+      new Set<ReturnType<typeof firstPartyAdRouteForUser>>([
+        'first_party_primary',
+        'paid_network_only',
+      ]),
+    )
+  })
+
+  test('routes a sampled request from the same bucket used by campaign allocation', () => {
+    for (let index = 0; index < 10_000; index++) {
+      const sampleId = `shared-sample-${index}`
+      const expected =
+        firstPartyPrimaryBucket(sampleId) < 200
+          ? 'first_party_primary'
+          : 'paid_network_only'
+      expect(
+        firstPartyAdRouteForUser(
+          'user',
+          { primaryPercent: 2, backfill: false },
+          sampleId,
+        ),
+      ).toBe(expected)
     }
   })
 
@@ -135,7 +171,7 @@ describe('first-party request routing', () => {
     expect(percent).toBeLessThan(DEFAULT_FIRST_PARTY_PRIMARY_PERCENT + 1.5)
   })
 
-  test('expands the same cohort when the primary percentage increases', () => {
+  test('expands the same request sample when the primary percentage increases', () => {
     for (let i = 0; i < 10_000; i++) {
       const id = `user-${i}`
       const atTen = firstPartyAdRouteForUser(id, {

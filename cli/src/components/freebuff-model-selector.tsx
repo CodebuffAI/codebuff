@@ -33,7 +33,13 @@ import {
   getRateLimitsByModel,
   getGlmPromo,
   getReferralInfo,
+  getSubscriptionInfo,
 } from '@codebuff/common/types/freebuff-session'
+
+import {
+  formatPlanWindows,
+  freebuffPlanSummary,
+} from '@codebuff/common/util/freebuff-plan-summary'
 
 import { startFreebuffSession } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
@@ -161,8 +167,14 @@ interface FreebuffModelSelectorProps {
  *  model, so it reaches the user through FreebuffReferralBanner instead. */
 function gridModels(
   accessTier: FreebuffAccessTier,
+  /** Live paid plan. A plan reaches limited regions, so a subscriber there is
+   *  offered the rows their plan meters instead of MiMo alone — the server
+   *  admits them (see `hasPaidSubscription` on
+   *  isFreebuffSessionModelAllowedForAccessTier), and a picker that hid them
+   *  would sell a plan whose models never appear. */
+  hasPaidSubscription = false,
 ): readonly FreebuffModelOption[] {
-  return getFreebuffModelsForAccessTier(accessTier).filter(
+  return getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription).filter(
     (m) => !isFreebuffGlmV52ModelId(m.id),
   )
 }
@@ -178,8 +190,13 @@ function gridModels(
  *  renders the action when the server reports sessions left — and the tier never was. */
 export function freebuffCliOfferedModelIds(
   accessTier: FreebuffAccessTier,
+  /** See gridModels. */
+  hasPaidSubscription = false,
 ): readonly string[] {
-  return [...gridModels(accessTier).map((m) => m.id), FREEBUFF_GLM_V52_MODEL_ID]
+  return [
+    ...gridModels(accessTier, hasPaidSubscription).map((m) => m.id),
+    FREEBUFF_GLM_V52_MODEL_ID,
+  ]
 }
 
 export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
@@ -196,6 +213,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const { contentMaxWidth } = useTerminalDimensions()
   const selectedModel = useFreebuffModelStore((s) => s.selectedModel)
   const setSelectedModel = useFreebuffModelStore((s) => s.setSelectedModel)
+  // Subscribed, not read imperatively: `/reasoning` can change a row's effort
+  // while the picker is unmounted, and the width maths below memoizes on this
+  // value. Reading the store outside React would leave the memo stale and
+  // truncate the row it just widened.
+  const reasoningEffortByModel = useFreebuffModelStore(
+    (s) => s.reasoningEffortByModel,
+  )
   const session = useFreebuffSessionStore((s) => s.session)
   const accessTier =
     (session && 'accessTier' in session ? session.accessTier : undefined) ??
@@ -211,7 +235,20 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const [pending, setPending] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
-  const availableModels = useMemo(() => gridModels(accessTier), [accessTier])
+  // `subscription.tierId` is non-null exactly when the server resolved an
+  // ENTITLING plan row, so the picker widens on the server's own verdict rather
+  // than on anything it decides for itself.
+  const subscriptionInfo = getSubscriptionInfo(session)
+  const hasPaidSubscription = Boolean(subscriptionInfo?.tierId)
+  // The paid plan's own windows, rendered as a single muted line below the
+  // catalog — the CLI counterpart of the web dropdown's plan panel. The same
+  // shared summary drives Desktop and the web usage page, so all three name
+  // the same binding limit and the same reset.
+  const planSummary = freebuffPlanSummary(subscriptionInfo)
+  const availableModels = useMemo(
+    () => gridModels(accessTier, hasPaidSubscription),
+    [accessTier, hasPaidSubscription],
+  )
   // Capacity-limited models the SERVER decided to offer on this response. The
   // client has no catalog of its own for these on purpose: when the wave's pool
   // empties (or the offer is switched off) the payload stops arriving and every
@@ -580,6 +617,32 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     setSelectedModel,
   ])
 
+  // What the row advertises as this model's reasoning: the user's `/reasoning`
+  // pick when they made one, otherwise the effort the server pins from the
+  // catalog. ONE function for both the width maths and the render — they were
+  // separate strings before the picker gained an override, and a row whose
+  // suffix outgrows what the width maths budgeted for is a truncated row.
+  //
+  // A model with a LADDER but no pinned `reasoningEffort` (Fable 5) still shows
+  // nothing until the user picks: its default is the provider's own, and
+  // spending row width to restate it pushed the "see all models" toggle off a
+  // short terminal. The suffix appears the moment it carries information the
+  // user did not already have.
+  const reasoningSuffixFor = useCallback(
+    (model: FreebuffModelOption): string => {
+      const chosen = reasoningEffortByModel[model.id]
+      if (chosen && model.efforts?.includes(chosen)) {
+        // The '*' marks a rung the USER chose, so a pick is distinguishable
+        // from the catalog default without a second line.
+        return ` · Reasoning: ${chosen}*`
+      }
+      return model.reasoningEffort
+        ? ` · Reasoning: ${model.reasoningEffort}`
+        : ''
+    },
+    [reasoningEffortByModel],
+  )
+
   const BUTTON_CHROME = 4 // 2 border + 2 padding
   const NAME_GAP = 2 // spaces between name column and details column
 
@@ -621,7 +684,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         m.multimodal ? 9 : 0
       // Same treatment for the " · Reasoning: high" effort suffix.
       const reasoningSuffixLen = (m: FreebuffModelOption) =>
-        m.reasoningEffort ? 14 + m.reasoningEffort.length : 0
+        reasoningSuffixFor(m).length
       // Same treatment for the " · NEW" badge (6 chars).
       const newSuffixLen = 6
 // Ox Alpha reached the CLI on 2026-08-24 as an experimental row. The badge is
@@ -695,6 +758,7 @@ const testSuffixLen = ' · TEST'.length
       availableModels,
       offerModels,
       contentMaxWidth,
+      reasoningSuffixFor,
       rowDetailsText,
       supersededNoticeFor,
     ])
@@ -727,6 +791,15 @@ const testSuffixLen = ' · TEST'.length
         y += rowHeight(m)
       })
     })
+    // The plan summary contributes real rows like everything else here: left
+    // out of the estimate, the first frame's viewport ends exactly one row
+    // short per line — the plan line steals the toggle's row and the blocked
+    // row is clipped outright, which is precisely the row a blocked user
+    // needs.
+    if (planSummary) {
+      y += SECTION_GAP + 1
+      if (planSummary.blocked) y += 1
+    }
     if (canCollapse) {
       y += TOGGLE_MARGIN
       y += 1
@@ -739,6 +812,7 @@ const testSuffixLen = ' · TEST'.length
     canCollapse,
     showStandaloneRecommended,
     supersededNoticeFor,
+    planSummary,
   ])
 
   // When a referral exists, start at the parent's full allowance until the
@@ -923,11 +997,7 @@ const testSuffixLen = ' · TEST'.length
     // see pixels.
     const imagesSuffix = model.multimodal ? ' · Images' : ''
 
-    // The effort the server runs this model at (the same catalog field the
-    // completions layer sends) — see FreebuffModelOption.reasoningEffort.
-    const reasoningSuffix = model.reasoningEffort
-      ? ` · Reasoning: ${model.reasoningEffort}`
-      : ''
+    const reasoningSuffix = reasoningSuffixFor(model)
 
     return (
       <Button
@@ -1159,6 +1229,30 @@ const testSuffixLen = ' · TEST'.length
         {showStandaloneRecommended &&
           renderModelButton(recommendedModel, { recommended: true })}
         {sectionsContent}
+        {planSummary && (
+          <text
+            style={{ fg: theme.muted, wrapMode: 'none', marginTop: SECTION_GAP }}
+          >
+            {planSummary.tierName.toUpperCase()} PLAN ·{' '}
+            {formatPlanWindows(planSummary)}
+          </text>
+        )}
+        {/* The blocking limit gets its own row: appended to the windows line it
+            overruns the card width, and wrapMode 'none' clips it silently — the
+            one part of the summary a blocked user actually needs was the part
+            that vanished. */}
+        {planSummary?.blocked && (
+          <text style={{ fg: theme.secondary, wrapMode: 'none' }}>
+            {planSummary.blocked.label}
+            {planSummary.blocked.resetsAt
+              ? ` · resets in ${formatFreebuffPremiumResetCountdown(
+                  new Date(planSummary.blocked.resetsAt),
+                  now,
+                  { withDays: true },
+                )}`
+              : ''}
+          </text>
+        )}
         {toggleContent}
         {belowToggle}
         {referral && (

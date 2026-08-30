@@ -37,6 +37,7 @@ function totals(overrides: Partial<PlacementTotals> = {}): PlacementTotals {
     clicks: 0,
     billableClicks: 0,
     spendCents: 0,
+    deliverySpendCents: overrides.spendCents ?? 0,
     ...overrides,
   }
 }

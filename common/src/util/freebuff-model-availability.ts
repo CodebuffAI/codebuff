@@ -52,21 +52,25 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * with this string: it describes policy that moves, from a place no test reads.
  * Check it whenever a cap or an availability window changes.
  *
- * 2026-08-22: V4 Pro's 1-a-day cap is GONE, so Luna is now the only per-model
- * cap and this string names exactly one number. Pro is not free-for-all
- * though — it still spends a premium session like Flash, and saying only
- * "everything else is unmetered" would have promised that it doesn't. There
- * is now a test pinning this string to the caps table, because this comment
- * has asked three times to be checked by hand and was wrong again by the
- * time anyone read it.
+ * 2026-08-28: GLM 5.3 Flash is now UNMETERED, joining MiMo and DeepSeek V4
+ * Flash. The 2-a-day cap came off on 08-27 when its measurement window closed;
+ * a day of production spend then settled the cost question outright — it bills
+ * $0.000249/msg, the cheapest row we serve, 4.6x under MiMo and 8.9x under V4
+ * Flash, both of which already ran uncapped. Keeping a ceiling on the cheapest
+ * model while the dearer ones had none inverted the reason ceilings exist.
  *
- * Signed, because this is us asking users to accept less than they had. An
- * unsigned notice reads as a system message; a signed one reads as someone
- * taking responsibility for it, which is the honest framing when the cause is
- * our costs rather than anything they did.
+ * This string therefore names THREE unmetered rows and no per-model number.
+ * The partial-time sentence describes the SHARED premium allowance and is
+ * unrelated to any of them — it stays.
+ *
+ * The failure this comment keeps warning about, in both directions: for one
+ * commit the cap was gone from the table while this string still promised
+ * users "2 sessions a day". The test now checks BOTH — a capped model's number
+ * must appear, and a per-model session count must not survive the cap that
+ * justified it.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Every model runs on your normal daily sessions — no more per-model caps. MiMo and DeepSeek V4 Flash stay unmetered. —❤️ Freebuff Team'
+  'Every model runs on your normal daily sessions — no per-model caps; your shared premium allowance still charges partial time, rounded up to a tenth. MiMo, DeepSeek V4 Flash and GLM 5.3 Flash are unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

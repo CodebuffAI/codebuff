@@ -50,6 +50,11 @@ export const ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT =
  * opaque click/event identifiers never leave the request handler. */
 export const ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT =
   'ads.external_conversion_postback' as const
+/** Browser-side Imprezia decisions. The route deliberately reports only
+ * bounded serving dimensions: request/content/creative identifiers, URLs, and
+ * raw provider errors never enter this event. */
+export const ADS_IMPREZIA_FETCH_COMPLETED_EVENT =
+  'ads.imprezia_fetch_completed' as const
 
 type AxiomOnlyFieldType = 'string' | 'number' | 'boolean'
 type AxiomOnlyFieldSchema = Record<string, AxiomOnlyFieldType>
@@ -129,7 +134,124 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   duration_ms: 'number',
   client_ua_product: 'string',
   client_ua_version: 'string',
+  /**
+   * CPC yield-shadow telemetry is a bounded operational comparison, never a
+   * decision ledger. Values are producer-encoded buckets and provider states;
+   * no raw priors, currency values, identifiers, or arrays are permitted.
+   */
+  yield_shadow_sampled: 'boolean',
+  yield_shadow_policy_version: 'string',
+  yield_shadow_scope: 'string',
+  yield_shadow_exclusion_reason: 'string',
+  yield_shadow_current_provider: 'string',
+  yield_shadow_recommended_provider: 'string',
+  yield_shadow_disagrees: 'boolean',
+  yield_shadow_first_party_state: 'string',
+  yield_shadow_first_party_value_bucket: 'string',
+  yield_shadow_gravity_state: 'string',
+  yield_shadow_gravity_value_bucket: 'string',
+  yield_shadow_imprezia_state: 'string',
+  yield_shadow_imprezia_value_bucket: 'string',
+  yield_actual_attempt_chain: 'string',
+  yield_requested_placement_count_bucket: 'string',
+  yield_returned_ad_count_bucket: 'string',
+  /** Live routing is represented only by bounded configuration and outcome
+   * labels. Exact scores and decision identifiers stay in the durable ledger. */
+  yield_live_mode: 'string',
+  yield_live_activated: 'boolean',
+  yield_live_reason: 'string',
+  yield_live_arm: 'string',
+  yield_live_policy_version: 'string',
+  yield_live_estimate_version: 'string',
+  yield_live_effective_treatment_bps: 'number',
+  yield_live_planned_chain: 'string',
+  yield_live_evidence_reservation_status: 'string',
+  yield_live_evidence_status: 'string',
 } as const satisfies AxiomOnlyFieldSchema
+
+const ADS_IMPREZIA_FETCH_COMPLETED_FIELDS = {
+  outcome: 'string',
+  selection_reason: 'string',
+  experiment_arm: 'string',
+  surface: 'string',
+  ad_count: 'number',
+  duration_ms: 'number',
+  test_mode: 'boolean',
+  failure_class: 'string',
+} as const satisfies AxiomOnlyFieldSchema
+
+const ADS_IMPREZIA_FETCH_OUTCOMES = [
+  'fill',
+  'no_fill',
+  'timeout',
+  'provider_error',
+  'not_configured',
+  'not_eligible',
+] as const
+const ADS_IMPREZIA_SELECTION_REASONS = ['primary', 'fallback'] as const
+const ADS_IMPREZIA_EXPERIMENT_ARMS = [
+  'imprezia_forced',
+  'imprezia_first',
+  'control',
+] as const
+const ADS_IMPREZIA_BROWSER_SURFACES = [
+  'freebuff_web_chat',
+  'chat_assistant',
+] as const
+const ADS_IMPREZIA_FAILURE_CLASSES = [
+  'missing_api_key',
+  'missing_user_agent',
+  'invalid_source_url',
+  'provider_timeout',
+  'provider_failure',
+  'client_exception',
+] as const
+const ADS_IMPREZIA_MAX_DURATION_MS = 60_000
+
+function sanitizeImpreziaFetchCompletedFields(
+  record: Record<string, unknown>,
+): AxiomOnlyLogEvent['data'] | null {
+  const data = sanitizeAllowlistedFields(
+    record,
+    ADS_IMPREZIA_FETCH_COMPLETED_FIELDS,
+  )
+  const outcome = data.outcome
+  const selectionReason = data.selection_reason
+  const experimentArm = data.experiment_arm
+  const surface = data.surface
+  const adCount = data.ad_count
+  const durationMs = data.duration_ms
+  const testMode = data.test_mode
+  const failureClass = data.failure_class
+
+  if (
+    !ADS_IMPREZIA_FETCH_OUTCOMES.includes(
+      outcome as (typeof ADS_IMPREZIA_FETCH_OUTCOMES)[number],
+    ) ||
+    !ADS_IMPREZIA_SELECTION_REASONS.includes(
+      selectionReason as (typeof ADS_IMPREZIA_SELECTION_REASONS)[number],
+    ) ||
+    !ADS_IMPREZIA_EXPERIMENT_ARMS.includes(
+      experimentArm as (typeof ADS_IMPREZIA_EXPERIMENT_ARMS)[number],
+    ) ||
+    !ADS_IMPREZIA_BROWSER_SURFACES.includes(
+      surface as (typeof ADS_IMPREZIA_BROWSER_SURFACES)[number],
+    ) ||
+    (adCount !== 0 && adCount !== 1) ||
+    (outcome === 'fill' ? adCount !== 1 : adCount !== 0) ||
+    typeof durationMs !== 'number' ||
+    durationMs < 0 ||
+    durationMs > ADS_IMPREZIA_MAX_DURATION_MS ||
+    typeof testMode !== 'boolean' ||
+    (failureClass !== undefined &&
+      !ADS_IMPREZIA_FAILURE_CLASSES.includes(
+        failureClass as (typeof ADS_IMPREZIA_FAILURE_CLASSES)[number],
+      ))
+  ) {
+    return null
+  }
+  return data
+}
 
 /**
  * First-party inventory selection is operational telemetry only. In
@@ -260,6 +382,9 @@ export function createFirstPartyViewAckTelemetry(
  * must not grow into an attribution/debugging record: the database owns that
  * drill-down and Axiom receives only bounded operational dimensions. */
 const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
+  // Which ingress reported: 's2s' (key-authenticated postback) or 'client'
+  // (the keyless browser endpoint). Two-valued, never a partner identifier.
+  channel: 'string',
   outcome: 'string',
   rejection_reason: 'string',
   event_type: 'string',
@@ -281,6 +406,7 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_FIRST_PARTY_CLICK_RECORDED_EVENT
     | typeof ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
     | typeof ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT
+    | typeof ADS_IMPREZIA_FETCH_COMPLETED_EVENT
   data: Record<string, string | number | boolean>
 }
 
@@ -344,6 +470,10 @@ export function getAxiomOnlyLogEvent(
       event: eventName,
       data: sanitizeAllowlistedFields(record, ADS_FETCH_COMPLETED_FIELDS),
     }
+  }
+  if (eventName === ADS_IMPREZIA_FETCH_COMPLETED_EVENT) {
+    const data = sanitizeImpreziaFetchCompletedFields(record)
+    return data ? { event: eventName, data } : null
   }
   if (eventName === ADS_FIRST_PARTY_DECISION_EVENT) {
     return {

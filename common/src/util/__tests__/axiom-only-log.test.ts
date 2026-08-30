@@ -8,6 +8,7 @@ import {
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
   ADS_FIRST_PARTY_VIEW_ACK_EVENT,
   ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+  ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
   STREAM_RECOVERY_EVENT,
@@ -174,6 +175,32 @@ describe('getAxiomOnlyLogEvent', () => {
         duration_ms: 42,
         client_ua_product: 'freebuff-cli',
         client_ua_version: '1.2.3',
+        yield_shadow_sampled: true,
+        yield_shadow_policy_version: 'cpc-yield-shadow-v1',
+        yield_shadow_scope: 'eligible_single_placement',
+        yield_shadow_exclusion_reason: 'none',
+        yield_shadow_current_provider: 'gravity',
+        yield_shadow_recommended_provider: 'first_party',
+        yield_shadow_disagrees: true,
+        yield_shadow_first_party_state: 'scored',
+        yield_shadow_first_party_value_bucket: '100_plus',
+        yield_shadow_gravity_state: 'scored',
+        yield_shadow_gravity_value_bucket: '10_to_lt_100',
+        yield_shadow_imprezia_state: 'unscored_missing_prior',
+        yield_shadow_imprezia_value_bucket: 'unscored',
+        yield_actual_attempt_chain: 'gravity>first_party',
+        yield_requested_placement_count_bucket: 'one',
+        yield_returned_ad_count_bucket: 'one',
+        yield_live_mode: 'live',
+        yield_live_activated: true,
+        yield_live_reason: 'live',
+        yield_live_arm: 'treatment',
+        yield_live_policy_version: 'policy:v1',
+        yield_live_estimate_version: 'estimates-v1',
+        yield_live_effective_treatment_bps: 50,
+        yield_live_planned_chain: 'first_party>gravity>carbon',
+        yield_live_evidence_reservation_status: 'reserved',
+        yield_live_evidence_status: 'scheduled',
         // Arrays must be producer-encoded as attempted_provider_chain.
         attempted_providers: ['gravity', 'carbon'],
         // High-cardinality identifiers and content do not reach Axiom.
@@ -183,6 +210,12 @@ describe('getAxiomOnlyLogEvent', () => {
         campaign_ids: ['campaign-123'],
         creative_ids: ['creative-123'],
         ad_url: 'https://example.com/secret',
+        yield_shadow_raw_ecpm_cents: 123.45,
+        yield_shadow_provider_priors: { gravity: 0.12 },
+        yield_shadow_provider_outcomes: ['fill'],
+        yield_shadow_campaign_id: 'campaign-123',
+        yield_shadow_creative_url: 'https://example.com/creative',
+        yield_shadow_error: 'upstream timeout',
         messages: [{ role: 'user', content: 'secret' }],
       }),
     ).toEqual({
@@ -210,8 +243,99 @@ describe('getAxiomOnlyLogEvent', () => {
         duration_ms: 42,
         client_ua_product: 'freebuff-cli',
         client_ua_version: '1.2.3',
+        yield_shadow_sampled: true,
+        yield_shadow_policy_version: 'cpc-yield-shadow-v1',
+        yield_shadow_scope: 'eligible_single_placement',
+        yield_shadow_exclusion_reason: 'none',
+        yield_shadow_current_provider: 'gravity',
+        yield_shadow_recommended_provider: 'first_party',
+        yield_shadow_disagrees: true,
+        yield_shadow_first_party_state: 'scored',
+        yield_shadow_first_party_value_bucket: '100_plus',
+        yield_shadow_gravity_state: 'scored',
+        yield_shadow_gravity_value_bucket: '10_to_lt_100',
+        yield_shadow_imprezia_state: 'unscored_missing_prior',
+        yield_shadow_imprezia_value_bucket: 'unscored',
+        yield_actual_attempt_chain: 'gravity>first_party',
+        yield_requested_placement_count_bucket: 'one',
+        yield_returned_ad_count_bucket: 'one',
+        yield_live_mode: 'live',
+        yield_live_activated: true,
+        yield_live_reason: 'live',
+        yield_live_arm: 'treatment',
+        yield_live_policy_version: 'policy:v1',
+        yield_live_estimate_version: 'estimates-v1',
+        yield_live_effective_treatment_bps: 50,
+        yield_live_planned_chain: 'first_party>gravity>carbon',
+        yield_live_evidence_reservation_status: 'reserved',
+        yield_live_evidence_status: 'scheduled',
       },
     })
+  })
+
+  test('keeps Imprezia completion telemetry bounded and identity-free', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
+        outcome: 'provider_error',
+        selection_reason: 'fallback',
+        experiment_arm: 'control',
+        surface: 'freebuff_web_chat',
+        ad_count: 0,
+        duration_ms: 42,
+        test_mode: false,
+        failure_class: 'provider_failure',
+        userId: 'user-private',
+        sessionId: 'session-private',
+        requestId: 'request-private',
+        request: 'private prompt',
+        response: 'private response',
+        ad: { title: 'private creative' },
+        clickUrl: 'https://private.example/click',
+        error: new Error('private raw provider error'),
+      }),
+    ).toEqual({
+      event: ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
+      data: {
+        outcome: 'provider_error',
+        selection_reason: 'fallback',
+        experiment_arm: 'control',
+        surface: 'freebuff_web_chat',
+        ad_count: 0,
+        duration_ms: 42,
+        test_mode: false,
+        failure_class: 'provider_failure',
+      },
+    })
+  })
+
+  test('rejects unbounded or incomplete Imprezia completion dimensions', () => {
+    const valid = {
+      axiomEvent: ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
+      outcome: 'no_fill',
+      selection_reason: 'primary',
+      experiment_arm: 'imprezia_first',
+      surface: 'freebuff_web_chat',
+      ad_count: 0,
+      duration_ms: 42,
+      test_mode: false,
+    }
+    for (const invalid of [
+      { ...valid, outcome: 'private raw error' },
+      { ...valid, selection_reason: 'campaign-123' },
+      { ...valid, experiment_arm: 'user-123' },
+      { ...valid, surface: 'https://private.example' },
+      { ...valid, ad_count: 2 },
+      { ...valid, outcome: 'fill', ad_count: 0 },
+      { ...valid, duration_ms: -1 },
+      { ...valid, duration_ms: 60_001 },
+      { ...valid, failure_class: 'raw upstream stack trace' },
+      { ...valid, test_mode: 'false' },
+      // Every dimension except failure_class is required.
+      { ...valid, experiment_arm: undefined },
+    ]) {
+      expect(getAxiomOnlyLogEvent(invalid)).toBeNull()
+    }
   })
 
   test('names and sanitizes first-party selection telemetry', () => {
@@ -381,6 +505,7 @@ describe('getAxiomOnlyLogEvent', () => {
     expect(
       getAxiomOnlyLogEvent({
         axiomEvent: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+        channel: 'client',
         outcome: 'accepted',
         rejection_reason: 'none',
         event_type: 'signup_completed',
@@ -404,6 +529,7 @@ describe('getAxiomOnlyLogEvent', () => {
     ).toEqual({
       event: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
       data: {
+        channel: 'client',
         outcome: 'accepted',
         rejection_reason: 'none',
         event_type: 'signup_completed',
@@ -414,5 +540,21 @@ describe('getAxiomOnlyLogEvent', () => {
         duration_ms: 8,
       },
     })
+  })
+
+  test('drops a non-string channel from the postback census', () => {
+    const result = getAxiomOnlyLogEvent({
+      axiomEvent: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+      channel: 42,
+      outcome: 'accepted',
+      rejection_reason: 'none',
+      event_type: 'signup_completed',
+      traffic_class: 'test',
+      primary_allocation_cohort: 'drizz',
+      settlement_status: 'not_billable',
+      charged_cents: 0,
+      duration_ms: 8,
+    })
+    expect(result?.data).not.toHaveProperty('channel')
   })
 })
