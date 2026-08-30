@@ -85,6 +85,267 @@ export function engagementsForDailyBudget(cents: number): number {
   return Math.floor(cents / AD_ENGAGEMENT_PRICE_CENTS)
 }
 
+/**
+ * A scheduled taper of a campaign's delivery cap.
+ *
+ * ## Why a campaign would want to go DOWN
+ *
+ * A campaign that works can outrun what the advertiser wanted from it. Weave's
+ * GitHub-star campaign went 21 -> 288 -> 531 approved engagements in three
+ * days and they asked us to hold it near 300/day for a few weeks — not to stop
+ * it, and not to cliff-edge it either. Editing the budget straight to the
+ * target does that in the crudest way available: the cap binds mid-afternoon,
+ * the feed empties for the rest of the day, and the delivery curve gets a step
+ * in it that nobody reading the numbers later can explain.
+ *
+ * ## Why the cap is randomized
+ *
+ * A ceiling that steps down on a published schedule is a ceiling anyone can
+ * predict — including accounts that watch this feed for supply and time their
+ * claims to the start of a Pacific day. Jitter costs the advertiser nothing
+ * (the curve still lands on the target) and stops the day's ceiling from being
+ * a number anyone can read off a calendar.
+ *
+ * ## Why it is computed, never written
+ *
+ * No job walks campaigns lowering budgets. Deployed web route timers do not
+ * fire here (see the repo's ops notes), and a daily writer is one more thing
+ * that can stop silently — leaving a campaign pinned at whatever cap it
+ * happened to reach, which is exactly the failure a taper must not have. The
+ * glide is a pure function of the campaign row and today's Pacific date, so
+ * every read is correct whether or not anything ran, and a missed day heals
+ * itself.
+ */
+export interface BudgetGlide {
+  /** Cap the taper starts from, in cents/day. */
+  startCents: number
+  /** Cap it lands on and stays at, in cents/day. */
+  targetCents: number
+  /** Days from `startedOn` to reach `targetCents`. */
+  days: number
+  /** Randomization around the curve, in basis points (1_000 = 10%). */
+  jitterBps: number
+  /**
+   * Shape of the descent.
+   *
+   * `linear` walks down in equal steps. `exponential` takes the same ratio off
+   * every day, so most of the reduction happens immediately and the tail is
+   * long and shallow — which is what "make it drop off" actually looks like on
+   * a cumulative chart, and what a linear taper cannot produce: halfway
+   * through a linear taper the campaign is still delivering half its original
+   * volume, and the curve people are looking at is still visibly climbing.
+   */
+  curve: 'linear' | 'exponential'
+  /**
+   * Pacific calendar day the taper starts, `YYYY-MM-DD`.
+   *
+   * A plain date, not a timestamp: every cap in this system is keyed to a
+   * Pacific DAY, and a timestamp here would invite exactly the offset bugs
+   * that keep finding this repo.
+   */
+  startedOn: string
+}
+
+/**
+ * Deterministic 32-bit hash. Same campaign, same day, same cap — a jitter that
+ * moved between two reads inside one day would let a caller reroll the ceiling
+ * by retrying.
+ *
+ * FNV-1a, then an avalanche finalizer, and the finalizer is not optional here.
+ * Every key this is called with is a long shared prefix plus a couple of
+ * changing characters at the end (`<campaign id>:2026-08-28T09`), and raw
+ * FNV-1a leaves those last characters in the LOW bits. Scaling the raw value
+ * by 0xffffffff reads mostly the high bits, so twenty-four consecutive hours
+ * came out with two distinct values between them — a "randomized" ceiling that
+ * was, in practice, a constant.
+ */
+function glideHash(input: string): number {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  // lowbias32 finalizer: spreads the low bits across the whole word.
+  hash ^= hash >>> 16
+  hash = Math.imul(hash, 0x7feb352d) >>> 0
+  hash ^= hash >>> 15
+  hash = Math.imul(hash, 0x846ca68b) >>> 0
+  hash ^= hash >>> 16
+  return hash >>> 0
+}
+
+/** Whole days between two `YYYY-MM-DD` Pacific dates. */
+function daysBetweenPacificDays(from: string, to: string): number {
+  const start = Date.parse(`${from}T00:00:00Z`)
+  const end = Date.parse(`${to}T00:00:00Z`)
+  if (Number.isNaN(start) || Number.isNaN(end)) return 0
+  return Math.round((end - start) / 86_400_000)
+}
+
+/**
+ * Today's cap for a glide, in cents.
+ *
+ * Linear from `startCents` to `targetCents`, with jitter applied only WHILE
+ * descending: the taper wobbles, the floor does not. An advertiser told "it
+ * settles around 300 a day" should get 300, not 270 on an unlucky Tuesday six
+ * weeks later.
+ *
+ * Clamped to the two endpoints in both directions, so jitter can never lift
+ * the cap above where it started nor push it under the target — the only two
+ * numbers anyone actually agreed to.
+ */
+export function glidedDailyBudgetCents(params: {
+  glide: BudgetGlide
+  /** Stable per-campaign seed; the campaign id. */
+  seed: string
+  /** Today, as a Pacific `YYYY-MM-DD`. */
+  today: string
+}): number {
+  const { glide, seed, today } = params
+  const low = Math.min(glide.startCents, glide.targetCents)
+  const high = Math.max(glide.startCents, glide.targetCents)
+
+  const elapsed = daysBetweenPacificDays(glide.startedOn, today)
+  if (elapsed <= 0) return normalizeDailyBudgetCents(glide.startCents)
+  if (glide.days <= 0 || elapsed >= glide.days) {
+    return normalizeDailyBudgetCents(glide.targetCents)
+  }
+
+  const progress = elapsed / glide.days
+  // Geometric for `exponential`: the same PROPORTION comes off each day, so
+  // day one takes the biggest absolute cut and the approach to the target is
+  // asymptotic. Falls back to linear if either end is zero, where a ratio is
+  // undefined.
+  const straight =
+    glide.curve === 'exponential' && glide.startCents > 0 && glide.targetCents > 0
+      ? glide.startCents *
+        Math.pow(glide.targetCents / glide.startCents, progress)
+      : glide.startCents + (glide.targetCents - glide.startCents) * progress
+
+  // Hash to [-1, 1], then scaled by the jitter width.
+  const unit = (glideHash(`${seed}:${today}`) / 0xffffffff) * 2 - 1
+  const jittered = straight * (1 + (unit * glide.jitterBps) / 10_000)
+
+  return normalizeDailyBudgetCents(Math.min(high, Math.max(low, jittered)))
+}
+
+/**
+ * The daily budget the DELIVERY rules should use for a campaign.
+ *
+ * The fence is the point: a glide is ignored on a campaign with a live
+ * subscription. There, `daily_budget_cents` is the PRICE as well as the cap,
+ * and quietly delivering less than the advertiser is charged for is the bug
+ * fixed on 2026-08-27 wearing a different hat. Tapering a paying campaign
+ * means moving its price too — an explicit budget edit, which syncs Stripe —
+ * never a schedule the invoice knows nothing about.
+ */
+export function effectiveDailyBudgetCents(params: {
+  dailyBudgetCents: number
+  glide: BudgetGlide | null
+  /** Whether Stripe is charging for this campaign. */
+  billedBySubscription: boolean
+  seed: string
+  today: string
+}): number {
+  if (!params.glide || params.billedBySubscription) {
+    return params.dailyBudgetCents
+  }
+  return glidedDailyBudgetCents({
+    glide: params.glide,
+    seed: params.seed,
+    today: params.today,
+  })
+}
+
+/** Length of the rolling window a tapering campaign is rate-limited over. */
+export const DELIVERY_PACE_WINDOW_MINUTES = 60
+
+/**
+ * The most a tapering campaign may deliver in any TRAILING hour.
+ *
+ * ## Why a rolling window, and not a share of the day
+ *
+ * The first version of pacing compared today's delivery against the fraction
+ * of the Pacific day that had elapsed. That stops a campaign spending its
+ * whole day before lunch, and nothing else — because unspent allowance
+ * accumulates, which is the same as saying a burst is always available if you
+ * wait for one. A quiet morning makes 150 engagements claimable in a single
+ * minute at 6pm, and the moment of the daily reset is the worst case of all:
+ * the cumulative rule is satisfied instantly at midnight, so a queue of people
+ * waiting for the reset empties the opening allowance the second it lands.
+ *
+ * A trailing window has no stockpile. The ceiling is the same at 00:01 as at
+ * 18:00, so the reset stops being an event worth waiting for, and a wind-down
+ * is spread over the hours it is supposed to be spread over.
+ *
+ * The trade, stated plainly: a day whose demand is lumpy under-delivers
+ * against its daily cap, because the capacity a quiet hour did not use is
+ * gone. For a campaign being deliberately wound down that is the point. It is
+ * also why only tapering campaigns are paced — an advertiser paying a daily
+ * rate bought a day of delivery, not a delivery schedule.
+ *
+ * The per-window jitter is seeded on the hour, so the cadence is not a clock
+ * anyone can set a timer to, for the same reason the daily cap is jittered.
+ */
+export function deliveryWindowLimit(params: {
+  /** Today's cap, in engagements. */
+  capEngagements: number
+  /** Stable per-campaign seed; the campaign id. */
+  seed: string
+  /** The Pacific hour, `YYYY-MM-DDTHH`. */
+  windowKey: string
+  jitterBps: number
+}): number {
+  const cap = Math.max(0, Math.floor(params.capEngagements))
+  if (cap === 0) return 0
+  const windows = 1_440 / DELIVERY_PACE_WINDOW_MINUTES
+  const base = cap / windows
+  const unit = (glideHash(`${params.seed}:${params.windowKey}`) / 0xffffffff) * 2 - 1
+  const jittered = base * (1 + (unit * params.jitterBps) / 10_000)
+  // At least one an hour: a campaign tapered to 50/day still has to be able to
+  // deliver, and a floor of zero would strand the last stretch of every taper
+  // at no delivery rather than a slow one.
+  return Math.max(1, Math.min(cap, Math.round(jittered)))
+}
+
+/**
+ * The smallest gap between two deliveries on a tapering campaign, in seconds.
+ *
+ * The window limit above bounds an HOUR; it does nothing inside one. Thirteen
+ * engagements are allowed in the first minute of the window and then nothing
+ * for fifty-nine — and because the window is trailing, the next batch becomes
+ * available exactly as the last one ages out, so the campaign settles into a
+ * pulse. That is the reset problem again at a smaller scale: bursty, and
+ * something a user can learn the rhythm of.
+ *
+ * Spacing turns the hour's allowance into a drip: a day's cap divided into the
+ * day, jittered per hour so it is a rhythm rather than a metronome.
+ *
+ * This gates OFFERING only. It is deliberately not applied when a submission
+ * arrives: someone who was shown a post and did the work must not be refused
+ * because another user's engagement landed forty seconds earlier. The daily
+ * cap and the window are what enforce totals; this shapes when the feed hands
+ * work out.
+ */
+export function deliverySpacingSeconds(params: {
+  capEngagements: number
+  seed: string
+  /** The Pacific hour, `YYYY-MM-DDTHH`. */
+  windowKey: string
+  jitterBps: number
+}): number {
+  const cap = Math.max(0, Math.floor(params.capEngagements))
+  if (cap <= 0) return 0
+  const even = 86_400 / cap
+  const unit =
+    (glideHash(`gap:${params.seed}:${params.windowKey}`) / 0xffffffff) * 2 - 1
+  const jittered = even * (1 + (unit * params.jitterBps) / 10_000)
+  // A floor, so a campaign still on a large cap is spaced rather than
+  // instantaneous, and a ceiling of an hour, so the tail of a taper does not
+  // spend the day waiting on a gap longer than the window it lives in.
+  return Math.min(3_600, Math.max(15, Math.round(jittered)))
+}
+
 /** Snap an arbitrary cent amount onto the ladder the slider offers. Applied
  *  server-side as well as in the UI: the API is public and a hand-rolled
  *  request must not be able to buy $10.37/day. */
@@ -110,13 +371,14 @@ export function isValidDailyBudgetCents(cents: number): boolean {
 // Platforms
 // ---------------------------------------------------------------------------
 
-export const AD_PLATFORMS = ['twitter', 'linkedin', 'reddit'] as const
+export const AD_PLATFORMS = ['twitter', 'linkedin', 'reddit', 'github'] as const
 export type AdPlatform = (typeof AD_PLATFORMS)[number]
 
 export const AD_PLATFORM_LABELS: Record<AdPlatform, string> = {
   twitter: 'X / Twitter',
   linkedin: 'LinkedIn',
   reddit: 'Reddit',
+  github: 'GitHub',
 }
 
 /**
@@ -126,19 +388,39 @@ export const AD_PLATFORM_LABELS: Record<AdPlatform, string> = {
  * anything that reads as astroturf harder than either other platform, and a
  * brigaded thread gets the *advertiser* banned rather than us. So Reddit buys
  * an upvote and a genuine comment, and the copy everywhere says "genuine".
+ *
+ * GitHub is a single action: star the repository. There is no comment to
+ * write, so everything comment-shaped (suggestions, comment URLs, the comment
+ * paste-back) is skipped for it — see `platformRequiresComment`.
  */
 export const AD_PLATFORM_ACTIONS: Record<AdPlatform, readonly string[]> = {
   twitter: ['Like the post', 'Reply with a real comment', 'Repost it'],
   linkedin: ['React to the post', 'Comment something real', 'Repost it'],
   reddit: ['Upvote the post', 'Leave a genuine comment'],
+  github: ['Star the repository'],
+}
+
+/**
+ * Whether an engagement on this platform involves writing a comment.
+ *
+ * Everything comment-shaped hangs off this one predicate — the suggestion
+ * generator, the comment-URL evidence field, the paste-back box — so a new
+ * actions-only platform (GitHub stars) needs one entry here rather than an
+ * `if platform === 'github'` in five files.
+ */
+export function platformRequiresComment(platform: AdPlatform): boolean {
+  return platform !== 'github'
 }
 
 /** Host allowlist per platform, used to validate a submitted post URL. Hosts
  *  are matched exactly or as a subdomain suffix. */
 export const AD_PLATFORM_HOSTS: Record<AdPlatform, readonly string[]> = {
   twitter: ['twitter.com', 'x.com'],
-  linkedin: ['linkedin.com'],
+  // `lnkd.in` is LinkedIn's own shortener — advertisers paste share links in
+  // that shape and rejecting them reads as "LinkedIn is not supported".
+  linkedin: ['linkedin.com', 'lnkd.in'],
   reddit: ['reddit.com', 'redd.it'],
+  github: ['github.com'],
 }
 
 /**
@@ -261,42 +543,31 @@ export const AD_PRICING_ENABLED = true
 export const AD_CAMPAIGN_REVIEW_ENABLED = false
 
 /**
- * The longest a campaign may run, in days.
- *
- * Set while campaigns are free. An open-ended campaign that costs nothing has
- * no natural stopping point, and the delivery it consumes is real: every
- * engagement is paid out in Trust to a user whether or not an advertiser was
- * billed for it. A week bounds that without making anyone ask permission.
- *
- * Enforced as an END DATE rather than as a timer, so a campaign always carries
- * the date it will stop on and the advertiser can see it.
- */
-export const AD_MAX_CAMPAIGN_LENGTH_DAYS = 7
-
-/** The furthest out a campaign may be set to end, from a given moment. */
-export function maxCampaignEndDate(from: Date = new Date()): Date {
-  const end = new Date(from)
-  end.setDate(end.getDate() + AD_MAX_CAMPAIGN_LENGTH_DAYS)
-  return end
-}
-
-/**
  * The end date a campaign should carry, given what the advertiser asked for.
  *
- * Absent becomes the maximum rather than staying open-ended: "max campaign
- * length is a week" is not enforced by a cap that only applies when somebody
- * volunteers a date. Anything beyond the maximum is clamped down to it.
+ * `null` means "runs until cancelled", and that is the default. Campaigns are
+ * billed as daily subscriptions now, so an open-ended campaign has a natural
+ * stopping point — the advertiser cancelling it — and the 7-day clamp that
+ * existed for the free-campaign window is gone. An end date is still available
+ * from the campaign's own menu for anyone with a launch window.
  */
 export function resolveCampaignEndDate(
   requested: Date | null | undefined,
-  from: Date = new Date(),
-): Date {
-  const max = maxCampaignEndDate(from)
-  if (!requested) return max
-  return requested.getTime() > max.getTime() ? max : requested
+): Date | null {
+  return requested ?? null
 }
 
-export const AD_MAX_POSTS_PER_CAMPAIGN = 20
+/**
+ * A campaign is ONE post.
+ *
+ * It was 20, with the daily budget spread across the posts — and that made
+ * every number on the dashboard an average over things the advertiser thinks
+ * of separately. One post per campaign means the campaign's budget, delivery
+ * and status describe exactly one thing, and promoting three posts is three
+ * campaigns with three plainly-readable rows. Existing multi-post campaigns
+ * were split by migration 0134.
+ */
+export const AD_MAX_POSTS_PER_CAMPAIGN = 1
 export const AD_MAX_CAMPAIGNS_PER_ADVERTISER = 25
 export const AD_MAX_COMMENT_EXAMPLES = 12
 export const AD_MAX_COMMENT_URL_CHARS = 2_000
@@ -312,13 +583,58 @@ export const AD_MAX_COMMENT_URL_CHARS = 2_000
  */
 export const AD_EVIDENCE_ATTESTATION =
   'I confirm I liked, reposted and commented on this post myself, and that this is genuine proof of it. I understand it will be verified, and that falsified evidence will result in my account being banned.'
+
+/** The GitHub engagement is a star, not a comment — the attestation has to
+ *  name the action the person actually took or it attests to nothing. */
+export const AD_EVIDENCE_ATTESTATION_GITHUB =
+  'I confirm I starred this repository myself, and that this is genuine proof of it. I understand it will be verified, and that falsified evidence will result in my account being banned.'
+
+export function adEvidenceAttestation(platform: AdPlatform): string {
+  return platform === 'github'
+    ? AD_EVIDENCE_ATTESTATION_GITHUB
+    : AD_EVIDENCE_ATTESTATION
+}
 export const AD_MAX_DESCRIPTION_CHARS = 2_000
 export const AD_MAX_COMMENT_GUIDANCE_CHARS = 2_000
 
 /** How many distinct comment suggestions we generate for a user to pick from.
  *  Enough that two people engaging with the same post do not paste the same
- *  sentence; few enough that the choice is not itself work. */
+ *  sentence; few enough that the choice is not itself work.
+ *
+ *  @deprecated Nothing generates suggestions any more — see
+ *  `AD_COMMENT_WRITING_RULES`. Kept only because older rows and tests still
+ *  reference the count. */
 export const AD_GENERATED_COMMENT_COUNT = 4
+
+/**
+ * What every commenter is told, on every post, in their own words.
+ *
+ * The feed used to hand out four ready-made comments to copy. That is exactly
+ * how a thread ends up full of the same three sentences in different fonts:
+ * generated options converge, everybody takes the first one, and the result
+ * reads as bot output to the only audience that matters — the advertiser's
+ * followers. A comment nobody wrote is worth less than no comment.
+ *
+ * So the card asks for a real one instead, and says plainly what that means.
+ * These are the rules the user sees; the advertiser's own brief sits next to
+ * them and says what the post is about.
+ */
+export const AD_COMMENT_WRITING_RULES = [
+  'Write it yourself — do not use AI to generate it.',
+  'Make it original: something nobody else would have written.',
+  'Say something specific about this post, not a generic compliment.',
+  'Clear, correct English. One or two sentences is plenty.',
+] as const
+
+/**
+ * The default answer to "what would you like people to comment?".
+ *
+ * Prefilled on the campaign form so an advertiser who has no strong opinion
+ * still ships something useful, and so the guidance shown in the feed is
+ * never empty.
+ */
+export const AD_DEFAULT_COMMENT_GUIDANCE =
+  'Something genuine and specific about the post, in your own words. Original and non-repetitive, in clear English — please do not use AI to write it.'
 
 /**
  * Per-user daily ceiling on approved engagements.

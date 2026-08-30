@@ -7,6 +7,7 @@ import {
   withSystemTags,
 } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { toRepoSnapshot } from '@codebuff/common/util/file'
 import { dropUnansweredToolCalls } from '@codebuff/common/util/messages'
 import {
   FILE_READ_STATUS,
@@ -801,6 +802,8 @@ async function runOnce({
         }
       : undefined
 
+  const repoSnapshot = toRepoSnapshot(sessionState.fileContext?.gitChanges)
+
   callMainPrompt({
     ...agentRuntimeImpl,
     promptId,
@@ -824,6 +827,10 @@ async function runOnce({
     extraCodebuffMetadata: {
       ...(extraCodebuffMetadata ?? {}),
       trace_session_id: traceSessionId,
+      // Aggregate repository scale, collected once per thread by getGitChanges
+      // (#2138) and reused on later turns. Sent as the allowlisted projection
+      // so the legacy patch-content fields can never ride along.
+      ...(repoSnapshot && { repo_snapshot: JSON.stringify(repoSnapshot) }),
     },
     signal: signal ?? new AbortController().signal,
     onAgentUsageReceived: report(onUsage),

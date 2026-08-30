@@ -159,6 +159,57 @@ describe('OpenAICompatibleChatLanguageModel doStream', () => {
     expect(finishPartOf(parts).finishReason).toBe('error')
   })
 
+  it('carries provider detail and status out of a mid-stream error chunk', async () => {
+    // OpenRouter's mid-stream provider refusals say only "Provider returned
+    // error" in `message`; the upstream's actual words live in `metadata.raw`.
+    // Surfacing just the message left users (most visibly on Freebuff Web)
+    // with "Agent run error: Provider returned error" and nothing else, while
+    // the same failure on the non-stream path shows the full
+    // `message [provider: raw]` form built by the server. The stream path
+    // must produce the same shape: an APICallError with the enhanced message,
+    // the numeric code as statusCode, and a responseBody that
+    // extractApiErrorDetails can parse like any failed HTTP response.
+    const parts = await streamParts(
+      sseResponse([
+        JSON.stringify({
+          id: 'gen-2',
+          object: 'chat.completion.chunk',
+          created: 1,
+          model: 'deepseek/deepseek-v4-flash',
+          provider: 'DeepSeek',
+          choices: [],
+          error: {
+            code: 429,
+            message: 'Provider returned error',
+            metadata: {
+              raw: 'deepseek-v4-flash is temporarily rate-limited upstream.',
+              provider_name: 'DeepSeek',
+            },
+          },
+        }),
+      ]),
+    )
+
+    const errorPart = parts.find((part) => part.type === 'error')
+    if (!errorPart || errorPart.type !== 'error') {
+      throw new Error('stream swallowed the provider error')
+    }
+    const apiError = errorPart.error as {
+      message: string
+      statusCode?: number
+      responseBody?: string
+    }
+    expect(apiError.message).toBe(
+      'Provider returned error [DeepSeek: deepseek-v4-flash is temporarily rate-limited upstream.]',
+    )
+    expect(apiError.statusCode).toBe(429)
+    const parsedBody = JSON.parse(apiError.responseBody ?? '{}')
+    expect(parsedBody.error.message).toBe(apiError.message)
+    expect(parsedBody.error.code).toBe(429)
+
+    expect(finishPartOf(parts).finishReason).toBe('error')
+  })
+
   it('assembles streamed reasoning_details onto the reasoning-end part', async () => {
     const parts = await streamParts(
       sseResponse([
