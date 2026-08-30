@@ -13,7 +13,7 @@ import { useUpdatePreference } from '../hooks/use-update-preference'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
-import { formatResetTime, formatResetTimeLong } from '../utils/time-format'
+import { formatResetTimeLong } from '../utils/time-format'
 import {
   getBannerColorLevel,
   generateLoadingBannerText,
@@ -208,7 +208,7 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
             <ProgressBar value={blockPercent} width={12} showPercentage={false} />
             <text style={{ fg: theme.muted }}>
               {rateLimit.blockResetsAt
-                ? ` resets in ${formatResetTime(new Date(rateLimit.blockResetsAt))}`
+                ? ` resets in ${formatResetTimeLong(rateLimit.blockResetsAt)}`
                 : ''}
             </text>
           </box>

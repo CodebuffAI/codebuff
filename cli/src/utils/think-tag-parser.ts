@@ -70,8 +70,20 @@ export function parseThinkTags(text: string): ThinkSegment[] {
       remaining = remaining.slice(closeIdx + THINK_CLOSE_TAG.length)
       insideThink = false
     } else {
-      // Look for opening tag
       const openIdx = remaining.indexOf(THINK_OPEN_TAG)
+      const closeIdx = remaining.indexOf(THINK_CLOSE_TAG)
+      if (closeIdx !== -1 && (openIdx === -1 || closeIdx < openIdx)) {
+        if (closeIdx > 0) {
+          segments.push({
+            type: 'thinking',
+            content: remaining.slice(0, closeIdx),
+          })
+        }
+        remaining = remaining.slice(closeIdx + THINK_CLOSE_TAG.length)
+        continue
+      }
+
+      // Look for opening tag
       if (openIdx === -1) {
         // No opening tag found - all remaining is regular text
         if (remaining.length > 0) {

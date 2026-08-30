@@ -11,7 +11,7 @@ import { useUpdatePreference } from '../hooks/use-update-preference'
 import { useUsageQuery } from '../hooks/use-usage-query'
 import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
-import { formatResetTime } from '../utils/time-format'
+import { formatResetTimeLong } from '../utils/time-format'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 export const SubscriptionLimitBanner = () => {
@@ -103,7 +103,7 @@ export const SubscriptionLimitBanner = () => {
             </text>
             {weeklyResetsAt && (
               <text style={{ fg: theme.muted }}>
-                Weekly usage resets in {formatResetTime(weeklyResetsAt)}
+                Weekly usage resets in {formatResetTimeLong(weeklyResetsAt)}
               </text>
             )}
           </>
@@ -114,7 +114,7 @@ export const SubscriptionLimitBanner = () => {
             </text>
             {blockResetsAt && (
               <text style={{ fg: theme.muted }}>
-                New session starts in {formatResetTime(blockResetsAt)}
+                New session starts in {formatResetTimeLong(blockResetsAt)}
               </text>
             )}
           </>

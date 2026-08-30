@@ -46,6 +46,8 @@ export type ChatCompletionTraceRow = {
   tool_count: number
   tools?: unknown[] | null
   tools_omitted: boolean
+  repo_snapshot?: unknown | null
+  surface?: string | null
 }
 
 export type InsertChatCompletionTraceBigqueryFn = (params: {

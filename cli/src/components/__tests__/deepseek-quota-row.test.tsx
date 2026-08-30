@@ -77,6 +77,14 @@ describe('a section holding two pools', () => {
     ).toBe('DeepSeek: 1 of 1 used')
   })
 
+  test('an admission-counted chip says starts', () => {
+    const counted = {
+      ...quotas[FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID],
+      countsAdmissions: true as const,
+    }
+    expect(formatFreebuffRowQuota(counted)).toBe('DeepSeek: 1 of 1 starts')
+  })
+
   test('nothing is singled out when every row shares a pool', () => {
     const onePool = {
       [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: quotas[FREEBUFF_GPT_5_6_LUNA_MODEL_ID]!,

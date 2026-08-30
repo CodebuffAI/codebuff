@@ -8,10 +8,13 @@ export const PROVIDER_ROUTE_IDS = [
   'infron/makora',
   'glm/crof',
   'glm/infron',
+  'glm-5-3-flash/crof',
+  'glm-5-3-flash/fallback',
   'deepseek/openrouter',
   'deepseek/crof',
   'deepseek/cheaper-inference',
   'deepseek/luminal',
+  'deepseek/fusioncode',
   'deepseek/runinfra',
   'deepseek/official',
   'luna/fallback',
@@ -38,6 +41,15 @@ export type ProviderRouteId = (typeof PROVIDER_ROUTE_IDS)[number]
  * requests: the session that overflowed stays on the fallback and warms there
  * once, instead of re-paying at every turn.
  */
+/**
+ * A Flash session GRANTED the FusionCode front lane by the admission
+ * controller — the same shape as the Luminal grant, and granted only when
+ * Luminal declined, since Luminal is ~45% cheaper. Like Luminal's pin this is
+ * a grant, not a cohort mark: its own env switch is the drain.
+ */
+export const DEEPSEEK_FUSIONCODE_PROVIDER_ROUTE =
+  'deepseek/fusioncode' satisfies ProviderRouteId
+
 export const LUNA_FALLBACK_PROVIDER_ROUTE =
   'luna/fallback' satisfies ProviderRouteId
 
@@ -237,6 +249,132 @@ export const GLM_CROF_PROVIDER_ROUTE = 'glm/crof' satisfies ProviderRouteId
  * and that used to be a total outage.
  */
 export const GLM_INFRON_PROVIDER_ROUTE = 'glm/infron' satisfies ProviderRouteId
+/**
+ * A GLM 5.3 Flash session that diverted OFF the Merge Gateway lane and should
+ * now enter on the OpenRouter route it was served from before 2026-08-27.
+ *
+ * Named for the ROLE, not the upstream, for the reason spelled out on
+ * {@link LUNA_FALLBACK_UPSTREAM}: this value is persisted in
+ * `free_session.provider_route` and read back unvalidated, so an id naming its
+ * provider either forces a migration or becomes a name that lies the moment the
+ * fallback moves.
+ *
+ * WHY THERE IS A FALLBACK AT ALL, when Merge is cheaper on every term by 5-6x
+ * (table below): Merge bills a PREPAID BALANCE, and it reports the remaining
+ * one on every response as `x-credit-balance-usd`. A prepaid balance behind a
+ * single-lane model is the exact outage this repo has already taken twice —
+ * CrofAI's 401 "Not Enough Credits" made GLM 5.2 a total outage, which is why
+ * {@link GLM_INFRON_PROVIDER_ROUTE} exists, and the same shape took DeepSeek's
+ * cascade to three lanes. The balance on this account was $20 at integration,
+ * which is a trial, not a runway.
+ *
+ * THE PRICE TABLE, read from the gateway's own /v1/models on 2026-08-27 and
+ * confirmed against billed `cost` on live requests to the cent:
+ *
+ *                       input/M   cache read/M   output/M
+ *   Merge Gateway       $0.012      $0.003        $0.04
+ *   OpenRouter (cheap)  $0.075      $0.015        $0.25
+ *   ratio                6.25x       5.0x          6.25x
+ *
+ * THE LINE THAT DECIDES IT: Merge's FRESH INPUT ($0.012/M) is below
+ * OpenRouter's CACHE READ ($0.015/M). So Merge at a 0% hit rate is still
+ * cheaper than OpenRouter at a perfect one, and no cache-rate regression can
+ * make this lane the expensive choice. That is the opposite of every previous
+ * cutover in this file — the CrofAI DeepSeek lane needed ~90% cache to break
+ * even and delivered 60-85%, and Infron above cannot break even at any hit rate
+ * — so the usual "compare lanes at their MEASURED hit rate or not at all" trap
+ * has nothing to bite on here. Measured anyway, and note WHICH number to quote:
+ * a tight loop on a byte-identical prefix gives 95.8%, but a growing 14-turn
+ * conversation — the shape an agent turn actually has — gives 57.0%, and that
+ * is the one the bill follows. Measured saving on that run: 5.00x. Even so,
+ * Merge at 0% cache cost less than OpenRouter would have at 100% (1.27x), which
+ * is the whole argument.
+ *
+ * The fallback is therefore bought with money, unlike Infron's: diverting costs
+ * ~6x. It is worth it only because the alternative is serving nothing.
+ */
+/**
+ * A GLM 5.3 Flash session that diverted off Merge Gateway onto CrofAI — the
+ * MIDDLE rung, added 2026-08-27.
+ *
+ * COST PARITY WITH THE LANE BEHIND IT, not an improvement on it, and the
+ * difference matters. Costed at an EQUAL 82.3% cache against the repo's
+ * reference agent turn, CrofAI looks 1.24x cheaper than the OpenRouter band.
+ * Measured at the rates the two lanes ACTUALLY deliver on identical work,
+ * CrofAI hit 74.2% and OpenRouter 85.6%, which puts them at $0.02548 and
+ * $0.02364 per M of input — OpenRouter 1.08x ahead. The card advantage
+ * reverses, so do not justify this rung on price.
+ *
+ * It is here for DEPTH: a second account and a second prepaid balance between
+ * Merge and OpenRouter, the same thing {@link GLM_INFRON_PROVIDER_ROUTE} buys
+ * for GLM 5.2 — and it is worth more than usual here because Merge's
+ * availability is poor. On the day this was added Merge's two vendors took
+ * turns failing (`zai` 14-of-20 errors in the morning, `particle` 0-of-24 by
+ * evening) and unpinned traffic did NOT route around the sick one, while CrofAI
+ * was 6/6 at every point one of them was not. CrofAI is also much faster: p50
+ * 3.4s against OpenRouter's 14.4s on the same 14 turns.
+ *
+ * Merge's OTHER vendor is deliberately not a rung. `zai` is priced at exactly
+ * OpenRouter's cheap band, so it is dominated by both lanes below it.
+ *
+ * The lane that IS a large saving is the one in front: Merge at $0.015/M of
+ * fresh input beats both of these at their measured cache rates (1.58x under
+ * OpenRouter) even at a 0% hit rate, and 3-5x under it at any normal one.
+ */
+/**
+ * GLM 5.3 Flash's OpenRouter endpoint preference, healthiest first.
+ *
+ * ADDED 2026-08-28 IN RESPONSE TO USER REPORTS ("very unstable and stops
+ * sometimes"), which the telemetry bore out precisely. Over 24h of prod:
+ *
+ *   stream-interrupt rate   0.78%   the WORST of any model in the catalog —
+ *                                   4.6x MiMo and V4 Flash, 5.6x Luna
+ *   provider failures       1,285   = 4.29% of all GLM 5.3 traffic
+ *     of which GMICloud     1,170   91.1%, nearly all `Backend request failed
+ *                                   with status 400 / backend_error`
+ *     of which Z.AI            98    7.6%, Z.AI's OWN account: error 1113,
+ *                                   "Insufficient balance or no resource
+ *                                   package" — upstream of us, not our key
+ *
+ * The route previously carried a ceiling and nothing else, on the reasoning
+ * that "there is no endpoint worth PREFERRING — they are the same price".
+ * Production falsified the premise: the three endpoints under
+ * FREEBUFF_GLM_V53_FLASH_MAX_PRICE are the same price and are emphatically NOT
+ * the same reliability. OpenRouter itself had already deranked GMICloud to
+ * `status: -2` while continuing to send it most of our traffic.
+ *
+ * PREFERENCE, NOT EXCLUSION, and that distinction is the whole design. Only
+ * THREE endpoints sit under the ceiling (Z.AI, Novita, GMICloud); everything
+ * else on this model is exactly 2x. Dropping GMICloud with `ignore` would leave
+ * two — one of which is the Z.AI account that is already out of credit — and
+ * when every endpoint under a ceiling is unavailable OpenRouter returns 404
+ * rather than serving above it. That is the Ox Alpha trap, and its documented
+ * fix is never to raise the number. So GMICloud stays reachable as a last
+ * resort and simply stops being the default.
+ *
+ * All three serve the same `fp8` quantization of the same dated build
+ * (`z-ai/glm-5.3-flash-20260826`), so this reorders reliability without
+ * touching output quality.
+ *
+ * A SECOND BENEFIT, since each endpoint keeps its own prompt cache: preferring
+ * one stops the route spraying across three of them. A measured 16-turn run on
+ * this lane was served by GMICloud x10, Novita x3 and Z.AI x1 and cached 85.4%;
+ * concentrating the traffic should raise that as well as steady it.
+ */
+export const GLM_V53_FLASH_OPENROUTER_UPSTREAM_ORDER = [
+  // Healthy at status 0, and carries no failures in the 24h window above.
+  'novita/fp8',
+  // Also status 0, but its own balance is dry — worth second place rather than
+  // first until that clears, and worth keeping ahead of the deranked one.
+  'z-ai/fp8',
+  // Deliberately LAST rather than absent. See the Ox Alpha note above.
+  'gmicloud/fp8',
+] as const
+
+export const GLM_V53_FLASH_CROF_PROVIDER_ROUTE =
+  'glm-5-3-flash/crof' satisfies ProviderRouteId
+export const GLM_V53_FLASH_FALLBACK_PROVIDER_ROUTE =
+  'glm-5-3-flash/fallback' satisfies ProviderRouteId
 /**
  * DeepSeek V4 Flash's CrofAI lane — and, since the 2026-08-15 cutover, the
  * COHORT MARK that says a session belongs on it.

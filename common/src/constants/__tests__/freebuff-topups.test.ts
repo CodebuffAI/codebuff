@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   AD_SPEND_LEDGER_REASONS,
   AD_STATEMENT_KINDS,
+  AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS,
   AD_TOP_UP_MAX_CENTS,
   AD_TOP_UP_MIN_CENTS,
   AD_TOP_UP_PRESET_CENTS,
@@ -64,6 +65,12 @@ describe('the entry rule', () => {
     for (const preset of AD_TOP_UP_PRESET_CENTS) {
       expect(preset % AD_TOP_UP_STEP_CENTS).toBe(0)
     }
+  })
+})
+
+describe('placements postpaid defaults', () => {
+  it('starts new card-on-file advertisers with at most one day of $100 debt', () => {
+    expect(AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS).toBe(10_000)
   })
 })
 

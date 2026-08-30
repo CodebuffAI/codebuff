@@ -71,10 +71,39 @@ export const ProjectFileContextSchema = z.object({
   skills: z.record(z.string(), z.any()).optional(),
   includeHomeSkills: z.boolean().optional(),
   gitChanges: z.object({
-    status: z.string(),
-    diff: z.string(),
-    diffCached: z.string(),
-    lastCommitMessages: z.string(),
+    gitAvailable: z.boolean().optional(),
+    branch: z.string().optional(),
+    changedFiles: z.array(z.string()).optional(),
+    changedFileCount: z.number().optional(),
+    changedFileScanTruncated: z.boolean().optional(),
+    repositoryVisibility: z
+      .enum(['public', 'private', 'internal', 'unknown'])
+      .optional(),
+    commitCount: z.number().optional(),
+    historyIsShallow: z.boolean().optional(),
+    commitDatePercentiles: z
+      .object({
+        p0: z.string(),
+        p25: z.string(),
+        p50: z.string(),
+        p75: z.string(),
+        p100: z.string(),
+      })
+      .optional(),
+    mergedPullRequestCount: z.number().optional(),
+    humanContributorCount: z.number().optional(),
+    botContributorCount: z.number().optional(),
+    historyScanTruncated: z.boolean().optional(),
+    // Legacy field retained so stored run states from older clients parse.
+    contributorCount: z.number().optional(),
+    fileCount: z.number().optional(),
+    fileCountIsLowerBound: z.boolean().optional(),
+    testFileCount: z.number().optional(),
+    // Legacy fields retained so stored run states from older clients parse.
+    status: z.string().optional(),
+    diff: z.string().optional(),
+    diffCached: z.string().optional(),
+    lastCommitMessages: z.string().optional(),
   }),
   changesSinceLastChat: z.record(z.string(), z.string()),
   shellConfigFiles: z.record(z.string(), z.string()),
@@ -110,10 +139,35 @@ export type ProjectFileContext = {
    */
   includeHomeSkills?: boolean
   gitChanges: {
-    status: string
-    diff: string
-    diffCached: string
-    lastCommitMessages: string
+    gitAvailable?: boolean
+    branch?: string
+    changedFiles?: string[]
+    changedFileCount?: number
+    changedFileScanTruncated?: boolean
+    repositoryVisibility?: 'public' | 'private' | 'internal' | 'unknown'
+    commitCount?: number
+    historyIsShallow?: boolean
+    commitDatePercentiles?: {
+      p0: string
+      p25: string
+      p50: string
+      p75: string
+      p100: string
+    }
+    mergedPullRequestCount?: number
+    humanContributorCount?: number
+    botContributorCount?: number
+    historyScanTruncated?: boolean
+    /** Legacy field present in run states created before bot separation. */
+    contributorCount?: number
+    fileCount?: number
+    fileCountIsLowerBound?: boolean
+    testFileCount?: number
+    /** Legacy fields present in run states created before repository summaries. */
+    status?: string
+    diff?: string
+    diffCached?: string
+    lastCommitMessages?: string
   }
   changesSinceLastChat: Record<string, string>
   shellConfigFiles: Record<string, string>
@@ -126,6 +180,66 @@ export type ProjectFileContext = {
     cpus: number
     chromeAvailable: boolean
   }
+}
+
+/**
+ * The ONLY fields of `gitChanges` that may leave the client as telemetry.
+ *
+ * An explicit allowlist, never a spread, and the exclusions are the point:
+ *
+ * - `status` / `diff` / `diffCached` / `lastCommitMessages` are the legacy
+ *   fields still populated by older clients, and they hold **raw patch
+ *   content**. Spreading `gitChanges` would put repository source into the
+ *   warehouse.
+ * - `branch` and `changedFiles` are names and paths. A repository snapshot is
+ *   aggregate scalars, not a manifest; paths and branches are out of contract
+ *   (see infobuff docs/specs/2026-08-22-repository-feature-extractor-v2.md).
+ *
+ * Everything kept is a count, a bounded enum, or a date percentile. Adding a
+ * field here is a deliberate act; widening it by spread is not available.
+ */
+export const REPO_SNAPSHOT_FIELDS = [
+  'gitAvailable',
+  'repositoryVisibility',
+  'fileCount',
+  'fileCountIsLowerBound',
+  'testFileCount',
+  'commitCount',
+  'historyIsShallow',
+  'historyScanTruncated',
+  'commitDatePercentiles',
+  'mergedPullRequestCount',
+  'humanContributorCount',
+  'botContributorCount',
+  'contributorCount',
+  'changedFileCount',
+  'changedFileScanTruncated',
+] as const
+
+export type RepoSnapshot = Pick<
+  ProjectFileContext['gitChanges'],
+  (typeof REPO_SNAPSHOT_FIELDS)[number]
+>
+
+/**
+ * Project `gitChanges` down to the exportable aggregate contract.
+ *
+ * Returns undefined when the snapshot carries nothing worth recording, so a
+ * client with no Git and a client that never reported are the same absent
+ * column rather than a row of nulls that reads as measured zeroes.
+ */
+export const toRepoSnapshot = (
+  gitChanges: ProjectFileContext['gitChanges'] | undefined,
+): RepoSnapshot | undefined => {
+  if (!gitChanges) return undefined
+  const snapshot: Record<string, unknown> = {}
+  for (const field of REPO_SNAPSHOT_FIELDS) {
+    const value = gitChanges[field]
+    if (value !== undefined) snapshot[field] = value
+  }
+  return Object.keys(snapshot).length > 0
+    ? (snapshot as RepoSnapshot)
+    : undefined
 }
 
 export const fileRegex =
@@ -155,10 +269,12 @@ export const getStubProjectFileContext = (): ProjectFileContext => ({
   customToolDefinitions: {},
   skills: {},
   gitChanges: {
-    status: '',
-    diff: '',
-    diffCached: '',
-    lastCommitMessages: '',
+    gitAvailable: false,
+    changedFiles: [],
+    changedFileCount: 0,
+    repositoryVisibility: 'unknown',
+    fileCount: 0,
+    testFileCount: 0,
   },
   changesSinceLastChat: {},
   shellConfigFiles: {},

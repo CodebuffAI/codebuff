@@ -201,7 +201,10 @@ export interface FreebuffTrustLimits {
  * worth keeping so they are not quietly re-added.
  *
  * **Concurrent Desktop tabs** (`FREEBUFF_DESKTOP_SESSION_LIMITS.unlimited`) are
- * still enforced but not level-scaled. That is a session-SHAPE control rather
+ * still enforced but not level-scaled. A PAID PLAN does raise them
+ * (`freebuffDesktopSessionLimits`), which is not a contradiction: that is a
+ * purchase, not a reward for engagement, and it moves both ceilings together
+ * rather than metering one axis of a free account. That is a session-SHAPE control rather
  * than a cost control: starting a session costs nothing, and a session that
  * sits idle costs nothing either. What costs money is the traffic inside it,
  * and that is already bounded four different ways by the fields above.
