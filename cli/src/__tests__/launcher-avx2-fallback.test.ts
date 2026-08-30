@@ -83,7 +83,10 @@ async function waitFor(done: () => boolean, timeoutMs = 5000) {
  * matters beyond the assertions: a relaunched child's handler firing after a
  * test would otherwise call the real process.exit and take the runner down.
  */
-const launcher = { lines: [] as string[], exitCodes: [] as (number | undefined)[] }
+const launcher = {
+  lines: [] as string[],
+  exitCodes: [] as (number | undefined)[],
+}
 let restoreLauncherCapture = () => {}
 
 function captureLauncherOutput() {
@@ -109,9 +112,23 @@ function captureLauncherOutput() {
 /** A tar.gz holding a single `freebuff.exe` that runs `script`. */
 function baselineTarball(script: string) {
   const stageDir = mkdtempSync(join(tmpdir(), 'launcher-baseline-'))
-  writeFileSync(join(stageDir, 'freebuff.exe'), `#!/bin/sh\n${script}\n`, {
-    mode: 0o755,
+  const identity = JSON.stringify({
+    schemaVersion: 1,
+    product: 'freebuff',
+    version: '1.2.3',
+    target: 'win32-x64-baseline',
   })
+  writeFileSync(
+    join(stageDir, 'freebuff.exe'),
+    `#!/bin/sh
+if [ "$1" = "--print-build-info" ]; then
+  printf '%s\\n' '${identity}'
+  exit 0
+fi
+${script}
+`,
+    { mode: 0o755 },
+  )
   const archive = join(stageDir, 'out.tar.gz')
   execFileSync('tar', ['-czf', archive, '-C', stageDir, 'freebuff.exe'])
   return readFileSync(archive)
@@ -201,9 +218,9 @@ describe('windows AVX2 detection', () => {
 
     expect(t.detectMachineHasAvx2()).toBe(false)
     expect(t.readCachedAvx2()).toBe(false)
-    expect(JSON.parse(readFileSync(t.getCpuFeatureCachePath(), 'utf8'))).toEqual(
-      { avx2: false },
-    )
+    expect(
+      JSON.parse(readFileSync(t.getCpuFeatureCachePath(), 'utf8')),
+    ).toEqual({ avx2: false })
   })
 
   test('a recorded failure selects baseline up front on the NEXT launch', () => {
@@ -265,7 +282,10 @@ describe('windows AVX2 detection', () => {
 describe('recovery after a recorded failure', () => {
   /** Simulate a completed install of `target` at `version`. */
   function installBinary(t: ReturnType<typeof makeLauncher>, target: string) {
-    writeFileSync(t.CONFIG.metadataPath, JSON.stringify({ version: '1.2.3', target }))
+    writeFileSync(
+      t.CONFIG.metadataPath,
+      JSON.stringify({ version: '1.2.3', target }),
+    )
     writeFileSync(t.CONFIG.binaryPath, 'pretend binary')
   }
 

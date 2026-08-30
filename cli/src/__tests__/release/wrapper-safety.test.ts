@@ -252,15 +252,29 @@ describe('shared release launcher safety', () => {
       configDir,
     })
     const { CONFIG } = launcher.__testing
+    const target = launcher.__testing.getDefaultTargetKey()
+    const replacementIdentity = JSON.stringify({
+      schemaVersion: 1,
+      product: 'repair-test',
+      version: '2.0.0',
+      target,
+    })
+    const replacementBinary = [
+      '#!/bin/sh',
+      `printf '%s\\n' '${replacementIdentity}'`,
+      '',
+    ].join('\n')
     writeFileSync(CONFIG.binaryPath, 'stale binary')
     writeFileSync(
       CONFIG.metadataPath,
       JSON.stringify({
         version: '1.0.0',
-        target: process.platform + '-' + process.arch,
+        target,
       }),
     )
-    writeFileSync(join(archiveDir, CONFIG.binaryName), 'replacement binary')
+    writeFileSync(join(archiveDir, CONFIG.binaryName), replacementBinary, {
+      mode: 0o755,
+    })
 
     const tar = require('tar') as typeof import('tar')
     await tar.c({ cwd: archiveDir, file: archivePath, gzip: true }, [
@@ -281,7 +295,7 @@ describe('shared release launcher safety', () => {
           await launcher.__testing.ensureBinaryReady()
 
           expect(readFileSync(CONFIG.binaryPath, 'utf8')).toBe(
-            'replacement binary',
+            replacementBinary,
           )
           expect(
             JSON.parse(readFileSync(CONFIG.metadataPath, 'utf8')),

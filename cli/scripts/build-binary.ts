@@ -165,6 +165,7 @@ async function main() {
   const defineFlags = [
     ['process.env.NODE_ENV', '"production"'],
     ['process.env.CODEBUFF_IS_BINARY', '"true"'],
+    ['process.env.CODEBUFF_CLI_BINARY_NAME', JSON.stringify(binaryName)],
     ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
     ['process.env.CODEBUFF_CLI_TARGET', `"${getCliTargetLabel(targetInfo)}"`],
     ['process.env.FREEBUFF_MODE', `"${process.env.FREEBUFF_MODE ?? 'false'}"`],

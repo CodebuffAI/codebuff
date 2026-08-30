@@ -25,6 +25,8 @@ function createLauncher(productConfig) {
     // Tests only. os.homedir() ignores $HOME under `bun test`, so pointing HOME
     // at a temp dir is not enough to keep a test off the real ~/.config.
     configDir: configDirOverride = null,
+    // Tests only. Production keeps the 10s bound for slow Windows startup.
+    buildIdentityTimeoutMs = 10000,
   } = productConfig
 
   /**
@@ -81,6 +83,10 @@ function createLauncher(productConfig) {
 
   /** Bytes of the binary's stderr kept for the crash report. */
   const STDERR_TAIL_BYTES = 8192
+
+  /** Versioned contract emitted by compiled binaries via --print-build-info. */
+  const BUILD_IDENTITY_SCHEMA_VERSION = 1
+  const BUILD_IDENTITY_OUTPUT_BYTES = 4096
 
   function getUnsignedExitCode(code) {
     return code != null && code < 0 ? code >>> 0 : code
@@ -741,6 +747,120 @@ function createLauncher(productConfig) {
     }
   }
 
+  function readStagedBinaryIdentity(binaryPath) {
+    return new Promise((resolve, reject) => {
+      const child = spawn(binaryPath, ['--print-build-info'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        env: { ...process.env, NO_COLOR: '1', TERM: 'dumb' },
+      })
+
+      let stdout = ''
+      let stderr = ''
+      let outputBytes = 0
+      let settled = false
+
+      const settle = (error, identity = null) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        if (error) reject(error)
+        else resolve(identity)
+      }
+
+      const append = (stream) => (chunk) => {
+        outputBytes += chunk.length
+        if (outputBytes > BUILD_IDENTITY_OUTPUT_BYTES) {
+          const error = new Error(
+            `Downloaded artifact produced more than ${BUILD_IDENTITY_OUTPUT_BYTES} bytes while reporting its identity`,
+          )
+          error.code = 'ARTIFACT_IDENTITY_INVALID'
+          child.kill('SIGKILL')
+          settle(error)
+          return
+        }
+        if (stream === 'stdout') stdout += chunk.toString('utf8')
+        else stderr += chunk.toString('utf8')
+      }
+
+      child.stdout?.on('data', append('stdout'))
+      child.stderr?.on('data', append('stderr'))
+
+      const timer = setTimeout(() => {
+        const error = new Error(
+          `Downloaded artifact did not report its identity within ${buildIdentityTimeoutMs}ms`,
+        )
+        error.code = 'ARTIFACT_IDENTITY_TIMEOUT'
+        child.kill('SIGKILL')
+        settle(error)
+      }, buildIdentityTimeoutMs)
+
+      child.once('error', (cause) => {
+        const error = new Error(
+          `Could not execute downloaded artifact: ${cause.message}`,
+          { cause },
+        )
+        error.code = 'ARTIFACT_IDENTITY_EXEC_FAILED'
+        settle(error)
+      })
+      child.once('close', (code, signal) => {
+        if (code !== 0) {
+          const detail = stderr.trim().slice(0, 512)
+          const error = new Error(
+            `Downloaded artifact identity command exited with ${
+              signal ? `signal ${signal}` : `code ${code}`
+            }${detail ? `: ${detail}` : ''}`,
+          )
+          error.code = 'ARTIFACT_IDENTITY_EXEC_FAILED'
+          settle(error)
+          return
+        }
+
+        let identity
+        try {
+          identity = JSON.parse(stdout.trim())
+        } catch {
+          const error = new Error(
+            'Downloaded artifact returned malformed build identity JSON',
+          )
+          error.code = 'ARTIFACT_IDENTITY_INVALID'
+          settle(error)
+          return
+        }
+        settle(null, identity)
+      })
+    })
+  }
+
+  async function validateStagedBinary({ tempBinaryPath, version, targetKey }) {
+    const identity = await readStagedBinaryIdentity(tempBinaryPath)
+    const expected = {
+      schemaVersion: BUILD_IDENTITY_SCHEMA_VERSION,
+      product: packageName,
+      version,
+      target: targetKey,
+    }
+
+    const matches =
+      identity &&
+      !Array.isArray(identity) &&
+      identity.schemaVersion === expected.schemaVersion &&
+      identity.product === expected.product &&
+      identity.version === expected.version &&
+      identity.target === expected.target
+
+    if (!matches) {
+      const error = new Error(
+        `Downloaded artifact identity mismatch: expected ${JSON.stringify(
+          expected,
+        )}, received ${JSON.stringify(identity)}`,
+      )
+      error.code = 'ARTIFACT_IDENTITY_MISMATCH'
+      error.retryable = false
+      throw error
+    }
+  }
+
   async function stageBinary(
     version,
     targetKey = getDownloadTargetKey(),
@@ -775,11 +895,22 @@ function createLauncher(productConfig) {
       if (process.platform !== 'win32') {
         fs.chmodSync(tempBinaryPath, 0o755)
       }
+      await validateStagedBinary({ tempBinaryPath, version, targetKey })
     } catch (error) {
       try {
         fs.rmSync(CONFIG.tempDownloadDir, { recursive: true, force: true })
       } catch {
-        // Preserve the original chmod error.
+        // Preserve the original staging error.
+      }
+      if (
+        typeof error?.code === 'string' &&
+        error.code.startsWith('ARTIFACT_IDENTITY_')
+      ) {
+        trackUpdateFailed(error.message, version, {
+          stage: 'artifact_validation',
+          errorCode: error.code,
+          target: targetKey,
+        })
       }
       throw error
     }
@@ -977,7 +1108,10 @@ function createLauncher(productConfig) {
     // relaunch's download for the shared temp directory (prepareTempDownloadDir
     // rmSyncs it) and then spend six seconds SIGKILLing a process that has
     // already exited.
-    if (runningProcess.exitCode !== null || runningProcess.signalCode !== null) {
+    if (
+      runningProcess.exitCode !== null ||
+      runningProcess.signalCode !== null
+    ) {
       return
     }
 
@@ -1459,6 +1593,8 @@ function createLauncher(productConfig) {
       getCurrentVersion,
       getMetadataVersion,
       getRequiredWrapperVersion,
+      readStagedBinaryIdentity,
+      validateStagedBinary,
       ensureBinaryReady,
       isTargetAllowedForThisMachine,
       CONFIG,

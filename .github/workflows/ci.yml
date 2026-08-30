@@ -51,4 +51,18 @@ jobs:
         run: |
           chmod +x cli/bin/freebuff
           cli/bin/freebuff --version
+          BUILD_INFO="$(cli/bin/freebuff --print-build-info)" bun -e '
+            const actual = JSON.parse(process.env.BUILD_INFO);
+            const expected = {
+              schemaVersion: 1,
+              product: "freebuff",
+              version: "0.0.0-ci",
+              target: "linux-x64",
+            };
+            if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+              throw new Error(
+                `Unexpected binary identity: ${JSON.stringify(actual)}`,
+              );
+            }
+          '
           bun cli/scripts/smoke-binary.ts cli/bin/freebuff
