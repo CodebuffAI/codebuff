@@ -56,6 +56,55 @@ export const AD_TOP_UP_PRODUCT_NAME = 'Freebuff placements balance'
 /** The only currency this rail accepts. Asserted at parse time, not assumed. */
 export const AD_TOP_UP_CURRENCY = 'usd'
 
+/** Default maximum unpaid placement spend after an advertiser saves a card. */
+export const AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS = 10_000
+
+/**
+ * Referral launch promotion: qualify only after $100 has both been collected
+ * and spent on an active, reviewed campaign. Each side then receives $500.
+ */
+export const AD_PROMO_QUALIFY_CENTS = 10_000
+export const AD_PROMO_MATCH_MILESTONES_CENTS = [AD_PROMO_QUALIFY_CENTS] as const
+export const AD_PROMO_MATCH_GRANT_CENTS = 50_000
+
+/** Promotional credit paid to the referrer after qualification. */
+export const AD_PROMO_REFERRER_REWARD_CENTS = 50_000
+export const AD_PROMO_REFERRER_REWARD_CAP = 10
+export const AD_PROMO_CREDIT_EXPIRY_DAYS = 60
+export const AD_PROMO_REFERRAL_PROGRAM = 'placements_launch_2026'
+
+/**
+ * Keep collection provenance through Stripe's refund/dispute exposure window.
+ * Account deletion is blocked while a collection is pending or this recent.
+ */
+export const AD_PLACEMENT_COLLECTION_RETENTION_DAYS = 180
+
+/** Direct placements never sell below one dollar per billable click. */
+export const AD_PLACEMENT_CPC_FLOOR_CENTS = 100
+
+/** A single automatic reprice may move at most 25% in either direction. */
+export const AD_PLACEMENT_CPC_REPRICE_MAX_MOVE_BPS = 2_500
+
+/** Thin samples are reported, but never allowed to move money automatically. */
+export const AD_PLACEMENT_CPC_REPRICE_MIN_CLICKS = 50
+
+/**
+ * The lowest price a single geo-adjusted click may bill, after the country
+ * multiplier is applied.
+ *
+ * DISTINCT from `AD_PLACEMENT_CPC_FLOOR_CENTS`, and the two are not
+ * interchangeable. That one is the minimum a CAMPAIGN may be priced at -- the
+ * rate-card minimum an operator sets and the repricer clamps to. This one is
+ * the minimum a single CLICK may bill at once the campaign's base rate has
+ * been scaled down for a low-conversion country. A campaign based at $4.50
+ * clears the campaign floor comfortably while individual clicks from the
+ * limited tier settle here.
+ *
+ * Keeping them separate is why geo pricing needs no migration:
+ * `ck_ad_placement_campaign_cpc_floor` still guards the base rate, unchanged.
+ */
+export const AD_PLACEMENT_CPC_GEO_FLOOR_CENTS = 50
+
 /**
  * There is deliberately NO `normalizeTopUpCents`.
  *
@@ -138,12 +187,23 @@ export const AD_SPEND_LEDGER_REASONS = [
   'adjustment',
   /** A disputed top-up pulled back by the card network. Negative. */
   'chargeback',
+  /** Card-on-file collection that pays down a negative postpaid balance. */
+  'collection',
+  /** A Stripe refund of a prior postpaid collection. Negative. */
+  'collection_refund',
+  /** A disputed postpaid collection pulled back by the network. Negative. */
+  'collection_chargeback',
+  /** Time-limited promotional balance with separate grant provenance. */
+  'promo_credit',
+  /** Unspent promotional balance removed at expiry or after a reversal. */
+  'promo_reversal',
 ] as const
 export type AdSpendLedgerReason = (typeof AD_SPEND_LEDGER_REASONS)[number]
 
 /** What the advertiser sees on the statement. */
 export const AD_STATEMENT_KINDS = [
   'topup',
+  'payment',
   'spend',
   'refund',
   'adjustment',
@@ -162,10 +222,25 @@ export type AdStatementKind = (typeof AD_STATEMENT_KINDS)[number]
 export function statementKindForReason(
   reason: AdSpendLedgerReason,
 ): AdStatementKind {
-  return reason === 'chargeback' ? 'adjustment' : reason
+  if (reason === 'collection') return 'payment'
+  if (
+    reason === 'chargeback' ||
+    reason === 'collection_refund' ||
+    reason === 'collection_chargeback' ||
+    reason === 'promo_reversal'
+  ) {
+    return 'adjustment'
+  }
+  if (reason === 'promo_credit') return 'adjustment'
+  return reason
 }
 
 /** Reasons that add money. Everything else subtracts. */
 export function isCreditReason(reason: AdSpendLedgerReason): boolean {
-  return reason === 'topup' || reason === 'refund'
+  return (
+    reason === 'topup' ||
+    reason === 'refund' ||
+    reason === 'collection' ||
+    reason === 'promo_credit'
+  )
 }

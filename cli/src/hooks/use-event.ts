@@ -19,8 +19,10 @@ import { useCallback, useRef } from 'react'
  * // handleClick has a stable reference, so it won't cause child re-renders
  * <ChildComponent onClick={handleClick} />
  */
-export function useEvent<T extends (...args: any[]) => any>(callback: T): T {
-  const callbackRef = useRef<T>(callback)
+export function useEvent<TArgs extends unknown[], TReturn>(
+  callback: (...args: TArgs) => TReturn,
+): (...args: TArgs) => TReturn {
+  const callbackRef = useRef<(...args: TArgs) => TReturn>(callback)
 
   // Update the ref to the latest callback on every render
   // This ensures the ref is always in sync with the current render
@@ -28,7 +30,7 @@ export function useEvent<T extends (...args: any[]) => any>(callback: T): T {
 
   // Return a stable function that calls the latest callback
   return useCallback(
-    ((...args: any[]) => callbackRef.current(...args)) as T,
+    (...args: TArgs) => callbackRef.current(...args),
     [], // Empty deps array ensures the function identity is stable
   )
 }

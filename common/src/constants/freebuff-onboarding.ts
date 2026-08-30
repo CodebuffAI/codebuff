@@ -232,6 +232,14 @@ export type OnboardingValidationError = {
  * means the client is out of date or forged, and accepting it would put a value
  * in the analytics that no question can explain. Free text is merely trimmed
  * and truncated — it is never interpreted, only displayed.
+ *
+ * **Partial submissions are valid.** Every question is individually skippable,
+ * so an unanswered one is a user's choice rather than a broken client, and the
+ * questions someone did answer are real data. Requiring the full set here is
+ * how partial answers used to be discarded: the form posted only what was
+ * filled in, this rejected it with a 400, and the person was told their
+ * answers could not be saved. Only an entirely empty submission is refused,
+ * because saving nothing would still mark the questionnaire as dealt with.
  */
 export function validateOnboardingSubmission(
   submission: OnboardingSubmission,
@@ -244,10 +252,8 @@ export function validateOnboardingSubmission(
     const answer = submission.answers.find((a) => a.questionId === question.id)
     const optionIds = answer?.optionIds ?? []
 
-    if (optionIds.length === 0) {
-      errors.push({ questionId: question.id, message: 'Please choose an option.' })
-      continue
-    }
+    // Skipped, not malformed. Carries no answer and no complaint.
+    if (optionIds.length === 0) continue
     if (!question.multi && optionIds.length > 1) {
       errors.push({ questionId: question.id, message: 'Choose one option.' })
       continue
@@ -290,7 +296,14 @@ export function validateOnboardingSubmission(
     })
   }
 
-  return errors.length > 0 ? { ok: false, errors } : { ok: true, answers: cleaned }
+  if (errors.length > 0) return { ok: false, errors }
+  if (cleaned.length === 0) {
+    return {
+      ok: false,
+      errors: [{ questionId: null, message: 'Choose at least one answer.' }],
+    }
+  }
+  return { ok: true, answers: cleaned }
 }
 
 /** Every question answered. Decides only whether someone who returns to the

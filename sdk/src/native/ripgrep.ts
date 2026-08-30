@@ -6,6 +6,24 @@ import { getSdkEnv } from '../env'
 
 import type { SdkEnv } from '../types/env'
 
+const PLATFORM_DIRS: Record<string, string> = {
+  'darwin-arm64': 'arm64-darwin',
+  'darwin-x64': 'x64-darwin',
+  'linux-arm64': 'arm64-linux',
+  'linux-x64': 'x64-linux',
+  'win32-arm64': 'arm64-win32',
+  'win32-x64': 'x64-win32',
+}
+
+export function ripgrepPlatformDir(
+  platform: NodeJS.Platform = process.platform,
+  arch: string = process.arch,
+): string {
+  const platformDir = PLATFORM_DIRS[`${platform}-${arch}`]
+  if (!platformDir) throw new Error(`Unsupported platform: ${platform}-${arch}`)
+  return platformDir
+}
+
 /**
  * Get the path to the bundled ripgrep binary based on the current platform
  * @param importMetaUrl - import.meta.url from the calling module
@@ -20,24 +38,9 @@ export function getBundledRgPath(
     return env.CODEBUFF_RG_PATH
   }
 
-  // Determine platform-specific directory name
   const platform = process.platform
   const arch = process.arch
-
-  let platformDir: string
-  if (platform === 'win32' && arch === 'x64') {
-    platformDir = 'x64-win32'
-  } else if (platform === 'darwin' && arch === 'arm64') {
-    platformDir = 'arm64-darwin'
-  } else if (platform === 'darwin' && arch === 'x64') {
-    platformDir = 'x64-darwin'
-  } else if (platform === 'linux' && arch === 'arm64') {
-    platformDir = 'arm64-linux'
-  } else if (platform === 'linux' && arch === 'x64') {
-    platformDir = 'x64-linux'
-  } else {
-    throw new Error(`Unsupported platform: ${platform}-${arch}`)
-  }
+  const platformDir = ripgrepPlatformDir(platform, arch)
 
   const binaryName = platform === 'win32' ? 'rg.exe' : 'rg'
 
