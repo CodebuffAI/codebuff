@@ -2,6 +2,9 @@
 .idea/
 .vercel
 
+# Exported user lists (PII) - scripts/export-user-emails.ts
+user-emails-*.csv
+
 # Environment files (secrets) - Bun loads .env.* files natively
 .env
 .env.*
