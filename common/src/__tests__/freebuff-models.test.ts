@@ -108,17 +108,13 @@ const MINIMAX_M3_MODEL_ID = minimaxModels.minimaxM3
 describe('freebuff model availability', () => {
   test('the default is joinable at every hour; the fallback is unlimited', () => {
     // The two constants answer different questions: the default is the STARTING
-    // pick (not a recommendation — nothing is badged), the fallback is what is
-    // always joinable when the premium pool is spent. Pro holds the first since
-    // 2026-08-21 and MiMo the second since Flash became premium (2026-08-18).
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    // pick (leading FREEBUFF_MODELS is the only steer — nothing is badged), the
+    // fallback is what is always joinable when the premium pool is spent. GLM
+    // 5.3 Flash holds the first since 2026-08-30 and MiMo the second since Flash
+    // became premium (2026-08-18).
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
 
-    // Luna since 2026-08-24. Flash closed for the peak window again once Pro
-    // stopped being the peak-closed row, and a default cannot be dark for ten
-    // hours a day -- so the default moved to the cheapest row that is open at
-    // every hour. Measured inside the window: Luna $[redacted]/msg against Pro's
-    // $[redacted] and Flash-at-peak's $[redacted].
     //
     // THE invariant that moved the default off Flash. A default is what a new
     // user lands on before they know the catalog exists, so it must be open at
@@ -140,7 +136,7 @@ describe('freebuff model availability', () => {
 
     // The default may be premium — it steps down when the pool is spent — but
     // it must NOT carry a per-model ceiling, which would cap the starting pick
-    // at a couple of hours. That ceiling is Luna's alone.
+    // at a couple of hours.
     expect(
       Boolean(getFreebuffPerModelSessionCap(DEFAULT_FREEBUFF_MODEL_ID)),
     ).toBe(false)
@@ -152,8 +148,23 @@ describe('freebuff model availability', () => {
     // surface steps down when the pool is spent, so a premium value here would
     // step users onto a model that fails admission for exactly the users it was
     // meant to rescue.
-    expect(isFreebuffPremiumModelId(DEFAULT_FREEBUFF_MODEL_ID)).toBe(true)
     expect(isFreebuffPremiumModelId(FALLBACK_FREEBUFF_MODEL_ID)).toBe(false)
+
+    // AND THE DEFAULT IS NOW NON-PREMIUM TOO, which is new as of 2026-08-30 and
+    // is a strengthening rather than a relaxation. Every default from
+    // 2026-08-18 onward was premium, which made the step-down mandatory for any
+    // surface holding a live quota — miss it and the recommended pick becomes
+    // one whose next send fails admission. An unmetered default cannot reach
+    // that state at all.
+    //
+    // Asserted as an EQUALITY on the current value rather than loosened to
+    // "premium or not": if a future default is premium again, the step-down
+    // becomes load-bearing again and whoever makes that change should be made
+    // to come here and say so.
+    expect(isFreebuffPremiumModelId(DEFAULT_FREEBUFF_MODEL_ID)).toBe(false)
+    expect(Boolean(getFreebuffPerModelSessionCap(DEFAULT_FREEBUFF_MODEL_ID))).toBe(
+      false,
+    )
   })
 
   test('desktop concurrency splits full access into 1 premium and 3 unlimited sessions', () => {
@@ -298,30 +309,40 @@ describe('freebuff model availability', () => {
     expect(fallback.availability).toBe('always')
   })
 
-  test('GLM 5.3 Flash trails the catalog and nothing is recommended', () => {
-    // GLM 5.3 Flash inherits the slot V4 Pro held: the deep row, placed last so
-    // a user reaches it deliberately rather than by scanning from the top.
-    // Ordering is the only steer in this list — nothing is badged RECOMMENDED
-    // and nothing supersedes anything — so this pins a product decision.
+  test('GLM 5.3 Flash LEADS the catalog, and still nothing is badged', () => {
+    // REVERSED on 2026-08-30. This test previously asserted the opposite —
+    // that GLM 5.3 Flash trailed the list and was "nobody's starting pick" —
+    // on the argument that a default should be the fast, cheap row rather than
+    // the deliberate deep one. It is now the default on every surface, as an
+    // explicit product decision: it is the cheapest row we serve AND the only
+    // recent default that is unmetered, so it wins the cost and availability
+    // halves outright and loses only on latency.
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    expect(all).toContain(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
-    // UNMETERED since 2026-08-28 — see the metering test below. Ordering is a
-    // product decision and is independent of how the row is metered.
+    expect(all[0]).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+
+    // The properties that make it admissible as a default, asserted rather than
+    // trusted — each one is a way the first Enter press could fail.
     expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(false)
     expect(isFreebuffPausedFreeModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(
       false,
     )
+    expect(
+      Boolean(getFreebuffPerModelSessionCap(FREEBUFF_GLM_V53_FLASH_MODEL_ID)),
+    ).toBe(false)
 
-    expect(all[all.length - 1]).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
-    // And it is nobody's starting pick. The original reason was a quota one —
-    // it was capped at two a day — and that is now gone, so the argument is
-    // purely about depth: this is the deliberate deep row, and a default a new
-    // user lands on before they know the catalog exists should be the fast,
-    // cheap one. Keep it off both defaults.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).not.toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).not.toBe(
-      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
-    )
+    // STILL NOTHING IS BADGED. Leading the list is the whole recommendation:
+    // no ' RECOMMENDED ' badge and no supersedes notice, because a
+    // `supersededBy` would rewrite SAVED picks on every load
+    // (migrateSupersededFreebuffModelPreference) — a user who deliberately
+    // chose another row would be moved off it at each launch.
+    expect(
+      getFreebuffModelSupersededBy(
+        FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        all,
+      ),
+    ).toBeUndefined()
   })
 
   /**
@@ -1165,8 +1186,8 @@ describe('freebuff model availability', () => {
     // the one place a specific model is still named TO a user, and it is not a
     // recommendation in the sense the picker dropped: the pick is gone, so
     // pointing somewhere is the alternative to a dead end.
-    expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
-      'GPT-5.6 Luna',
+expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
+      'GLM 5.3 Flash',
     )
 
     // The AGENT door stays open, and that is not an oversight. Withdrawal is
@@ -1347,20 +1368,29 @@ describe('freebuff model availability', () => {
   })
 
   test('the picker hero is joinable and in-tier', () => {
-    // Full access → DeepSeek V4 Pro since 2026-08-21. "Hero" is the row the
-    // cursor starts on, NOT a recommendation — the ' RECOMMENDED ' badge and
-    // every supersedes notice are gone. It is premium, so it HAS to flip once
-    // the daily pool runs dry; these assertions are what keep the first Enter
+    // Full access → GLM 5.3 Flash since 2026-08-30. "Hero" is the row the cursor
+    // starts on, NOT a recommendation — the ' RECOMMENDED ' badge and every
+    // supersedes notice are gone. These assertions are what keep the first Enter
     // press joinable at every point in a user's day.
     expect(getRecommendedFreebuffModelId('full')).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffModelId(undefined)).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
+    // THE STEP-DOWN NO LONGER FIRES FOR FULL ACCESS, and that is the point of
+    // an unmetered default rather than an oversight. `premiumExhausted` says
+    // the PREMIUM pool is spent; this hero does not draw on it, so stepping off
+    // it would move a user off the row they were just offered, to a different
+    // unmetered row, and blame a quota that was never involved.
+    //
+    // The guard is conditional on the default actually being premium, so this
+    // reverts to a real step-down automatically if a premium default returns.
     expect(
       getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
-    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    ).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    // What actually has to hold either way: whatever the hero is with the pool
+    // spent, it must be joinable on an empty wallet.
     expect(
       isFreebuffPremiumModelId(
         getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
@@ -1377,28 +1407,25 @@ describe('freebuff model availability', () => {
         (m) => m.id === getRecommendedFreebuffModelId('limited'),
       ),
     ).toBe(true)
-    // Still true with the premium pool spent: that flag steps the FULL-access
-    // hero down to the unlimited row, and must not drag the limited hero
-    // anywhere — it is already on that tier's only model.
+    // Still true with the premium pool spent: the flag must not drag the limited
+    // hero anywhere — it is already on that tier's only model.
     expect(
       getRecommendedFreebuffModelId('limited', { premiumExhausted: true }),
     ).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
   })
 
-  test('every surface starts on GPT-5.6 Luna, on two separate constants', () => {
+  test('every surface starts on GLM 5.3 Flash, on two separate constants', () => {
     // Both constants named Pro from 2026-08-12 until it was paused on
-    // 2026-08-18, went to Flash, and returned to Pro on 2026-08-21 when Flash
-    // took over the peak-hours closure. They stay TWO constants because they
+    // 2026-08-18, went to Flash, returned to Pro on 2026-08-21, moved to Luna on
+    // 08-24 and to GLM 5.3 Flash on 08-30. They stay TWO constants because they
     // have diverged before and may again.
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-    )
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     // Neither default may be a paused model — that is the pairing that would
     // put every new user on a row the server refuses.
@@ -1415,17 +1442,28 @@ describe('freebuff model availability', () => {
         FREEBUFF_WEB_MODELS.map((model) => model.id),
       ),
     ).toBeUndefined()
-    // Pro is premium, so the pool CAN run dry — the starting pick has to stay
-    // joinable, and limited tier can't name it at all. Asserted through
-    // the tier constant so the hero and the catalog cannot part company.
+    // The limited tier cannot name the full-access default at all. Asserted
+    // through the tier constant so the hero and the catalog cannot part company.
+    // (The full-access pool running dry no longer moves this hero — the default
+    // is unmetered — but the tier split is unchanged and still load-bearing.)
     expect(getRecommendedFreebuffWebModelId('limited')).toBe(
       LIMITED_FREEBUFF_MODEL_ID,
     )
-    // Steps down to the fallback, which is MiMo 2.5 now that Flash is itself
-    // premium — the whole point of the two constants being separate.
+    // Does NOT step down, for the same reason the CLI hero does not: the Web
+    // default is unmetered as of 2026-08-30, so a spent PREMIUM pool says
+    // nothing about whether this row is joinable. The step-down is conditional
+    // on the web default actually being premium and returns automatically if a
+    // premium default does.
     expect(
       getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),
-    ).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    ).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    // The property that must hold whatever the hero is: joinable on an empty
+    // wallet.
+    expect(
+      isFreebuffPremiumModelId(
+        getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),
+      ),
+    ).toBe(false)
     expect(
       isFreebuffPremiumModelId(
         getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),

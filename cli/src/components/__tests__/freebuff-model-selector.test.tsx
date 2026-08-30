@@ -303,23 +303,25 @@ describe('FreebuffModelSelector tier layout', () => {
   })
 
   test('collapses to the unlimited hero when the premium default is spent', async () => {
-    // The default selection has been premium since 2026-08-12, so a returning
-    // user who has spent their pool opens the picker already sitting on a row
-    // `pick` silently refuses. Both the selection AND the cursor have to leave
-    // it, or Enter does nothing with no explanation — and the picker has to
-    // collapse onto the replacement, or it opens on three greyed, unusable
-    // premium rows with the recommendation fourth.
+    // A returning user sitting on a spent PREMIUM row opens the picker already
+    // on a row `pick` silently refuses. Both the selection AND the cursor have
+    // to leave it, or Enter does nothing with no explanation — and the picker
+    // has to collapse onto the replacement, or it opens on greyed, unusable
+    // premium rows with the recommendation below them.
+    //
+    // KEYED ON A PREMIUM ROW (Luna), NOT ON THE DEFAULT. It used to key on
+    // DEFAULT_FREEBUFF_MODEL_ID, which was right for as long as every default
+    // was premium — 2026-08-12 to 08-30. The default is now unmetered, so
+    // exhausting "its pool" exhausts nothing and the step-down under test never
+    // fires. Keying on the row that actually HAS a pool keeps this covering the
+    // behaviour rather than passing vacuously.
     const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
-      // Keyed on the CURRENT default rather than on a named model: the default
-      // moved from Flash to V4 Pro on 2026-08-21, and this fixture has to
-      // exhaust the pool of whichever row the picker will actually open on, or
-      // the step-down under test never triggers.
       rateLimitsByModel: {
-        [DEFAULT_FREEBUFF_MODEL_ID]: {
-          model: DEFAULT_FREEBUFF_MODEL_ID,
+        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
+          model: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
           limit: 6,
           period: 'pacific_day',
           resetTimeZone: 'America/Los_Angeles',
@@ -329,17 +331,23 @@ describe('FreebuffModelSelector tier layout', () => {
         },
       },
     })
-    useFreebuffModelStore.getState().setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
 
     const setup = await renderSelector()
     await Promise.resolve()
     await setup.renderOnce()
     await setup.renderOnce()
 
-    expect(getSelectedFreebuffModel()).toBe(FALLBACK_FREEBUFF_MODEL_ID)
+    // Lands on the RECOMMENDATION, which is now unmetered — so unlike every
+    // version of this test since 2026-08-12 the destination is not the
+    // fallback. The user is moved off the row they cannot use and onto the one
+    // the picker leads with, rather than being demoted two steps.
+    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
     const frame = setup.captureCharFrame()
     // `›` is the cursor: it has to be on the row Enter now commits.
-    expect(frame).toContain('› MiMo 2.5')
+    expect(frame).toContain('› GLM 5.3 Flash')
     // …and that row is the whole screen, exactly as for a user who is already
     // on the recommendation. The spent rows live behind the toggle.
     expect(frame).toContain('See all')
@@ -370,8 +378,11 @@ describe('FreebuffModelSelector tier layout', () => {
     await setup.renderOnce()
     await setup.renderOnce()
 
-    expect(getSelectedFreebuffModel()).toBe(FALLBACK_FREEBUFF_MODEL_ID)
-    expect(setup.captureCharFrame()).toContain('› MiMo 2.5')
+    // Repaired onto the recommendation. Was the fallback while the default was
+    // premium; an unmetered default is always joinable, so an invalid selection
+    // now lands on the row the picker leads with.
+    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    expect(setup.captureCharFrame()).toContain('› GLM 5.3 Flash')
   })
 
   test('shows every limited-tier model when the access tier arrives after mount', async () => {
@@ -601,9 +612,13 @@ describe('FreebuffModelSelector tier layout', () => {
     //
     // So this bound tracks the WIDEST ROW, not the hero's own content, and it
     // moves whenever any row in the set grows. It went 10 -> 14 when GLM 5.3
-    // Flash gained a reasoning ladder: its row picked up a
-    // ` · Reasoning: <rung>` suffix (see reasoningSuffixFor) and became the
-    // widest, pushing the hero's slack to 11. That is the card sizing itself to
+    // Flash gained a reasoning ladder, which widens its row two different ways:
+    // a model with a pinned `reasoningEffort` shows ` · Reasoning: <rung>`, and
+    // a model the user has picked a rung for shows ` · Reasoning: <rung>*`
+    // whether or not one is pinned (see reasoningSuffixFor). GLM 5.3 Flash has
+    // no pinned effort — it runs at the provider's own setting — but an earlier
+    // test in this file leaves a saved pick in the store, so the starred form is
+    // what is actually being measured here. That is the card sizing itself to
     // its content, which is the behaviour under test.
     //
     // Kept well under 17 deliberately — the number has to stay small enough to
