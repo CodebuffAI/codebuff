@@ -598,10 +598,22 @@ describe('FreebuffModelSelector tier layout', () => {
     // The reserved cue gutter used to sit between the last badge and the right
     // border, padding the card out by ~17 columns of empty space. What remains
     // is ordinary slack from the widest row in the set.
+    //
+    // So this bound tracks the WIDEST ROW, not the hero's own content, and it
+    // moves whenever any row in the set grows. It went 10 -> 14 when GLM 5.3
+    // Flash gained a reasoning ladder: its row picked up a
+    // ` · Reasoning: <rung>` suffix (see reasoningSuffixFor) and became the
+    // widest, pushing the hero's slack to 11. That is the card sizing itself to
+    // its content, which is the behaviour under test.
+    //
+    // Kept well under 17 deliberately — the number has to stay small enough to
+    // fail if the reserved gutter ever comes back, which is the only thing this
+    // assertion is really guarding. Widen it again only for a real content
+    // change, and check WHICH row got wider before you do.
     const gapToBorder =
       heroRow.length - 1 - (heroRow.indexOf('NEW') + 'NEW'.length)
     expect(heroRow.endsWith('│')).toBe(true)
-    expect(gapToBorder).toBeLessThan(10)
+    expect(gapToBorder).toBeLessThan(14)
   })
 })
 

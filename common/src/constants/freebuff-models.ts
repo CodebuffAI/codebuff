@@ -87,8 +87,13 @@ export interface FreebuffModelOption {
   /** Reasoning effort sent for this model, on the PROVIDER's own scale.
    *  Deliberately wider than the shared agent-definition enum: Meta's ladder is
    *  minimal/low/medium/high/xhigh (its own 400 names the set). Not every
-   *  provider accepts every rung, so each model still declares its own ladder. */
-  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+   *  provider accepts every rung, so each model still declares its own ladder.
+   *
+   *  `max` joined this union for GLM 5.3 Flash, whose declared ladder tops out
+   *  there and whose previous behaviour (unset) was DEEPER than max — so any
+   *  narrower wire default would have been a silent downgrade rather than the
+   *  small, deliberate one that row documents. */
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
   /**
    * The ladder a USER may pick from for this model, ascending. Absent means the
    * model offers no choice and shows no control — the default for every row.
@@ -529,6 +534,49 @@ const DEEPSEEK_V4_REASONING_EFFORTS = ['low', 'high', 'max'] as const
  *  it is a separate constant rather than a shared one only because the two
  *  providers are free to diverge. */
 const OX_ALPHA_REASONING_EFFORTS = ['low', 'high', 'max'] as const
+/**
+ * GLM 5.3 Flash's native ladder — the three values the Merge Gateway DECLARES
+ * for this model (`effort_values: ["low","high","max"]`), which is also a
+ * subset of OpenRouter's enum and passes through CrofAI verbatim. All three
+ * rungs of the cascade therefore mean the same thing, which is the property
+ * that makes a user's pick safe here: a diverted session must not silently
+ * change depth (see MERGE_VENDOR_ORDER for how often diverts happen).
+ *
+ * MEASURED, not assumed, in thinking characters on a prompt that needs
+ * reasoning (2026-08-27, recorded in merge-gateway.ts):
+ *
+ *   low 107  <  high 175  <  max 590  <  unset 708
+ *
+ * Monotonic, which is what distinguishes a real ladder from three strings the
+ * endpoint accepts and ignores — the trap DEEPSEEK_V4_REASONING_EFFORTS warns
+ * about. Note the fourth column: UNSET IS DEEPER THAN `max`, and unset is
+ * where this row ran from launch until the ladder landed, so shipping
+ * `defaultEffort: 'max'` is a small step DOWN in depth rather than a step up.
+ * That is deliberate — see GLM_V53_FLASH_MODEL — and it is the only rung close
+ * enough to unset to be an honest default for a row taglined "Deep reasoning".
+ *
+ * THE UNSET > MAX ORDERING IS PROMPT-DEPENDENT — re-measured 2026-08-29, three
+ * samples each on an agent-shaped refactor prompt, thinking chars:
+ *
+ *   unset  8118 / 9942 / 9871      max  7271 / 8011 / 5781
+ *
+ * which reproduces it comfortably on the traffic this row actually serves. On a
+ * short logic puzzle the same probe REVERSED it (unset 649, max 1356). So do
+ * not treat any single sample as the ordering, and do not re-tune the default
+ * off one: the claim that survives repetition is that unset and max are close,
+ * with unset ahead on real agent turns, which is all the default needs.
+ *
+ * `low` EMITS NO THINKING TRACE AT ALL — 0 chars on both vendors, measured
+ * 2026-08-29, while still answering normally. That is the rung behaving as
+ * named, not a fault, but it means a user who picks `low` sees the thinking
+ * blocks disappear entirely rather than merely shorten. Expect it to be
+ * reported as a bug at least once.
+ *
+ * `none` is deliberately absent and must never be added: the model declares
+ * `disable_supported: false`, and the undeclared `'none'` measures at 732 —
+ * MORE thinking than unset, the exact opposite of what it names.
+ */
+const GLM_V53_FLASH_REASONING_EFFORTS = ['low', 'high', 'max'] as const
 /**
  * The marker that turns a Muse Spark rate limit into a queued turn rather than
  * a failed one.
@@ -1322,11 +1370,36 @@ const GLM_V53_FLASH_MODEL = {
   premium: false,
   // OpenRouter reports text + image + video in, text out.
   multimodal: true,
-  // NO effort ladder and no `reasoningEffort`. OpenRouter lists no reasoning
-  // levels for this model, so a control here would be a compatibility alias
-  // rather than a native setting — the same reason MiniMax M3 and both GLM 5.2
-  // routes show none. Add one only when the concrete endpoint reports distinct
-  // supported levels.
+  // LADDERED as of 2026-08-29, reversing the note that stood here. That note
+  // said "OpenRouter lists no reasoning levels for this model" and it was
+  // simply wrong on the facts: `z-ai/glm-5.3-flash` carries `reasoning_effort`
+  // in its `supported_parameters`, and the Merge Gateway — the lane that
+  // actually serves nearly all of this row's traffic — DECLARES
+  // `effort_values: ["low","high","max"]` and was already measured behaving
+  // monotonically across them. So the bar this catalog sets (a native provider
+  // setting, never a compatibility alias) was met the whole time and the
+  // control was withheld on a mistaken reading. MiniMax M3, Solar Pro 4 and
+  // MiMo stay bare — those were re-checked at the same time and genuinely
+  // expose no effort parameter.
+  //
+  // WHY `max` AND NOT `high` IS THE DEFAULT. This row shipped sending NOTHING,
+  // and unset is not a mid-ladder setting — it measures DEEPER than max (708
+  // vs 590 thinking chars). `high` is 175, so defaulting there would have cut
+  // the depth of every untouched turn by ~4x on the one row taglined "Deep
+  // reasoning", silently, as a side effect of adding a control. `max` is the
+  // nearest declared rung to where the row already ran, so the default is a
+  // small deliberate step rather than a re-tune nobody asked for, and the
+  // ladder's value is that a user who wants Flash-like speed can now ask for
+  // `low` instead of having no say at all.
+  //
+  // `reasoningEffort` and `defaultEffort` MUST stay equal here. The first is
+  // what the server sends when the user has not picked; the second is what
+  // every picker displays as the starting rung. Splitting them is legal (the
+  // field exists for exactly that) but on this row it would mean the pickers
+  // name a depth the server does not send.
+  reasoningEffort: 'max',
+  efforts: GLM_V53_FLASH_REASONING_EFFORTS,
+  defaultEffort: 'max',
   //
   // No `supersededBy` and no RECOMMENDED badge: nothing in this catalog nudges
   // anyone anywhere, and a notice here would rewrite saved picks on every load

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   getFreebuffModelDefaultEffort,
   getFreebuffModelEfforts,
@@ -125,6 +126,40 @@ describe('/reasoning', () => {
     expect(getSelectedFreebuffReasoningEffort()).toBeNull()
     useFreebuffModelStore.setState({ selectedModel: LADDERED })
     expect(getSelectedFreebuffReasoningEffort()).toBe('max')
+  })
+
+  test('GLM 5.3 Flash is pickable here, at its own ladder and default', () => {
+    // The row shipped with no ladder at all and the CLI answered "no reasoning
+    // levels to adjust" for it. Asserted on the CONCRETE model rather than
+    // through the generic laddered path because the regression to guard is the
+    // catalog row losing `efforts` again, which the LADDERED constant above
+    // would not notice.
+    useFreebuffModelStore.setState({ selectedModel: FREEBUFF_GLM_V53_FLASH_MODEL_ID })
+    expect(getFreebuffModelEfforts(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toEqual([
+      'low',
+      'high',
+      'max',
+    ])
+
+    const before = handleReasoningCommand('')
+    expect(before.message).toContain('max (model default)')
+    expect(before.message).toContain('low, high, max')
+    // Nothing sent until the user actually picks — the model default is the
+    // server's job, and sending it would look like a decision.
+    expect(getSelectedFreebuffReasoningEffort()).toBeNull()
+
+    handleReasoningCommand('low')
+    expect(getSelectedFreebuffReasoningEffort()).toBe('low')
+    expect(
+      loadFreebuffReasoningEfforts()[FREEBUFF_GLM_V53_FLASH_MODEL_ID],
+    ).toBe('low')
+
+    // `xhigh` is on the shared ladder but not this model's, so the CLI refuses
+    // it locally rather than letting the server clamp it to something the user
+    // did not choose.
+    const refused = handleReasoningCommand('xhigh')
+    expect(refused.message).toContain('is not a reasoning level')
+    expect(getSelectedFreebuffReasoningEffort()).toBe('low')
   })
 
   test('a stored rung the model no longer offers is ignored, not clamped', () => {
