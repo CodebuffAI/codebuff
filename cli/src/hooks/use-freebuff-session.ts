@@ -3,7 +3,6 @@ import {
   freebuffWithdrawnModelMessage,
   getFreebuffModel,
   isFreebuffLimitedOfferModelId,
-  LIMITED_FREEBUFF_MODEL_ID,
   resolveFreebuffModelForAccessTier,
 } from '@codebuff/common/constants/freebuff-models'
 import {
@@ -250,6 +249,37 @@ export function refreshFreebuffLandingMetadata(): Promise<void> {
   return restartFreebuffSession('landing')
 }
 
+/** Resolve the model an explicit picker action will send to session admission. */
+export function resolveFreebuffModelPickForSession(
+  model: string,
+  session: FreebuffSessionResponse | null,
+) {
+  const accessTier =
+    session && 'accessTier' in session ? session.accessTier : 'full'
+  // `subscription.tierId` is the server's authoritative entitlement verdict.
+  // The picker uses the same signal to show plan models at limited access, so
+  // the explicit-pick path must preserve those models instead of coercing them
+  // back to MiMo before the session POST.
+  const hasPaidSubscription = Boolean(getSubscriptionInfo(session)?.tierId)
+  return resolveFreebuffModelForAccessTier(
+    model,
+    accessTier,
+    hasPaidSubscription,
+  )
+}
+
+/** Reconcile the picker selection when fresh session state arrives. */
+export function resolveFreebuffModelSelectionForSession(
+  selectedModel: string,
+  session: FreebuffSessionResponse,
+) {
+  if (session.status === 'active') return session.model
+  if (session.status === 'none' && session.accessTier === 'limited') {
+    return resolveFreebuffModelPickForSession(selectedModel, session)
+  }
+  return selectedModel
+}
+
 /**
  * Start a session on `model` (admitted immediately server-side). Dual-purpose:
  *   - First start: called from the pre-chat landing picker. The session starts
@@ -269,9 +299,7 @@ export function startFreebuffSession(model: string): Promise<void> {
   // driven flips (`model_locked`, `model_unavailable`, takeover) go
   // through `setSelectedModel` directly, which never writes to disk.
   const current = useFreebuffSessionStore.getState().session
-  const accessTier =
-    current && 'accessTier' in current ? current.accessTier : 'full'
-  const resolved = resolveFreebuffModelForAccessTier(model, accessTier)
+  const resolved = resolveFreebuffModelPickForSession(model, current)
   // Remember that the next POST is a deliberate pick, so a `model_locked`
   // rejection explains itself in chat instead of reverting silently.
   pendingExplicitPickModel = resolved
@@ -405,13 +433,16 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
 
     const apply = (next: FreebuffSessionResponse) => {
       rememberReferral(next)
+      const selectedModel = getSelectedFreebuffModel()
+      const resolvedModel = resolveFreebuffModelSelectionForSession(
+        selectedModel,
+        next,
+      )
+      if (resolvedModel !== selectedModel) {
+        useFreebuffModelStore.getState().setSelectedModel(resolvedModel)
+      }
       if (next.status === 'active') {
-        useFreebuffModelStore.getState().setSelectedModel(next.model)
         recordFreebuffInstanceOwner(next.instanceId)
-      } else if (next.status === 'none' && next.accessTier === 'limited') {
-        useFreebuffModelStore
-          .getState()
-          .setSelectedModel(LIMITED_FREEBUFF_MODEL_ID)
       }
       setSession(next)
       setFailure(null)
