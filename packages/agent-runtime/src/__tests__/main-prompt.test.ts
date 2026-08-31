@@ -16,7 +16,7 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { mainPrompt } from '../main-prompt'
+import { callMainPrompt, mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 import { createToolCallChunk } from './test-utils'
 
@@ -261,6 +261,61 @@ describe('mainPrompt', () => {
       localAgentId,
     )
     expect(localAgentTemplates[mainAgentId].spawnableAgents).toEqual([])
+  })
+
+  it('stops after reporting local agent validation errors', async () => {
+    const invalidFileContext: ProjectFileContext = {
+      ...mockFileContext,
+      agentTemplates: {
+        'invalid-schema-agent.ts': {
+          id: 'invalid-schema-agent',
+          version: '1.0.0',
+          displayName: 'Invalid Schema Agent',
+          spawnerPrompt: 'Agent with invalid schemas',
+          model: 'anthropic/claude-4-sonnet-20250522',
+          systemPrompt: 'Test system prompt',
+          instructionsPrompt: 'Test user prompt',
+          stepPrompt: 'Test step prompt',
+          inputSchema: {
+            prompt: {} as Record<string, never>,
+          },
+          outputMode: 'last_message',
+          includeMessageHistory: true,
+          inheritParentSystemPrompt: false,
+          toolNames: ['end_turn'],
+          spawnableAgents: [],
+        },
+      },
+    }
+    const sessionState = getInitialSessionState(invalidFileContext)
+    const action = {
+      type: 'prompt' as const,
+      prompt: 'Hello',
+      sessionState,
+      fingerprintId: 'test',
+      costMode: 'normal' as const,
+      promptId: 'test',
+      toolResults: [],
+    }
+    const sendAction = mock(() => {})
+
+    await expect(
+      callMainPrompt({
+        ...mainPromptBaseParams,
+        action,
+        promptId: action.promptId,
+        sendAction,
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(sendAction).toHaveBeenCalledTimes(1)
+    expect(sendAction).toHaveBeenCalledWith({
+      action: expect.objectContaining({
+        type: 'prompt-error',
+        message: expect.stringContaining('Invalid agent config'),
+        userInputId: action.promptId,
+      }),
+    })
   })
 
   it('should handle write_file tool call', async () => {
