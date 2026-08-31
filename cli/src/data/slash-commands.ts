@@ -65,7 +65,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'doctor',
     label: 'doctor',
-    description: 'Diagnose local environment and dependencies',
+    description: 'Diagnose local environment and dependencies (rg, git, tmux, API)',
     aliases: ['check', 'health'],
   },
   {
