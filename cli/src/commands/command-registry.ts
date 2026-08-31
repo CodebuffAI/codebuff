@@ -2,6 +2,7 @@ import { safeOpen } from '../utils/open-url'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
 import { handleCopyConversationCommand } from './copy-conversation'
+import { handleExportConversationCommand } from './export-conversation'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
@@ -235,9 +236,16 @@ const ALL_COMMANDS: CommandDefinition[] = [
   }),
   defineCommand({
     name: 'copy',
-    aliases: ['copy-chat', 'export'],
+    aliases: ['copy-chat'],
     handler: async (params) => {
       await handleCopyConversationCommand(params)
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'export',
+    aliases: ['export-chat'],
+    handler: async (params, args) => {
+      await handleExportConversationCommand(params, args)
     },
   }),
   defineCommandWithArgs({

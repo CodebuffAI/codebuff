@@ -74,13 +74,18 @@ const CONTINUATION_TEXT =
 /**
  * Idle gap after which the prompt cache is assumed cold, so compacting is free.
  *
- * 30 minutes is what base2 has shipped to the context-pruner in prod. The
- * pruner's own default is 5 minutes (Anthropic's ephemeral TTL), but the two
- * errors are not symmetric: too long only means missing a free compaction,
- * while too short throws away a cache entry that was still warm. Prefer the
- * conservative number.
+ * One hour, matching the base3 roots' explicit setting (agents/base3.ts, where
+ * the full rationale lives). The threshold is a product knob rather than a TTL
+ * tracker — per-lane cache TTLs range from ~60s (Merge) to hours (DeepSeek),
+ * and compaction never prevents the cold prefill after an idle gap, it only
+ * shrinks it at the price of dropped tool results and truncated prose. Under
+ * an hour is coffee-break territory, where that trade reads as "the model
+ * forgot everything" (a top user complaint). This default only binds agents
+ * that declare `compactContext: true` without tuning; keeping it aligned with
+ * base3 stops the next such agent silently reinheriting the 30-minute trigger
+ * that was deliberately removed.
  */
-export const DEFAULT_CACHE_EXPIRY_MS = 30 * 60 * 1000
+export const DEFAULT_CACHE_EXPIRY_MS = 60 * 60 * 1000
 
 /**
  * Smallest context the opportunistic (cache-expiry) pass will touch.

@@ -62,8 +62,12 @@ describe('base3 CLI roots', () => {
     for (const agent of CLI_ROOTS) {
       // Windowed reads + the 100-entry glob cap + search-first tool wording.
       expect(agent.windowedFileReads).toBe(true)
-      // Mechanical compaction in-process, instead of spawning context-pruner.
-      expect(agent.compactContext).toBe(true)
+      // Mechanical compaction in-process, instead of spawning context-pruner —
+      // with the 30-min idle trigger pushed out to an hour, so a coffee break
+      // never rewrites the history (see base3.ts for the cost trade).
+      expect(agent.compactContext).toEqual({
+        cacheExpiryMs: 60 * 60 * 1000,
+      })
       // Single loop: no subagents at all, which is what the harness IS.
       expect(agent.spawnableAgents ?? []).toEqual([])
       expect(agent.toolNames ?? []).not.toContain('spawn_agents')

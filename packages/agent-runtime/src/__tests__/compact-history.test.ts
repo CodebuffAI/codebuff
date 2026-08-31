@@ -318,12 +318,12 @@ describe('evaluateCompactionTrigger', () => {
 
   it('fires on a cold cache even when the context still fits', () => {
     const result = evaluateCompactionTrigger({
-      messages: idleTurn(45),
+      messages: idleTurn(90),
       contextTokenCount: WORTH_COMPACTING,
       maxContextLength: 400_000,
     })
     expect(result.trigger).toBe('cache_expiry')
-    expect(result.cacheGapMs).toBe(45 * MINUTE)
+    expect(result.cacheGapMs).toBe(90 * MINUTE)
     expect(result.cacheExpiryMs).toBe(DEFAULT_CACHE_EXPIRY_MS)
     expect(result.cacheExpiryMinTokens).toBe(DEFAULT_CACHE_EXPIRY_MIN_TOKENS)
   })
@@ -348,10 +348,10 @@ describe('evaluateCompactionTrigger', () => {
 
   it('honours a custom floor, and null removes it', () => {
     const tiny = 1_000
-    expect(triggerFor(idleTurn(45), tiny)).toBeNull()
+    expect(triggerFor(idleTurn(90), tiny)).toBeNull()
     expect(
       evaluateCompactionTrigger({
-        messages: idleTurn(45),
+        messages: idleTurn(90),
         contextTokenCount: tiny,
         maxContextLength: 400_000,
         cacheExpiryMinTokens: 500,
@@ -359,7 +359,7 @@ describe('evaluateCompactionTrigger', () => {
     ).toBe('cache_expiry')
     expect(
       evaluateCompactionTrigger({
-        messages: idleTurn(45),
+        messages: idleTurn(90),
         contextTokenCount: tiny,
         maxContextLength: 400_000,
         cacheExpiryMinTokens: null,
@@ -380,7 +380,7 @@ describe('evaluateCompactionTrigger', () => {
   })
 
   it('reports both when both are true', () => {
-    expect(triggerFor(idleTurn(45), 500_000)).toBe(
+    expect(triggerFor(idleTurn(90), 500_000)).toBe(
       'context_limit_and_cache_expiry',
     )
   })
@@ -407,7 +407,7 @@ describe('evaluateCompactionTrigger', () => {
   })
 
   it('does not re-fire on the steps that follow a cache-expiry compaction', () => {
-    const history = idleTurn(45)
+    const history = idleTurn(90)
     expect(triggerFor(history, WORTH_COMPACTING)).toBe('cache_expiry')
 
     // Compaction restamps every surviving message and drops the assistant
@@ -426,11 +426,11 @@ describe('evaluateCompactionTrigger', () => {
 
   it('fires again on the next turn if the user idles again', () => {
     const nextTurn: Message[] = [
-      ...compact(idleTurn(45)),
+      ...compact(idleTurn(90)),
       { ...assistant('done'), sentAt: 2_000_000 },
       {
         ...user('another question', ['USER_PROMPT']),
-        sentAt: 2_000_000 + 45 * MINUTE,
+        sentAt: 2_000_000 + 90 * MINUTE,
       },
     ]
     expect(triggerFor(nextTurn, WORTH_COMPACTING)).toBe('cache_expiry')
@@ -472,7 +472,7 @@ describe('maybeCompactHistory', () => {
     } as any
 
     maybeCompactHistory({
-      messages: idleTurn(45),
+      messages: idleTurn(90),
       contextTokenCount: DEFAULT_CACHE_EXPIRY_MIN_TOKENS,
       maxContextLength: 400_000,
       logger,
@@ -484,7 +484,7 @@ describe('maybeCompactHistory', () => {
     expect(event.axiomEvent).toBe('context_compaction_completed')
     expect(event.agent_run_id).toBe('run-1')
     expect(event.trigger_reason).toBe('cache_expiry')
-    expect(event.cache_gap_ms).toBe(45 * MINUTE)
+    expect(event.cache_gap_ms).toBe(90 * MINUTE)
     expect(event.cache_expiry_ms).toBe(DEFAULT_CACHE_EXPIRY_MS)
     // Field names the context-pruner already emits, so the two can be queried
     // as one series. Every key must be snake_case.

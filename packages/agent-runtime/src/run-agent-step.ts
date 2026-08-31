@@ -34,7 +34,10 @@ import {
   clearProgrammaticRunState,
   runProgrammaticStep,
 } from './run-programmatic-step'
-import { additionalSystemPrompts } from './system-prompt/prompts'
+import {
+  additionalSystemPrompts,
+  isCompactCommandPrompt,
+} from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { buildAgentToolSet } from './templates/prompts'
 import { getAgentPrompt } from './templates/strings'
@@ -559,19 +562,35 @@ export const runAgentStep = async (
     'agentStep',
   )
 
-  // Handle /compact command: replace message history with the summary
-  const wasCompacted =
-    prompt &&
-    (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
+  // Handle the compact command: replace message history with the summary. The
+  // trigger is COUPLED to the instruction injection (isCompactCommandPrompt
+  // reads the same map that injected compactPrompt above), so it cannot match
+  // a prompt that never received the summarize instruction — a divergence
+  // (the old lowercased comparison matched `/Compact`, which the exact-key
+  // injection did not) replaced the whole history with an ordinary answer.
+  const wasCompacted = isCompactCommandPrompt(prompt)
   if (wasCompacted) {
-    agentState.messageHistory = [
-      userMessage(
-        withSystemTags(
-          `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`,
+    if (
+      fullResponse.trim().length > 0 &&
+      !isThinkOnlyResponse(fullResponse)
+    ) {
+      agentState.messageHistory = [
+        userMessage(
+          withSystemTags(
+            `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`,
+          ),
         ),
-      ),
-    ]
-    logger.debug({ summary: fullResponse }, 'Compacted messages')
+      ]
+      logger.debug({ summary: fullResponse }, 'Compacted messages')
+    } else {
+      // An interrupted, tool-only, or think-only response would replace the
+      // history with a non-summary — total, unrecoverable amnesia. Keep the
+      // history instead.
+      logger.warn(
+        { messageCount: agentState.messageHistory.length },
+        'Skipped compact: model returned no summary text',
+      )
+    }
   }
 
   const hasNoToolResults =

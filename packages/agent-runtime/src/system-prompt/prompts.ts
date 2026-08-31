@@ -105,8 +105,31 @@ export const additionalSystemPrompts = {
   '/export': exportPrompt,
   export: exportPrompt,
   '/compact': compactPrompt,
+  // The bare word stays ON PURPOSE: the CLI rejects unregistered slash
+  // commands locally ("Command not found"), so the bare word is the only
+  // spelling a shipped client can actually deliver — dropping it kills manual
+  // compaction everywhere. What made it dangerous was run-agent-step's
+  // history-replacing branch matching MORE prompts than this map injects the
+  // summarize instruction for; that branch now uses isCompactCommandPrompt
+  // below, so the two can never diverge.
   compact: compactPrompt,
 } as const
+
+/**
+ * True when `prompt` is the compact command AND received `compactPrompt` from
+ * the map above. run-agent-step's history-replacing branch must use this
+ * rather than matching the prompt itself: a trigger that matches prompts the
+ * map does not (e.g. `/Compact` under a lowercased comparison) replaces the
+ * whole history with an ordinary answer instead of a summary.
+ */
+export function isCompactCommandPrompt(prompt: string | undefined): boolean {
+  return (
+    prompt !== undefined &&
+    prompt in additionalSystemPrompts &&
+    additionalSystemPrompts[prompt as keyof typeof additionalSystemPrompts] ===
+      compactPrompt
+  )
+}
 
 export const getProjectFileTreePrompt = (params: {
   fileContext: ProjectFileContext

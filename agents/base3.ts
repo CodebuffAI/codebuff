@@ -31,7 +31,17 @@ export function createBase3(
     outputMode: 'last_message',
     includeMessageHistory: true,
     windowedFileReads: true,
-    compactContext: true,
+    // One hour, not the 30-minute default and not base-chat's 24h. The idle
+    // trigger is a product knob, not a TTL tracker: per-lane cache TTLs range
+    // from ~60s (Merge) to hours (DeepSeek), and compaction never PREVENTS the
+    // cold prefill after an idle gap — it only shrinks it (full history -> the
+    // ~70k summary budgets), at the price of dropped tool results and truncated
+    // prose. Under an hour is coffee-break territory, where that trade reads as
+    // "the model forgot everything" (a top user complaint) and DeepSeek's cache
+    // may still be warm, making the rewrite a pure loss. Past an hour every
+    // lane is cold and the return is a new working session, so the smaller
+    // prefill wins.
+    compactContext: { cacheExpiryMs: 60 * 60 * 1000 },
     toolNames: [
       'read_files',
       'str_replace',

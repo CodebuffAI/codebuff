@@ -72,6 +72,8 @@ export const HelpBanner = () => {
             <Shortcut keys="@files" action="mention" />
             <Shortcut keys="@agents" action="use agent" />
             <Shortcut keys="!bash" action="run command" />
+            <Shortcut keys="/copy" action="copy chat" />
+            <Shortcut keys="/export" action="save chat to file" />
           </box>
         </box>
 
