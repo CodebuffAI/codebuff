@@ -62,7 +62,7 @@ describe('Ox Alpha is withdrawn from every surface', () => {
    * This test used to assert the exact opposite ("is on every surface, and
    * carries its CLI root with it"). It flipped because the host ended the free
    * promotion, not because the measurements that justified widening it were
-   * wrong — the four days of $[redacted] traffic recorded in
+   * wrong — the four days of $0.0000 traffic recorded in
    * docs/freebuff-ox-alpha.md all happened.
    *
    * What the flip costs is the thing the doc warned about in advance: on CLI

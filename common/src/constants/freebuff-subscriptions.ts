@@ -44,8 +44,9 @@ export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze(
 /**
  * The expensive half of the pool, sub-capped within each day.
  *
- * Measured 2026-08-21: Luna $[redacted] and DeepSeek V4 Pro $[redacted] per hour-session,
- * against Flash at $[redacted] — roughly 4-5x. Without a sub-cap a subscriber
+ * Measured 2026-08-21: Luna and DeepSeek V4 Pro each cost roughly 4-5x Flash
+ * per hour-session (dollar figures live in the internal cost notes, not in
+ * this exported file). Without a sub-cap a subscriber
  * spending every daily session on Luna costs 5x one spending them on Flash, at
  * the same price, so the daily allowance would have to be priced for the worst
  * case and would be small for everyone.
@@ -183,8 +184,9 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       introPriceUsd: 5,
       // Resized 2026-08-27, before the public rollout. The pre-rollout
       // figures were sized against god-only testing and priced most of a
-      // month of premium use into $8 — at Luna's measured $[redacted]/session,
-      // 4/day was ~$[redacted] of compute. The 5-DAY window is what actually bounds a
+      // month of premium use into $8 — at Luna's measured per-session cost,
+      // 4/day was an order of magnitude more compute than the price
+      // (figures in the internal cost notes). The 5-DAY window is what actually bounds a
       // heavy week (3/day would allow 15 in five days; 10 is the real cap),
       // which is why the two numbers are not simply proportional.
       dailySessions: 3,

@@ -500,7 +500,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // been hidden from every client picker in 75fb0ade6 (2026-07-30) while
   // deliberately staying valid here and in session admission, so released
   // clients weren't broken mid-session. That tail kept costing real spend
-  // (~$[redacted]/day, [redacted]% of free-mode cost) because CLI builds older than 75fb0ade6
+  // (a double-digit share of free-mode cost) because CLI builds older than 75fb0ade6
   // never drop a saved Kimi preference, and nothing forces those users to
   // upgrade. Every remaining free-mode Kimi request now 403s with
   // 'free_mode_invalid_agent_model'. Paid/BYOK Kimi is unaffected: the

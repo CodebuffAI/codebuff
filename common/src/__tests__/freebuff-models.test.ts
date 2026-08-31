@@ -437,9 +437,9 @@ describe('freebuff model availability', () => {
   test('GLM 5.3 Flash is UNMETERED, and the two flags that say so agree', () => {
     // Unmetered on 2026-08-28, matching DeepSeek V4 Flash and MiMo. It was
     // premium-pooled while its cost was unknown; measured prod spend settled
-    // that at $[redacted]/msg — the cheapest row we serve, 8.9x under the
-    // already-unmetered V4 Flash. Capping the cheapest model while the dearer
-    // ones run uncapped inverts the reason caps exist.
+    // that as the cheapest row we serve, 8.9x under the already-unmetered
+    // V4 Flash. Capping the cheapest model while the dearer ones run uncapped
+    // inverts the reason caps exist.
     expect(
       getFreebuffPerModelSessionCap(FREEBUFF_GLM_V53_FLASH_MODEL_ID),
     ).toBeUndefined()
@@ -791,7 +791,7 @@ describe('freebuff model availability', () => {
   test('Kimi K2.7 Code is fully removed from Freebuff', () => {
     // Removed 2026-07-31 (client pickers went first, on 2026-07-30). The server
     // half is gone too, so a stale client selection is no longer admitted —
-    // that tail was still spending ~$[redacted]/day. Paid/BYOK Kimi is unaffected;
+    // that tail was still a material daily spend. Paid/BYOK Kimi is unaffected;
     // it never resolves through these helpers.
     expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
       FREEBUFF_KIMI_MODEL_ID,
@@ -1235,8 +1235,8 @@ describe('freebuff model availability', () => {
   })
 
   test('MiniMax M3 is withdrawn: recognised, refused, served to nobody', () => {
-    // Withdrawn from free mode entirely on 2026-08-20 after reaching $[redacted]/hr.
-    // Out of every picker and pool...
+    // Withdrawn from free mode entirely on 2026-08-20 after its hourly burn
+    // became the largest single line on the bill. Out of every picker and pool...
     expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(
       MINIMAX_M3_MODEL_ID,
     )

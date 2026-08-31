@@ -54,8 +54,8 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  *
  * 2026-08-28: GLM 5.3 Flash is now UNMETERED, joining MiMo and DeepSeek V4
  * Flash. The 2-a-day cap came off on 08-27 when its measurement window closed;
- * a day of production spend then settled the cost question outright — it bills
- * $[redacted]/msg, the cheapest row we serve, 4.6x under MiMo and 8.9x under V4
+ * a day of production spend then settled the cost question outright — it is
+ * the cheapest row we serve per message, 4.6x under MiMo and 8.9x under V4
  * Flash, both of which already ran uncapped. Keeping a ceiling on the cheapest
  * model while the dearer ones had none inverted the reason ceilings exist.
  *

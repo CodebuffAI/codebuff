@@ -193,9 +193,9 @@ export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
  * them should be rewritten to.
  *
  * PREMIUM AND CAPPED, which is the point of adding it. It replaces DeepSeek V4
- * Pro as the catalog's deep row at a fraction of the price: $[redacted] in /
- * $[redacted] cache read / $0.25 out per M on the cheap endpoints (Z.ai, NovitaAI,
- * GMICloud, read off OpenRouter 2026-08-26), against Pro's $0.66 / $[redacted] /
+ * Pro as the catalog's deep row at a fraction of the price: $0.075 in /
+ * $0.015 cache read / $0.25 out per M on the cheap endpoints (Z.ai, NovitaAI,
+ * GMICloud, read off OpenRouter 2026-08-26), against Pro's $0.66 / $0.022 /
  * $1.98 off-peak on DeepSeek direct — roughly 8.8x on fresh input and 7.9x on
  * output, and cheaper on the cache reads that dominate an agent turn.
  *
@@ -211,7 +211,7 @@ export const FREEBUFF_GLM_V53_FLASH_MODEL_ID = 'z-ai/glm-5.3-flash'
  * (OpenRouter's `provider.max_price` unit).
  *
  * BETWEEN the two bands, not at either one. OpenRouter lists this model on six
- * endpoints in exactly two price bands — $[redacted]/$[redacted]/$0.25 (Z.ai, NovitaAI,
+ * endpoints in exactly two price bands — $0.075/$0.015/$0.25 (Z.ai, NovitaAI,
  * GMICloud) and $0.15/$0.03/$0.50 (Cloudflare, DeepInfra, io.net) — so the
  * ceiling has an unusually wide gap to sit in, and it must sit strictly inside
  * it at BOTH ends:
@@ -388,10 +388,10 @@ export const FREEBUFF_FABLE_5_MODEL_ID = 'anthropic/claude-fable-5'
  * (see docs/freebuff-muse-spark.md) that the browser can render a wait for.
  * The CLI has no such queue and would just surface 429s.
  *
- * Contributor pricing ($0.10/$[redacted]/$0.20 per M against Standard's
- * $1.25/$0.15/$4.25) is bought with training rights over prompts and
- * completions, which is why this is `dataUse: 'training'` and carries the
- * AI-training warning.
+ * Contributor pricing (a small fraction of Standard's published per-M rates;
+ * the negotiated numbers stay out of this exported file) is bought with
+ * training rights over prompts and completions, which is why this is
+ * `dataUse: 'training'` and carries the AI-training warning.
  */
 export const FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID =
   'meta/muse-spark-1.2-contributor'
@@ -955,7 +955,7 @@ export const FREEBUFF_DEFAULT_CONTEXT_WINDOW = 131_072
  *
  * Pricing was unchanged by the GA release, but DeepSeek repriced the whole
  * family at 16:00 UTC on 2026-08-16 and split it into peak and off-peak cards:
- * $0.66 in / $[redacted] cache read / $1.98 out per M off-peak, exactly double that
+ * $0.66 in / $0.022 cache read / $1.98 out per M off-peak, exactly double that
  * at peak (01:00-04:00 and 06:00-10:00 UTC). DEEPSEEK_V4_PRO_PRICING in
  * web/src/llm-api/deepseek.ts carries both.
  */
@@ -1003,11 +1003,11 @@ const DEEPSEEK_V4_PRO_MODEL = {
   defaultEffort: 'high',
   // NO `supersededBy` as of 2026-08-21, and its removal is the point rather
   // than housekeeping. This row carried "V4 Flash is what we recommend",
-  // steering users off Pro on COST — it read cache at $[redacted]/M off-peak and
-  // $[redacted]/M at peak, several times Flash, out of the same shared pool.
+  // steering users off Pro on COST — it read cache at $0.022/M off-peak and
+  // $0.044/M at peak, several times Flash, out of the same shared pool.
   //
   // Both halves of that argument inverted on the same day. Pro reads cache at
-  // $[redacted]/M FLAT on its new lane, and Flash is now the row that closes at
+  // $0.002538/M FLAT on its new lane, and Flash is now the row that closes at
   // peak. Pointing Pro at Flash would send users to a model that is asleep for
   // ten hours precisely when this one is their best option — and because
   // `migrateSupersededFreebuffModelPreference` rewrites a SAVED pick on every
@@ -1062,16 +1062,16 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   // its moment and its premise has since expired: it reasoned that Pro was
   // "back on DeepSeek direct and closed at peak, so Flash has to be the row
   // that stays up". Pro is neither of those now — it runs on Cheaper Inference
-  // at a flat $[redacted]/M cache read and is open at all hours — so a row that
+  // at a flat $0.002538/M cache read and is open at all hours — so a row that
   // can hold the peak window exists again, and Flash is once more the row whose
   // whole cost doubles inside it.
   //
-  // Flash is ~[redacted]% of fleet spend and DeepSeek doubles it for ten hours a day.
-  // Measured 2026-08-24 09:00Z, inside the window:
-  //
-  //   Flash @ DeepSeek peak    $[redacted]/msg
-  //   Pro   @ Cheaper Inf.     $[redacted]/msg   (1.02x — saves nothing)
-  //   Luna  @ Cheaper Inf.     $[redacted]/msg   (2.11x CHEAPER)
+  // Flash is a large share of fleet spend and DeepSeek doubles its price for
+  // ten hours a day. Measured 2026-08-24 09:00Z, inside the window (per-message
+  // figures in the internal cost notes — measured $ numbers do not belong in
+  // this file, which is exported to the public repo): Pro at Cheaper Inference
+  // cost within 2% of peak Flash, so redirecting saved nothing, while Luna ran
+  // at roughly half.
   //
   // Hence the fallback points at LUNA, not Pro. The old pointer named Pro from
   // when Pro was the flat-priced row; it is now merely the same price as the
@@ -1080,24 +1080,18 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   // REOPENED 2026-08-28. The closure above was correct on its own measurement
   // and was invalidated by its own effect.
   //
-  // That 08-24 reading priced Luna at $[redacted]/msg -- its WARM price, taken
-  // before Flash's traffic was displaced onto it. Closing Flash is what moved
-  // ~[redacted] msg/hr of unfamiliar prefixes onto Luna's lane, and a prefix cache is
-  // the whole cost of these rows: Luna fell from ~95% cache to 59-68% inside
-  // the window and its price went with it. Re-measured 2026-08-28, hourly:
+  // That 08-24 reading caught Luna at its WARM price, taken before Flash's
+  // traffic was displaced onto it. Closing Flash is what moved a flood of
+  // unfamiliar prefixes onto Luna's lane, and a prefix cache is the whole cost
+  // of these rows: Luna's cache rate collapsed inside the window and its price
+  // went with it. Re-measured 2026-08-28, hourly: absorbing Luna became the
+  // DEAREST of the three per message; peak Flash about half of that; and Flash
+  // on Luminal — which is not DeepSeek and so has no peak surcharge at all —
+  // cheaper than both by ~4x (~8x at the hour peak pricing begins, same model,
+  // same minute).
   //
-  //   Luna @ Cheaper Inf. (absorbing)  $[redacted]/msg   59-68% cache
-  //   Flash @ DeepSeek peak            $[redacted]-0.0057/msg
-  //   Flash @ LUMINAL                  $[redacted]/msg   96% cache, NO peak card
-  //
-  // The ordering inverted: the row we closed to save money is now half the
-  // price of the row we sent its traffic to, and Luminal -- which is not
-  // DeepSeek and so has no peak surcharge at all -- is cheaper than both by 4x.
-  // Measured at 01:00Z, the hour peak pricing begins: DeepSeek $[redacted],
-  // Luminal $[redacted], same model, same minute.
-  //
-  // Cost of the closure, measured over 04:00-12:00Z: ~$[redacted]/day of excess Luna
-  // spend, against a saving premised on a price that no longer exists.
+  // The closure therefore cost a meaningful daily sum of excess Luna spend,
+  // against a saving premised on a price that no longer existed.
   //
   // A closure justified by a measurement must be rechecked when the thing it
   // measured is downstream of the closure itself. This one was not, for four
@@ -1344,13 +1338,10 @@ const GLM_V53_FLASH_MODEL = {
   // UNMETERED, like DeepSeek V4 Flash and MiMo — the two other rows in
   // FREEBUFF_STANDARD_MODEL_IDS. It was premium-pooled while its true cost was
   // unknown; measured production spend has now settled that, and it is the
-  // CHEAPEST row we serve:
+  // CHEAPEST row we serve (per-message and per-session figures live in the
+  // internal cost notes, not in this exported file).
   //
-  //   glm-5.3-flash (Merge, 91.7% cache)   $[redacted]/msg   $[redacted]/session
-  //   deepseek-v4-flash (already unmetered) $[redacted]/msg   $[redacted]/session
-  //   mimo-v2.5         (already unmetered) $[redacted]/msg   $[redacted]/session
-  //
-  // So this row is 4.6x cheaper per session than MiMo and 8.9x cheaper than V4
+  // This row is 4.6x cheaper per session than MiMo and 8.9x cheaper than V4
   // Flash, both of which already run with no ceiling at all. Keeping a session
   // cap on the cheapest model while the dearer ones are uncapped inverts the
   // reason caps exist.
@@ -1651,10 +1642,8 @@ export const FREEBUFF_MODELS = [
   //    a new user's first send cannot fail because a pool ran dry.
   //
   // And it is the cheapest row we serve, by a wide margin — measured production
-  // spend, per message:
-  //   glm-5.3-flash      $[redacted]     (this row)
-  //   mimo-v2.5          $[redacted]     4.6x
-  //   deepseek-v4-flash  $[redacted]     8.9x
+  // spend per message puts MiMo at 4.6x this row and V4 Flash at 8.9x (exact
+  // figures in the internal cost notes, not in this exported file).
   //
   // WHAT THIS GIVES UP, stated plainly because the previous ordering note was
   // written to prevent exactly this move: this row is the DEEP one, and depth
@@ -1708,9 +1697,9 @@ export const FREEBUFF_MODELS = [
 // nothing else and sit outside every number the picker shows.
 export const FREEBUFF_PREMIUM_MODEL_IDS = [
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  // GLM 5.3 Flash left on 2026-08-28: measured production spend put it at
-  // $[redacted]/msg, the cheapest row we serve and 8.9x under the already-
-  // unmetered V4 Flash. See GLM_V53_FLASH_MODEL for what leaving here also
+  // GLM 5.3 Flash left on 2026-08-28: measured production spend made it the
+  // cheapest row we serve, 8.9x under the already-unmetered V4 Flash.
+  // See GLM_V53_FLASH_MODEL for what leaving here also
   // drops. This list and that entry's `premium` flag must always agree —
   // isFreebuffPremiumModelId reads this one while FREEBUFF_STANDARD_MODEL_IDS
   // is derived from the flag, so a disagreement makes a row premium for the
@@ -1755,8 +1744,8 @@ export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   //
   // GLM 5.3 FLASH IS THE ONE ENTRY, at TWO a day, and it is the first cap here
   // that is not a claim about price per token — it is by some distance the
-  // cheapest premium row we serve ($[redacted]/$[redacted]/$0.25 per M against Luna's
-  // $0.10/$[redacted]/$0.60). It is a claim about UNCERTAINTY: this is a brand-new
+  // cheapest premium row we serve ($0.075/$0.015/$0.25 per M against Luna's
+  // $0.10/$0.008/$0.60). It is a claim about UNCERTAINTY: this is a brand-new
   // row on a lane we have never run at fleet scale, and the number that decides
   // its real cost is the cache-hit rate an agent turn gets on it, which no rate
   // card states. The DeepSeek/Crof cutover needed ~90% and delivered 60-85%,
@@ -1769,10 +1758,10 @@ export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   // EMPTY SINCE 2026-08-27, and deliberately kept as a table rather than
   // deleted. GLM 5.3 Flash was the only entry — capped at 2/day as a
   // MEASUREMENT WINDOW while its true cost was unknown, exactly as the comment
-  // above describes. That window has now closed: the lane was measured at
-  // 93.6% cache on its pinned vendor and ~$[redacted] per model call, which is
-  // 6.2x under the OpenRouter route it replaced (see
-  // docs/freebuff-merge-gateway.md). The cap has therefore come off, and the
+  // above describes. That window has now closed: the lane held a high cache
+  // rate on its pinned vendor and came in ~6x under the OpenRouter route it
+  // replaced (measured figures in docs/freebuff-merge-gateway.md, which is
+  // not exported). The cap has therefore come off, and the
   // model is metered by the SHARED premium pool alone — it is in
   // FREEBUFF_WEB_PREMIUM_MODEL_IDS via FREEBUFF_PREMIUM_MODEL_IDS, so a
   // full-access account may spend any of its FREEBUFF_PREMIUM_SESSION_LIMIT
@@ -1825,8 +1814,8 @@ export const FREEBUFF_DEEPSEEK_SESSION_WINDOW_HOURS =
  * clients that need it are the ones already installed.
  */
 export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly string[] = [
-  // Withdrawn from free mode entirely on 2026-08-20. It reached $[redacted]/hr — the
-  // largest single line on the bill — and is not worth that at any tier.
+  // Withdrawn from free mode entirely on 2026-08-20. Its hourly burn became
+  // the largest single line on the bill — and is not worth that at any tier.
   //
   // PAUSED rather than deleted, which is the difference between withdrawing a
   // model and breaking the clients that still ask for it. Every released CLI and
@@ -1837,7 +1826,7 @@ export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly string[] = [
   // fallback at admission, and is served to nobody.
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   // Withdrawn from free mode entirely on 2026-08-26, on cost. Pro was the
-  // dearest row we serve — $0.66 in / $[redacted] cache read / $1.98 out per M
+  // dearest row we serve — $0.66 in / $0.022 cache read / $1.98 out per M
   // off-peak on DeepSeek direct, exactly double inside the peak windows — and
   // the catalog now has a deep row (GLM 5.3 Flash) at roughly an eighth of
   // that. Withdrawing it is not a judgement on the model; it is that the same
@@ -2119,11 +2108,9 @@ export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   // GLM 5.3 Flash LEFT on 2026-08-29, and on this list's own criterion rather
   // than as a side effect of unmetering it the day before. Membership is "a
   // bill we would not want to underwrite at three at once", and measured
-  // production spend puts it at $[redacted]/msg — the CHEAPEST row we serve:
-  //
-  //   glm-5.3-flash      $[redacted]/msg   $[redacted]/session   <- 3 tabs, now
-  //   mimo-v2.5          $[redacted]/msg   $[redacted]/session   <- 3 tabs already
-  //   deepseek-v4-flash  $[redacted]/msg   $[redacted]/session   <- 3 tabs already
+  // production spend puts it at the CHEAPEST row we serve — well under both
+  // MiMo and V4 Flash per session, and both of those already run 3 tabs
+  // (figures in the internal cost notes, not in this exported file).
   //
   // Three concurrent tabs of it is a smaller bill than three of either row this
   // list has always allowed, so keeping it here failed the test on its face.
@@ -2333,7 +2320,7 @@ export type FreebuffWebPremiumModelId =
  *  want of quota.
  *
  *  It is also `availability: 'always'` and the cheapest row we serve
- *  ($[redacted]/msg measured, 4.6x under MiMo and 8.9x under V4 Flash). The cost
+ *  (measured per-message, 4.6x under MiMo and 8.9x under V4 Flash). The cost
  *  and availability arguments are therefore both strictly better than the Luna
  *  it replaces; the argument it LOSES is latency, since this is the deep row
  *  running `defaultEffort: 'max'`. See FREEBUFF_MODELS for that trade in full.
@@ -2371,9 +2358,9 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  availability wins and is the change this comment expects to be made.
  *
  *  The cost half is not close. Cache reads are ~98% of browser tokens, and this
- *  row reads cache at $[redacted]/M against Luna's $[redacted]/M list — but it bills
- *  $[redacted]/msg measured against Luna's $[redacted], an order of magnitude
- *  apart on the traffic that actually runs.
+ *  row's list cache-read rate is nearly double Luna's — but measured per
+ *  message on the traffic that actually runs it bills an order of magnitude
+ *  LESS than Luna (figures in the internal cost notes, not here).
  *
  *  Kept as its own constant from DEFAULT_FREEBUFF_MODEL_ID (CLI/Desktop) so the
  *  browser surfaces can steer independently. They name the same model today and
@@ -2406,9 +2393,9 @@ export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
  *  OpenRouter 2026-08-12, Pro from DeepSeek's published card:
  *
  *                    fresh input   cache read   output
- *    V4 Pro off-peak    $[redacted]       $[redacted]      $[redacted]
- *    V4 Pro peak        $[redacted]       $[redacted]      $[redacted]
- *    Luna               $[redacted]       $[redacted]      $[redacted]
+ *    V4 Pro off-peak    $0.660       $0.022      $1.980
+ *    V4 Pro peak        $1.320       $0.044      $3.960
+ *    Luna               $0.100       $0.010      $0.600
  *
  *  Pro was 2.76x cheaper than Luna on cache reads — the term that dominates an
  *  agent workload, where re-sent prefixes are ~98% of tokens. It is now 2.2x
