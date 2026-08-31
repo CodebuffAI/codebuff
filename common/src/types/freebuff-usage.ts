@@ -29,10 +29,14 @@ export interface FreebuffRecentUsage {
   /** Lookback in days, so the UI can label the figures honestly. */
   days: number
   messages: number
+  /** Provider-reported prompt tokens, cache-INCLUSIVE: `cacheReadTokens` is a
+   *  subset of this, not an addition to it. */
   inputTokens: number
   cacheReadTokens: number
   outputTokens: number
-  /** input + cache-read + output. The one number worth showing on a tile. */
+  /** input + output. Never add `cacheReadTokens` on top — it is already inside
+   *  `inputTokens`, and re-adding it inflates the total ~1.8x at agentic cache
+   *  hit rates. */
   totalTokens: number
 }
 

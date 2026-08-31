@@ -133,12 +133,12 @@ describe('buildFreebuffUsageSummary', () => {
         inputTokens: 300,
         cacheReadTokens: 50,
         outputTokens: 50,
-        totalTokens: 400,
+        totalTokens: 350,
       },
     })
 
     expect(summary.recent?.messages).toBe(12)
-    expect(summary.recent?.totalTokens).toBe(400)
+    expect(summary.recent?.totalTokens).toBe(350)
   })
 })
 
