@@ -30,6 +30,10 @@ export type CreateRunConfigParams = {
   extraCodebuffMetadata?: Record<string, string>
   /** Periodic in-flight RunState checkpoints (see RunOptions.onStateSnapshot). */
   onStateSnapshot?: (runState: RunState) => void
+  /** Mid-turn steering: drained by the agent loop at each step boundary;
+   *  returned texts are appended as user prompts and keep the turn going
+   *  (see RunOptions.drainSteeringMessages). */
+  drainSteeringMessages?: () => string[]
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -97,6 +101,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     costMode,
     extraCodebuffMetadata,
     onStateSnapshot,
+    drainSteeringMessages,
   } = params
 
   return {
@@ -113,6 +118,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     costMode,
     extraCodebuffMetadata,
     onStateSnapshot,
+    drainSteeringMessages,
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       return { status: 'allow' }

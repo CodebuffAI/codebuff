@@ -40,6 +40,26 @@ export function buildInterviewPrompt(input: string): string {
 }
 
 /**
+ * Build the prompt for a user-invoked skill. Shared by the /skill:<name>
+ * command (when it carries trailing text) and the skill input mode's second
+ * submit, so both entry paths produce byte-identical prompts.
+ *
+ * `content` is the whole SKILL.md (frontmatter included) — same as the
+ * agent-runtime's own skill tool output.
+ */
+export function buildSkillPrompt(
+  skill: { name: string; content: string },
+  input: string,
+): string {
+  const skillContext = `<skill name="${skill.name}">\n${skill.content}\n</skill>`
+  const trimmedInput = input.trim()
+  return (
+    `I invoke the following skill:\n\n${skillContext}\n\n` +
+    (trimmedInput ? `User request: ${trimmedInput}` : '')
+  )
+}
+
+/**
  * Review scope presets for the review screen.
  */
 type ReviewScope = 'conversation' | 'uncommitted' | 'branch' | 'custom'

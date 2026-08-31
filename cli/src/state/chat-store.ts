@@ -76,6 +76,10 @@ export type ChatStoreState = {
   /** The currently active top banner, or null if none */
   activeTopBanner: TopBannerType
   inputMode: InputMode
+  /** Skill awaiting user text while inputMode === 'skill'. Cleared by
+   *  setInputMode whenever the mode moves off 'skill', so Escape and every
+   *  other mode exit reset it without extra bookkeeping. */
+  pendingSkillName: string | null
   isRetrying: boolean
   /** True while the current retry wait is a server capacity deferral (free
    *  mode shed under high demand) rather than a stream recovery — the status
@@ -149,6 +153,10 @@ type ChatStoreActions = {
   setActiveTopBanner: (banner: TopBannerType) => void
   closeTopBanner: () => void
   setInputMode: (mode: InputMode) => void
+  setPendingSkillName: (name: string | null) => void
+  /** Atomic skill-mode entry: mode and pending skill set together, so
+   *  'skill' mode with a null skill is never representable via this path. */
+  enterSkillMode: (skillName: string) => void
   setIsRetrying: (retrying: boolean) => void
   /** Mark the current wait as a free-mode capacity deferral (implies
    *  isRetrying). Cleared by setIsRetrying(false). */
@@ -204,6 +212,7 @@ const initialState: ChatStoreState = {
   runState: null,
   activeTopBanner: null,
   inputMode: 'default' as InputMode,
+  pendingSkillName: null as string | null,
   isRetrying: false,
   isCapacityWait: false,
   askUserState: null,
@@ -332,6 +341,20 @@ export const useChatStore = create<ChatStore>()(
     setInputMode: (mode) =>
       set((state) => {
         state.inputMode = mode
+        if (mode !== 'skill') {
+          state.pendingSkillName = null
+        }
+      }),
+
+    setPendingSkillName: (name) =>
+      set((state) => {
+        state.pendingSkillName = name
+      }),
+
+    enterSkillMode: (skillName) =>
+      set((state) => {
+        state.inputMode = 'skill'
+        state.pendingSkillName = skillName
       }),
 
     setIsRetrying: (retrying) =>
@@ -532,6 +555,7 @@ export const useChatStore = create<ChatStore>()(
           : null
         state.activeTopBanner = initialState.activeTopBanner
         state.inputMode = initialState.inputMode
+        state.pendingSkillName = initialState.pendingSkillName
         state.isRetrying = initialState.isRetrying
         state.isCapacityWait = initialState.isCapacityWait
         state.askUserState = initialState.askUserState

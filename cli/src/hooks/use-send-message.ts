@@ -36,6 +36,11 @@ import {
 } from '../utils/send-message-helpers'
 import { createSendMessageTimerController } from '../utils/send-message-timer'
 import {
+  activateSteering,
+  deactivateSteering,
+  drainSteeringMessages as drainSteeringBuffer,
+} from '../utils/steering-buffer'
+import {
   handleRunCompletion,
   handleRunError,
   prepareUserMessage as prepareUserMessageHelper,
@@ -83,6 +88,10 @@ interface UseSendMessageOptions {
     content: string
     attachments: PendingAttachment[]
   }) => void
+  /** Pause the queue. Used when requeueing an undelivered steering message
+   *  after a user interrupt, so the held text doesn't auto-start a new turn
+   *  the user just stopped. */
+  pauseQueue?: () => void
   continueChat: boolean
   continueChatId?: string
   subscriptionData?: SubscriptionResponse | null
@@ -136,6 +145,7 @@ export const useSendMessage = ({
   isProcessingQueueRef,
   resumeQueue,
   requeueMessageAtFront,
+  pauseQueue,
   continueChat,
   continueChatId,
   subscriptionData,
@@ -630,6 +640,16 @@ export const useSendMessage = ({
               runChatDir,
             )
           },
+          // Mid-turn steering: the agent loop calls this at each step
+          // boundary; texts pushed by the router since the last boundary are
+          // injected into the running turn as user prompts. The transcript
+          // bubble was already echoed at push time (router), so this only
+          // hands over the texts. Returning [] on abort leaves the entries
+          // in the buffer for the leftover handling below.
+          drainSteeringMessages: () => {
+            if (abortController.signal.aborted) return []
+            return drainSteeringBuffer(runOwnerId).map((entry) => entry.text)
+          },
         })
 
         // Log a summary only: the full run config contains the entire
@@ -653,6 +673,9 @@ export const useSendMessage = ({
           },
           '[send-message] Sending message with sdk run config',
         )
+        // Open the steering mailbox for this run only once we're committed to
+        // calling run(); the router falls back to the queue before this point.
+        activateSteering(runOwnerId)
         const runState = await client.run(runConfig)
 
         // Only adopt and persist the result while this run's chat is still
@@ -728,6 +751,38 @@ export const useSendMessage = ({
           logger.debug({ error }, '[send-message] Ignoring error after abort')
         }
       } finally {
+        // Close the steering mailbox. Anything the run never drained was
+        // submitted after its last step boundary; retract its push-time
+        // bubble (the requeued send mints its own at dequeue) and requeue it
+        // at the front so it isn't lost. On Esc the queue is paused first,
+        // matching the 'pause-if-pending' interrupt policy that ran while
+        // this text was still in the buffer — without the pause, the
+        // unblocked queue would immediately auto-start a new turn the user
+        // just tried to stop. Skipped after a mid-run chat switch (the
+        // message belongs to the old chat, whose queue was already cleared
+        // by the stop policy) and after non-user aborts like logout, where
+        // resurrecting input is wrong.
+        const steeringLeftovers = deactivateSteering(runOwnerId)
+        if (
+          steeringLeftovers.length > 0 &&
+          runChatIsCurrent() &&
+          (!abortController.signal.aborted ||
+            abortController.signal.reason === 'user-interrupt')
+        ) {
+          const leftoverIds = new Set(
+            steeringLeftovers.map((entry) => entry.messageId),
+          )
+          setMessages((prev) => prev.filter((msg) => !leftoverIds.has(msg.id)))
+          if (abortController.signal.aborted) {
+            pauseQueue?.()
+          }
+          for (const entry of steeringLeftovers.reverse()) {
+            requeueMessageAtFront?.({
+              content: entry.text,
+              attachments: [],
+            })
+          }
+        }
         // Stop exit-flushing this run's checkpoint; the final state (or last
         // checkpoint, on error) has been saved above. Owner-guarded so an
         // aborted run resolving late can't clear a newer run's provider.
@@ -771,6 +826,7 @@ export const useSendMessage = ({
       removeActiveSubagent,
       requeueMessageAtFront,
       resumeQueue,
+      pauseQueue,
       scrollToLatest,
       setCanProcessQueue,
       setFocusedAgentId,
