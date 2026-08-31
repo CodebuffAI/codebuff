@@ -615,7 +615,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
 
       {!githubLinked && (
         <Button
-          onClick={() => void safeOpen(`${LOGIN_WEBSITE_URL}/web/settings`)}
+          onClick={() => void safeOpen(`${LOGIN_WEBSITE_URL}/account`)}
         >
           <text style={{ wrapMode: 'word' }}>
             <span fg={theme.secondary}>{githubLabel}</span>
