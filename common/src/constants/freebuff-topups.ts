@@ -79,8 +79,83 @@ export const AD_PROMO_REFERRAL_PROGRAM = 'placements_launch_2026'
  */
 export const AD_PLACEMENT_COLLECTION_RETENTION_DAYS = 180
 
+/**
+ * Advertiser trust score / derived credit line (COD-268).
+ *
+ * The line is expressed as DAYS OF OBSERVED BURN, not as a raw multiple of a
+ * 30-day total. Collection is nightly (plus a $100 threshold sweep), so the
+ * only question the line has to answer is "how many days of this advertiser's
+ * spend are we willing to have outstanding between sweeps". Three days covers
+ * a weekend plus one failed retry; ten days is the most we extend to anybody
+ * on payment history alone, and it is still an order of magnitude under the
+ * global ceiling for a large spender.
+ */
+export const AD_CREDIT_LINE_WINDOW_DAYS = 30
+export const AD_CREDIT_LINE_MIN_DAYS = 3
+export const AD_CREDIT_LINE_MAX_DAYS = 10
+
+/**
+ * The absolute per-advertiser cap on a DERIVED line. An operator may hand-set
+ * a higher floor; nothing computed here may exceed this on its own.
+ */
+export const AD_CREDIT_LINE_CEILING_CENTS = 500_000
+
+/** No growth at all before the account has this much settled history. */
+export const AD_CREDIT_LINE_MIN_ACCOUNT_AGE_DAYS = 14
+export const AD_CREDIT_LINE_MIN_SUCCESSFUL_COLLECTIONS = 3
+
+/**
+ * Per-run move limits. Growth may at most double the live line (or add one
+ * default line, whichever is larger, so a $0 line is not permanently stuck at
+ * zero); a decrease may take at most 25% in one run, matching the repricer's
+ * clamp. The dispute cut is deliberately EXEMPT from the decrease clamp.
+ */
+export const AD_CREDIT_LINE_MAX_GROWTH_BPS = 10_000
+export const AD_CREDIT_LINE_MIN_GROWTH_STEP_CENTS =
+  AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS
+export const AD_CREDIT_LINE_MAX_DECREASE_BPS = 2_500
+
 /** Direct placements never sell below one dollar per billable click. */
 export const AD_PLACEMENT_CPC_FLOOR_CENTS = 100
+
+/**
+ * An operator-set floor exemption for ONE campaign
+ * (`ad_placement_campaign.cpc_floor_override_cents`). It may only lower the
+ * rate-card floor, and never to zero -- a zero price looks like a working
+ * integration while billing nothing.
+ */
+export function isValidPlacementCpcFloorOverride(
+  value: unknown,
+): value is number {
+  return (
+    Number.isInteger(value) &&
+    (value as number) >= 1 &&
+    (value as number) <= AD_PLACEMENT_CPC_FLOOR_CENTS
+  )
+}
+
+/**
+ * The floor that actually binds a campaign.
+ *
+ * Anything other than a valid exemption resolves to the global floor, so an
+ * out-of-range or malformed value fails SAFE (it raises the floor back to $1)
+ * rather than opening it.
+ *
+ * This lives beside the constant, and not next to any one of its callers,
+ * because four separate layers have to agree on it -- the admission
+ * validators, the `/r/` click-recording guard, the reprice clamp, and the
+ * table CHECK. Two of those are in `packages/internal` and two in
+ * `freebuff/web`, and a second copy of this predicate is exactly how the
+ * price a campaign serves at drifts from the price an automatic run will
+ * clamp it to.
+ */
+export function effectivePlacementCpcFloorCents(
+  overrideCents: unknown,
+): number {
+  return isValidPlacementCpcFloorOverride(overrideCents)
+    ? overrideCents
+    : AD_PLACEMENT_CPC_FLOOR_CENTS
+}
 
 /** A single automatic reprice may move at most 25% in either direction. */
 export const AD_PLACEMENT_CPC_REPRICE_MAX_MOVE_BPS = 2_500
