@@ -139,6 +139,41 @@ export interface FreebuffSubscriptionUsage {
  * Sent only to callers in the rollout audience, so its absence means "this
  * account has no subscriptions surface" rather than "no data".
  */
+/** One window of a Freebucks allowance, as the client should render it. */
+export interface FreebuffFreebucksWindow {
+  /** Total allowance for the window: free grant + whatever the plan adds. */
+  limit: number
+  /** Freebucks already spent inside the window. */
+  spent: number
+  /** `limit - spent`, floored at zero so a lowered allowance reads as 0. */
+  remaining: number
+  /** ISO instant this window reopens. */
+  resetAt: string
+}
+
+/**
+ * The caller's Freebucks position, present on every authenticated session
+ * response. Distinct from Trust: Freebucks are a granted, expiring budget that
+ * buys premium sessions, Trust is earned standing that buys Levels.
+ */
+export interface FreebuffFreebucksInfo {
+  /**
+   * Spendable right now — the MINIMUM remaining across the three windows, which
+   * is the only number that answers "can I start a session". Rendering the
+   * daily figure alone would promise Freebucks the weekly cap will refuse.
+   */
+  balance: number
+  daily: FreebuffFreebucksWindow
+  weekly: FreebuffFreebucksWindow
+  monthly: FreebuffFreebucksWindow
+  /** Which window is currently binding — the one `balance` came from. */
+  bindingWindow: 'daily' | 'weekly' | 'monthly'
+  /** Freebucks the caller's plan adds on top of the free grant, if subscribed. */
+  planDaily?: number
+  /** Session price per model id. Only models Freebucks can buy appear here. */
+  prices: Record<string, number>
+}
+
 export interface FreebuffSubscriptionInfo {
   /** The caller's tier id, or null when they have no live subscription. */
   tierId: string | null
@@ -345,6 +380,14 @@ export const getRateLimitsByModel = (
  *  (none, active, ended). Loose parameter type for the same reason as
  *  `getRateLimitsByModel`. Undefined from a server that predates
  *  subscriptions, so callers render nothing rather than an empty upsell. */
+/** The caller's Freebucks block, wherever it rides the response. */
+export const getFreebucksInfo = (
+  session: { status: string } | null | undefined,
+): FreebuffFreebucksInfo | undefined =>
+  session && 'freebucks' in session
+    ? (session as { freebucks?: FreebuffFreebucksInfo }).freebucks
+    : undefined
+
 export const getSubscriptionInfo = (
   session: { status: string } | null | undefined,
 ): FreebuffSubscriptionInfo | undefined =>
@@ -517,6 +560,10 @@ export type FreebuffSessionServerResponse = (
        * catalog is empty or the server predates subscriptions.
        */
       subscription?: FreebuffSubscriptionInfo
+      /** Spendable Freebucks and the per-model session prices. Rides
+       *  every state for the same reason `subscription` does: the
+       *  balance is shown in the picker, mid-session and after it. */
+      freebucks?: FreebuffFreebucksInfo
     } & FreebuffLimitedModeReason)
   | ({
       status: 'active'
@@ -535,6 +582,10 @@ export type FreebuffSessionServerResponse = (
       /** Subscription offers and state, so an in-session picker can still
        *  render "subscribed" badges and an upgrade CTA. */
       subscription?: FreebuffSubscriptionInfo
+      /** Spendable Freebucks and the per-model session prices. Rides
+       *  every state for the same reason `subscription` does: the
+       *  balance is shown in the picker, mid-session and after it. */
+      freebucks?: FreebuffFreebucksInfo
     } & FreebuffLimitedModeReason)
   | ({
       /** Session is over. While `instanceId` is present we're inside the
@@ -562,6 +613,10 @@ export type FreebuffSessionServerResponse = (
       /** Carried like `rateLimitsByModel`: the post-session banner and picker
        *  keep the plan rings without a round-trip. */
       subscription?: FreebuffSubscriptionInfo
+      /** Spendable Freebucks and the per-model session prices. Rides
+       *  every state for the same reason `subscription` does: the
+       *  balance is shown in the picker, mid-session and after it. */
+      freebucks?: FreebuffFreebucksInfo
     } & FreebuffLimitedModeReason)
   | {
       /** Another CLI on the same account rotated our instance id. Polling
