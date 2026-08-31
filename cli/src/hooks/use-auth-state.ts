@@ -92,9 +92,10 @@ export const useAuthState = ({
     }
   }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
 
-  // Handle successful login
+  // Handle successful login. Returns a rejection reason if the login was
+  // blocked (e.g. session bound to a different account), or null on success.
   const handleLoginSuccess = useCallback(
-    (loggedInUser: User) => {
+    (loggedInUser: User): string | null => {
       // Prevent multi-account abuse: if a session is bound to a different user,
       // reject the login and clear the just-saved credentials.
       const boundUserId = getSessionBoundUserId()
@@ -106,8 +107,12 @@ export const useAuthState = ({
           },
           '[auth] Login rejected: session bound to different user',
         )
+        trackEvent(AnalyticsEvent.ACCOUNT_SWITCH_BLOCKED, {
+          sessionBoundUserId: boundUserId,
+          attemptedUserId: loggedInUser.id ?? 'unknown',
+        })
         clearUserCredentials()
-        return
+        return 'This session is tied to another account. End the current session first, or log out with /logout --force.'
       }
 
       // Identify first (aliases the pre-login anonymous history to the real
@@ -134,6 +139,7 @@ export const useAuthState = ({
       setInputFocused(true)
       setUser(loggedInUser)
       setIsAuthenticated(true)
+      return null
     },
     [resetChatStore, resetLoginState, setInputFocused],
   )

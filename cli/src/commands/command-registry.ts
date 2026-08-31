@@ -17,6 +17,8 @@ import {
   returnToFreebuffLanding,
   getSessionBoundUserId,
 } from '../hooks/use-freebuff-session'
+import { releaseFreebuffSlot } from '../utils/freebuff-session-api'
+import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useThemeStore } from '../hooks/use-theme'
 import { LOGIN_WEBSITE_URL, WEBSITE_URL } from '../login/constants'
 import { startNewChat } from '../project-files'
@@ -314,6 +316,13 @@ const ALL_COMMANDS: CommandDefinition[] = [
       }
 
       stopActiveRun('logout')
+
+      // When force-logging out with an active session, release the server-side
+      // slot and clear the binding before clearing credentials.
+      if (boundUserId && force) {
+        releaseFreebuffSlot().catch(() => {})
+        useFreebuffSessionStore.getState().setSessionBoundUserId(null)
+      }
 
       const { resetLoginState } = useLoginStore.getState()
       params.logoutMutation.mutate(undefined, {
