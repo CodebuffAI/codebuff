@@ -3,6 +3,12 @@ import { describe, expect, it } from 'bun:test'
 import { AD_CAMPAIGN_STATUSES } from '../constants/freebuff-ads'
 import {
   ACTIVATION_ATTRIBUTION_WINDOW_DAYS,
+  clampPlacementDailyCapCents,
+  PLACEMENT_DAILY_CAP_DEFAULT_CENTS,
+  PLACEMENT_DAILY_CAP_LADDER,
+  PLACEMENT_DAILY_CAP_MAX_CENTS,
+  PLACEMENT_DAILY_CAP_MIN_CENTS,
+  placementDailyCapLadderIndex,
   ATTRIBUTION_WINDOW_COPY,
   DIAGNOSTIC_METRICS,
   NOT_SERVING_COPY,
@@ -292,5 +298,61 @@ describe('placementSlotLabel', () => {
     // read, not as a gap that looks like a bug in the numbers beside it.
     expect(placementSlotLabel('some-future-grain')).toBe('Some future grain')
     expect(placementSlotLabel('')).toBe('')
+  })
+})
+
+describe('placement daily cap', () => {
+  it('offers a self-serve ceiling of 500_000 cents a day', () => {
+    // The bound the campaigns API validates. If this moves, the API moves with
+    // it -- both read this constant, which is the whole reason it is here.
+    expect(PLACEMENT_DAILY_CAP_MIN_CENTS).toBe(500)
+    expect(PLACEMENT_DAILY_CAP_MAX_CENTS).toBe(500_000)
+  })
+
+  it('clamps into the bounds and answers with whole cents', () => {
+    expect(clampPlacementDailyCapCents(0)).toBe(PLACEMENT_DAILY_CAP_MIN_CENTS)
+    expect(clampPlacementDailyCapCents(-1)).toBe(PLACEMENT_DAILY_CAP_MIN_CENTS)
+    expect(clampPlacementDailyCapCents(9_999_999)).toBe(
+      PLACEMENT_DAILY_CAP_MAX_CENTS,
+    )
+    expect(clampPlacementDailyCapCents(1_234.6)).toBe(1_235)
+    // A cap off the slider's ladder is a legal cap: the input takes any
+    // amount, and nothing on the way to the database snaps it.
+    expect(clampPlacementDailyCapCents(13_700)).toBe(13_700)
+    expect(clampPlacementDailyCapCents(Number.NaN)).toBe(
+      PLACEMENT_DAILY_CAP_DEFAULT_CENTS,
+    )
+  })
+
+  it('walks a ladder that spans the bounds with a growing step', () => {
+    const rungs = PLACEMENT_DAILY_CAP_LADDER
+    expect(rungs[0]).toBe(PLACEMENT_DAILY_CAP_MIN_CENTS)
+    expect(rungs[rungs.length - 1]).toBe(PLACEMENT_DAILY_CAP_MAX_CENTS)
+    expect(
+      rungs.every((cents, index) => index === 0 || cents > rungs[index - 1]!),
+    ).toBe(true)
+    // Small enough to drag through, and fine enough at the low end that the
+    // $25-$50/day campaigns the product actually runs are all reachable.
+    expect(rungs.length).toBeLessThan(80)
+    expect(rungs).toContain(2_500)
+    expect(rungs).toContain(5_000)
+    expect(rungs).toContain(PLACEMENT_DAILY_CAP_DEFAULT_CENTS)
+  })
+
+  it('puts an off-ladder cap on the nearest rung without leaving the range', () => {
+    expect(
+      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(2_500)],
+    ).toBe(2_500)
+    expect(
+      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(2_600)],
+    ).toBe(2_500)
+    expect(
+      PLACEMENT_DAILY_CAP_LADDER[
+        placementDailyCapLadderIndex(PLACEMENT_DAILY_CAP_MAX_CENTS)
+      ],
+    ).toBe(PLACEMENT_DAILY_CAP_MAX_CENTS)
+    expect(
+      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(9_999_999)],
+    ).toBe(PLACEMENT_DAILY_CAP_MAX_CENTS)
   })
 })

@@ -447,3 +447,94 @@ export const UNDERSPEND_COPY: Record<UnderspendReason, string> = {
  */
 export const OVERSHOOT_POLICY_COPY =
   'You are never billed above your daily cap or total budget.'
+
+// ---------------------------------------------------------------------------
+// Daily cap
+// ---------------------------------------------------------------------------
+
+/**
+ * Bounds for a placements campaign's daily cap, in cents.
+ *
+ * Shared rather than local to the builder because the campaigns API validates
+ * the same range. They were two literals in two files agreeing by hand, which
+ * is the arrangement where the API rejects what the form just let you build.
+ *
+ * The ceiling moved 50_000 -> 500_000 cents on 2026-08-31. It was sized
+ * around the fixture campaigns' caps ($25-$50/day) with headroom, and headroom
+ * sized off the first advertisers stops being headroom the moment one of them
+ * scales: the console offered no way to say a number it already knew how to
+ * bill, and the campaign had to be edited by an operator. This is a self-serve
+ * ceiling, not a limit on what we will take -- past it an advertiser talks
+ * to us.
+ *
+ * Stated in cents rather than as a dollars-per-day figure because this file is
+ * published (scripts/public-export-manifest.txt) and the export's leak check
+ * reads `$N,NNN/day` as measured internal spend. That guard is deliberately
+ * blunt -- it exists because comments in this package leaked real cost figures
+ * once already -- so the phrasing moves here, never the pattern there.
+ */
+export const PLACEMENT_DAILY_CAP_MIN_CENTS = 500
+export const PLACEMENT_DAILY_CAP_MAX_CENTS = 500_000
+export const PLACEMENT_DAILY_CAP_DEFAULT_CENTS = 2_500
+
+/** Whole cents inside the bounds, which is exactly what the API accepts. */
+export function clampPlacementDailyCapCents(cents: number): number {
+  if (!Number.isFinite(cents)) return PLACEMENT_DAILY_CAP_DEFAULT_CENTS
+  return Math.min(
+    PLACEMENT_DAILY_CAP_MAX_CENTS,
+    Math.max(PLACEMENT_DAILY_CAP_MIN_CENTS, Math.round(cents)),
+  )
+}
+
+/**
+ * The caps the slider can land on, ascending.
+ *
+ * A linear $5-step track to $5,000 is a thousand positions, which buries the
+ * range nearly every campaign actually runs in ($25-$50/day) inside the first
+ * one percent of it -- a pixel of drag would be tens of dollars, and the low
+ * end would be unreachable by dragging at all. So the slider walks a ladder
+ * whose step grows with the number: $5 up to $100, $25 up to $500, $100 up to
+ * $1,000, $500 up to $5,000. Every position is a cap someone would choose.
+ *
+ * The ladder is the SLIDER's resolution and nothing else. The numeric input
+ * beside it takes any amount in range, and the API validates the bounds only,
+ * so a cap typed off the ladder saves exactly as typed and stays that way
+ * until the slider is dragged.
+ */
+export const PLACEMENT_DAILY_CAP_LADDER: readonly number[] = (() => {
+  const bands = [
+    { throughCents: 10_000, stepCents: 500 },
+    { throughCents: 50_000, stepCents: 2_500 },
+    { throughCents: 100_000, stepCents: 10_000 },
+    { throughCents: PLACEMENT_DAILY_CAP_MAX_CENTS, stepCents: 50_000 },
+  ]
+  const values = [PLACEMENT_DAILY_CAP_MIN_CENTS]
+  for (const band of bands) {
+    let cents = values[values.length - 1]!
+    while (cents < band.throughCents) {
+      cents = Math.min(band.throughCents, cents + band.stepCents)
+      values.push(cents)
+    }
+  }
+  return values
+})()
+
+/**
+ * Where a cap sits on the ladder -- the nearest rung, since a cap typed into
+ * the numeric input is under no obligation to be on one. Ties go to the lower
+ * rung so the answer never exceeds the ceiling.
+ */
+export function placementDailyCapLadderIndex(cents: number): number {
+  const target = clampPlacementDailyCapCents(cents)
+  let best = 0
+  for (let index = 1; index < PLACEMENT_DAILY_CAP_LADDER.length; index += 1) {
+    const rung = PLACEMENT_DAILY_CAP_LADDER[index]!
+    if (
+      Math.abs(rung - target) <
+      Math.abs(PLACEMENT_DAILY_CAP_LADDER[best]! - target)
+    ) {
+      best = index
+    }
+  }
+  return best
+}
