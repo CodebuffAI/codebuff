@@ -59,10 +59,50 @@ describe('ThinkTagStream — paired tags', () => {
     expect(joined(run(['ends with <']), 'text')).toBe('ends with <')
   })
 
-  it('treats an unclosed open tag as reasoning through end of stream', () => {
+  it('releases an unclosed open tag as text at flush', () => {
+    // The open may be a truncated thought or the tag quoted as prose — both
+    // look identical until the step ends, so the hold resolves as text either
+    // way: an answer is delayed, never swallowed (issue #1155, bug 2).
     const out = run(['<think>truncated thou', 'ght'])
-    expect(joined(out, 'reasoning')).toBe('truncated thought')
-    expect(joined(out, 'text')).toBe('')
+    expect(joined(out, 'reasoning')).toBe('')
+    expect(joined(out, 'text')).toBe('truncated thought')
+  })
+
+  it('keeps an answer quoted around a prose open tag as text', () => {
+    // Docs quoting the tag: the answer before it already streamed as text,
+    // the text after it must not vanish into the thinking box.
+    const out = run([
+      'Write <think> ',
+      'like this in your docs. The answer continues here.',
+    ])
+    expect(joined(out, 'reasoning')).toBe('')
+    expect(joined(out, 'text')).toBe(
+      'Write  like this in your docs. The answer continues here.',
+    )
+  })
+
+  it('holds an explicit open only until its close arrives', () => {
+    const stream = new ThinkTagStream()
+    expect(stream.push('Answer part one. <think>plan it')).toEqual([
+      { type: 'text', text: 'Answer part one. ' },
+    ])
+    expect(stream.push('</think>Here is the answer.')).toEqual([
+      { type: 'reasoning', text: 'plan it' },
+      { type: 'text', text: 'Here is the answer.' },
+    ])
+  })
+
+  it('releases an explicit open on a native reasoning chunk as text', () => {
+    const stream = new ThinkTagStream()
+    expect(stream.push('A <think> quoted open')).toEqual([
+      { type: 'text', text: 'A ' },
+    ])
+    expect(stream.disarmImplicitOpen()).toEqual([
+      { type: 'text', text: ' quoted open' },
+    ])
+    expect(stream.push(' and the answer continues')).toEqual([
+      { type: 'text', text: ' and the answer continues' },
+    ])
   })
 })
 
