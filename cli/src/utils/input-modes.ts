@@ -12,6 +12,7 @@ export type InputMode =
   | 'plan'
   | 'review'
   | 'interview'
+  | 'skill'
   | 'usage'
   | 'image'
   | 'help'
@@ -86,6 +87,18 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     color: 'info',
     placeholder: 'describe a feature/bug or other request to be fleshed out...',
     widthAdjustment: 12,
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
+    blockKeyboardExit: false,
+  },
+  skill: {
+    icon: null,
+    // Label is replaced with the pending skill's name at render time
+    // (chat-input-bar), so the mode banner names what is about to run.
+    label: 'Skill',
+    color: 'info',
+    placeholder: 'add instructions for this skill, or press Enter to run it as-is...',
+    widthAdjustment: 8,
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
     blockKeyboardExit: false,

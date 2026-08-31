@@ -123,8 +123,25 @@ export const ChatInputBar = ({
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
+  const pendingSkillName = useChatStore((state) => state.pendingSkillName)
 
-  const modeConfig = getInputModeConfig(inputMode)
+  const baseModeConfig = getInputModeConfig(inputMode)
+  // Skill mode names the pending skill in the banner so the user can see
+  // what their text will be attached to. Skill names run up to 64 chars;
+  // keep the banner narrow enough to leave room for typing.
+  const skillLabel =
+    inputMode === 'skill' && pendingSkillName
+      ? pendingSkillName.length > 24
+        ? `${pendingSkillName.slice(0, 23)}…`
+        : pendingSkillName
+      : null
+  const modeConfig = skillLabel
+    ? {
+        ...baseModeConfig,
+        label: skillLabel,
+        widthAdjustment: skillLabel.length + 3,
+      }
+    : baseModeConfig
   const askUserState = useChatStore((state) => state.askUserState)
   const hasAnyPreview = hasSuggestionMenu
 

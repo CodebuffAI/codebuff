@@ -1,4 +1,8 @@
-import { getFreebuffModel } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_DEFAULT_CONTEXT_WINDOW,
+  FREEBUFF_MODEL_CONTEXT_WINDOWS,
+  getFreebuffModel,
+} from '@codebuff/common/constants/freebuff-models'
 import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useState } from 'react'
 
@@ -8,7 +12,9 @@ import { ShimmerText } from './shimmer-text'
 
 import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
 import { useTheme } from '../hooks/use-theme'
+import { useChatStore } from '../state/chat-store'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
+import { formatContextUsage } from '../utils/format-token-count'
 import {
   FREEBUFF_COUNTDOWN_VISIBLE_MS,
   formatFreebuffSessionCountdown,
@@ -110,6 +116,27 @@ export const StatusBar = ({
   const isUnlimited =
     freebuffSession?.status === 'active' && !freebuffSession.rateLimit
 
+  // Context occupancy of the main agent only: subagent states never land in
+  // mainAgentState, so their tokens are excluded by construction. The store's
+  // runState is written at end of turn, which is exactly when the idle branch
+  // below renders — no mid-turn staleness is visible.
+  const contextTokenCount = useChatStore(
+    // Fully optional-chained: runState can be restored from a JSON.parse of
+    // run-state.json with no shape validation, and a throwing selector would
+    // crash the whole TUI.
+    (state) =>
+      state.runState?.sessionState?.mainAgentState?.contextTokenCount,
+  )
+  const contextWindow =
+    freebuffSession?.status === 'active'
+      ? (FREEBUFF_MODEL_CONTEXT_WINDOWS[freebuffSession.model] ??
+        FREEBUFF_DEFAULT_CONTEXT_WINDOW)
+      : FREEBUFF_DEFAULT_CONTEXT_WINDOW
+  const contextUsage =
+    contextTokenCount !== undefined
+      ? formatContextUsage(contextTokenCount, contextWindow)
+      : null
+
   const renderStatusIndicator = () => {
     switch (statusIndicatorState.kind) {
       case 'ctrlC':
@@ -171,6 +198,13 @@ export const StatusBar = ({
             freebuffSession?.status === 'active'
               ? getFreebuffModel(freebuffSession.model).displayName
               : null
+          // One template string on purpose: conditional text-node children
+          // inside a <span> trip OpenTUI's reconciler (see knowledge.md).
+          const idleLabel = `${modelName ? `${modelName} · ` : ''}${
+            isUnlimited
+              ? 'unlimited'
+              : formatFreebuffSessionRemaining(sessionProgress.remainingMs)
+          }${contextUsage ? ` · ${contextUsage}` : ''}`
           return (
             <span
               fg={
@@ -181,10 +215,7 @@ export const StatusBar = ({
                     : theme.secondary
               }
             >
-              {modelName ? `${modelName} · ` : ''}
-              {isUnlimited
-                ? 'unlimited'
-                : formatFreebuffSessionRemaining(sessionProgress.remainingMs)}
+              {idleLabel}
             </span>
           )
         }

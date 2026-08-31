@@ -3,6 +3,7 @@ import { runTerminalCommand } from '@codebuff/sdk'
 
 
 import {
+  dispatchSkillPrompt,
   findCommand,
   type RouterParams,
   type CommandResult,
@@ -25,6 +26,8 @@ import { IS_FREEBUFF } from '../utils/constants'
 import { getSystemProcessEnv } from '../utils/env'
 import { terminalCommandBroker } from '../utils/terminal-command-broker'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
+import { getSkillByName } from '../utils/skill-registry'
+import { pushSteeringMessage } from '../utils/steering-buffer'
 import {
   capturePendingAttachments,
   hasProcessingFiles,
@@ -258,6 +261,7 @@ export async function routeUserPrompt(
     isStreaming,
     streamMessageIdRef,
     addToQueue,
+    hasQueuedMessages,
     saveToHistory,
     scrollToLatest,
     sendMessage,
@@ -272,9 +276,10 @@ export async function routeUserPrompt(
   const pendingImages = pendingAttachments.filter((a) => a.kind === 'image')
 
   const trimmed = inputValue.trim()
-  // Allow empty messages if there are pending attachments (images or text)
+  // Allow empty messages if there are pending attachments (images or text).
+  // Skill mode also accepts an empty submit: it means "run the skill as-is".
   const hasAttachments = pendingAttachments.length > 0
-  if (!trimmed && !hasAttachments) return
+  if (!trimmed && !hasAttachments && inputMode !== 'skill') return
 
   // DAU signal: one un-sampled event per user-submitted prompt. The CLI's
   // distinct id resolves to the canonical codebuff user id (anonymous id is
@@ -340,6 +345,38 @@ export async function routeUserPrompt(
     setTimeout(() => {
       scrollToLatest()
     }, 0)
+    return
+  }
+
+  // Handle skill mode input: the user picked a skill (bare /skill:<name>)
+  // and is now adding instructions. Empty input runs the skill without any.
+  if (inputMode === 'skill') {
+    const skillName = useChatStore.getState().pendingSkillName
+    const skill = skillName ? getSkillByName(skillName) : undefined
+
+    if (!skill) {
+      // Mode without a resolvable skill (state got out of sync): explain,
+      // and leave the user's typed text in the composer rather than
+      // destroying it — only the mode is reset.
+      setInputMode('default')
+      setInputFocused(true)
+      inputRef.current?.focus()
+      setMessages((prev) => [
+        ...prev,
+        getSystemMessage(`Skill not found: ${skillName ?? '(unknown)'}`),
+      ])
+      return
+    }
+
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setInputMode('default')
+    setInputFocused(true)
+    inputRef.current?.focus()
+
+    if (trimmed) {
+      saveToHistory(trimmed)
+    }
+    dispatchSkillPrompt(params, skill, trimmed)
     return
   }
 
@@ -430,6 +467,35 @@ export async function routeUserPrompt(
     streamMessageIdRef.current ||
     isChainInProgressRef.current
   ) {
+    // Steer the running turn when possible: plain text is handed to the
+    // active run and injected at its next step boundary, so the user can
+    // redirect the agent without waiting the turn out. Falls back to the
+    // queue for anything the steering hook can't carry faithfully:
+    // attachments (strings only), a slash command (queued today so it can
+    // error/execute after the turn), pending `!` bash output (only
+    // prepareUserMessage folds it into the message that referenced it), a
+    // non-empty queue (steering would deliver this text ahead of earlier
+    // submissions), and the window where no run is accepting steering.
+    const canSteer =
+      !hasAttachments &&
+      !isSlashCommand(trimmed) &&
+      useChatStore.getState().pendingBashMessages.length === 0 &&
+      !hasQueuedMessages?.()
+    if (canSteer) {
+      // Echo the bubble now, so the submit is visible immediately, and hand
+      // its id to the buffer: if the run ends before draining this entry,
+      // use-send-message retracts the bubble and requeues the text (which
+      // mints its own bubble at dequeue) — no invisible message, no dupe.
+      const steeredMessage = getUserMessage(trimmed)
+      if (
+        pushSteeringMessage({ messageId: steeredMessage.id, text: trimmed })
+      ) {
+        setMessages((prev) => [...prev, steeredMessage])
+        setInputFocused(true)
+        inputRef.current?.focus()
+        return
+      }
+    }
     const pendingAttachmentsForQueue = capturePendingAttachments()
     // Pass a copy of pending attachments to the queue
     addToQueue(trimmed, pendingAttachmentsForQueue)

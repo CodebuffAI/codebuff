@@ -9,7 +9,7 @@ import {
   collectProcessDiagnostics,
   formatProcessDiagnostics,
 } from './process-diagnostics'
-import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
+import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs, buildSkillPrompt } from './prompt-builders'
 import { handleReasoningCommand } from './reasoning'
 import { runBashCommand } from './router'
 import { handleUsageCommand } from './usage'
@@ -44,6 +44,9 @@ export type RouterParams = {
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   streamMessageIdRef: React.MutableRefObject<string | null>
   addToQueue: (message: string, attachments?: PendingAttachment[]) => void
+  /** Whether the message queue currently holds anything. Steering checks it
+   *  so a mid-turn submit can't overtake earlier queued submissions. */
+  hasQueuedMessages?: () => boolean
   clearMessages: () => void
   saveToHistory: (message: string) => void
   scrollToLatest: () => void
@@ -715,36 +718,50 @@ function createSkillCommand(skillName: string): CommandDefinition {
       params.saveToHistory(trimmed)
       params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 
-      // Build the message content with skill context and optional user args
-      const skillContext = `<skill name="${skill.name}">
-${skill.content}
-</skill>`
-
-      const userPrompt = `I invoke the following skill:\n\n${skillContext}\n\n`
-        + (args.trim()
-          ? `User request: ${args.trim()}`
-          : '')
-
-      // Check streaming/queue state
-      if (
-        params.isStreaming ||
-        params.streamMessageIdRef.current ||
-        params.isChainInProgressRef.current
-      ) {
-        const pendingAttachments = capturePendingAttachments()
-        params.addToQueue(userPrompt, pendingAttachments)
+      // Bare invocation: like /interview, drop into an input mode so the
+      // user can add instructions before the skill is sent. Enter with an
+      // empty composer still runs the skill as-is (the router's skill-mode
+      // branch), so a no-args run costs one extra keystroke, not a feature.
+      if (!args.trim()) {
+        useChatStore.getState().enterSkillMode(skill.name)
         params.setInputFocused(true)
         params.inputRef.current?.focus()
         return
       }
 
-      params.sendMessage({
-        content: userPrompt,
-        agentMode: params.agentMode,
-      })
-      setTimeout(() => {
-        params.scrollToLatest()
-      }, 0)
+      dispatchSkillPrompt(params, skill, args)
     },
   })
+}
+
+/**
+ * Send (or queue, mid-turn) a user-invoked skill prompt. Shared by the
+ * /skill:<name> args form and the skill input mode's submit (router), so the
+ * two entry paths for the same feature cannot drift.
+ */
+export function dispatchSkillPrompt(
+  params: RouterParams,
+  skill: { name: string; content: string },
+  input: string,
+): void {
+  const userPrompt = buildSkillPrompt(skill, input)
+
+  if (
+    params.isStreaming ||
+    params.streamMessageIdRef.current ||
+    params.isChainInProgressRef.current
+  ) {
+    params.addToQueue(userPrompt, capturePendingAttachments())
+    params.setInputFocused(true)
+    params.inputRef.current?.focus()
+    return
+  }
+
+  params.sendMessage({
+    content: userPrompt,
+    agentMode: params.agentMode,
+  })
+  setTimeout(() => {
+    params.scrollToLatest()
+  }, 0)
 }
