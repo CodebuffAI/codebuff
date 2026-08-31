@@ -118,6 +118,45 @@ export const AD_CREDIT_LINE_MAX_DECREASE_BPS = 2_500
 /** Direct placements never sell below one dollar per billable click. */
 export const AD_PLACEMENT_CPC_FLOOR_CENTS = 100
 
+/**
+ * An operator-set floor exemption for ONE campaign
+ * (`ad_placement_campaign.cpc_floor_override_cents`). It may only lower the
+ * rate-card floor, and never to zero -- a zero price looks like a working
+ * integration while billing nothing.
+ */
+export function isValidPlacementCpcFloorOverride(
+  value: unknown,
+): value is number {
+  return (
+    Number.isInteger(value) &&
+    (value as number) >= 1 &&
+    (value as number) <= AD_PLACEMENT_CPC_FLOOR_CENTS
+  )
+}
+
+/**
+ * The floor that actually binds a campaign.
+ *
+ * Anything other than a valid exemption resolves to the global floor, so an
+ * out-of-range or malformed value fails SAFE (it raises the floor back to $1)
+ * rather than opening it.
+ *
+ * This lives beside the constant, and not next to any one of its callers,
+ * because four separate layers have to agree on it -- the admission
+ * validators, the `/r/` click-recording guard, the reprice clamp, and the
+ * table CHECK. Two of those are in `packages/internal` and two in
+ * `freebuff/web`, and a second copy of this predicate is exactly how the
+ * price a campaign serves at drifts from the price an automatic run will
+ * clamp it to.
+ */
+export function effectivePlacementCpcFloorCents(
+  overrideCents: unknown,
+): number {
+  return isValidPlacementCpcFloorOverride(overrideCents)
+    ? overrideCents
+    : AD_PLACEMENT_CPC_FLOOR_CENTS
+}
+
 /** A single automatic reprice may move at most 25% in either direction. */
 export const AD_PLACEMENT_CPC_REPRICE_MAX_MOVE_BPS = 2_500
 
