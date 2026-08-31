@@ -2116,15 +2116,23 @@ export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
 export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
-  // V4 Pro left with its withdrawal (2026-08-26); GLM 5.3 Flash takes the slot.
-  // Here for the CONCURRENCY reason the doc above insists on deciding
-  // separately — but note it is also the one row that is metered AND would
-  // otherwise be multi-tab, which the last paragraph above forbids outright:
-  // `buildAdmitStampStatement` pairs a window to its admit row on
-  // `(user, model, access_tier, admitted_at)`, so two tabs of one metered row
-  // admitted in the same millisecond make that pairing arbitrary. Until admit
-  // rows are keyed by instance id, a metered row belongs in this bucket.
-  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+  // GLM 5.3 Flash LEFT on 2026-08-29, and on this list's own criterion rather
+  // than as a side effect of unmetering it the day before. Membership is "a
+  // bill we would not want to underwrite at three at once", and measured
+  // production spend puts it at $0.000249/msg — the CHEAPEST row we serve:
+  //
+  //   glm-5.3-flash      $0.000249/msg   $0.0196/session   <- 3 tabs, now
+  //   mimo-v2.5          $0.001151/msg   $0.0907/session   <- 3 tabs already
+  //   deepseek-v4-flash  $0.002223/msg   $0.1752/session   <- 3 tabs already
+  //
+  // Three concurrent tabs of it is a smaller bill than three of either row this
+  // list has always allowed, so keeping it here failed the test on its face.
+  //
+  // The OTHER reason it sat here — that it was metered, and the last paragraph
+  // above forbids metered-and-multi-tab because `buildAdmitStampStatement`
+  // pairs a window to its admit row on `(user, model, access_tier,
+  // admitted_at)` — expired with the unmetering. "Nothing is metered and
+  // multi-tab today" still holds after this change.
   // Metered, so the same rule puts it here.
   FREEBUFF_SOLAR_PRO_4_MODEL_ID,
 ] as const
