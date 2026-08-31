@@ -487,6 +487,46 @@ describe('freebuff model availability', () => {
     expect(FREEBUFF_MODELS.find((m) => m.id === id)?.availability).toBe('always')
   })
 
+  test('the desktop concurrency bucket is a PRICE claim, not a metering one', () => {
+    // These two lists are deliberately separate, and deriving one from the
+    // other has already cost real users: when Flash entered the quota list on
+    // 2026-08-18 the derivation silently made the DEFAULT model one-tab-only,
+    // and ~1k accounts a day met "Another tab is using the hosted model".
+    //
+    // So this asserts the bucket's OWN criterion — "a bill we would not want to
+    // underwrite at three at once" — by pinning the ordering that criterion
+    // implies: no row may sit in the one-tab bucket while a CHEAPER row per
+    // message runs three at once. GLM 5.3 Flash failed exactly that test on
+    // 2026-08-28, being the cheapest row we serve and still capped at one tab.
+    const COST_PER_MSG: Record<string, number> = {
+      [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 0.000249,
+      [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 0.002223,
+      [FREEBUFF_MIMO_V25_MODEL_ID]: 0.001151,
+    }
+    const inBucket = (id: string) =>
+      (FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS as readonly string[]).includes(id)
+    const dearestMultiTab = Math.max(
+      ...Object.entries(COST_PER_MSG)
+        .filter(([id]) => !inBucket(id))
+        .map(([, cost]) => cost),
+    )
+    for (const [id, cost] of Object.entries(COST_PER_MSG)) {
+      if (!inBucket(id)) continue
+      expect({ id, capped: true, dearerThanSomeMultiTabRow: cost > dearestMultiTab })
+        .toEqual({ id, capped: true, dearerThanSomeMultiTabRow: true })
+    }
+
+    // And the invariant the bucket's own doc ends on: nothing may be metered
+    // AND multi-tab until admit rows are keyed by instance id, because
+    // buildAdmitStampStatement pairs on (user, model, access_tier, admitted_at)
+    // and two same-millisecond tabs make that pairing arbitrary.
+    for (const model of FREEBUFF_MODELS) {
+      if (inBucket(model.id)) continue
+      expect({ id: model.id, meteredAndMultiTab: Boolean(model.premium) })
+        .toEqual({ id: model.id, meteredAndMultiTab: false })
+    }
+  })
+
   test('every model is premium-listed and premium-flagged, or neither', () => {
     // THE INVARIANT THAT REPLACED "a premium row must be in some pool".
     // `isFreebuffPremiumModelId` reads FREEBUFF_PREMIUM_MODEL_IDS while
