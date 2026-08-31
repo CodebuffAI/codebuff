@@ -535,6 +535,7 @@ export const Chat = ({
           logoutMutation,
           streamMessageIdRef,
           addToQueue,
+          hasQueuedMessages: () => queuedCount > 0,
           clearMessages,
           saveToHistory,
           scrollToLatest,

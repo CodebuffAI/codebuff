@@ -98,3 +98,10 @@ export function getLoadedSkillsMessage(): string | null {
 export function __resetSkillRegistryForTests(): void {
   skillsCache = {}
 }
+
+/**
+ * Seed the cache without touching the filesystem. Intended for test scenarios.
+ */
+export function __setSkillsForTests(skills: SkillsMap): void {
+  skillsCache = skills
+}

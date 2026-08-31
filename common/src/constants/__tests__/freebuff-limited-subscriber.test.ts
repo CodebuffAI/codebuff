@@ -6,6 +6,7 @@ import {
   getFreebuffModelsForAccessTier,
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffWebModelAllowedForLimitedTier,
+  isFreebuffWebModelId,
   resolveFreebuffSessionModelForAccessTier,
   resolveFreebuffWebModelForLimitedTier,
 } from '../freebuff-models'
@@ -69,6 +70,17 @@ describe('paid plans at limited access', () => {
     }
     expect(FREEBUFF_SUBSCRIPTION_MODEL_IDS).toHaveLength(4)
   })
+
+  test('every plan model resolves in the Web catalog', () => {
+    // The plans page renders the plan lineup via getFreebuffWebModel, which
+    // FALLS BACK to MiMo 2.5 for an id the Web catalog lacks — it would
+    // advertise the one model its own copy says a plan escapes, and nothing
+    // would error. The page filters such ids out; this is what makes the
+    // drift loud instead of silently shrinking that panel.
+    for (const model of FREEBUFF_SUBSCRIPTION_MODEL_IDS) {
+      expect(isFreebuffWebModelId(model, { includeGodOnly: true })).toBe(true)
+    }
+  })
 })
 
 /**
@@ -85,9 +97,9 @@ describe('paid plans at limited access', () => {
 describe('a plan model survives resolution, not just the allowlist', () => {
   test('unpaid limited access still coerces every plan model to MiMo', () => {
     for (const model of FREEBUFF_SUBSCRIPTION_MODEL_IDS) {
-      expect(
-        resolveFreebuffSessionModelForAccessTier(model, 'limited'),
-      ).toBe(LIMITED_FREEBUFF_MODEL_ID)
+      expect(resolveFreebuffSessionModelForAccessTier(model, 'limited')).toBe(
+        LIMITED_FREEBUFF_MODEL_ID,
+      )
     }
   })
 
@@ -126,15 +138,15 @@ describe('a plan model survives resolution, not just the allowlist', () => {
     // And it gained at least one row it could not pick before.
     expect(paid.length).toBeGreaterThan(free.length)
     for (const id of paid) {
-      expect(isFreebuffSessionModelAllowedForAccessTier(id, 'limited', true)).toBe(
-        true,
-      )
+      expect(
+        isFreebuffSessionModelAllowedForAccessTier(id, 'limited', true),
+      ).toBe(true)
     }
   })
 
   test('full access is untouched by the widened catalog', () => {
-    expect(getFreebuffModelsForAccessTier('full', true).map((m) => m.id)).toEqual(
-      getFreebuffModelsForAccessTier('full').map((m) => m.id),
-    )
+    expect(
+      getFreebuffModelsForAccessTier('full', true).map((m) => m.id),
+    ).toEqual(getFreebuffModelsForAccessTier('full').map((m) => m.id))
   })
 })

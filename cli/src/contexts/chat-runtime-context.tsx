@@ -188,6 +188,7 @@ export const ChatRuntimeProvider = ({
     isProcessingQueueRef: queue.isProcessingQueueRef,
     resumeQueue: queue.resumeQueue,
     requeueMessageAtFront: queue.addToQueueFront,
+    pauseQueue: queue.pauseQueue,
     continueChat,
     continueChatId,
     subscriptionData,
