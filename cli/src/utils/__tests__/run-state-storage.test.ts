@@ -917,3 +917,146 @@ describe('poisoned payload persistence', () => {
     expect(block.outputRaw.self).toBe('[Circular]')
   })
 })
+
+describe('run state recovery', () => {
+  // Point persistence at a temp dir via the explicit test override.
+  const chatDir = path.join(TEST_ROOT, 'codebuff-test-recovery')
+
+  const runStateWithSession = (marker: string): RunState =>
+    ({
+      sessionState: {
+        mainAgentState: {
+          messageHistory: [{ role: 'user', content: marker }],
+        },
+      },
+      output: { type: 'lastMessage', value: marker },
+      traceSessionId: 'trace-1',
+    }) as unknown as RunState
+
+  const runStatePath = path.join(chatDir, 'run-state.json')
+  const bakPath = runStatePath + '.bak'
+  const messagesPath = path.join(chatDir, 'chat-messages.json')
+
+  const writePrimary = (contents: string) =>
+    fs.writeFileSync(runStatePath, contents)
+  const validMessages = JSON.stringify([
+    {
+      id: 'msg-1',
+      variant: 'user',
+      content: 'the prompt',
+      timestamp: new Date().toISOString(),
+    },
+  ] as ChatMessage[])
+
+  beforeEach(() => {
+    fs.rmSync(chatDir, { recursive: true, force: true })
+    fs.mkdirSync(chatDir, { recursive: true })
+    setChatDirOverrideForTesting(chatDir)
+  })
+
+  afterEach(() => {
+    setChatDirOverrideForTesting(undefined)
+  })
+
+  test('recovers agent context from the .bak when the primary is torn', () => {
+    writePrimary('{"sessionState": {"main"') // torn: power loss after rename
+    fs.writeFileSync(bakPath, JSON.stringify(runStateWithSession('from-bak')))
+    fs.writeFileSync(messagesPath, validMessages)
+
+    const loaded = loadMostRecentChatState()
+    expect(loaded).not.toBeNull()
+    // Agent context survived — the model is NOT amnesiac next turn.
+    expect((loaded!.runState as any).sessionState).toBeDefined()
+    expect(loaded!.runStateRestored).toBe(true)
+    // Self-healed: the primary is the recovered generation again.
+    expect(
+      JSON.parse(fs.readFileSync(runStatePath, 'utf8')).output.value,
+    ).toBe('from-bak')
+  })
+
+  test('recovers from the newest complete checkpoint temp when bak is absent', () => {
+    writePrimary('{ torn')
+    fs.writeFileSync(messagesPath, validMessages)
+    // Two temps: an older torn one and a newer complete one (SIGKILL between
+    // write and rename leaves the latter behind).
+    fs.writeFileSync(
+      runStatePath + '.999.oldest.tmp',
+      '{"half":',
+    )
+    fs.writeFileSync(
+      runStatePath + '.1234.newest.tmp',
+      JSON.stringify(runStateWithSession('from-tmp')),
+    )
+
+    const loaded = loadMostRecentChatState()
+    expect(loaded).not.toBeNull()
+    expect((loaded!.runState as any).sessionState).toBeDefined()
+    expect(loaded!.runStateRestored).toBe(true)
+    // Self-healed into the primary.
+    expect(
+      JSON.parse(fs.readFileSync(runStatePath, 'utf8')).output.value,
+    ).toBe('from-tmp')
+  })
+
+  test('flags a healthy primary as fully restored', () => {
+    writePrimary(JSON.stringify(runStateWithSession('healthy')))
+    fs.writeFileSync(messagesPath, validMessages)
+
+    const loaded = loadMostRecentChatState()
+    expect(loaded!.runStateRestored).toBe(true)
+    expect((loaded!.runState as any).sessionState).toBeDefined()
+  })
+
+  test('falls back to a context-less placeholder with the loss flagged when nothing recovers', () => {
+    writePrimary('{ torn')
+    fs.writeFileSync(messagesPath, validMessages)
+
+    const loaded = loadMostRecentChatState()
+    expect(loaded).not.toBeNull()
+    // The amnesia carrier: no sessionState — the SDK will start a fresh
+    // session next turn. runStateRestored=false is what makes the UI say so
+    // instead of the model silently forgetting every earlier turn.
+    expect((loaded!.runState as any).sessionState).toBeUndefined()
+    expect(loaded!.runStateRestored).toBe(false)
+    // The transcript still survives.
+    expect(loaded!.messages.length).toBe(1)
+  })
+
+  test('saveChatState rotates the previous primary into .bak', () => {
+    saveChatState(runStateWithSession('generation-1'), [
+      {
+        id: 'msg-1',
+        variant: 'user',
+        content: 'first',
+        timestamp: new Date().toISOString(),
+      },
+    ])
+    expect(fs.existsSync(bakPath)).toBe(false)
+
+    saveChatState(runStateWithSession('generation-2'), [
+      {
+        id: 'msg-2',
+        variant: 'user',
+        content: 'second',
+        timestamp: new Date().toISOString(),
+      },
+    ])
+
+    expect(JSON.parse(fs.readFileSync(runStatePath, 'utf8')).output.value).toBe(
+      'generation-2',
+    )
+    expect(JSON.parse(fs.readFileSync(bakPath, 'utf8')).output.value).toBe(
+      'generation-1',
+    )
+  })
+
+  test('clearChatState removes the backup too', () => {
+    writePrimary(JSON.stringify(runStateWithSession('x')))
+    fs.writeFileSync(bakPath, JSON.stringify(runStateWithSession('bak')))
+    fs.writeFileSync(messagesPath, validMessages)
+
+    clearChatState()
+    expect(fs.existsSync(runStatePath)).toBe(false)
+    expect(fs.existsSync(bakPath)).toBe(false)
+  })
+})
