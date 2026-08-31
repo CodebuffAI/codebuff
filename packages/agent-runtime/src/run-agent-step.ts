@@ -559,11 +559,16 @@ export const runAgentStep = async (
     'agentStep',
   )
 
-  // Handle /compact command: replace message history with the summary
+  // Handle /compact command: replace message history with the summary — but
+  // only when the model actually produced one. An empty completion (silent
+  // stop with a bare finish part; it yields no recovery chunk) must not
+  // replace the history: the single summary message would carry nothing and
+  // every earlier turn would be gone from the model's context. Leaving the
+  // history intact lets the forced next step retry the summary.
   const wasCompacted =
     prompt &&
     (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
-  if (wasCompacted) {
+  if (wasCompacted && fullResponse.trim()) {
     agentState.messageHistory = [
       userMessage(
         withSystemTags(
@@ -572,6 +577,11 @@ export const runAgentStep = async (
       ),
     ]
     logger.debug({ summary: fullResponse }, 'Compacted messages')
+  } else if (wasCompacted) {
+    logger.warn(
+      { promptLength: prompt.length },
+      'Compact requested but the model returned no summary; keeping the message history intact',
+    )
   }
 
   const hasNoToolResults =
