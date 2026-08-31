@@ -19,7 +19,7 @@ import {
 } from '../state/freebuff-model-store'
 import { useChatStore } from '../state/chat-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
-import { getAuthTokenDetails } from '../utils/auth'
+import { getAuthTokenDetails, getUserCredentials } from '../utils/auth'
 import { stopActiveRun } from '../utils/active-run'
 import { IS_FREEBUFF } from '../utils/constants'
 import {
@@ -139,6 +139,13 @@ export function getFreebuffInstanceId(): string | undefined {
   const current = useFreebuffSessionStore.getState().session
   if (!current || !holdsLiveFreebuffSlot(current)) return undefined
   return 'instanceId' in current ? current.instanceId : undefined
+}
+
+/** Read the user ID bound to the current session. Returns `null` when no
+ *  session is active or the session has no binding. Used by the logout
+ *  guard and login validation to enforce single-account-per-session. */
+export function getSessionBoundUserId(): string | null {
+  return useFreebuffSessionStore.getState().sessionBoundUserId
 }
 
 /** True when the session represents a server-side slot the caller is
@@ -416,6 +423,29 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       return
     }
 
+    // Startup guard: if a session is bound to a different user, end it
+    // immediately to prevent multi-account abuse on the same machine.
+    const { sessionBoundUserId } = useFreebuffSessionStore.getState()
+    const currentUser = getUserCredentials()
+    if (sessionBoundUserId && currentUser?.id !== sessionBoundUserId) {
+      logger.warn(
+        {
+          sessionBoundUserId,
+          currentUserId: currentUser?.id,
+        },
+        '[freebuff-session] Session bound to different user; ending session',
+      )
+      useFreebuffSessionStore.getState().setSessionBoundUserId(null)
+      releaseFreebuffSlot().catch(() => {})
+      setSession({
+        status: 'ended',
+        accessTier: undefined,
+        rateLimitsByModel: undefined,
+        subscription: undefined,
+      })
+      return
+    }
+
     let cancelled = false
     let abortController = new AbortController()
     let timer: ReturnType<typeof setTimeout> | null = null
@@ -443,6 +473,20 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       }
       if (next.status === 'active') {
         recordFreebuffInstanceOwner(next.instanceId)
+        // Bind the session to the current user to prevent multi-account abuse.
+        const credentials = getUserCredentials()
+        if (credentials?.id) {
+          useFreebuffSessionStore
+            .getState()
+            .setSessionBoundUserId(credentials.id)
+        }
+      } else if (
+        next.status === 'ended' ||
+        next.status === 'none' ||
+        next.status === 'superseded'
+      ) {
+        // Clear the binding when the session is no longer active.
+        useFreebuffSessionStore.getState().setSessionBoundUserId(null)
       }
       setSession(next)
       setFailure(null)

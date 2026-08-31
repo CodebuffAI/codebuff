@@ -2,12 +2,13 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useCallback, useEffect, useState } from 'react'
 
 import { useAuthQuery, useLogoutMutation } from './use-auth-query'
+import { getSessionBoundUserId } from './use-freebuff-session'
 import { useLoginStore } from '../state/login-store'
 import { identifyUser, trackEvent } from '../utils/analytics'
-import { getUserCredentials } from '../utils/auth'
+import { clearUserCredentials, getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
 import { IS_FREEBUFF } from '../utils/constants'
-import { loggerContext } from '../utils/logger'
+import { logger, loggerContext } from '../utils/logger'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { User } from '../utils/auth'
@@ -94,6 +95,21 @@ export const useAuthState = ({
   // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
+      // Prevent multi-account abuse: if a session is bound to a different user,
+      // reject the login and clear the just-saved credentials.
+      const boundUserId = getSessionBoundUserId()
+      if (boundUserId && loggedInUser.id !== boundUserId) {
+        logger.warn(
+          {
+            sessionBoundUserId: boundUserId,
+            attemptedUserId: loggedInUser.id,
+          },
+          '[auth] Login rejected: session bound to different user',
+        )
+        clearUserCredentials()
+        return
+      }
+
       // Identify first (aliases the pre-login anonymous history to the real
       // user id) so the login event below is attributed to the user.
       if (loggedInUser.id && loggedInUser.email) {
