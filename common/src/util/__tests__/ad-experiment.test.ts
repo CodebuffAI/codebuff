@@ -6,6 +6,7 @@ import {
   IMPREZIA_EXPERIMENT_PERCENT,
   adExperimentArmForUser,
   firstPartyAdRouteForUser,
+  firstPartyAdRouteForGeoRequest,
   firstPartyPrimaryBucket,
   firstPartyPrimaryBasisPoints,
   isImpreziaAudienceEmail,
@@ -186,5 +187,70 @@ describe('first-party request routing', () => {
         expect(atTwenty).toBe('first_party_primary')
       }
     }
+  })
+
+  test('geo routing keeps Tier 1 on the configured primary/backfill policy', () => {
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        {
+          primaryPercent: 100,
+          backfill: true,
+          geoRouting: true,
+          tier2BonusPercent: 100,
+        },
+        { geoTier: 'tier1', terminalPaidFallback: false },
+        'sample',
+      ),
+    ).toBe('first_party_primary')
+  })
+
+  test('Tier 2 bonus inventory waits for terminal paid no-fill and unknown geo fails closed', () => {
+    const config = {
+      primaryPercent: 100,
+      backfill: true,
+      geoRouting: true,
+      tier2BonusPercent: 100,
+    }
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        config,
+        { geoTier: 'tier2', terminalPaidFallback: false },
+        'sample',
+      ),
+    ).toBe('paid_network_only')
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        config,
+        { geoTier: 'tier2', terminalPaidFallback: true },
+        'sample',
+      ),
+    ).toBe('paid_networks_then_first_party_bonus')
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        config,
+        { geoTier: 'unknown', terminalPaidFallback: true },
+        'sample',
+      ),
+    ).toBe('paid_network_only')
+  })
+
+  test('geo gate off preserves the legacy global policy', () => {
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        {
+          primaryPercent: 0,
+          backfill: true,
+          geoRouting: false,
+          tier2BonusPercent: 100,
+        },
+        { geoTier: 'unknown', terminalPaidFallback: false },
+        'sample',
+      ),
+    ).toBe('gravity_then_first_party')
   })
 })

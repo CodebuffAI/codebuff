@@ -42,17 +42,34 @@ export const FIRST_PARTY_ROUTING_EXPERIMENT =
  */
 export const DEFAULT_FIRST_PARTY_PRIMARY_PERCENT = 0
 export const DEFAULT_FIRST_PARTY_BACKFILL = false
+export const DEFAULT_FIRST_PARTY_GEO_ROUTING = false
+export const DEFAULT_FIRST_PARTY_TIER2_BONUS_PERCENT = 0
+
+/**
+ * Coarse, server-resolved inventory geography. `unknown` is intentionally its
+ * own value: a missing/untrusted country signal must never be treated as a
+ * premium country or admitted to free advertiser inventory.
+ */
+export type FirstPartyAdGeoTier = 'tier1' | 'tier2' | 'unknown'
 
 export type FirstPartyAdRoute =
   | 'paid_network_only'
   | 'first_party_primary'
   | 'gravity_then_first_party'
+  | 'paid_networks_then_first_party_bonus'
 
 export interface FirstPartyRoutingConfig {
   /** Request share, 0..100, that tries our book before paid networks. */
   primaryPercent: number
   /** Whether the remaining paid-network cohort uses our book as backfill. */
   backfill: boolean
+}
+
+export interface FirstPartyGeoRoutingConfig extends FirstPartyRoutingConfig {
+  /** Dark-deploy gate. Off preserves the pre-geo routing policy exactly. */
+  geoRouting: boolean
+  /** Share of terminal Tier-2 paid no-fills offered non-billable inventory. */
+  tier2BonusPercent: number
 }
 
 /**
@@ -137,4 +154,44 @@ export function firstPartyAdRouteForUser(
     return 'first_party_primary'
   }
   return config.backfill ? 'gravity_then_first_party' : 'paid_network_only'
+}
+
+/**
+ * Apply the geo-aware policy without changing the legacy gate's semantics.
+ *
+ * - Tier 1 keeps the configured primary/backfill policy.
+ * - Tier 2 never preempts a paid provider. Once the caller proves that every
+ *   paid provider available on that surface has declined, a sampled request
+ *   may receive explicitly non-billable bonus inventory.
+ * - Unknown geography stays on paid networks only.
+ *
+ * `terminalPaidFallback` is server routing context, not a claim that a
+ * particular network filled. Browser surfaces set it only on the second leg
+ * of their sequencer, after the other paid network has returned no fill.
+ */
+export function firstPartyAdRouteForGeoRequest(
+  userId: string | null | undefined,
+  config: FirstPartyGeoRoutingConfig,
+  context: {
+    geoTier: FirstPartyAdGeoTier
+    terminalPaidFallback: boolean
+  },
+  sampleId?: string,
+): FirstPartyAdRoute {
+  if (!config.geoRouting) {
+    return firstPartyAdRouteForUser(userId, config, sampleId)
+  }
+  if (!userId) return 'paid_network_only'
+  if (context.geoTier === 'tier1') {
+    return firstPartyAdRouteForUser(userId, config, sampleId)
+  }
+  if (
+    context.geoTier === 'tier2' &&
+    context.terminalPaidFallback &&
+    firstPartyPrimaryBucket(sampleId || userId) <
+      firstPartyPrimaryBasisPoints(config.tier2BonusPercent)
+  ) {
+    return 'paid_networks_then_first_party_bonus'
+  }
+  return 'paid_network_only'
 }

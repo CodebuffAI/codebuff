@@ -107,6 +107,14 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   first_party_route: 'string',
   first_party_primary_percent: 'number',
   first_party_backfill_enabled: 'boolean',
+  /** Geo-aware inventory controls and the bounded request classification used
+   * by the routing policy. Country is an ISO-style two-letter code or absent;
+   * no IP address or user identifier enters this event. */
+  first_party_geo_routing_enabled: 'boolean',
+  first_party_inventory_geo_tier: 'string',
+  first_party_geo_source: 'string',
+  first_party_country_code: 'string',
+  first_party_tier2_bonus_percent: 'number',
   /** Effective runtime money gates, emitted as bounded configuration state.
    * These are not campaign pricing or advertiser identifiers. */
   first_party_billing_mode: 'string',
@@ -123,6 +131,11 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   first_party_served_cohort: 'string',
   /** `primary`, `gravity_no_fill_backfill`, or `none`. */
   first_party_entrypoint: 'string',
+  /** CPC geo-pricing state. These names predate inventory geo routing and are
+   * kept separate from `first_party_inventory_geo_tier`. */
+  first_party_geo_tier: 'string',
+  first_party_geo_floored: 'boolean',
+  geo_cpc_enabled: 'boolean',
   /** Whether the immediately preceding Gravity attempt filled, no-filled, or
    * failed. This makes recovered no-fill inventory observable without logging
    * any campaign or creative identity. */
