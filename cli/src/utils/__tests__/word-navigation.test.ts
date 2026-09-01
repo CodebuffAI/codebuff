@@ -36,6 +36,36 @@ describe('word navigation', () => {
     ).toBe(4)
   })
 
+  test('does not reclassify mixed Ctrl+Alt arrow chords as plain Ctrl navigation', () => {
+    expect(
+      getWordNavigationPosition(
+        { name: 'left', ctrl: true, option: true },
+        text,
+        text.length,
+        false,
+      ),
+    ).toBeNull()
+    expect(
+      getWordNavigationPosition(
+        { name: 'right', ctrl: true, option: true },
+        text,
+        0,
+        false,
+      ),
+    ).toBeNull()
+  })
+
+  test('routes mixed Ctrl+Alt chords only through the caller-detected Alt path', () => {
+    expect(
+      getWordNavigationPosition(
+        { name: 'left', ctrl: true, option: true },
+        text,
+        text.length,
+        true,
+      ),
+    ).toBe(8)
+  })
+
   test('does not treat modified arrows as word navigation', () => {
     expect(
       getWordNavigationPosition(
