@@ -33,11 +33,13 @@ import {
   getRateLimitsByModel,
   getGlmPromo,
   getReferralInfo,
+  getFreeWindowsInfo,
   getSubscriptionInfo,
 } from '@codebuff/common/types/freebuff-session'
 
 import {
   formatPlanWindows,
+  freebuffFreeWindowsSummary,
   freebuffPlanSummary,
 } from '@codebuff/common/util/freebuff-plan-summary'
 
@@ -257,6 +259,10 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // shared summary drives Desktop and the web usage page, so all three name
   // the same binding limit and the same reset.
   const planSummary = freebuffPlanSummary(subscriptionInfo)
+  // The free tier's own three windows (2026-09-01), in the same shape as the
+  // plan line so a free user and a subscriber read the same layout. Absent on
+  // limited access, quota-exempt accounts and older servers.
+  const freeWindows = freebuffFreeWindowsSummary(getFreeWindowsInfo(session))
   const availableModels = useMemo(
     () => gridModels(accessTier, hasPaidSubscription),
     [accessTier, hasPaidSubscription],
@@ -811,6 +817,8 @@ const testSuffixLen = ' · TEST'.length
     if (planSummary) {
       y += SECTION_GAP + 1
       if (planSummary.blocked) y += 1
+    } else if (freeWindows) {
+      y += SECTION_GAP + 1
     }
     if (canCollapse) {
       y += TOGGLE_MARGIN
@@ -825,6 +833,7 @@ const testSuffixLen = ' · TEST'.length
     showStandaloneRecommended,
     supersededNoticeFor,
     planSummary,
+    freeWindows,
   ])
 
   // When a referral exists, start at the parent's full allowance until the
@@ -1241,6 +1250,13 @@ const testSuffixLen = ' · TEST'.length
         {showStandaloneRecommended &&
           renderModelButton(recommendedModel, { recommended: true })}
         {sectionsContent}
+        {freeWindows && !planSummary && (
+          <text
+            style={{ fg: theme.muted, wrapMode: 'none', marginTop: SECTION_GAP }}
+          >
+            FREE · {formatPlanWindows(freeWindows as never)}
+          </text>
+        )}
         {planSummary && (
           <text
             style={{ fg: theme.muted, wrapMode: 'none', marginTop: SECTION_GAP }}

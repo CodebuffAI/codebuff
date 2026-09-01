@@ -206,6 +206,34 @@ export interface FreebuffSubscriptionInfo {
 }
 
 /**
+ * The FREE tier's windows, for every full-access account (2026-09-01).
+ *
+ * `today` is the live premium pool — the same number the picker's daily ring
+ * has always drawn, base + level + referral bonus. `week` and `month` are the
+ * MARKETED free allowance (`FREEBUFF_FREE_TIER_ALLOWANCE`) with the account's
+ * real usage against them, so free users see the same three rings a
+ * subscriber sees. DISPLAY-ONLY for now: nothing refuses on the week or month
+ * yet (operator decision — enforcement is a later change), so `weekUsed` can
+ * legitimately exceed `weekLimit` until it lands.
+ *
+ * Absent for quota-exempt accounts (they hold no pools), for limited access
+ * (whose one regional pool is already the picker's ring), and from servers
+ * older than this field.
+ */
+export interface FreebuffFreeWindowsInfo {
+  dayUsed: number
+  dayLimit: number
+  weekUsed: number
+  weekLimit: number
+  monthUsed: number
+  monthLimit: number
+  /** ISO instant the daily pool resets. */
+  dayResetAt: string
+  /** ISO instant the calendar month (Pacific) rolls. The week is rolling. */
+  monthResetAt: string
+}
+
+/**
  * What to offer someone a refusal just stopped.
  *
  * Attached to `rate_limited` and `spend_limited` so the answer to "you are out
@@ -388,6 +416,16 @@ export const getFreebucksInfo = (
     ? (session as { freebucks?: FreebuffFreebucksInfo }).freebucks
     : undefined
 
+/** The free tier's windows off whichever statuses carry them; undefined from
+ *  a server that predates the field, for a quota-exempt account, or at
+ *  limited access — callers render the daily ring alone in every such case. */
+export const getFreeWindowsInfo = (
+  session: { status: string } | null | undefined,
+): FreebuffFreeWindowsInfo | undefined =>
+  session && 'freeWindows' in session
+    ? (session as { freeWindows?: FreebuffFreeWindowsInfo }).freeWindows
+    : undefined
+
 export const getSubscriptionInfo = (
   session: { status: string } | null | undefined,
 ): FreebuffSubscriptionInfo | undefined =>
@@ -561,6 +599,8 @@ export type FreebuffSessionServerResponse = (
        * catalog is empty or the server predates subscriptions.
        */
       subscription?: FreebuffSubscriptionInfo
+      /** See FreebuffFreeWindowsInfo. */
+      freeWindows?: FreebuffFreeWindowsInfo
       /** Spendable Freebucks and the per-model session prices. Rides
        *  every state for the same reason `subscription` does: the
        *  balance is shown in the picker, mid-session and after it. */
@@ -583,6 +623,8 @@ export type FreebuffSessionServerResponse = (
       /** Subscription offers and state, so an in-session picker can still
        *  render "subscribed" badges and an upgrade CTA. */
       subscription?: FreebuffSubscriptionInfo
+      /** See FreebuffFreeWindowsInfo. */
+      freeWindows?: FreebuffFreeWindowsInfo
       /** Spendable Freebucks and the per-model session prices. Rides
        *  every state for the same reason `subscription` does: the
        *  balance is shown in the picker, mid-session and after it. */
@@ -614,6 +656,8 @@ export type FreebuffSessionServerResponse = (
       /** Carried like `rateLimitsByModel`: the post-session banner and picker
        *  keep the plan rings without a round-trip. */
       subscription?: FreebuffSubscriptionInfo
+      /** See FreebuffFreeWindowsInfo. */
+      freeWindows?: FreebuffFreeWindowsInfo
       /** Spendable Freebucks and the per-model session prices. Rides
        *  every state for the same reason `subscription` does: the
        *  balance is shown in the picker, mid-session and after it. */

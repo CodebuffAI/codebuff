@@ -814,6 +814,25 @@ describe('FreebuffModelSelector plan line', () => {
     expect(frame).toContain('resets in 3h')
   })
 
+  test('a free account sees its own three windows in the same shape', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      freeWindows: {
+        dayUsed: 1,
+        dayLimit: 4,
+        weekUsed: 3,
+        weekLimit: 14,
+        monthUsed: 9,
+        monthLimit: 40,
+        dayResetAt: new Date(FIXED_NOW_MS + 5 * 3600_000).toISOString(),
+        monthResetAt: new Date(FIXED_NOW_MS + 20 * 24 * 3600_000).toISOString(),
+      },
+    } as never)
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain('FREE · today 1 of 4 · week 3 of 14 · month 9 of 40')
+  })
+
   test('no plan means no plan line', async () => {
     useFreebuffSessionStore
       .getState()

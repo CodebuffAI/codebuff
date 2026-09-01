@@ -6,7 +6,10 @@
  * reset instant applies are product facts — three copies of that logic is how
  * two surfaces end up naming different resets for the same refusal.
  */
-import type { FreebuffSubscriptionInfo } from '../types/freebuff-session'
+import type {
+  FreebuffFreeWindowsInfo,
+  FreebuffSubscriptionInfo,
+} from '../types/freebuff-session'
 
 export interface FreebuffPlanWindow {
   /** 'today' | 'week' | 'month' — short, surface-agnostic label. */
@@ -102,5 +105,25 @@ export function freebuffPlanSummary(
       usedUsd: usage.monthSpendUsd,
       limitUsd: usage.monthSpendLimitUsd,
     },
+  }
+}
+
+/**
+ * The free tier's three windows in the same shape as a plan's, so a free
+ * user's line/rings and a subscriber's are the one layout with different
+ * numbers. Undefined when the server sent no block (quota-exempt, limited
+ * access, or an older server) — callers fall back to the daily ring alone.
+ */
+export function freebuffFreeWindowsSummary(
+  info: FreebuffFreeWindowsInfo | null | undefined,
+): Pick<FreebuffPlanSummary, 'windows' | 'dayResetAt'> | undefined {
+  if (!info) return undefined
+  return {
+    windows: [
+      { label: 'today', used: info.dayUsed, limit: info.dayLimit },
+      { label: 'week', used: info.weekUsed, limit: info.weekLimit },
+      { label: 'month', used: info.monthUsed, limit: info.monthLimit },
+    ],
+    dayResetAt: info.dayResetAt,
   }
 }
