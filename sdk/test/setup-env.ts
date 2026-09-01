@@ -39,6 +39,13 @@ const serverDefaults: Record<string, string> = {
   DISCORD_APPLICATION_ID: 'test',
 }
 
+// Ops knobs that must NOT leak from the environment into tests. CI loads the
+// prod Infisical set (every prod secret reaches CI), so a knob flipped for
+// production would silently change what the suite asserts — which is exactly
+// how FREEBUFF_GOD_QUOTA_EXEMPT=off (2026-09-01) turned six exemption tests
+// red. Tests that want the other setting set process.env themselves.
+process.env.FREEBUFF_GOD_QUOTA_EXEMPT = 'on'
+
 for (const [key, value] of Object.entries(testDefaults)) {
   if (!process.env[key]) {
     process.env[key] = value
