@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import {
+  historyHasUnclosedOpen,
   historyLeaksThinkTags,
-  EXPLICIT_OPEN_HOLD_CHARS,
   IMPLICIT_OPEN_BUDGET_CHARS,
   stripThinkScaffolding,
   ThinkTagStream,
@@ -13,7 +13,7 @@ import type { ThinkStreamSegment } from '../think-tag-stream'
 /** Feed the deltas one at a time, then flush — the shape a real stream has. */
 function run(
   deltas: string[],
-  options?: { implicitOpen?: boolean },
+  options?: { implicitOpen?: boolean; holdExplicitOpens?: boolean },
 ): ThinkStreamSegment[] {
   const stream = new ThinkTagStream(options)
   const out: ThinkStreamSegment[] = []
@@ -60,30 +60,30 @@ describe('ThinkTagStream — paired tags', () => {
     expect(joined(run(['ends with <']), 'text')).toBe('ends with <')
   })
 
-  it('releases an unclosed open tag as text at flush', () => {
-    // The open may be a truncated thought or the tag quoted as prose — both
-    // look identical until the step ends, so the hold resolves as text either
-    // way: an answer is delayed, never swallowed (issue #1155, bug 2).
+  it('streams an unclosed open as reasoning on a clean lane, live like rule 1', () => {
+    // Default lane: a bare open is near-certainly a real block (truncated
+    // thought). Streaming it live keeps the zero-latency main behavior —
+    // the review's concern was exactly this trace freezing until a close.
     const out = run(['<think>truncated thou', 'ght'])
-    expect(joined(out, 'reasoning')).toBe('')
-    expect(joined(out, 'text')).toBe('truncated thought')
+    expect(joined(out, 'reasoning')).toBe('truncated thought')
+    expect(joined(out, 'text')).toBe('')
   })
 
-  it('keeps an answer quoted around a prose open tag as text', () => {
-    // Docs quoting the tag: the answer before it already streamed as text,
-    // the text after it must not vanish into the thinking box.
-    const out = run([
-      'Write <think> ',
-      'like this in your docs. The answer continues here.',
-    ])
+  it('keeps an answer quoted around a prose open tag as text when armed', () => {
+    // History-proven lane (an open was left unclosed before): the hold is
+    // armed, so a quoted tag cannot swallow the answer into the thinking box.
+    const out = run(
+      ['Write <think> ', 'like this in your docs. The answer continues here.'],
+      { holdExplicitOpens: true },
+    )
     expect(joined(out, 'reasoning')).toBe('')
     expect(joined(out, 'text')).toBe(
       'Write  like this in your docs. The answer continues here.',
     )
   })
 
-  it('holds an explicit open only until its close arrives', () => {
-    const stream = new ThinkTagStream()
+  it('holds an explicit open only until its close arrives, when armed', () => {
+    const stream = new ThinkTagStream({ holdExplicitOpens: true })
     expect(stream.push('Answer part one. <think>plan it')).toEqual([
       { type: 'text', text: 'Answer part one. ' },
     ])
@@ -92,29 +92,51 @@ describe('ThinkTagStream — paired tags', () => {
       { type: 'text', text: 'Here is the answer.' },
     ])
   })
-  it('commits the hold as reasoning past the bound and streams the rest live', () => {
-    // A genuine long trace (R1-style) must not buffer until its close: past
-    // the hold bound the paired-block reading wins and the block streams.
+
+  it('releases an armed hold past the budget as text, and the rest streams live', () => {
+    // Same give-up as the implicit head: past the budget the step is
+    // answering, not thinking — a quoted tag with a long answer after it
+    // must not be swallowed (issue #1155, bug 2).
+    const stream = new ThinkTagStream({ holdExplicitOpens: true })
+    const long = 'x'.repeat(IMPLICIT_OPEN_BUDGET_CHARS)
+    expect(stream.push(`Answer <think>${long}`)).toEqual([
+      { type: 'text', text: 'Answer ' },
+      { type: 'text', text: long },
+    ])
+    expect(stream.push(' still answering')).toEqual([
+      { type: 'text', text: ' still answering' },
+    ])
+    // Disarmed: a later marker is stripped, not treated as a close.
+    expect(stream.push('</think>tail')).toEqual([
+      { type: 'text', text: 'tail' },
+    ])
+  })
+
+  it('streams a long well-formed trace per-delta on a clean lane, never buffered', () => {
+    // The review's measurement: a DeepSeek-R1-style trace must not wait for
+    // its close. One push in, everything so far is already out.
     const stream = new ThinkTagStream()
-    const long = 'x'.repeat(EXPLICIT_OPEN_HOLD_CHARS)
+    const long = 'x'.repeat(5000)
     expect(stream.push(`<think>${long}`)).toEqual([
       { type: 'reasoning', text: long },
     ])
     expect(stream.push(' still going')).toEqual([
       { type: 'reasoning', text: ' still going' },
     ])
-    // Committed: a step end releases only the trailing partial, as reasoning.
-    expect(stream.push('</thi')).toEqual([])
+    expect(stream.push('</think>answer')).toEqual([
+      { type: 'text', text: 'answer' },
+    ])
+  })
+
+  it('flushes a clean-lane unclosed block tail as reasoning', () => {
+    const stream = new ThinkTagStream()
+    expect(stream.push('<think>thought</thi')).toEqual([
+      { type: 'reasoning', text: 'thought' },
+    ])
     expect(stream.flush()).toEqual([{ type: 'reasoning', text: '</thi' }])
   })
 
-  it('keeps the answer as text when an unclosed explicit open stays under the bound', () => {
-    const out = run([`<think>${'y'.repeat(EXPLICIT_OPEN_HOLD_CHARS - 1)}`])
-    expect(joined(out, 'text')).toBe('y'.repeat(EXPLICIT_OPEN_HOLD_CHARS - 1))
-    expect(joined(out, 'reasoning')).toBe('')
-  })
-
-  it('does not commit an implicit head past the explicit bound; text release wins', () => {
+  it('keeps the implicit head release as text at the shared budget', () => {
     const stream = new ThinkTagStream({ implicitOpen: true })
     const long = 'x'.repeat(IMPLICIT_OPEN_BUDGET_CHARS)
     expect(stream.push(long)).toEqual([{ type: 'text', text: long }])
@@ -122,8 +144,9 @@ describe('ThinkTagStream — paired tags', () => {
       { type: 'text', text: 'tail' },
     ])
   })
-  it('releases an explicit open on a native reasoning chunk as text', () => {
-    const stream = new ThinkTagStream()
+
+  it('releases an explicit open on a native reasoning chunk as text, when armed', () => {
+    const stream = new ThinkTagStream({ holdExplicitOpens: true })
     expect(stream.push('A <think> quoted open')).toEqual([
       { type: 'text', text: 'A ' },
     ])
@@ -290,6 +313,58 @@ describe('historyLeaksThinkTags — head window', () => {
     expect(
       historyLeaksThinkTags([
         { role: 'assistant', content: [{ type: 'text', text: quoted }] },
+      ]),
+    ).toBe(false)
+  })
+})
+
+describe('historyHasUnclosedOpen', () => {
+  const assistant = (text: string) => ({
+    role: 'assistant',
+    content: [{ type: 'text', text }],
+  })
+
+  it('is false for a clean or properly paired last turn', () => {
+    expect(historyHasUnclosedOpen([])).toBe(false)
+    expect(historyHasUnclosedOpen([assistant('<think>x</think>answer')])).toBe(
+      false,
+    )
+  })
+
+  it('is true when the last assistant turn leaves an open unclosed', () => {
+    expect(
+      historyHasUnclosedOpen([assistant('answer<think>truncated thought')]),
+    ).toBe(true)
+  })
+
+  it('is false when both tags are quoted in prose', () => {
+    // Docs quoting the pair close after they open — not evidence of a leak.
+    expect(
+      historyHasUnclosedOpen([
+        assistant('use <think> and </think> to mark reasoning'),
+      ]),
+    ).toBe(false)
+  })
+
+  it('heals: only the last assistant turn counts', () => {
+    // A one-off quoted open arms exactly the next step; a clean reply after
+    // it disarms, so later genuine traces are never held.
+    expect(
+      historyHasUnclosedOpen([
+        assistant('answer<think>quoted once'),
+        assistant('<think>x</think>clean answer'),
+      ]),
+    ).toBe(false)
+  })
+
+  it('ignores user messages and reasoning parts', () => {
+    expect(
+      historyHasUnclosedOpen([
+        { role: 'user', content: [{ type: 'text', text: 'why <think>?' }] },
+        {
+          role: 'assistant',
+          content: [{ type: 'reasoning', text: '<think>native' }],
+        },
       ]),
     ).toBe(false)
   })
