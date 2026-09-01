@@ -465,6 +465,12 @@ export function freebuffPlanHours(count: number): string {
   return `${count} ${count === 1 ? 'hour' : 'hours'}`
 }
 
+/** "24 hrs" — the abbreviated form for secondary lines (bullets, strips),
+ *  where the full word crowds a card. Headlines keep `freebuffPlanHours`. */
+export function freebuffPlanHrs(count: number): string {
+  return `${count} ${count === 1 ? 'hr' : 'hrs'}`
+}
+
 /**
  * "3 hours/day · 10 hours/5 days · 50 hours/month"
  *
