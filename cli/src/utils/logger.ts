@@ -135,7 +135,8 @@ function trySetLogPath(projectRoot: string): void {
     setLogPath(logTarget)
   } catch {
     // File logging is best-effort and must never prevent the CLI from
-    // starting when the config or chat directory cannot be written.
+    // starting when the config or chat directory cannot be written. Keep this
+    // silent: writing to stderr during startup can corrupt the interactive UI.
   }
 }
 
