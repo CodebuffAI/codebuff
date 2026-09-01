@@ -9,6 +9,7 @@ import { clearUserCredentials, getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
 import { IS_FREEBUFF } from '../utils/constants'
 import { logger, loggerContext } from '../utils/logger'
+import { clearSessionBinding } from '../utils/session-binding'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { User } from '../utils/auth'

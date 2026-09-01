@@ -18,6 +18,7 @@ import {
   getSessionBoundUserId,
 } from '../hooks/use-freebuff-session'
 import { releaseFreebuffSlot } from '../utils/freebuff-session-api'
+import { clearSessionBinding } from '../utils/session-binding'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useThemeStore } from '../hooks/use-theme'
 import { LOGIN_WEBSITE_URL, WEBSITE_URL } from '../login/constants'
@@ -322,6 +323,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       if (boundUserId && force) {
         releaseFreebuffSlot().catch(() => {})
         useFreebuffSessionStore.getState().setSessionBoundUserId(null)
+        clearSessionBinding()
       }
 
       const { resetLoginState } = useLoginStore.getState()

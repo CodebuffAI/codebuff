@@ -27,6 +27,11 @@ import {
   recordFreebuffInstanceOwner,
 } from '../utils/freebuff-instance-owner'
 import { logger } from '../utils/logger'
+import {
+  clearSessionBinding,
+  persistSessionBinding,
+  readSessionBinding,
+} from '../utils/session-binding'
 import { getSystemMessage } from '../utils/message-history'
 import {
   clearReferralCache,
@@ -425,17 +430,21 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
 
     // Startup guard: if a session is bound to a different user, end it
     // immediately to prevent multi-account abuse on the same machine.
-    const { sessionBoundUserId } = useFreebuffSessionStore.getState()
+    // Check both in-memory state and persisted binding (survives restarts).
+    const inMemoryBoundUserId = useFreebuffSessionStore.getState().sessionBoundUserId
+    const persistedBoundUserId = readSessionBinding()
+    const boundUserId = inMemoryBoundUserId ?? persistedBoundUserId
     const currentUser = getUserCredentials()
-    if (sessionBoundUserId && currentUser?.id !== sessionBoundUserId) {
+    if (boundUserId && currentUser?.id !== boundUserId) {
       logger.warn(
         {
-          sessionBoundUserId,
+          sessionBoundUserId: boundUserId,
           currentUserId: currentUser?.id,
         },
         '[freebuff-session] Session bound to different user; ending session',
       )
       useFreebuffSessionStore.getState().setSessionBoundUserId(null)
+      clearSessionBinding()
       releaseFreebuffSlot().catch(() => {})
       setSession({
         status: 'ended',
@@ -444,6 +453,14 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
         subscription: undefined,
       })
       return
+    }
+
+    // If we have a persisted binding but no in-memory state (e.g. after restart),
+    // restore the binding so the guard works on the next startup too.
+    if (persistedBoundUserId && !inMemoryBoundUserId) {
+      useFreebuffSessionStore
+        .getState()
+        .setSessionBoundUserId(persistedBoundUserId)
     }
 
     let cancelled = false
@@ -474,11 +491,13 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       if (next.status === 'active') {
         recordFreebuffInstanceOwner(next.instanceId)
         // Bind the session to the current user to prevent multi-account abuse.
+        // Persist to disk so the binding survives process restarts.
         const credentials = getUserCredentials()
         if (credentials?.id) {
           useFreebuffSessionStore
             .getState()
             .setSessionBoundUserId(credentials.id)
+          persistSessionBinding(credentials.id)
         }
       } else if (
         next.status === 'ended' ||
@@ -487,6 +506,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       ) {
         // Clear the binding when the session is no longer active.
         useFreebuffSessionStore.getState().setSessionBoundUserId(null)
+        clearSessionBinding()
       }
       setSession(next)
       setFailure(null)
