@@ -283,7 +283,9 @@ const ADS_FIRST_PARTY_DECISION_FIELDS = {
   candidate_load_ms: 'number',
   frequency_status: 'string',
   frequency_unavailable_cause: 'string',
+  frequency_unavailable_causes: 'string',
   frequency_reservation_ms: 'number',
+  frequency_max_reservation_ms: 'number',
   duration_ms: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
