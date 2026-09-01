@@ -436,6 +436,19 @@ describe('getFiles', () => {
       ).toBe(true)
       expect(goneResult['AGENTS.local.md']).not.toContain('exists on disk')
 
+      // Internal-edit path (no env policy): a secret blocked by built-in
+      // ignore defaults must stay opaque too.
+      const editFs = createMockFs({
+        files: { '/project/.env': { content: 'SECRET=value' } },
+      })
+      const editResult = await getFiles({
+        filePaths: ['.env'],
+        cwd: '/project',
+        fs: editFs,
+        enforceEnvPolicy: false,
+      })
+      expect(editResult['.env']).toBe(FILE_READ_STATUS.IGNORED)
+
       // The env-policy block must NOT leak a reason or an unblock hint.
       const envFs = createMockFs({
         files: { '/project/.env': { content: 'SECRET=value' } },

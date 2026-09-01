@@ -99,6 +99,13 @@ export async function getFiles(params: {
         ...(isEnvTemplate ? { allowEnvTemplate: true } : {}),
       })
       if (ignored) {
+        // The internal-edit path (enforceEnvPolicy: false) skips the env
+        // gate above, so secrets can reach this branch via built-in ignore
+        // defaults. Never explain or hint unblocking for them.
+        if (isSensitiveEnvFilePath(relativePath)) {
+          result[relativePath] = FILE_READ_STATUS.IGNORED
+          continue
+        }
         // Keep the sentinel as the prefix (consumers match with startsWith)
         // and append the reason, following the FILE_TOO_LARGE precedent.
         // The ignore check never touches the file itself, so only claim
