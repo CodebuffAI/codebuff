@@ -2,11 +2,13 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   DEEPSEEK_EXPENSIVE_WINDOW_UTC,
+  DEEPSEEK_WEEKEND_OFFPEAK_EFFECTIVE_AT_UTC,
   deepSeekExpensiveWindowEndsAt,
   deepseekPricingWindow,
   formatDeepSeekExpensiveWindowLocal,
   formatDeepSeekExpensiveWindowReturn,
   formatDeepSeekOffPeakWindowLocal,
+  isBeijingWeekend,
   isDeepSeekExpensiveWindow,
 } from '../constants/freebuff-peak-hours'
 
@@ -67,6 +69,38 @@ describe('the expensive window', () => {
   })
 })
 
+describe('the Beijing weekend boundary', () => {
+  test.each([
+    ['2026-08-28T15:00:00Z', false],
+    ['2026-08-28T16:00:00Z', true],
+    ['2026-08-30T15:00:00Z', true],
+    ['2026-08-30T16:00:00Z', false],
+  ])('%s isBeijingWeekend=%p', (instant, weekend) => {
+    expect(isBeijingWeekend(new Date(instant as string))).toBe(
+      weekend as boolean,
+    )
+  })
+
+  test('does not apply the weekend rule before its effective instant', () => {
+    expect(DEEPSEEK_WEEKEND_OFFPEAK_EFFECTIVE_AT_UTC).toBe(
+      Date.parse('2026-08-22T16:00:00Z'),
+    )
+    expect(deepseekPricingWindow(new Date('2026-08-22T09:59:59Z'))).toBe('peak')
+    expect(isDeepSeekExpensiveWindow(new Date('2026-08-22T02:00:00Z'))).toBe(
+      true,
+    )
+  })
+
+  test('applies the weekend rule from its effective instant onward', () => {
+    expect(deepseekPricingWindow(new Date('2026-08-23T01:30:00Z'))).toBe(
+      'off-peak',
+    )
+    expect(isDeepSeekExpensiveWindow(new Date('2026-08-23T02:00:00Z'))).toBe(
+      false,
+    )
+  })
+})
+
 test.each(['2026-08-29T02:00:00Z', '2026-08-30T02:00:00Z'])(
   '%s uses weekend rates in Beijing',
   (instant) => {
@@ -98,8 +132,6 @@ describe('every window names the clock it is quoted in', () => {
       insideWindow,
       'Europe/Berlin',
     )
-    // The whole bug in one assertion: the digits differ from the UTC rendering,
-    // so a string that named no zone was wrong for this reader by two hours.
     expect(berlin).toContain('12:00 PM')
     expect(berlin).not.toContain('10:00 AM')
     expect(berlin).toMatch(/GMT\+2|CEST/)
@@ -118,9 +150,6 @@ describe('every window names the clock it is quoted in', () => {
   })
 
   test('an unknown zone falls back to UTC rather than to the host process', () => {
-    // `timeZone: undefined` resolves to whatever the PROCESS runs in, which is
-    // the reader in a browser and a Render container on the server. Only the
-    // explicit argument is deterministic, which is why the server passes one.
     expect(formatDeepSeekExpensiveWindowReturn(insideWindow, 'UTC')).toBe(
       formatDeepSeekExpensiveWindowReturn(insideWindow, 'Etc/UTC'),
     )
