@@ -135,17 +135,19 @@ describe('/reasoning', () => {
     // catalog row losing `efforts` again, which the LADDERED constant above
     // would not notice.
     useFreebuffModelStore.setState({ selectedModel: FREEBUFF_GLM_V53_FLASH_MODEL_ID })
+    // TWO rungs since 2026-08-31: `max` was removed for looping on agent work.
     expect(getFreebuffModelEfforts(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toEqual([
       'low',
       'high',
-      'max',
     ])
 
     const before = handleReasoningCommand('')
-    expect(before.message).toContain('max (model default)')
-    expect(before.message).toContain('low, high, max')
+    expect(before.message).toContain('high (model default)')
+    expect(before.message).toContain('low, high')
     // Nothing sent until the user actually picks — the model default is the
-    // server's job, and sending it would look like a decision.
+    // server's job, and sending it would look like a decision. (It is a REAL
+    // default on the wire now, `reasoningEffort: 'high'`, rather than the unset
+    // this row used to run at; the CLI still says nothing until asked.)
     expect(getSelectedFreebuffReasoningEffort()).toBeNull()
 
     handleReasoningCommand('low')
@@ -156,9 +158,13 @@ describe('/reasoning', () => {
 
     // `xhigh` is on the shared ladder but not this model's, so the CLI refuses
     // it locally rather than letting the server clamp it to something the user
-    // did not choose.
+    // did not choose. `max` now takes the same path, having left this ladder.
     const refused = handleReasoningCommand('xhigh')
     expect(refused.message).toContain('is not a reasoning level')
+    expect(getSelectedFreebuffReasoningEffort()).toBe('low')
+
+    const refusedMax = handleReasoningCommand('max')
+    expect(refusedMax.message).toContain('is not a reasoning level')
     expect(getSelectedFreebuffReasoningEffort()).toBe('low')
   })
 
