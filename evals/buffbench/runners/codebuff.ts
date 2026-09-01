@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 
 import type { Runner, RunnerResult, AgentStep } from './runner'
-import type { CodebuffClient } from '@codebuff/sdk'
+import type { CodebuffClient, TerminalCommandBroker } from '@codebuff/sdk'
 
 
 const DEBUG_ERROR = true
@@ -17,6 +17,9 @@ export class CodebuffRunner implements Runner {
   private printEvents: boolean
   private commitId: string
   private parentSha: string
+  private terminalCommandBroker?: TerminalCommandBroker
+  private overrideTools?: Parameters<CodebuffClient['run']>[0]['overrideTools']
+  private collectDiff: boolean
 
   constructor(options: {
     cwd: string
@@ -27,6 +30,9 @@ export class CodebuffRunner implements Runner {
     printEvents: boolean
     commitId: string
     parentSha: string
+    terminalCommandBroker?: TerminalCommandBroker
+    overrideTools?: Parameters<CodebuffClient['run']>[0]['overrideTools']
+    collectDiff?: boolean
   }) {
     this.cwd = options.cwd
     this.env = options.env
@@ -36,6 +42,9 @@ export class CodebuffRunner implements Runner {
     this.printEvents = options.printEvents
     this.commitId = options.commitId
     this.parentSha = options.parentSha
+    this.terminalCommandBroker = options.terminalCommandBroker
+    this.overrideTools = options.overrideTools
+    this.collectDiff = options.collectDiff ?? true
   }
 
   async run(prompt: string): Promise<RunnerResult> {
@@ -49,6 +58,14 @@ export class CodebuffRunner implements Runner {
       agentDefinitions: this.localAgentDefinitions,
       cwd: this.cwd,
       env: this.env,
+      terminalCommandBroker: this.terminalCommandBroker,
+      overrideTools: this.overrideTools,
+      fileFilter: (filePath) => ({
+        status:
+          path.isAbsolute(filePath) || filePath.split(/[\\/]/).includes('..')
+            ? 'blocked'
+            : 'allow',
+      }),
       maxAgentSteps,
       handleEvent: (event) => {
         if (
@@ -117,17 +134,20 @@ export class CodebuffRunner implements Runner {
 
     totalCostUsd = (result.sessionState?.mainAgentState.creditsUsed ?? 0) / 100
 
-    // Get git diff after Codebuff has made changes
+    // Get git diff after Codebuff has made changes. Sponsored evals disable
+    // this host-side path and collect through their scrubbed OS broker instead.
     let diff = ''
-    try {
-      execSync('git add .', { cwd: this.cwd, stdio: 'ignore' })
-      diff = execSync(`git diff ${this.parentSha}`, {
-        cwd: this.cwd,
-        encoding: 'utf-8',
-        maxBuffer: 10 * 1024 * 1024,
-      })
-    } catch {
-      // Ignore git errors
+    if (this.collectDiff) {
+      try {
+        execSync('git add .', { cwd: this.cwd, stdio: 'ignore' })
+        diff = execSync(`git diff ${this.parentSha}`, {
+          cwd: this.cwd,
+          encoding: 'utf-8',
+          maxBuffer: 10 * 1024 * 1024,
+        })
+      } catch {
+        // Ignore git errors
+      }
     }
 
     return {
