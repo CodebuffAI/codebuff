@@ -813,6 +813,14 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                 </span>
                 . Press Ctrl+C to exit.
               </text>
+              {/* The paywall half (2026-09-01): the server's structured hint
+                  when it sent one, the plans page otherwise — a quota wall is
+                  never a dead end. */}
+              <text style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}>
+                {'upgrade' in session && session.upgrade
+                  ? `${session.upgrade.message} ${session.upgrade.url}`
+                  : 'Get more sessions with a plan: https://freebuff.com/plans'}
+              </text>
             </>
           )}
 
@@ -831,6 +839,11 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                 </span>
                 {' — '}your free usage resets automatically at midnight Pacific.
                 Press Ctrl+C to exit.
+              </text>
+              <text style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}>
+                {'upgrade' in session && session.upgrade
+                  ? `${session.upgrade.message} ${session.upgrade.url}`
+                  : 'Get more sessions with a plan: https://freebuff.com/plans'}
               </text>
             </>
           )}

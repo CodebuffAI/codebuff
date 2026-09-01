@@ -55,7 +55,7 @@ describe('freebuffPlanSummary', () => {
     const s = freebuffPlanSummary(info())!
     expect(s.tierName).toBe('Starter')
     expect(formatPlanWindows(s)).toBe(
-      'today 1.3 of 2 · 5-day 3 of 6 · month 11 of 50',
+      'today 1.3 of 2 · week 3 of 6 · month 11 of 50',
     )
     expect(s.blocked).toBeUndefined()
     expect(s.spend).toEqual({ usedUsd: 3.21, limitUsd: 40 })
@@ -85,9 +85,9 @@ describe('freebuffPlanSummary', () => {
     expect(s.blocked?.label.length).toBeGreaterThan(0)
   })
 
-  test('the rolling 5-day window names no reset instant', () => {
+  test('the rolling weekly window names no reset instant', () => {
     const s = freebuffPlanSummary(info({ blockedBy: 'five_day' }))!
-    expect(s.blocked?.label).toBe('5-day limit reached')
+    expect(s.blocked?.label).toBe('weekly limit reached')
     expect(s.blocked?.resetsAt).toBeUndefined()
   })
 

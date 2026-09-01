@@ -796,7 +796,7 @@ describe('FreebuffModelSelector plan line', () => {
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).toContain('STARTER PLAN')
     expect(frame).toContain('today 1.3 of 2')
-    expect(frame).toContain('5-day 3 of 6')
+    expect(frame).toContain('week 3 of 6')
     expect(frame).toContain('month 11 of 50')
   })
 

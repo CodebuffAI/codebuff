@@ -182,16 +182,18 @@ describe('elevated countries', () => {
     expect(result.usd).toBeLessThan(FREEBUFF_REGION_DAILY_SPEND_USD.full)
   })
 
-  it('does not cut a LIVE session — no hard cap, like the region ceilings', () => {
-    // The whole point of $5 rather than $0.50 is that it is a budget, not a
-    // suspicion. Applying the 2x hard cut here would interrupt an ordinary
-    // Singaporean developer mid-thought, which is the error this tier exists
-    // to stop making.
+  it('cuts a LIVE session only past the leeway multiplier', () => {
+    // Reversed 2026-08-31 when the elevated ceiling dropped $5 → $1: at one
+    // dollar, overshoot is no longer proportionally small, and the multiplier
+    // is what grants an open session leeway to finish before the hard cut.
     const ceiling = resolveFreebuffSpendCeiling({
       accessTier: 'full',
       countryCode: 'SG',
     })
-    expect(resolveFreebuffHardSpendCeiling(ceiling)).toBeNull()
+    expect(ceiling.usd).toBe(FREEBUFF_ELEVATED_DAILY_SPEND_USD)
+    expect(resolveFreebuffHardSpendCeiling(ceiling, 1.25)).toBeCloseTo(
+      FREEBUFF_ELEVATED_DAILY_SPEND_USD * 1.25,
+    )
   })
 
   it('still loses to a restricted cohort the account is also in', () => {
@@ -207,11 +209,13 @@ describe('elevated countries', () => {
   })
 
   it('resolves a tie with the region ceiling to `region`', () => {
-    // A limited-tier account in an elevated country sees $5 from both rules.
-    // The tie must land on the reason that implies nothing about the account.
+    // The defaults no longer tie ($1 elevated vs $5 limited region), so the
+    // tie is constructed with overrides — the RULE still has to hold: a tie
+    // lands on the reason that implies nothing about the account.
     const result = resolveFreebuffSpendCeiling({
       accessTier: 'limited',
       countryCode: 'SG',
+      overrides: { elevatedUsd: 5 },
     })
     expect(result.usd).toBe(5)
     expect(result.reason).toBe('region')
@@ -284,5 +288,86 @@ describe('refusal copy', () => {
     ]) {
       expect(copy).not.toMatch(/\$|\d/)
     }
+  })
+})
+
+describe('paid-plan daily floors (2026-08-31)', () => {
+  // The cohort ceilings were sized for free usage; 11 live subscribers were
+  // spend-refused in the 48h before this shipped, three of them at thirty
+  // cents a day against an $8/month plan. A floor, not an exemption: the
+  // plan's monthly spend cap remains the money bound.
+  it('floors a limited-region subscriber at $3 when the region ceiling dips below', () => {
+    // The code-default limited region ($5) already exceeds the $3 floor; the
+    // floor binds when env tuning takes the region lower — as prod does.
+    const result = resolveFreebuffSpendCeiling({
+      accessTier: 'limited',
+      hasPaidSubscription: true,
+      overrides: { regionUsd: { limited: 1 } },
+    })
+    expect(result.usd).toBe(3)
+    expect(result.reason).toBe('region')
+  })
+
+  it('floors a full-region subscriber at $7', () => {
+    const result = resolveFreebuffSpendCeiling({
+      accessTier: 'full',
+      hasPaidSubscription: true,
+      overrides: { regionUsd: { full: 5 } },
+    })
+    expect(result.usd).toBe(7)
+  })
+
+  it('floors the restricted cohorts too — a card is the realness signal', () => {
+    for (const input of [
+      { privacyEgress: true },
+      { countryCode: 'CN' },
+      { flaggedEmailDomain: true },
+      { unverifiedEgress: true },
+    ]) {
+      const result = resolveFreebuffSpendCeiling({
+        accessTier: 'limited',
+        hasPaidSubscription: true,
+        ...input,
+      })
+      expect(result.usd).toBe(3)
+    }
+  })
+
+  it('never LOWERS a ceiling that already exceeds the floor', () => {
+    const result = resolveFreebuffSpendCeiling({
+      accessTier: 'full',
+      hasPaidSubscription: true,
+    })
+    // Region default $15 > the $7 floor: the higher number survives.
+    expect(result.usd).toBe(FREEBUFF_REGION_DAILY_SPEND_USD.full)
+    expect(result.reason).toBe('region')
+  })
+
+  it('does NOT floor third_party_client — the reseller cohort', () => {
+    const result = resolveFreebuffSpendCeiling({
+      accessTier: 'full',
+      thirdPartyClient: true,
+      hasPaidSubscription: true,
+    })
+    expect(result.usd).toBe(FREEBUFF_RESTRICTED_DAILY_SPEND_USD)
+    expect(result.reason).toBe('third_party_client')
+  })
+
+  it('keeps naming the floored cohort as the reason', () => {
+    const result = resolveFreebuffSpendCeiling({
+      accessTier: 'limited',
+      countryCode: 'CN',
+      hasPaidSubscription: true,
+    })
+    expect(result.usd).toBe(3)
+    expect(result.reason).toBe('restricted_country')
+  })
+
+  it('a free account is untouched by the floor machinery', () => {
+    const result = resolveFreebuffSpendCeiling({
+      accessTier: 'limited',
+      countryCode: 'CN',
+    })
+    expect(result.usd).toBe(FREEBUFF_RESTRICTED_DAILY_SPEND_USD)
   })
 })

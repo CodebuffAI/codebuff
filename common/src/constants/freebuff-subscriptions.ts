@@ -115,9 +115,9 @@ export function isFreebuffSubscriptionModelId(modelId: string): boolean {
 export const FREEBUFF_SUBSCRIPTION_TIER_IDS = [
   'starter',
   'plus',
-  // 'pro' ($60) is withheld for now. Its Stripe price still exists but is
-  // unreachable, because checkout validates the requested tier against THIS
-  // catalog — so restoring it is an edit here, not another live-Stripe write.
+  // Restored 2026-08-31 with the marketed-totals retune. Its Stripe price
+  // already existed from the withheld launch, so restoring it was this edit.
+  'pro',
 ] as const
 export type FreebuffSubscriptionTierId =
   (typeof FREEBUFF_SUBSCRIPTION_TIER_IDS)[number]
@@ -175,24 +175,41 @@ export interface FreebuffSubscriptionTier {
    */
 }
 
+/**
+ * The FREE tier's marketed allowance (2026-08-31) — the baseline every plan
+ * card's TOTALS are built on, and the numbers the free-tier windows enforce.
+ *
+ * One definition on purpose: the plans page renders `free + plan` totals from
+ * this, and the admission windows meter against it, so the advertised number
+ * and the enforced number cannot drift. Limited-access accounts have no free
+ * premium allowance — their surfaces show plan-only figures and their MiMo
+ * pool is metered (and displayed) separately.
+ */
+export const FREEBUFF_FREE_TIER_ALLOWANCE = Object.freeze({
+  dailySessions: 4,
+  weeklySessions: 14,
+  monthlySessions: 40,
+  monthlySpendLimitUsd: 20,
+})
+
 export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
   Object.freeze([
+    // Retuned 2026-08-31 to the MARKETED-TOTALS model. The numbers users see
+    // are per-tier TOTALS (free allowance + plan): Free 4/14/40/$20, Starter
+    // 7/24/70/$35, Plus 11/40/140/$70, Pro 15/80/250/$200. Each plan window
+    // here is total − free, because free pools burn first and the plan only
+    // meters what they did not absorb. The weekly figures ride the (renamed)
+    // rolling window, which widened 5 → 7 days in the same retune — the wire
+    // field keeps its `fiveDay` name so released clients keep parsing.
     {
       id: 'starter',
       displayName: 'Starter',
       priceUsd: 8,
       introPriceUsd: 5,
-      // Resized 2026-08-27, before the public rollout. The pre-rollout
-      // figures were sized against god-only testing and priced most of a
-      // month of premium use into $8 — at Luna's measured per-session cost,
-      // 4/day was an order of magnitude more compute than the price
-      // (figures in the internal cost notes). The 5-DAY window is what actually bounds a
-      // heavy week (3/day would allow 15 in five days; 10 is the real cap),
-      // which is why the two numbers are not simply proportional.
       dailySessions: 3,
       fiveDaySessions: 10,
-      monthlySessions: 50,
-      monthlySpendLimitUsd: 40,
+      monthlySessions: 30,
+      monthlySpendLimitUsd: 15,
       // Equal to dailySessions: the Luna/Pro sub-cap was LIFTED (2026-08-26).
       // Kept as a field rather than deleted so the wire shape and the
       // enforcement stay in place — set it lower again to reinstate the cap
@@ -204,16 +221,24 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       displayName: 'Plus',
       priceUsd: 25,
       introPriceUsd: 22,
-      // Roughly 2.3x Starter on the day and 2x on the 5-day, against 3.1x the
-      // price — deliberately sub-linear. The old 12/day was triple the old
-      // 4/day for triple the price, which made the larger plan a pure linear
-      // buy with no reason to prefer it over three Starters.
       dailySessions: 7,
-      fiveDaySessions: 20,
-      monthlySessions: 125,
-      monthlySpendLimitUsd: 100,
+      fiveDaySessions: 26,
+      monthlySessions: 100,
+      monthlySpendLimitUsd: 50,
       // Equal to dailySessions — sub-cap lifted; see the starter tier note.
       dailyPremiumSessions: 7,
+    },
+    {
+      id: 'pro',
+      displayName: 'Pro',
+      priceUsd: 60,
+      introPriceUsd: 57,
+      dailySessions: 11,
+      fiveDaySessions: 66,
+      monthlySessions: 210,
+      monthlySpendLimitUsd: 180,
+      // Sub-cap lifted, like the others.
+      dailyPremiumSessions: 11,
     },
   ] satisfies FreebuffSubscriptionTier[])
 
@@ -279,7 +304,10 @@ export function freebuffSubscriptionTierDisclaimers(
 export const FREEBUFF_SUBSCRIPTION_RESET_TIMEZONE = 'America/Los_Angeles'
 
 /** Length of the rolling mid-window, in days. */
-export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 5
+// 7 since 2026-08-31 (was 5): the marketed windows are per WEEK. The name and
+// every `fiveDay*` wire field survive so released clients keep parsing; only
+// the labels changed.
+export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 7
 
 /**
  * Models that ONLY a paid session may open — the "Pro" rows.
