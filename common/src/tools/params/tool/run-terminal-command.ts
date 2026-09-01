@@ -65,7 +65,36 @@ export const terminalCommandOutputSchema = z.union([
   }),
 ])
 
-export const gitCommitGuidePrompt = `
+// FREEBUFF_MODE is injected for Freebuff builds and read once when this module
+// is initialized. Tests pass an explicit product flag to the prompt builder so
+// they do not depend on mutating process.env after import.
+const isFreebuffBuild = process.env.FREEBUFF_MODE === 'true'
+
+type CommitAttribution = {
+  productName: 'Freebuff' | 'Codebuff'
+  productDomain: 'freebuff.com' | 'codebuff.com'
+}
+
+function getCommitAttribution(isFreebuff: boolean): CommitAttribution {
+  return isFreebuff
+    ? { productName: 'Freebuff', productDomain: 'freebuff.com' }
+    : { productName: 'Codebuff', productDomain: 'codebuff.com' }
+}
+
+const buildCommitAttribution = getCommitAttribution(isFreebuffBuild)
+
+/**
+ * Build commit guidance for the product that owns the current binary.
+ *
+ * Keeping Codebuff as the default preserves existing attribution while
+ * Freebuff binaries no longer ask models to claim Codebuff commits.
+ */
+export const getGitCommitGuidePrompt = (
+  isFreebuff = isFreebuffBuild,
+): string => {
+  const { productName, productDomain } = getCommitAttribution(isFreebuff)
+
+  return `
 ### Using git to commit changes
 
 When the user requests a new git commit, please follow these steps closely:
@@ -92,16 +121,16 @@ When the user requests a new git commit, please follow these steps closely:
 
 4. **Create the commit, ending with this specific footer:**
    \`\`\`
-   Generated with Codebuff 🤖
-   Co-Authored-By: Codebuff <noreply@codebuff.com>
+   Generated with ${productName} 🤖
+   Co-Authored-By: ${productName} <noreply@${productDomain}>
    \`\`\`
    Commands run in bash on every OS (Git Bash on Windows), so always use HEREDOC syntax to format the message:
    \`\`\`
    git commit -m "$(cat <<'EOF'
    Your commit message here.
 
-   🤖 Generated with Codebuff
-   Co-Authored-By: Codebuff <noreply@codebuff.com>
+   🤖 Generated with ${productName}
+   Co-Authored-By: ${productName} <noreply@${productDomain}>
    EOF
    )"
    \`\`\`
@@ -115,6 +144,13 @@ When the user requests a new git commit, please follow these steps closely:
 - Do not create an empty commit if there are no changes.
 - Make sure your commit message is concise yet descriptive, focusing on the intention behind the changes rather than merely describing them.
 `
+}
+
+export const gitCommitGuidePrompt = getGitCommitGuidePrompt()
+const {
+  productName: commitProductName,
+  productDomain: commitProductDomain,
+} = buildCommitAttribution
 
 const toolName = 'run_terminal_command'
 const endsAgentStep = true
@@ -195,8 +231,8 @@ ${$getNativeToolCallExampleString({
   input: {
     command: `git commit -m "Your commit message here.
 
-🤖 Generated with Codebuff
-Co-Authored-By: Codebuff <noreply@codebuff.com>"`,
+🤖 Generated with ${commitProductName}
+Co-Authored-By: ${commitProductName} <noreply@${commitProductDomain}>"`,
   },
   endsAgentStep,
 })}
