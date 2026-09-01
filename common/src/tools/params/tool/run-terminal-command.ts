@@ -90,9 +90,12 @@ const buildCommitAttribution = getCommitAttribution(isFreebuffBuild)
  * Freebuff binaries no longer ask models to claim Codebuff commits.
  */
 export const getGitCommitGuidePrompt = (
-  isFreebuff = isFreebuffBuild,
+  isFreebuff?: boolean,
 ): string => {
-  const { productName, productDomain } = getCommitAttribution(isFreebuff)
+  const { productName, productDomain } =
+    isFreebuff === undefined
+      ? buildCommitAttribution
+      : getCommitAttribution(isFreebuff)
 
   return `
 ### Using git to commit changes
