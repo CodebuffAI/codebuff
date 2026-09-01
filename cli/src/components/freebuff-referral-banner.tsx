@@ -7,8 +7,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from './button'
 import { useCopyToClipboard } from './copy-button'
-import { FREEBUFF_GLM_V52_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
-import { FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_REWARD_MODEL_DISPLAY_NAME,
+  FREEBUFF_REWARD_MODEL_ID,
+} from '@codebuff/common/constants/freebuff-models'
+import { FREEBUFF_REWARD_MAX_DAILY_SESSIONS } from '@codebuff/common/constants/freebuff-models'
 import { REFERRAL_CLI_DAILY_SESSION_BONUS_CAP } from '@codebuff/common/constants/freebuff-referral-tiers'
 import { pluralize } from '@codebuff/common/util/string'
 
@@ -313,7 +316,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
     if (joiningRef.current) return
     joiningRef.current = true
     setJoining(true)
-    startFreebuffSession(FREEBUFF_GLM_V52_MODEL_ID).finally(() => {
+    startFreebuffSession(FREEBUFF_REWARD_MODEL_ID).finally(() => {
       joiningRef.current = false
       setJoining(false)
     })
@@ -325,10 +328,10 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   // Register this banner's buttons as keyboard focus targets so the model
   // selector's arrow navigation flows from "see all models" into them (and
   // wraps back up). Locked states show copy then dashboard; the unlocked card
-  // leads with "Use GLM 5.2", then copy and dashboard.
-  // A limited-tier user can now hold GLM sessions too — bounty grants are
-  // redeemable in every region — so the unlocked card is keyed on the balance
-  // alone rather than on the tier.
+  // leads with "Use <reward model>", then copy and dashboard.
+  // The unlocked card is LIMITED-TIER ONLY since 2026-08-31 — at full access
+  // the reward is an extra premium session rather than a model to launch — so
+  // it is keyed on the balance AND the tier.
   const isLocked = (referral.weeklySessionsRemaining ?? 0) <= 0
   const openDashboard = useCallback(() => {
     void safeOpen(EARN_URL)
@@ -423,8 +426,8 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
     )
   }
 
-  // FULL tier: GLM 5.2 reward. The GLM-only fields are always present on a
-  // full-tier block from the server; default defensively for the wire type.
+  // The reward's balance and reset. The reward-only fields are always present
+  // on a full-tier block from the server; default defensively for the wire type.
   const weeklySessionsRemaining = referral.weeklySessionsRemaining ?? 0
   const resetsIn = formatFreebuffPremiumResetCountdown(
     referral.resetAt ? new Date(referral.resetAt) : new Date(now),
@@ -434,10 +437,20 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
     },
   )
 
-  // NOT USABLE: keep it quiet — one line that advertises the reward, with the
-  // share link as a clearly-clickable button below it. Message adapts to *why*
-  // it's locked — no referrals yet vs. today's sessions already spent.
-  if (weeklySessionsRemaining <= 0) {
+  // QUIET LINE: one line advertising the reward, with the share link as a
+  // clearly-clickable button below it.
+  //
+  // FULL ACCESS ALWAYS TAKES THIS PATH as of 2026-08-31, whatever the balance,
+  // and that is the visible shape of the reward moving. The reward there is no
+  // longer a model to launch — it is one EXTRA session in the daily premium
+  // pool, which the model picker already meters and displays. An accent card
+  // with a "Use <model> ↵" button would offer a second door onto a pool the
+  // user is already looking at, and would name a model (GLM 5.3 Flash) that
+  // full access runs unmetered anyway.
+  //
+  // The card below is therefore LIMITED-TIER ONLY, where the reward really is a
+  // model you cannot otherwise reach.
+  if (accessTier !== 'limited' || weeklySessionsRemaining <= 0) {
     return (
       <box
         style={{
@@ -454,20 +467,22 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
           <span fg={theme.muted}>✦ </span>
           {qualifiedCount > 0 ? (
             <>
-              <span fg={theme.foreground}>GLM 5.2</span>
+              <span fg={theme.foreground}>
+                +{pluralize(qualifiedCount, 'premium session')}/day
+              </span>
               <span fg={theme.muted}>
                 {' '}
-                refills in {resetsIn}
-                {qualifiedCount >= FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS
+                from referrals · refills in {resetsIn}
+                {qualifiedCount >= FREEBUFF_REWARD_MAX_DAILY_SESSIONS
                   ? ''
-                  : ` · refer more (${qualifiedCount}/${FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS}):`}
+                  : ` · refer more (${qualifiedCount}/${FREEBUFF_REWARD_MAX_DAILY_SESSIONS}):`}
               </span>
             </>
           ) : (
             <>
               <span fg={theme.muted}>Refer friends → </span>
-              <span fg={theme.foreground}>GLM 5.2</span>
-              <span fg={theme.muted}>, top open-source model:</span>
+              <span fg={theme.foreground}>+1 premium session/day</span>
+              <span fg={theme.muted}>:</span>
             </>
           )}
         </text>
@@ -483,10 +498,13 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   const sessionsLeft = Math.max(1, Math.ceil(weeklySessionsRemaining))
   const stackActions = shouldStackFreebuffReferralActions(width)
   const actionRowWidth = width - 4 // card border + horizontal padding
+  // The card is limited-tier only now, so this always names the reward model.
+  // Read off the catalog rather than written out, so the label cannot drift
+  // from the model the button actually starts.
   const glmLabel = firstLabelThatFits(actionRowWidth, [
-    '▶ Use GLM 5.2 ↵',
-    '▶ GLM 5.2',
-    '▶ GLM',
+    `▶ Use ${FREEBUFF_REWARD_MODEL_DISPLAY_NAME} ↵`,
+    `▶ ${FREEBUFF_REWARD_MODEL_DISPLAY_NAME}`,
+    '▶ Reward',
   ])
   const inviteAvailableWidth = stackActions
     ? actionRowWidth - DASHBOARD_BUTTON_WIDTH
@@ -494,13 +512,13 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
       (glmLabel.length + BUTTON_HORIZONTAL_CHROME) -
       2 -
       DASHBOARD_BUTTON_WIDTH
-  // The GLM reward is CAPPED at FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS, so past
+  // The reward is CAPPED at FREEBUFF_REWARD_MAX_DAILY_SESSIONS, so past
   // that point another referral buys nothing and the button must stop
   // promising "+1/day" — the same max-earned state the limited-tier card above
   // already renders against its own cap. `qualifiedCount` arrives already
   // clamped (referral-info.ts sends the entitlement, not the raw count), so
   // this compares like with like.
-  const glmAtCap = qualifiedCount >= FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS
+  const glmAtCap = qualifiedCount >= FREEBUFF_REWARD_MAX_DAILY_SESSIONS
   const inviteLabels = glmAtCap
     ? ['⎘ Invite a friend', '⎘ Invite']
     : [
@@ -531,7 +549,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
         flexShrink: 0,
       }}
       border={['top', 'bottom', 'left', 'right']}
-      title=" ✦ GLM 5.2 unlocked "
+      title={` ✦ ${FREEBUFF_REWARD_MODEL_DISPLAY_NAME} unlocked `}
       titleAlignment="left"
     >
       <text style={{ wrapMode: 'word' }}>

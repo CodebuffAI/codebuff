@@ -46,7 +46,7 @@ DeepSeek V4 Pro was retired from the catalog; GLM 5.3 Flash replaces it as the d
 
 Beyond the regular picker:
 
-- **GLM 5.2** is available through earned sessions rather than as an always-unlocked model.
+- **Referrals and bounties** earn extra sessions on top of the free daily allowance.
 - **Gemini 3.1 Flash Lite** powers specialist tasks such as file finding and research rather than appearing in the main picker.
 
 Availability and limits depend on your access tier, product, and current capacity. Freebuff Desktop can also run locally installed Claude Code and Codex agents using your existing provider account; those connected models are separate from Freebuff's included catalog.

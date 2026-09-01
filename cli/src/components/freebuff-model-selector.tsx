@@ -12,14 +12,14 @@ import React, {
 import { Button } from './button'
 import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
-  FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_REWARD_MODEL_ID,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelUnavailableLabel,
   getFreebuffModel,
   getFreebuffModelSupersededBy,
   getFreebuffModelsForAccessTier,
   getRecommendedFreebuffModelId,
-  isFreebuffGlmV52ModelId,
+  isFreebuffRewardModelId,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
   isSupportedFreebuffModelId,
@@ -163,8 +163,18 @@ interface FreebuffModelSelectorProps {
   nowMs?: number
 }
 
-/** The rows the grid shows a tier. GLM 5.2 is a referral reward, not a freely-pickable
- *  model, so it reaches the user through FreebuffReferralBanner instead. */
+/** The rows the grid shows a tier.
+ *
+ *  NO LONGER FILTERED against the reward model (2026-08-31). That filter was
+ *  written when the reward was GLM 5.2, which no tier's catalog listed anyway;
+ *  the reward is now GLM 5.3 Flash, an ordinary full-access row and the CLI's
+ *  own default, so filtering it here would delete the default pick from the
+ *  grid — and would hide it from a limited-tier SUBSCRIBER, whose plan pays for
+ *  exactly that row.
+ *
+ *  Nothing is lost at limited tier: `getFreebuffModelsForAccessTier` returns
+ *  LIMITED_FREEBUFF_MODELS there, which does not contain the reward model, so a
+ *  free limited user still reaches it only through FreebuffReferralBanner. */
 function gridModels(
   accessTier: FreebuffAccessTier,
   /** Live paid plan. A plan reaches limited regions, so a subscriber there is
@@ -174,20 +184,22 @@ function gridModels(
    *  would sell a plan whose models never appear. */
   hasPaidSubscription = false,
 ): readonly FreebuffModelOption[] {
-  return getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription).filter(
-    (m) => !isFreebuffGlmV52ModelId(m.id),
-  )
+  return getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription)
 }
 
-/** Every model id this screen can offer a tier: the grid, plus the banner's earned GLM
- *  action. Exported so the offer→gate invariant test reads the real set rather than a
- *  copy of it.
+/** Every model id this screen can offer a tier: the grid, plus the banner's
+ *  earned-reward action. Exported so the offer→gate invariant test reads the
+ *  real set rather than a copy of it.
  *
- *  GLM is offered on BOTH tiers. It used to be full-access only, which was correct while
- *  GLM was a referral reward and referrals paid limited users in something else. Bounties
- *  changed that: a bounty grant is minted redeemable at limited access so the reward is
- *  worth the same in every region. The balance is what gates the row — the banner only
- *  renders the action when the server reports sessions left — and the tier never was. */
+ *  The banner's row is offered on BOTH tiers, and it means a different thing on
+ *  each since 2026-08-31: at limited access it unlocks the reward model, and at
+ *  full access it is an extra PREMIUM session rather than a model at all. The
+ *  id below is what the limited half offers; at full access it is already in
+ *  the grid, so listing it twice is harmless and listing it at all keeps this
+ *  set honest about what the banner can start.
+ *
+ *  The balance is what gates the row — the banner only renders the action when
+ *  the server reports sessions left — and the tier never was. */
 export function freebuffCliOfferedModelIds(
   accessTier: FreebuffAccessTier,
   /** See gridModels. */
@@ -195,7 +207,7 @@ export function freebuffCliOfferedModelIds(
 ): readonly string[] {
   return [
     ...gridModels(accessTier, hasPaidSubscription).map((m) => m.id),
-    FREEBUFF_GLM_V52_MODEL_ID,
+    FREEBUFF_REWARD_MODEL_ID,
   ]
 }
 
@@ -598,7 +610,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     //
     // In-memory only — `setSelectedModel` doesn't persist, so the user's saved
     // preference survives for their next launch.
-    const selectionIsStartable = isFreebuffGlmV52ModelId(selectedModel)
+    const selectionIsStartable = isFreebuffRewardModelId(selectedModel)
       ? (referral?.weeklySessionsRemaining ?? 0) > 0
       : renderedModelIds.includes(selectedModel) && isJoinable(selectedModel)
     if (isLanding && !selectionIsStartable) {

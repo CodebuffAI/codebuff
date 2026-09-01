@@ -1,6 +1,6 @@
 import { afterEach, expect, spyOn, test } from 'bun:test'
 import {
-  FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_REWARD_MODEL_ID,
   resolveFreebuffModelForAccessTier,
 } from '@codebuff/common/constants/freebuff-models'
 
@@ -18,14 +18,14 @@ afterEach(() => {
   fetchSpy = undefined
 })
 
-test('full-tier referral GLM reaches the session POST header unchanged', async () => {
+test('the reward model reaches the session POST header unchanged', async () => {
   fetchSpy = spyOn(globalThis, 'fetch').mockResolvedValue(
     new Response(JSON.stringify({ status: 'none' }), {
       headers: { 'content-type': 'application/json' },
     }),
   )
   const resolved = resolveFreebuffModelForAccessTier(
-    FREEBUFF_GLM_V52_MODEL_ID,
+    FREEBUFF_REWARD_MODEL_ID,
     'full',
   )
 
@@ -34,7 +34,7 @@ test('full-tier referral GLM reaches the session POST header unchanged', async (
   expect(fetchSpy).toHaveBeenCalledTimes(1)
   const [, init] = fetchSpy.mock.calls[0]!
   expect(new Headers(init?.headers).get('x-freebuff-model')).toBe(
-    FREEBUFF_GLM_V52_MODEL_ID,
+    FREEBUFF_REWARD_MODEL_ID,
   )
 })
 

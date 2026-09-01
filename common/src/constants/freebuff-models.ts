@@ -186,7 +186,7 @@ export const FREEBUFF_GLM_V52_MODEL_ID = 'z-ai/glm-5.2'
  * NOT a second door onto GLM 5.2. The name and the `z-ai/` prefix are shared,
  * but this is a different model on a different lane and a different pool, and
  * that distinction is load-bearing: 5.2 is the REFERRAL reward metered by
- * FREEBUFF_GLM_V52_MODEL_IDS, and the whole reason `crof/glm-5.2` had to be
+ * FREEBUFF_REWARD_MODEL_IDS, and the whole reason `crof/glm-5.2` had to be
  * deleted (see above) is that a second id for an earned model is a second free
  * entitlement. Every GLM predicate in this file is written against an explicit
  * id list for that reason — none of them prefix-match `z-ai/glm`, and none of
@@ -746,18 +746,30 @@ export const FREEBUFF_PRE_LEVELS_LIMITED_SESSION_LIMIT = 6
  */
 export const FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE = 'America/Los_Angeles'
 export const FREEBUFF_PREMIUM_SESSION_PERIOD = 'pacific_day'
-/** GLM 5.2 referral-reward session pool. Distinct from the shared premium
- *  daily pool: GLM sessions reset daily (Pacific; weekly until 2026-07-29) and
- *  the per-user limit is the caller's GLM referral score, uncapped since
- *  2026-07-30. Note the streak GLM bonus is a live entitlement on this same
- *  pool, so it refills at this cadence too. */
-export const FREEBUFF_GLM_V52_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
-export const FREEBUFF_GLM_V52_SESSION_RESET_TIMEZONE =
+/** The earned-reward session pool — referrals, streak bonus, operator grants
+ *  and the bounty bank, all in one balance. Distinct from the shared premium
+ *  daily pool: it resets daily (Pacific; weekly until 2026-07-29) and its
+ *  per-user limit is what the account has EARNED rather than what it is
+ *  granted. Note the streak reward bonus is a live entitlement on this same
+ *  pool, so it refills at this cadence too.
+ *
+ *  Since 2026-08-31 the pool is metered per tier — it gates the reward model at
+ *  LIMITED access, and adds an extra session to the premium pool at FULL
+ *  access. Both halves read these window constants, so the two tiers' rewards
+ *  refill together and a user who changes tier does not gain a reset. */
+export const FREEBUFF_REWARD_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
+export const FREEBUFF_REWARD_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
-export const FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS = 24
+export const FREEBUFF_REWARD_SESSION_WINDOW_HOURS = 24
 /**
- * Hard ceiling on GLM 5.2 sessions per user per day, applied to the WHOLE
+ * Hard ceiling on EARNED reward sessions per user per day, applied to the WHOLE
  * pool — referrals, streak bonus, operator grants and bounty bank together.
+ *
+ * It bounds the reward at both tiers and means the same thing at each: at
+ * limited access it is the reward pool's own `maxLimit`, and at full access it
+ * caps what the earned terms may add to the shared premium pool. "One a day"
+ * has to survive the tier split, or a user could hold one entitlement and spend
+ * it twice by being classified differently on two requests.
  *
  * Restored on 2026-08-25. Between 2026-07-30 and that date the pool was
  * effectively unbounded: the old `FREEBUFF_GLM_V52_REFERRAL_CAP = 10` was
@@ -767,8 +779,12 @@ export const FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS = 24
  *
  * IT IS A CEILING ON THE SUM, NOT ON THE REFERRAL TERM. Capping only the
  * referral component would leave a 28-day streak (up to
- * FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER) stacking on top of it, so "one a
+ * FREEBUFF_STREAK_REWARD_BONUS_MAX_MULTIPLIER) stacking on top of it, so "one a
  * day" would mean five for the accounts most motivated to find that out.
+ *
+ * At full access it is a ceiling on the EARNED terms only, never on the premium
+ * base beneath them — the reward adds a session, it does not replace the daily
+ * allowance.
  *
  * NOTHING EARNED IS DESTROYED. A bounty bank is a BALANCE, not a rate: the
  * grant-debit path spends one unit per admission beyond the recurring
@@ -776,23 +792,23 @@ export const FREEBUFF_GLM_V52_SESSION_WINDOW_HOURS = 24
  * one day of ten. Referrers keep whatever the invite banner already credited
  * them; the cap changes how fast it may be spent, not whether it exists.
  *
- * Consequence worth knowing: while this is 1 the GLM promo
+ * Consequence worth knowing: while this is 1 the bounty promo
  * (`FREEBUFF_GLM_PROMO_*`, glm-promo.ts) can no longer do anything — it lifts
  * how much of a bounty bank may be spent in a day, and this is below its
  * floor. The promo is left wired rather than deleted so raising this number
  * restores it without a second change.
  */
-export const FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS = 1
-/** Master kill-switch for the GLM 5.2 referral program. While true, qualified
- *  referrals grant daily GLM sessions and the CLI advertises the perk. Flip to
- *  false to wind the program down: entitlement drops to 0 for everyone and the
- *  CLI stops showing the banner. The perk is intentionally framed as
+export const FREEBUFF_REWARD_MAX_DAILY_SESSIONS = 1
+/** Master kill-switch for the referral-reward program. While true, qualified
+ *  referrals grant daily reward sessions and the CLI advertises the perk. Flip
+ *  to false to wind the program down: entitlement drops to 0 for everyone and
+ *  the CLI stops showing the banner. The perk is intentionally framed as
  *  limited-time in the UI so turning this off isn't a surprise. */
-export const FREEBUFF_GLM_V52_REFERRAL_ENABLED = true
-/** GLM sessions are exactly one hour of wall-clock time, regardless of the
+export const FREEBUFF_REWARD_REFERRAL_ENABLED = true
+/** Reward sessions are exactly one hour of wall-clock time, regardless of the
  *  global free-session length, so the "1 hour per referral per day" promise is
  *  exact. */
-export const FREEBUFF_GLM_V52_SESSION_LENGTH_MS = 60 * 60 * 1000
+export const FREEBUFF_REWARD_SESSION_LENGTH_MS = 60 * 60 * 1000
 export const FREEBUFF_LIMITED_SESSION_RESET_TIMEZONE =
   FREEBUFF_PREMIUM_SESSION_RESET_TIMEZONE
 export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
@@ -802,27 +818,34 @@ export const FREEBUFF_LIMITED_SESSION_PERIOD = FREEBUFF_PREMIUM_SESSION_PERIOD
  * (7)-day daily streak, they earn:
  *   - +1 session in their primary daily pool (premium for full-access users,
  *     limited for limited-access) **every day** the streak stays at 7+; and
- *   - for full-access users, +1 GLM 5.2 session per GLM-pool window per
- *     completed 7 days of the current streak (7 days → 1, 14 → 2), capped at
- *     `FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER` (28-day streak), on top of
- *     referrals. The GLM pool resets daily (Pacific) since 2026-07-29, weekly
- *     before.
+ *   - +1 EARNED REWARD session per reward-pool window per completed 7 days of
+ *     the current streak (7 days → 1, 14 → 2), capped at
+ *     `FREEBUFF_STREAK_REWARD_BONUS_MAX_MULTIPLIER` (28-day streak), on top of
+ *     referrals. The reward pool resets daily (Pacific) since 2026-07-29,
+ *     weekly before.
+ *
+ * The second bullet used to be full-access-only, because what it paid was a GLM
+ * 5.2 session and that model was full-access-only. Since 2026-08-31 the reward
+ * is tier-shaped rather than model-shaped — the reward model at limited access,
+ * an extra premium session at full — so the bonus is earned at both tiers and
+ * spent on whichever of the two the account can actually use.
  *
  * The daily premium/limited bonus is persisted after today's first use. The
- * GLM bonus is derived live from the current streak, so it refills at the GLM
- * pool reset and shuts off as soon as the streak breaks.
+ * reward bonus is derived live from the current streak, so it refills at the
+ * reward pool reset and shuts off as soon as the streak breaks.
  */
 export const FREEBUFF_STREAK_REWARD_INTERVAL_DAYS = 7
-/** Cap on the GLM streak bonus: at most this many 7-day tiers count, so a
- *  28-day (or longer) streak earns 4 GLM sessions per pool window. */
-export const FREEBUFF_STREAK_GLM_BONUS_MAX_MULTIPLIER = 4
+/** Cap on the reward streak bonus: at most this many 7-day tiers count, so a
+ *  28-day (or longer) streak earns 4 reward sessions per pool window — before
+ *  FREEBUFF_REWARD_MAX_DAILY_SESSIONS clamps the pool's total. */
+export const FREEBUFF_STREAK_REWARD_BONUS_MAX_MULTIPLIER = 4
 /** Master kill-switch for streak rewards. When false, streaks grant nothing
  *  and effective limits fall back to the base pool limits. */
 export const FREEBUFF_STREAK_REWARDS_ENABLED = true
-/** Sub-switch for the recurring full-access GLM 5.2 streak entitlement. Lets
- *  the perk be wound down independently of the premium/limited bonus (and of
- *  the separate referral-driven GLM program). */
-export const FREEBUFF_STREAK_GLM_BONUS_ENABLED = true
+/** Sub-switch for the recurring streak REWARD entitlement. Lets the perk be
+ *  wound down independently of the premium/limited bonus (and of the separate
+ *  referral-driven reward program). */
+export const FREEBUFF_STREAK_REWARD_BONUS_ENABLED = true
 /** Session units added to an eligible streak-reward pool. One whole session. */
 export const FREEBUFF_STREAK_BONUS_SESSION_UNITS = 1
 
@@ -1343,7 +1366,7 @@ const GLM_V52_MODEL = {
  *
  * Unlike GLM 5.2 next door this is not entitlement-earned — it is granted to
  * every full-access account like Luna, so it needs no referral pool and must
- * never be added to FREEBUFF_GLM_V52_MODEL_IDS.
+ * never be added to FREEBUFF_REWARD_MODEL_IDS.
  */
 const GLM_V53_FLASH_MODEL = {
   id: FREEBUFF_GLM_V53_FLASH_MODEL_ID,
@@ -2015,6 +2038,26 @@ export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly string[] = [
   // nothing while nothing is admitted, and it is the guard that would stop a
   // repriced stealth slug billing us if this row were ever restored.
   FREEBUFF_OX_ALPHA_MODEL_ID,
+  // Withdrawn from free mode entirely on 2026-08-31, on cost, when the reward
+  // it backed moved to GLM 5.3 Flash (FREEBUFF_REWARD_MODEL_IDS). This row was
+  // reachable ONLY through that earned pool, so re-pointing the pool left it
+  // reachable by nobody — and it is materially dearer per token than the row
+  // that replaced it, which is the whole reason the reward moved.
+  //
+  // PAUSING IS LOAD-BEARING HERE AND NOT A FORMALITY, for a reason specific to
+  // this row: it is `premium: true`. Dropping it from the reward pool without
+  // pausing it would have let `quotaConfigForModel` fall through to the SHARED
+  // DAILY PREMIUM POOL, which every full-access account holds — turning a model
+  // that cost referrals to reach into one anybody could spend a premium session
+  // on. That is the `crof/glm-5.2` quota-bypass failure again, arrived at from
+  // the opposite direction, and this list is what closes it.
+  //
+  // Paused rather than deleted for the reason the three rows above give: every
+  // released CLI and Desktop holds this id, an unrecognised id can only be
+  // refused, and that refusal is the #1801 retry loop. Its row stays in
+  // SUPPORTED_FREEBUFF_MODELS and its agent entries stay in FREE_MODE_AGENT_MODELS
+  // so sessions admitted before the deploy drain instead of failing mid-turn.
+  FREEBUFF_GLM_V52_MODEL_ID,
 ]
 
 /**
@@ -2121,7 +2164,17 @@ export const FREEBUFF_WEB_MODELS = [
   // first send is coerced away, which is the offer-without-gate shape
   // common/src/testing/freebuff-offer-invariants.ts exists to catch.
   MUSE_SPARK_12_CONTRIBUTOR_MODEL,
-  GLM_V52_MODEL,
+  // GLM 5.2 LEFT on 2026-08-31, when the reward it backed moved to GLM 5.3
+  // Flash and the row was withdrawn (FREEBUFF_PAUSED_FREE_MODEL_IDS). It
+  // reached this list, and only this list, as the earned row the browser picker
+  // rendered locked; there is nothing left for that row to unlock.
+  //
+  // Leaving it would be the offer-without-gate shape that
+  // common/src/testing/freebuff-offer-invariants.ts exists to catch — a visible
+  // row whose first send is coerced away. Removing it is ALSO what keeps it out
+  // of FREEBUFF_STANDARD_MODEL_IDS, which is derived by filtering `!premium`
+  // over FREEBUFF_WEB_ALL_MODELS; the pause and this removal close the two
+  // halves of that door separately and both are needed.
   ...FREEBUFF_MODELS,
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -2180,7 +2233,7 @@ export function isFreebuffWebSelectableModelId(
 }
 
 /** Models metered by the SHARED daily premium pool, which every full-access
- *  account is granted for free. GLM 5.2 (FREEBUFF_GLM_V52_MODEL_IDS) is held
+ *  account is granted for free. GLM 5.2 (FREEBUFF_REWARD_MODEL_IDS) is held
  *  out because its entitlement is earned rather than granted daily — putting
  *  any GLM route in this list hands the model out for nothing. */
 export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
@@ -2218,11 +2271,42 @@ export const FREEBUFF_STANDARD_MODEL_IDS = Object.freeze(
   ),
 )
 
-/** Models unlocked by referrals, metered by the daily GLM session pool rather
- *  than the daily premium pool. Kept separate from FREEBUFF_PREMIUM_MODEL_IDS
- *  so GLM never falls into the shared daily premium quota. Since 2026-07-30
- *  this is the ONLY way to reach GLM 5.2 on any surface. */
-export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
+/**
+ * What an earned reward session BUYS at the LIMITED access tier.
+ *
+ * GLM 5.3 Flash since 2026-08-31, replacing GLM 5.2 — a straight upgrade for
+ * the people redeeming (a better model on a cheaper lane) and the reason GLM
+ * 5.2 could be withdrawn from free mode entirely.
+ *
+ * LIMITED TIER ONLY, AND THAT IS THE WHOLE SHAPE OF THIS LIST. At full access
+ * GLM 5.3 Flash is unmetered — it is in FREEBUFF_STANDARD_MODEL_IDS and is the
+ * default pick on every surface — so "unlock GLM 5.3 Flash" would be a reward
+ * for something the user already has. The full-access half of the reward is
+ * therefore a different thing entirely: one EXTRA session in the shared daily
+ * premium pool, resolved by the premium quota config rather than by this list
+ * (see PREMIUM_QUOTA_CONFIG in web/src/server/free-session/public-api.ts).
+ *
+ * Two tiers, two rewards, one earned balance. Referrals, streaks and bounty
+ * grants all still pay into the same ledger; what changed is that the ledger
+ * no longer names one model for everybody.
+ *
+ * KEEP THIS AN EXPLICIT ID LIST. It used to hold GLM 5.2 while GLM 5.3 Flash
+ * sat next to it as an ordinary catalog row, and every GLM predicate in this
+ * file is written against an explicit list precisely so that a prefix match on
+ * `z-ai/glm` could never hand one model's entitlement to the other. That
+ * hazard has not gone away just because the two swapped places.
+ */
+export const FREEBUFF_REWARD_MODEL_ID = FREEBUFF_GLM_V53_FLASH_MODEL_ID
+export const FREEBUFF_REWARD_MODEL_IDS = [FREEBUFF_REWARD_MODEL_ID] as const
+
+/** What the reward model is CALLED, read off the catalog rather than written
+ *  out, so the dozen-odd surfaces that say "you earned an X session" cannot
+ *  drift from the model they actually unlock. Every one of them said "GLM 5.2"
+ *  as a literal until 2026-08-31, which is why swapping the model meant editing
+ *  copy in fourteen files. */
+export const FREEBUFF_REWARD_MODEL_DISPLAY_NAME: string =
+  SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === FREEBUFF_REWARD_MODEL_ID)
+    ?.displayName ?? 'GLM 5.3 Flash'
 
 /** Models that occupy the single per-user "premium-bucket" CONCURRENCY slot in
  *  Freebuff Desktop's multi-session mode: at most one of these may have an
@@ -2253,7 +2337,9 @@ export const FREEBUFF_GLM_V52_MODEL_IDS = [FREEBUFF_GLM_V52_MODEL_ID] as const
  *  multi-tab today. Before making one so, key admit rows by instance id. */
 export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_GLM_V52_MODEL_ID,
+  // GLM 5.2 left on 2026-08-31 with its withdrawal from free mode
+  // (FREEBUFF_PAUSED_FREE_MODEL_IDS). Nothing may admit it, so a concurrency
+  // slot for it can only ever describe sessions that no longer exist.
   // GLM 5.3 Flash LEFT on 2026-08-29, and on this list's own criterion rather
   // than as a side effect of unmetering it the day before. Membership is "a
   // bill we would not want to underwrite at three at once", and measured
@@ -2754,7 +2840,7 @@ export function isFreebuffWebModelAllowedForLimitedTier(
   if (!id) return false
   // GLM 5.2 is selectable from a limited region when the user holds a bounty
   // grant — the entitlement gate is the GLM quota pool, not this allowlist
-  // (see isGlmRedeemableAtLimitedTier). Without this the Web picker coerced a
+  // (see isRewardModelRedeemableAtLimitedTier). Without this the Web picker coerced a
   // GLM pick straight back to the flash model, so a bounty reward earned in a
   // limited region was unspendable no matter what the server allowed.
   //
@@ -2764,7 +2850,7 @@ export function isFreebuffWebModelAllowedForLimitedTier(
   // to MiMo. A limited-region subscriber paid and could select nothing they
   // had bought.
   return (
-    isGlmRedeemableAtLimitedTier(id) ||
+    isRewardModelRedeemableAtLimitedTier(id) ||
     FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === id) ||
     (hasPaidSubscription && isFreebuffSubscriptionModelIdForAccessTier(id))
   )
@@ -2856,26 +2942,33 @@ export function getRecommendedFreebuffWebModelId(
 }
 
 /**
- * GLM 5.2 is reachable from limited access, but only against a bounty-earned
+ * The reward model is reachable from limited access, but only against an earned
  * grant.
  *
  * The tier gate used to live here, in the model allowlist: a limited-tier
- * (VPN / unsupported-country) user could not name GLM at all. Bounties pay a
- * GLM session that is meant to be worth the same in every region, so the gate
- * moved DOWN into the quota pool — at limited tier the GLM pool counts only
- * grants minted `redeemable_at_limited_tier` (bounty payouts), and nothing
- * else. Referral GLM entitlement still counts for nothing there, which is the
- * anti-farming stance docs/referrals.md describes.
+ * (VPN / unsupported-country) user could not name the reward model at all.
+ * Bounties pay a session that is meant to be worth the same in every region, so
+ * the gate moved DOWN into the quota pool — at limited tier the reward pool
+ * counts only grants minted `redeemable_at_limited_tier` (bounty payouts), and
+ * nothing else. Referral entitlement still counts for nothing there, which is
+ * the anti-farming stance docs/referrals.md describes.
  *
- * The practical effect of allowing it here is that a limited user with no
- * bounty grant gets `rate_limited` (limit 0) instead of `session_model_
- * mismatch`. Clients only surface GLM to them once the server reports a
- * balance, so that path is not a normal one to hit.
+ * SINCE 2026-08-31 THIS IS ALSO WHAT MAKES THE REWARD MEAN ANYTHING. The reward
+ * model is GLM 5.3 Flash, which every FULL-access account already runs
+ * unmetered; limited tier is the only tier where unlocking it is a thing you can
+ * unlock. (Full access earns an extra premium session instead — see
+ * FREEBUFF_REWARD_MODEL_IDS.) So this predicate is no longer a narrow carve-out
+ * on the side of the reward; at limited tier it IS the reward.
+ *
+ * The practical effect of allowing it here is that a limited user with no grant
+ * gets `rate_limited` (limit 0) instead of `session_model_mismatch`. Clients
+ * only surface the row to them once the server reports a balance, so that path
+ * is not a normal one to hit.
  */
-export function isGlmRedeemableAtLimitedTier(
+export function isRewardModelRedeemableAtLimitedTier(
   model: string | null | undefined,
 ): boolean {
-  return FREEBUFF_GLM_V52_MODEL_IDS.some((modelId) => modelId === model)
+  return FREEBUFF_REWARD_MODEL_IDS.some((modelId) => modelId === model)
 }
 
 export function isFreebuffModelAllowedForAccessTier(
@@ -2888,7 +2981,7 @@ export function isFreebuffModelAllowedForAccessTier(
   if (!model) return false
   if (accessTier !== 'limited') return isFreebuffModelId(model)
   return (
-    isGlmRedeemableAtLimitedTier(model) ||
+    isRewardModelRedeemableAtLimitedTier(model) ||
     LIMITED_FREEBUFF_MODEL_IDS.some((modelId) => modelId === model) ||
     // A plan reaches limited regions. Gated on isFreebuffModelId as well, so
     // this only ever widens to a row this catalog actually offers.
@@ -2938,7 +3031,7 @@ export function isFreebuffSessionModelAllowedForAccessTier(
   // happily admit it.
   if (isFreebuffPausedFreeModelId(model)) return false
   if (accessTier !== 'limited') return isFreebuffSessionModelId(model)
-  // See isGlmRedeemableAtLimitedTier: GLM's limited-tier gate is the quota
+  // See isRewardModelRedeemableAtLimitedTier: GLM's limited-tier gate is the quota
   // pool (bounty grants only), not this allowlist.
   //
   // The UNION of both limited catalogs, for the same reason the full-access
@@ -2953,7 +3046,7 @@ export function isFreebuffSessionModelAllowedForAccessTier(
   // Widening WHAT a limited user may pick, not how much: the limited pool is
   // keyed on the tier rather than the model.
   return (
-    isGlmRedeemableAtLimitedTier(model) ||
+    isRewardModelRedeemableAtLimitedTier(model) ||
     FREEBUFF_WEB_LIMITED_MODEL_IDS.some((modelId) => modelId === model) ||
     // Paid plans reach limited regions too — see `hasPaidSubscription`.
     (hasPaidSubscription && isFreebuffSubscriptionModelIdForAccessTier(model))
@@ -3030,31 +3123,31 @@ export function resolveFreebuffWebModel(
 }
 
 /** Resolve an explicit CLI selection for an access tier. The ordinary picker
- * uses `FREEBUFF_MODELS`; full-access users can also select referral-only GLM
- * through its separate banner action, or a limited-offer model the server told
- * them about this launch. Both live outside `FREEBUFF_MODELS`, so without these
- * passes an explicit pick of either would be silently rewritten to the fallback
- * model — the user would press Enter on Fable and land on DeepSeek. */
+ * uses `FREEBUFF_MODELS`; a limited-tier user may also hold an earned reward
+ * balance for the reward model, and a full-access user may have been told about
+ * a limited-offer model this launch. Both live outside what the tier's picker
+ * lists, so without these passes an explicit pick of either would be silently
+ * rewritten to the fallback model — the user would press Enter on Fable and
+ * land on DeepSeek. */
 export function resolveFreebuffModelForAccessTier(
   id: string | null | undefined,
   accessTier: FreebuffAccessTier | null | undefined,
   /** See `hasPaidSubscription` on isFreebuffSessionModelAllowedForAccessTier. */
   hasPaidSubscription = false,
-):
-  | FreebuffModelId
-  | typeof FREEBUFF_GLM_V52_MODEL_ID
-  | FreebuffLimitedOfferModelId {
+): FreebuffModelId | FreebuffLimitedOfferModelId {
   if (accessTier === 'limited') {
-    // GLM survives the coercion at limited tier so a bounty-earned session is
-    // launchable from any region; the pool decides whether it is joinable.
-    if (id === FREEBUFF_GLM_V52_MODEL_ID) return id
+    // The reward model survives the coercion at limited tier so an earned
+    // session is launchable from any region; the pool decides whether it is
+    // joinable. Before 2026-08-31 this named GLM 5.2 explicitly, because that
+    // row was in no tier's catalog at all; the reward model is now an ordinary
+    // full-access row, so this is the ONLY tier that still needs the pass.
+    if (isRewardModelRedeemableAtLimitedTier(id)) return id as FreebuffModelId
     // A plan model survives it for the same reason: the plan's own windows
     // decide whether the session is joinable, not this allowlist.
     return isFreebuffModelAllowedForAccessTier(id, accessTier, hasPaidSubscription)
       ? (id as FreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID
   }
-  if (id === FREEBUFF_GLM_V52_MODEL_ID) return id
   const limitedOffer = FREEBUFF_LIMITED_OFFER_MODEL_IDS.find(
     (modelId) => modelId === id,
   )
@@ -3192,14 +3285,25 @@ export function isFreebuffDesktopPremiumBucketModelId(
   )
 }
 
-/** Whether the requested model is the GLM 5.2 referral reward, tolerating the
- *  dated snapshot suffix. GLM is metered by the weekly referral-session pool
- *  rather than the daily premium pool, so callers branch on this before the
- *  premium check. */
-export function isFreebuffGlmV52ModelId(
+/**
+ * Whether the requested model is what an earned reward session unlocks,
+ * tolerating the dated snapshot suffix.
+ *
+ * TRUE OF GLM 5.3 FLASH, WHICH IS ALSO AN ORDINARY UNMETERED ROW, so this
+ * predicate is only a quota answer WHEN PAIRED WITH THE LIMITED ACCESS TIER.
+ * Every caller that routes on it must check the tier too. At full access the
+ * same id is in FREEBUFF_STANDARD_MODEL_IDS and must stay unmetered — routing
+ * it to the reward pool there would put the product's default model behind an
+ * earned balance, which is the one outcome the 2026-08-31 swap had to avoid.
+ *
+ * Distinct from isFreebuffGlmV53FlashModelId, which asks the same question for
+ * a different purpose (the OpenRouter price fence). Same id today, different
+ * reason, and they are free to diverge the next time the reward moves.
+ */
+export function isFreebuffRewardModelId(
   id: string | null | undefined,
 ): boolean {
-  return FREEBUFF_GLM_V52_MODEL_IDS.some((modelId) =>
+  return FREEBUFF_REWARD_MODEL_IDS.some((modelId) =>
     freebuffModelIdMatches(id, modelId),
   )
 }
@@ -3208,7 +3312,7 @@ export function isFreebuffGlmV52ModelId(
  *  suffix. Used by the OpenRouter layer to apply this row's price ceiling, so a
  *  dated variant cannot dodge it.
  *
- *  DISTINCT FROM isFreebuffGlmV52ModelId and never a widening of it. The two
+ *  DISTINCT FROM isFreebuffRewardModelId and never a widening of it. The two
  *  share a name and a `z-ai/` prefix and nothing else: 5.2 is the referral
  *  reward metered by its own earned pool, 5.3 Flash is a premium-pool row every
  *  full-access account gets. A predicate that prefix-matched `z-ai/glm` would
@@ -3402,14 +3506,25 @@ export function getFreebuffModelReasoningEffort(
 }
 
 /**
- * Whether a Web/Cloud selection may be REMEMBERED as the user's default model.
+ * Whether a model may be PINNED as the remembered pick in localStorage.
  *
- * GLM 5.2 is excluded. GLM is a scarce, hand-metered pick that a user runs out
- * of far sooner than the rest of the picker, so pinning it as the remembered
- * default strands them on a model they cannot start: the next new thread, a
- * different app, or a plain page reload would open on GLM and fail admission.
- * Picking GLM applies to the surface in front of you; anything that starts
- * fresh falls back to DEFAULT_FREEBUFF_WEB_MODEL_ID.
+ * The rule exists for one shape of row: an earned one, whose balance runs out
+ * far sooner than the rest of the picker. Pinning such a row strands the user
+ * on a model they cannot start — the next new thread, a different app, or a
+ * plain page reload would open on it and fail admission. Picking it applies to
+ * the surface in front of you; anything that starts fresh falls back to
+ * DEFAULT_FREEBUFF_WEB_MODEL_ID.
+ *
+ * TIER-AWARE SINCE 2026-08-31, and it has to be. The rule used to name GLM 5.2,
+ * which was earned at every tier. The reward model is now GLM 5.3 Flash, which
+ * is earned ONLY at limited access — at full access it is unmetered and is
+ * DEFAULT_FREEBUFF_WEB_MODEL_ID itself. Refusing to remember it there would
+ * mean the product's default model is the one pick that never sticks, and a
+ * user who deliberately chose it would find it reset on every reload.
+ *
+ * Defaults to full access so a caller that does not know the tier keeps the
+ * permissive answer, which is the correct one for every row but this one at one
+ * tier.
  *
  * Every localStorage read AND write of the remembered model must go through
  * this (via resolveRememberedFreebuffWebModel), so a value saved before this
@@ -3417,8 +3532,10 @@ export function getFreebuffModelReasoningEffort(
  */
 export function isFreebuffWebRememberableModelId(
   id: string | null | undefined,
+  accessTier: FreebuffAccessTier | null | undefined = 'full',
 ): boolean {
-  return !isFreebuffGlmV52ModelId(id)
+  if (accessTier !== 'limited') return true
+  return !isFreebuffRewardModelId(id)
 }
 
 /**
@@ -3427,14 +3544,19 @@ export function isFreebuffWebRememberableModelId(
  * DEFAULT_FREEBUFF_WEB_MODEL_ID.
  *
  * Distinct from resolveFreebuffWebModel, which resolves a LIVE selection and
- * must leave a just-picked GLM alone.
+ * must leave a just-picked earned row alone.
  */
 export function resolveRememberedFreebuffWebModel(
   id: string | null | undefined,
-  options: { includeGodOnly?: boolean } = {},
+  options: {
+    includeGodOnly?: boolean
+    /** See isFreebuffWebRememberableModelId — only the limited tier refuses to
+     *  remember anything, and only the reward row. */
+    accessTier?: FreebuffAccessTier | null
+  } = {},
 ): FreebuffWebModelId {
   const resolved = resolveFreebuffWebModel(id, options)
-  return isFreebuffWebRememberableModelId(resolved)
+  return isFreebuffWebRememberableModelId(resolved, options.accessTier)
     ? resolved
     : DEFAULT_FREEBUFF_WEB_MODEL_ID
 }

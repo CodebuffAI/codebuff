@@ -247,7 +247,7 @@ export interface FreebuffSessionRateLimit {
    * for session quotas with `limit = base + referral + streak + promo`. */
   entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
   limit: number
-  /** 'pacific_day' for the daily pools (premium/limited, and the GLM 5.2
+  /** 'pacific_day' for the daily pools (premium/limited, and the reward
    *  referral pool since 2026-07-29). 'pacific_week' is kept for wire compat
    *  with servers from when the GLM pool reset weekly. */
   period: 'pacific_day' | 'pacific_week'
@@ -286,7 +286,7 @@ export interface FreebuffDesktopSessionCounts {
  * Referral status surfaced to the CLI model-selector so it can render an
  * "invite friends" banner. The reward depends on the session's access tier:
  *
- *   - full tier    → unlock daily GLM 5.2 sessions (`weeklySessionsRemaining`
+ *   - full tier    → one extra daily PREMIUM session (`weeklySessionsRemaining`
  *     and `resetAt` carry the live balance / next reset; the field name
  *     predates the weekly→daily cadence change and is kept for wire compat).
  *   - limited tier → earn a daily free-session bonus (+1/day per qualified
@@ -306,20 +306,20 @@ export interface FreebuffReferralInfo {
    *  name set. */
   referrerName: string | null
   /** Qualified-referral count for the tier's reward, ALREADY CAPPED on both
-   *  branches: full tier = GLM sessions per day, clamped to
-   *  FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS (uncapped between 2026-07-30 and
+   *  branches: full tier = extra premium sessions per day, clamped to
+   *  FREEBUFF_REWARD_MAX_DAILY_SESSIONS (uncapped between 2026-07-30 and
    *  2026-08-25); limited tier = daily-session bonus earned, capped at
    *  REFERRAL_CLI_DAILY_SESSION_BONUS_CAP. The CLI knows both constants
    *  locally and renders "(N/cap)" progress copy off them, so a value that
    *  arrived un-clamped would advertise sessions the gate refuses. */
   qualifiedCount: number
-  /** GLM sessions still available in the current reset window (entitlement −
-   *  used, ≥ 0). Daily since 2026-07-29; the "weekly" name is kept for wire
-   *  compat. Full tier only; omitted for the limited-tier daily-bonus
-   *  variant. */
+  /** Reward-bearing sessions still available in the current reset window
+   *  (entitlement − used, ≥ 0). Daily since 2026-07-29; the "weekly" name is
+   *  kept for wire compat. Reads the pool the tier's reward is actually paid
+   *  into — premium at full access, the reward pool at limited. */
   weeklySessionsRemaining?: number
-  /** ISO timestamp of the next GLM pool reset. Full tier only; omitted for
-   *  the limited-tier daily-bonus variant. */
+  /** ISO timestamp of the next reward-pool reset. Both pools share a window,
+   *  so this is the same instant at either tier. */
   resetAt?: string
   /** Whether the current user has a GitHub account linked. Referrals only
    *  qualify with a connected, sufficiently-old GitHub, so the CLI prompts
@@ -328,7 +328,7 @@ export interface FreebuffReferralInfo {
 }
 
 /**
- * A live GLM 5.2 promotion, as advertised to every surface.
+ * A live bounty-spend promotion, as advertised to every surface.
  *
  * One block drives the CLI banner, the desktop footer, the web picker, the Earn
  * page and the landing eyebrow, so their copy cannot disagree about the size of
@@ -536,7 +536,8 @@ export type FreebuffSessionServerResponse = (
        *  to a model. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
       /** Referral status for the "invite friends" banner. Full tier advertises
-       *  GLM 5.2; limited tier advertises a daily free-session bonus. */
+       *  an extra premium session; limited tier advertises a daily
+       *  free-session bonus. */
       referral?: FreebuffReferralInfo
       /** Capacity-limited models the picker may additionally offer right now.
        *  Only sent on the pre-join response, which is the only state that
@@ -727,8 +728,8 @@ export type FreebuffSessionServerResponse = (
       /** The freebuff model the user tried to join. */
       model: string
       /** Max session units permitted per period (e.g. the configured daily
-       * premium allowance, or the user's weekly GLM referral plus streak
-       * entitlement). */
+       * premium allowance, including the earned reward on top of it — or, at
+       * limited access, the reward balance plus streak entitlement). */
       limit: number
       /** Additive detail for `limit`; absent on older servers. */
       entitlementBreakdown?: FreebuffSessionEntitlementBreakdown

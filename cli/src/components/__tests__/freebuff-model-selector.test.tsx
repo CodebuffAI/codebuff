@@ -6,6 +6,7 @@ import React from 'react'
 
 import { FreebuffModelSelector } from '../freebuff-model-selector'
 import {
+  FREEBUFF_REWARD_MODEL_ID,
   DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -84,10 +85,16 @@ const renderSelector = async (maxHeight = 40) => {
   return setup
 }
 
+/**
+ * LIMITED tier, which since 2026-08-31 is the only tier where the reward is a
+ * MODEL you can select. At full access the reward is an extra premium session
+ * and the reward model is an ordinary unmetered grid row, so there is no
+ * earned selection there for the landing repair to keep or discard.
+ */
 const renderSelectorWithGlmRemaining = async (remaining?: number) => {
   useFreebuffSessionStore.getState().setSession({
     status: 'none',
-    accessTier: 'full',
+    accessTier: 'limited',
     referral: {
       code: 'test-referral',
       referrerName: null,
@@ -99,7 +106,7 @@ const renderSelectorWithGlmRemaining = async (remaining?: number) => {
       githubLinked: true,
     },
   })
-  useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_GLM_V52_MODEL_ID)
+  useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_REWARD_MODEL_ID)
 
   const nextSetup = await renderSelector(30)
   await nextSetup.renderOnce()
@@ -108,17 +115,17 @@ const renderSelectorWithGlmRemaining = async (remaining?: number) => {
 }
 
 describe('FreebuffModelSelector referral selection', () => {
-  test('keeps a fractional unlocked GLM session selected while its request is pending', async () => {
+  test('keeps a fractional unlocked reward session selected while its request is pending', async () => {
     await renderSelectorWithGlmRemaining(0.25)
-    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V52_MODEL_ID)
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_REWARD_MODEL_ID)
   })
 
-  test('still repairs a locked GLM selection to a visible grid model', async () => {
+  test('still repairs a locked reward selection to a visible grid model', async () => {
     await renderSelectorWithGlmRemaining(0)
     expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
   })
 
-  test('treats an omitted GLM balance as locked', async () => {
+  test('treats an omitted reward balance as locked', async () => {
     await renderSelectorWithGlmRemaining()
     expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
   })

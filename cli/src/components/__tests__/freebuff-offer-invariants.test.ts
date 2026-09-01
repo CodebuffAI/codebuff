@@ -8,6 +8,8 @@ import { describe, expect, test } from 'bun:test'
 
 import { getFreebuffRootAgentIdForModel } from '@codebuff/common/constants/free-agents'
 import {
+  FREEBUFF_REWARD_MODEL_ID,
+  getFreebuffModelsForAccessTier,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -106,14 +108,25 @@ describe('freebuff rows the CLI offers', () => {
     ).toBe(LIMITED_FREEBUFF_MODEL_ID)
   })
 
-  test('the earned reward is offered on BOTH tiers, and the grid never shows it', () => {
-    // Limited access included: a bounty grant is redeemable there, so the row has to be
-    // reachable there. The banner still only renders it against a live balance.
+  test('the earned reward is offered on BOTH tiers', () => {
+    // Limited access included: a bounty grant is redeemable there, so the row
+    // has to be reachable there. The banner still only renders it against a
+    // live balance.
+    //
+    // At FULL access it is also in the GRID since 2026-08-31 — the reward model
+    // is GLM 5.3 Flash, an ordinary unmetered row and the CLI's default pick.
+    // The old assertion that the grid never shows it was correct only while the
+    // reward was GLM 5.2, which no tier's catalog listed.
     expect(freebuffCliOfferedModelIds('full')).toContain(
-      FREEBUFF_GLM_V52_MODEL_ID,
+      FREEBUFF_REWARD_MODEL_ID,
     )
     expect(freebuffCliOfferedModelIds('limited')).toContain(
-      FREEBUFF_GLM_V52_MODEL_ID,
+      FREEBUFF_REWARD_MODEL_ID,
+    )
+    // A free limited user still reaches it only through the banner: the limited
+    // GRID is MiMo alone.
+    expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).not.toContain(
+      FREEBUFF_REWARD_MODEL_ID,
     )
   })
 
