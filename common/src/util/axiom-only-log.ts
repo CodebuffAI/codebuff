@@ -200,6 +200,13 @@ const ADS_IMPREZIA_FETCH_OUTCOMES = [
   'provider_error',
   'not_configured',
   'not_eligible',
+  /**
+   * Our book took the slot before Imprezia was asked (COD-338). Its own
+   * outcome rather than a `not_eligible` failure class: the request was
+   * perfectly eligible, we chose not to ask, and every eligibility-rate and
+   * fill-collapse query grouped on `outcome` must keep meaning what it did.
+   */
+  'preempted',
 ] as const
 const ADS_IMPREZIA_SELECTION_REASONS = ['primary', 'fallback'] as const
 const ADS_IMPREZIA_EXPERIMENT_ARMS = [

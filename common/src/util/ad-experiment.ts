@@ -44,6 +44,7 @@ export const DEFAULT_FIRST_PARTY_PRIMARY_PERCENT = 0
 export const DEFAULT_FIRST_PARTY_BACKFILL = false
 export const DEFAULT_FIRST_PARTY_GEO_ROUTING = false
 export const DEFAULT_FIRST_PARTY_TIER2_BONUS_PERCENT = 0
+export const DEFAULT_FIRST_PARTY_IMPREZIA_ARM_PERCENT = 0
 
 /**
  * Coarse, server-resolved inventory geography. `unknown` is intentionally its
@@ -57,6 +58,14 @@ export type FirstPartyAdRoute =
   | 'first_party_primary'
   | 'gravity_then_first_party'
   | 'paid_networks_then_first_party_bonus'
+  /**
+   * Our book ahead of Imprezia, with Gravity's position unchanged. Only ever
+   * chosen for the `imprezia_first` arm, where Imprezia holds first refusal:
+   * a fill here displaces Imprezia's slot, and Gravity still backs both up.
+   * Never a control-arm route -- there Gravity is the primary, and putting
+   * our book in front of it is what the primary gate already meters.
+   */
+  | 'first_party_before_imprezia'
 
 export interface FirstPartyRoutingConfig {
   /** Request share, 0..100, that tries our book before paid networks. */
@@ -70,6 +79,13 @@ export interface FirstPartyGeoRoutingConfig extends FirstPartyRoutingConfig {
   geoRouting: boolean
   /** Share of terminal Tier-2 paid no-fills offered non-billable inventory. */
   tier2BonusPercent: number
+  /**
+   * Share, 0..100, of the `imprezia_first` arm's Tier-1 requests that try our
+   * book before Imprezia. Sampled from the same request bucket as the primary
+   * gate and stacked on top of it, so raising this never shrinks the primary
+   * window. Absent means 0, the dark deploy.
+   */
+  impreziaArmPercent?: number
 }
 
 /**
@@ -168,6 +184,15 @@ export function firstPartyAdRouteForUser(
  * `terminalPaidFallback` is server routing context, not a claim that a
  * particular network filled. Browser surfaces set it only on the second leg
  * of their sequencer, after the other paid network has returned no fill.
+ *
+ * `impreziaFirstRefusal` says whether Imprezia holds first refusal on THIS
+ * request's chain -- the `imprezia_first` arm on a surface that asks Imprezia
+ * before Gravity, and never a pin. It is the only thing that unlocks the
+ * Imprezia-preempt leg: a Tier-1 request that missed the primary window may
+ * still try our book before Imprezia when its sample lands in the next
+ * `impreziaArmPercent` of buckets. The field is required rather than
+ * defaulted so a surface where Gravity goes first cannot forget to say so and
+ * end up with our book in front of Gravity.
  */
 export function firstPartyAdRouteForGeoRequest(
   userId: string | null | undefined,
@@ -175,6 +200,7 @@ export function firstPartyAdRouteForGeoRequest(
   context: {
     geoTier: FirstPartyAdGeoTier
     terminalPaidFallback: boolean
+    impreziaFirstRefusal: boolean
   },
   sampleId?: string,
 ): FirstPartyAdRoute {
@@ -183,7 +209,27 @@ export function firstPartyAdRouteForGeoRequest(
   }
   if (!userId) return 'paid_network_only'
   if (context.geoTier === 'tier1') {
-    return firstPartyAdRouteForUser(userId, config, sampleId)
+    // One bucket, one ladder: the primary window first, then the preempt
+    // window stacked directly above it. Both read the same sample so the two
+    // windows can never overlap, and raising the arm knob never shrinks the
+    // primary window. A stack past 100% is simply "every remaining request".
+    const bucket = firstPartyPrimaryBucket(sampleId || userId)
+    const primaryBasisPoints = firstPartyPrimaryBasisPoints(
+      config.primaryPercent,
+    )
+    if (bucket < primaryBasisPoints) return 'first_party_primary'
+    if (
+      context.impreziaFirstRefusal &&
+      bucket <
+        primaryBasisPoints +
+          firstPartyPrimaryBasisPoints(
+            config.impreziaArmPercent ??
+              DEFAULT_FIRST_PARTY_IMPREZIA_ARM_PERCENT,
+          )
+    ) {
+      return 'first_party_before_imprezia'
+    }
+    return config.backfill ? 'gravity_then_first_party' : 'paid_network_only'
   }
   if (
     context.geoTier === 'tier2' &&
