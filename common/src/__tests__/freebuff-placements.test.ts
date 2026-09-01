@@ -177,8 +177,13 @@ describe('copy and configuration', () => {
     expect(PLACEMENTS_CONSOLE_ENABLED).toBe(true)
   })
 
-  it('previews the widths where layout actually changes', () => {
-    expect(PLACEMENT_PREVIEW_WIDTHS).toEqual([20, 48, 60])
+  it('previews the destination-label breakpoint plus the widths people run', () => {
+    // 48 is the narrowest width that still renders the destination domain;
+    // 80 and 100 are the terminals users actually have (100 rather than 120
+    // so the widest card still fits the preview dialog unscrolled). The
+    // renderer's 20-column floor is deliberately absent — nobody runs one,
+    // and the house-ad budget enforces it separately via MIN_INLINE_AD_WIDTH.
+    expect(PLACEMENT_PREVIEW_WIDTHS).toEqual([48, 80, 100])
   })
 
   it('states the attribution window in the copy that goes on screen', () => {

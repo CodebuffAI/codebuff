@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { getInlineAdLayout } from '../../ads/inline-ad-layout'
+import { getInlineAdLayout, MIN_INLINE_AD_WIDTH } from '../../ads/inline-ad-layout'
 import {
   PLACEMENT_PREVIEW_WIDTHS,
   PLACEMENT_SLOTS,
@@ -70,8 +70,10 @@ describe('house ad width budget', () => {
       url: HOUSE_AD_DESTINATION_URL,
     }
 
-    const narrowest = Math.min(...PLACEMENT_PREVIEW_WIDTHS)
-    expect(getInlineAdLayout(probe, narrowest).title).toHaveLength(
+    // The renderer FLOOR, not the narrowest console preview: the console
+    // stopped offering 20 columns, but a real terminal can still be that
+    // narrow and the title budget is what keeps ours uncut there.
+    expect(getInlineAdLayout(probe, MIN_INLINE_AD_WIDTH).title).toHaveLength(
       HOUSE_AD_TITLE_BUDGET,
     )
 
@@ -101,8 +103,9 @@ describe('house ad width budget', () => {
 
       // The budgets above are the arithmetic; this is the renderer's own
       // verdict. A creative passes only if what the reader sees is the string
-      // we wrote -- no ellipsis, at any width the console previews.
-      for (const width of PLACEMENT_PREVIEW_WIDTHS) {
+      // we wrote -- no ellipsis, at the renderer floor or any width the
+      // console previews.
+      for (const width of [MIN_INLINE_AD_WIDTH, ...PLACEMENT_PREVIEW_WIDTHS]) {
         const layout = getInlineAdLayout(creative, width)
         expect(layout.title).toBe(creative.title)
         // Below 48 the description genuinely cannot hold a sentence from

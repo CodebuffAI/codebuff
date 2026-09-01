@@ -121,23 +121,25 @@ const FAVICON = HOUSE_AD_FAVICON_URL
 /**
  * What the inline renderer actually gives a creative, in characters.
  *
- * Both numbers come from `getInlineAdLayout` in `common/src/ads/inline-ad-layout.ts`
- * at the preview widths the advertiser console offers (`PLACEMENT_PREVIEW_WIDTHS`
- * = 20/48/60). The adjacent test RECOMPUTES them from that function rather than
- * trusting these constants, so a layout change fails the build instead of
- * silently cutting our own copy.
+ * Both numbers come from `getInlineAdLayout` in `common/src/ads/inline-ad-layout.ts`.
+ * The adjacent test RECOMPUTES them from that function rather than trusting
+ * these constants, so a layout change fails the build instead of silently
+ * cutting our own copy.
  *
- * - TITLE at width 20: content is `20 - 4` for border and padding, less the
- *   `Ad` disclosure and its gap, leaving 12.
+ * - TITLE at the RENDERER FLOOR (`MIN_INLINE_AD_WIDTH` = 20): content is
+ *   `20 - 4` for border and padding, less the `Ad` disclosure and its gap,
+ *   leaving 12. The floor is a renderer fact, deliberately NOT
+ *   `PLACEMENT_PREVIEW_WIDTHS` — the console stopped previewing 20 columns
+ *   (nobody runs one), but a real terminal can still be that narrow, and a
+ *   cut title reads as a different product rather than a shortened claim.
  * - DESCRIPTION at width 48: content is `48 - 4`, less the destination label
  *   (`freebuff.com`), its gap and the link arrow, leaving 28.
  *
- * THE DESCRIPTION BUDGET IS DELIBERATELY NOT THE NARROWEST WIDTH. At 20
- * columns the description gets 16 characters, which no sentence from any
- * advertiser survives -- holding our own copy to it would buy a promotion
- * nobody can read at the widths people actually use. So 20 is accepted as a
- * degraded render for the description and enforced for the TITLE, where a cut
- * reads as a different product rather than as a shortened claim.
+ * THE DESCRIPTION BUDGET IS DELIBERATELY NOT THE FLOOR. At 20 columns the
+ * description gets 16 characters, which no sentence from any advertiser
+ * survives -- holding our own copy to it would buy a promotion nobody can
+ * read at the widths people actually use. So 20 is accepted as a degraded
+ * render for the description and enforced for the TITLE only.
  */
 export const HOUSE_AD_TITLE_BUDGET = 12
 export const HOUSE_AD_TEXT_BUDGET = 28

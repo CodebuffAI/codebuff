@@ -5,7 +5,8 @@
  * This lives in `common` rather than in the CLI because two surfaces have to
  * agree on it exactly: the CLI, which renders the ad, and the advertiser
  * campaign builder in `freebuff/web`, whose creative preview has to show an
- * advertiser what their copy will actually look like at 20, 48 and 60 columns.
+ * advertiser what their copy will actually look like at the widths the
+ * console offers (`PLACEMENT_PREVIEW_WIDTHS`).
  *
  * A CSS approximation of this in the web preview would be wrong. Note that
  * {@link truncateToWidth} measures with `String.length`, which counts UTF-16
@@ -17,6 +18,16 @@
 
 /** Widths where inline ad layout actually changes behaviour. */
 export const MIN_INLINE_WIDTH_WITH_DESTINATION = 48
+/**
+ * The narrowest width the CLI transcript renderer draws an inline ad at.
+ *
+ * This is a RENDERER fact, not a console-preview choice: the console's
+ * `PLACEMENT_PREVIEW_WIDTHS` no longer offers it (almost nobody runs a
+ * terminal this narrow), but real terminals can still be this size, so the
+ * house-ad width budget keeps enforcing the title here — a cut title reads
+ * as a different product, at any width.
+ */
+export const MIN_INLINE_AD_WIDTH = 20
 export const MAX_DESC_LINES = 2
 export const INLINE_AD_DISCLOSURE = 'Ad'
 export const INLINE_AD_GAP = 2

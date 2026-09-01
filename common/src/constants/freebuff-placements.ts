@@ -32,19 +32,6 @@ import type { AdCampaignStatus } from './freebuff-ads'
 export const PLACEMENTS_CONSOLE_ENABLED = true
 
 /**
- * Terminal widths the creative preview offers, chosen because these are the
- * widths where inline ad layout actually changes behaviour:
- *
- * - `20` — the transcript renderer's floor. Title and body are both cut hard.
- * - `48` — below this the advertiser's destination domain is not rendered at
- *   all (`MIN_INLINE_WIDTH_WITH_DESTINATION`). This is the surprising one.
- * - `60` — a comfortable terminal, where the ad shows as intended.
- *
- * An earlier draft of the spec offered 60/80/100/120, all four above every
- * real breakpoint, so the preview would have shown an advertiser nothing worth
- * seeing.
- */
-/**
  * How many creative variants one campaign may carry.
  *
  * Lives here rather than beside the store because the campaign BUILDER needs
@@ -60,7 +47,29 @@ export const PLACEMENTS_CONSOLE_ENABLED = true
  */
 export const MAX_PLACEMENT_CREATIVES_PER_CAMPAIGN = 25
 
-export const PLACEMENT_PREVIEW_WIDTHS = [20, 48, 60] as const
+/**
+ * Terminal widths the creative preview offers: the one risky breakpoint plus
+ * the widths people actually run.
+ *
+ * - `48` — the narrowest width that still renders the advertiser's
+ *   destination domain (`MIN_INLINE_WIDTH_WITH_DESTINATION`); one column less
+ *   and it vanishes, which is the surprising case worth showing.
+ * - `80` — the standard terminal, and the default the preview opens on.
+ * - `100` — a wide terminal. Not 120: the preview card is drawn at a literal
+ *   `${width}ch`, and 120 columns is wider than the preview dialog can show
+ *   without a horizontal scrollbar — a preview you have to scroll reads as
+ *   broken, and past ~100 columns nothing else changes (body copy can be 500
+ *   characters, so no single-line width shows the longest copy uncut anyway).
+ *
+ * This set was `20/48/60` — every behavioural breakpoint, including the
+ * renderer's 20-column floor. In practice nobody runs a 20-column terminal
+ * and plenty run wider than 60, so the preview showed the case nobody sees
+ * and stopped short of the ones most people do. The 20-column floor is still
+ * a real renderer fact (`MIN_INLINE_AD_WIDTH`), and the house-ad width budget
+ * still enforces titles there — it is just no longer a preview the console
+ * offers an advertiser.
+ */
+export const PLACEMENT_PREVIEW_WIDTHS = [48, 80, 100] as const
 export type PlacementPreviewWidth = (typeof PLACEMENT_PREVIEW_WIDTHS)[number]
 
 /**
