@@ -371,10 +371,14 @@ describe('command factory pattern', () => {
       const addToQueue = mock(() => {})
       const sendMessage = mock(async () => {})
       const setInputFocused = mock(() => {})
+      const saveToHistory = mock(() => {})
+      const focus = mock(() => {})
       const params = createMockParams({
+        inputRef: { current: { focus } } as RouterParams['inputRef'],
         inputValue: '/btw remember the edge case',
         isStreaming: true,
         addToQueue,
+        saveToHistory,
         sendMessage,
         setInputFocused,
       })
@@ -386,7 +390,9 @@ describe('command factory pattern', () => {
         [attachment],
       )
       expect(sendMessage).not.toHaveBeenCalled()
+      expect(saveToHistory).toHaveBeenCalledWith('/btw remember the edge case')
       expect(setInputFocused).toHaveBeenCalledWith(true)
+      expect(focus).toHaveBeenCalledTimes(1)
       expect(useChatStore.getState().pendingAttachments).toEqual([])
     })
 
