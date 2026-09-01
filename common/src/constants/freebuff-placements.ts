@@ -147,6 +147,32 @@ export const PLACEMENT_SLOTS = [
 ] as const
 
 /**
+ * The surface a placement id belongs to, or `undefined` for an id the registry
+ * does not describe.
+ *
+ * Exists because a client may name a placement and omit its surface (Freebuff
+ * Desktop's `Desktop-Below-Chat` slot does -- deliberately left that way, since
+ * the request surface also steers third-party providers: Gravity reads
+ * `cli_chat` as `inline_response`, and below-chat is not inline), and a first-party
+ * impression stored with `surface = null` is inert: `ad_placement_delivery`
+ * cannot hold it (the column is NOT NULL) and click settlement refuses it
+ * before recording anything -- uncounted, unbilled, and on the CPA redirect an
+ * error page instead of the advertiser. The registry already knows the answer.
+ *
+ * The legacy per-slot CLI ids (`CLI-Chat-Inline-1..8`) are deliberately NOT in
+ * `PLACEMENT_SLOTS` (they are not sellable, see above), but a CLI build that
+ * still sends one is rendering the transcript, so they resolve here.
+ */
+export function placementSurface(
+  placementId: string,
+): (typeof PLACEMENT_SLOTS)[number]['surface'] | undefined {
+  const slot = PLACEMENT_SLOTS.find((entry) => entry.id === placementId)
+  if (slot) return slot.surface
+  if (/^CLI-Chat-Inline-\d+$/.test(placementId)) return 'cli_chat'
+  return undefined
+}
+
+/**
  * The reporting grain a TRACKED LINK click lands on.
  *
  * Deliberately NOT a `PLACEMENT_SLOTS` entry: a tracked link is not a slot,
