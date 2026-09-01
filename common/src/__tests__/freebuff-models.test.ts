@@ -7,6 +7,7 @@ import {
   DEFAULT_FREEBUFF_WEB_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_SOLAR_PRO_4_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS,
   FREEBUFF_DESKTOP_SESSION_LIMITS,
@@ -680,14 +681,25 @@ describe('freebuff model availability', () => {
    * table's SHAPE rather than its emptiness: exactly one capped row, and every
    * other picker model on the shared pool alone.
    */
-  test('no model is capped; every picker row uses the shared pool alone', () => {
-    // EMPTY as of 2026-08-27. Every entry this table has ever held was a claim
-    // that expired: Luna's went 2 -> 3 -> gone across 2026-08-22/23, Pro's went
-    // on 08-22, and GLM 5.3 Flash's came off once its lane was measured. So the
-    // assertion is emptiness, and re-adding a row is a deliberate edit here
-    // rather than something that slips in.
-    expect(Object.keys(FREEBUFF_PER_MODEL_SESSION_CAPS)).toEqual([])
+  test('exactly one model is capped, and it is the trial row', () => {
+    // Every entry this table has ever held was a claim that expired: Luna's
+    // went 2 -> 3 -> gone across 2026-08-22/23, Pro's went on 08-22, and GLM
+    // 5.3 Flash's came off once its lane was measured. It stood EMPTY from
+    // 08-27 until Solar Pro 4 on 08-31.
+    //
+    // The assertion is the exact contents, so re-adding a row stays a
+    // deliberate edit here rather than something that slips in — and so does
+    // REMOVING this one when its measurement window closes.
+    expect(Object.keys(FREEBUFF_PER_MODEL_SESSION_CAPS)).toEqual([
+      FREEBUFF_SOLAR_PRO_4_MODEL_ID,
+    ])
+    // One a day, not two: this row is dearer per message than GLM 5.3 Flash
+    // ever was, and its corrected cost is still unmeasured.
+    expect(
+      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_SOLAR_PRO_4_MODEL_ID]?.limit,
+    ).toBe(1)
     for (const model of FREEBUFF_MODELS) {
+      if (model.id === FREEBUFF_SOLAR_PRO_4_MODEL_ID) continue
       expect(FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]).toBeUndefined()
     }
     // Flash was never here and still must not be: it is the catalog's cheapest

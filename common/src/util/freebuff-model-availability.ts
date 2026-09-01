@@ -63,6 +63,14 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * The partial-time sentence describes the SHARED premium allowance and is
  * unrelated to any of them — it stays.
  *
+ * 2026-08-31: a per-model number is BACK, for Solar Pro 4 at one a day, and
+ * the string calls the row EXPERIMENTAL rather than just capped. That word is
+ * doing real work: a trial row that runs out after a single session behaves
+ * unlike every other model here, and a user who meets that without being told
+ * why reasonably concludes the product is broken. The same word appears on the
+ * refusal itself (freebuffSessionSpendNotice), so the picker and the error
+ * agree. Both come off together when the measurement window closes.
+ *
  * The failure this comment keeps warning about, in both directions: for one
  * commit the cap was gone from the table while this string still promised
  * users "2 sessions a day". The test now checks BOTH — a capped model's number
@@ -70,7 +78,7 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * justified it.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Every model runs on your normal daily sessions — no per-model caps; your shared premium allowance still charges partial time, rounded up to a tenth. MiMo, DeepSeek V4 Flash and GLM 5.3 Flash are unmetered. —❤️ Freebuff Team'
+  'Every model runs on your normal daily sessions, except Solar Pro 4 — an experimental model we are trialling, limited to 1 session a day. Your shared premium allowance still charges partial time, rounded up to a tenth. MiMo, DeepSeek V4 Flash and GLM 5.3 Flash are unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

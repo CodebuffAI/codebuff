@@ -253,6 +253,35 @@ export function freebuffSpendNoticeFor(reason: string): string {
 }
 
 /**
+ * The refusal sentence when ONE SESSION reaches a model's per-session ceiling.
+ *
+ * Distinct from {@link freebuffSpendNoticeFor}, which is about the ACCOUNT and
+ * its day. This one is about a single session on a single row, so the two
+ * things a user needs are different: what still works right now, and why this
+ * particular model ran out so much sooner than the rest of the product.
+ *
+ * Names the model as EXPERIMENTAL when the catalog says so, because without it
+ * this refusal is indistinguishable from the product being broken. A trial row
+ * behaving unlike every other model is a fact about the trial, and saying so is
+ * what turns a support ticket into an understood limitation.
+ *
+ * Follows the same two rules as its siblings above. No number — a published cap
+ * is a published pacing instruction. No reset time — every surface appends its
+ * own, and the duplication reads as a copy bug. It also avoids "limited",
+ * "restricted" and "blocked", which read as a verdict on the account when this
+ * is a property of the model.
+ */
+export function freebuffSessionSpendNotice(verdict: {
+  /** Human-facing name; falls back to the raw id when the catalog has none. */
+  modelLabel: string
+  experimental: boolean
+}): string {
+  return verdict.experimental
+    ? `${verdict.modelLabel} is an experimental model we are trialling, so each session with it is much shorter than usual. Pick another model to keep going now, or start a new session to use it again.`
+    : `This session has used all of its ${verdict.modelLabel} usage. Pick another model to keep going now, or start a new session to use it again.`
+}
+
+/**
  * How far past its ceiling an account may get before a LIVE session is cut.
  *
  * The 1x ceiling above gates fresh admission only. For a $15 account, allowing

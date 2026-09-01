@@ -323,6 +323,24 @@ export const FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT = 'high' as const
  *  So this is a dearer row than Luna ($0.10/$0.60 list), not a cheaper one.
  *  Read the smoke test's implied $/M before quoting a price from the card. */
 export const FREEBUFF_SOLAR_PRO_4_MODEL_ID = 'upstage/solar-pro4'
+
+/**
+ * The OpenRouter endpoint Solar Pro 4 is pinned to — TAG-QUALIFIED, not the
+ * bare `upstage` provider slug.
+ *
+ * OpenRouter lists two endpoints for this model that are identical in price,
+ * context, supported parameters and `provider_name`, and differ only by `tag`:
+ * this one and an untagged `upstage`. The bare slug matches both, which split
+ * traffic across two prompt caches (worse hit rates with no warming than
+ * every other high-volume row) and — because SOLAR_PRO_4_MODEL's
+ * `dataUse: 'service'` rests on the ZDR tag — let half of all turns run on an
+ * endpoint that is not zero-data-retention while the UI suppressed the training
+ * notice.
+ *
+ * See applyOpenRouterProviderRouting for the full reasoning and for the probe
+ * that shows OpenRouter validates tags rather than ignoring them.
+ */
+export const SOLAR_PRO_4_OPENROUTER_ENDPOINT = 'upstage/zdr'
 /**
  * Kimi K3 (Eco), served by CrofAI. God-only on Freebuff Web, for testing.
  *
@@ -1773,6 +1791,120 @@ export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   // premium model absent from every pool becomes UNLIMITED rather than
   // stricter. Dropping the cap changes which pool meters this row, never
   // whether one does.
+  //
+  // SOLAR PRO 4, at ONE a day since 2026-08-31 — the same measurement window
+  // GLM 5.3 Flash got, opened for the same reason and closed the same way.
+  //
+  // The row shipped to every surface on 2026-08-28 with no cap, and the client
+  // release that carried it (0.0.162, 01:42 UTC on 08-31) multiplied its daily
+  // spend by roughly seventy inside fourteen hours. Measured over that first
+  // day it was the joint most expensive row we serve per message, 8-12x the
+  // rows most users are on. (Absolute figures in
+  // ./freebuff-costs.knowledge.md — this file is exported.)
+  //
+  // Its cache rate is why, and it is exactly the uncertainty the paragraph
+  // above describes: far below every other high-volume row, on a lane we had
+  // never run at fleet scale. Part of that is now understood and fixed — the
+  // provider pin was matching two endpoints and splitting the cache in half
+  // (SOLAR_PRO_4_OPENROUTER_ENDPOINT) — and the honest position is that we do
+  // not yet know what the rate settles at once traffic lands on one endpoint.
+  // ONE rather than GLM's two because this row is dearer per message and its
+  // corrected cost is still unmeasured.
+  //
+  // So this is a measurement window and it is MEANT TO COME OFF. Read the cache
+  // rate and $/msg on /web/admin/spend once the pin has been live a full day;
+  // if they land near the other premium rows, raise or remove this and let the
+  // shared premium pool meter the row alone.
+  [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: {
+    limit: 1,
+    pool: 'solar_pro4',
+    poolLabel: 'Daily',
+  },
+}
+
+/**
+ * The catalog's human-facing name for `model`, or the raw id when it has none.
+ *
+ * Falls back to the id rather than to a placeholder: an unrecognised id in a
+ * user-facing sentence should still say WHICH model, and a paused or
+ * pre-catalog row is exactly when that matters.
+ */
+export function freebuffModelLabel(model: string): string {
+  return (
+    SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === model)?.displayName ?? model
+  )
+}
+
+/**
+ * Whether the catalog marks `model` experimental.
+ *
+ * Read by the limit gates so a refusal can name the reason — a tight ceiling on
+ * a trial row is a different message from an ordinary quota error, and users
+ * who hit one without that context reasonably read it as the product being
+ * broken. Derived from the catalog rather than a second list, so a row that
+ * stops being experimental stops saying so everywhere at once.
+ */
+export function isFreebuffExperimentalModel(
+  model: string | null | undefined,
+): boolean {
+  if (!model) return false
+  const row = SUPPORTED_FREEBUFF_MODELS.find((m) => m.id === model)
+  // `in` rather than a property read: the catalog is a union of `as const`
+  // literals and only some carry the optional flag, so a direct access does not
+  // typecheck against the members that omit it.
+  return row !== undefined && 'experimental' in row && row.experimental === true
+}
+
+/**
+ * Per-SESSION dollar ceilings on individual models — a bound on what one
+ * session may cost us, on top of the session COUNT ceilings above.
+ *
+ * The two answer different questions and neither implies the other. A count cap
+ * bounds how many sessions a user may open; it says nothing about what one of
+ * them costs, and on an agentic product that varies by orders of magnitude — a
+ * single long session can spend more than a hundred short ones. This is the
+ * bound on the tail.
+ *
+ * Why it exists at all: Solar Pro 4 shipped uncapped on 2026-08-28 and its
+ * daily spend rose about seventyfold within a day of the client release that
+ * carried it, on a row costing an order of magnitude more per message than the
+ * ones most users are on. A count cap alone would have left one session per
+ * user per day unbounded in cost, which for a row this dear is most of the
+ * exposure. (Absolute figures in ./freebuff-costs.knowledge.md.)
+ *
+ * MEASURED IN DOLLARS OF PROVIDER SPEND, from the same
+ * `freebuffAdmissionSpendFilter` population the daily ceiling uses, so "spend"
+ * means one thing across every gate. Enforced only when a user OPENS A PROMPT
+ * (never per agent step), and only for models listed here — an unlisted model
+ * costs a lookup against this object and no database read at all.
+ *
+ * It is a CEILING, not a budget: a turn already in flight is never killed
+ * mid-stream, because a half-finished agent run is worse for the user than an
+ * honest refusal at the next prompt and the overshoot is bounded by one turn.
+ */
+export const FREEBUFF_PER_MODEL_SESSION_SPEND_CAPS: Readonly<
+  Record<string, number>
+> = {
+  // Solar Pro 4, $0.50 a session since 2026-08-31, alongside its one-a-day
+  // count cap. Sized against the row's own measured economics rather than
+  // picked round: at the rate it ran on 08-31 this buys roughly 25 messages, a
+  // real session on an agentic product, and about twice that at the rate it
+  // should reach once the endpoint pin lands (see
+  // SOLAR_PRO_4_OPENROUTER_ENDPOINT). So the ceiling loosens in practice
+  // exactly as the row gets cheaper, without anyone editing it. (Both rates in
+  // ./freebuff-costs.knowledge.md.)
+  //
+  // Comes off with the count cap, and for the same reason: this is a
+  // measurement window on a row whose corrected cost is not yet known.
+  [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 0.5,
+}
+
+/** The per-session dollar ceiling for `model`, or undefined when it has none. */
+export function getFreebuffPerModelSessionSpendCap(
+  model: string | null | undefined,
+): number | undefined {
+  if (!model) return undefined
+  return FREEBUFF_PER_MODEL_SESSION_SPEND_CAPS[model]
 }
 
 /** Whether `model` carries a ceiling of its own beyond the shared pool. */
