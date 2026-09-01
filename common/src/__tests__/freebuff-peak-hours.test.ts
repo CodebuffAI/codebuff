@@ -132,6 +132,8 @@ describe('every window names the clock it is quoted in', () => {
       insideWindow,
       'Europe/Berlin',
     )
+    // The whole bug in one assertion: the digits differ from the UTC rendering,
+    // so a string that named no zone was wrong for this reader by two hours.
     expect(berlin).toContain('12:00 PM')
     expect(berlin).not.toContain('10:00 AM')
     expect(berlin).toMatch(/GMT\+2|CEST/)
@@ -150,6 +152,9 @@ describe('every window names the clock it is quoted in', () => {
   })
 
   test('an unknown zone falls back to UTC rather than to the host process', () => {
+    // `timeZone: undefined` resolves to whatever the PROCESS runs in, which is
+    // the reader in a browser and a Render container on the server. Only the
+    // explicit argument is deterministic, which is why the server passes one.
     expect(formatDeepSeekExpensiveWindowReturn(insideWindow, 'UTC')).toBe(
       formatDeepSeekExpensiveWindowReturn(insideWindow, 'Etc/UTC'),
     )
