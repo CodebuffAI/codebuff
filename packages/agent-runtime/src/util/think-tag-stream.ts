@@ -27,10 +27,13 @@
  *     mention the tag, a quoted template, a lane with a broken chat template.
  *     The two are indistinguishable while the deltas arrive, so everything
  *     after the open is HELD rather than emitted (same mechanism as rule 3).
- *     A close settles the hold as reasoning; a step that ends without one
- *     releases it as text, so an answer is delayed but never swallowed.
- *     (History still stores the raw text either way — this is a
- *     display/reclassification concern, not context loss.)
+ *     A close settles the hold as reasoning. Past
+ *     {@link EXPLICIT_OPEN_HOLD_CHARS} without one, the hold COMMITS as
+ *     reasoning and the rest of the block streams live — a genuine chain of
+ *     thought runs arbitrarily long, and buffering one until its close would
+ *     freeze the thinking box for the whole trace. A step that ends still
+ *     undecided (never closed, never crossed the bound) releases the hold as
+ *     text, so an answer is delayed but never swallowed.
  *  3. An orphan `</think>` with no open tag — the DeepSeek shape above, where
  *     the open tag was consumed by the chat template's prefill. The text
  *     BEFORE it is reasoning, but by the time the marker arrives that text has
@@ -68,13 +71,22 @@ export interface ThinkTagStreamOptions {
 }
 
 /**
- * How much leading content to hold while waiting for an orphan `</think>`.
+ * How much content an open block may hold while its classification is
+ * undecided, before the hold gives up.
  *
- * A leaked chain of thought runs well past this, so the cap is not there to
- * fit one — it bounds the wrong case. If the marker has not arrived by here
- * the step is answering, not thinking, and the buffer is released as text.
+ * For the implicit head ({@link ThinkTagStreamOptions.implicitOpen}) the cap
+ * bounds the wrong case: a leaked chain of thought runs well past it, so if
+ * the orphan `</think>` has not arrived by here the step is answering, not
+ * thinking, and the buffer is released as text.
+ *
+ * For an explicit `<think>` open the same magnitude is a latency cap, not a
+ * size estimate: past it the hold commits as reasoning ({@link
+ * EXPLICIT_OPEN_HOLD_CHARS}) rather than releasing as text, because a genuine
+ * block legitimately runs long — the wrong case to bound is the waiting, not
+ * the trace.
  */
 export const IMPLICIT_OPEN_BUDGET_CHARS = 4000
+export const EXPLICIT_OPEN_HOLD_CHARS = IMPLICIT_OPEN_BUDGET_CHARS
 
 /**
  * Remove think scaffolding from a fragment, leaving everything else — including
@@ -167,8 +179,9 @@ export class ThinkTagStream {
   private inThinkBlock: boolean
   /** True while `held` is waiting for the close that settles its
    *  classification. Armed by construction (implicitOpen) and by every open
-   *  tag; cleared by the close ({@link confirmOpenHold}) or by giving up
-   *  ({@link abandonOpenHold}) — budget, a native reasoning chunk, or flush. */
+   *  tag; settled by the close or by the explicit hold bound
+   *  ({@link confirmOpenHold}), or given up ({@link abandonOpenHold}) —
+   *  budget, a native reasoning chunk, or flush. */
   private holdingForOpen: boolean
 
   constructor(options: ThinkTagStreamOptions = {}) {
@@ -240,20 +253,26 @@ export class ThinkTagStream {
   }
 
   /** Emit everything withheld. A partial tag that never completed was always
-   *  just text, and content held for a close that never came is the answer —
-   *  releasing both here is what makes the hold lossless. An unclosed open is
-   *  treated exactly like an orphan close: the marker is scaffolding, the
-   *  text around it is the answer. */
+   *  just text — except inside a block that committed as reasoning, where a
+   *  truncated close belongs with the trace it would have ended. Content
+   *  held for a close that never came is the answer: releasing it here is
+   *  what makes the hold lossless. An unclosed open is treated exactly like
+   *  an orphan close — the marker is scaffolding, the text around it is the
+   *  answer. */
   flush(): ThinkStreamSegment[] {
     const segments: ThinkStreamSegment[] = []
     if (this.holdingForOpen) segments.push(...this.abandonOpenHold())
     const trailing = this.partial
     this.partial = ''
-    if (trailing) this.addText(segments, trailing)
+    if (trailing) {
+      if (this.inThinkBlock) this.addReasoning(segments, trailing)
+      else this.addText(segments, trailing)
+    }
     return segments
   }
 
-  /** The close arrived: what was held was reasoning after all. */
+  /** The close arrived — or the hold bound crossed without one: what was
+   *  held was reasoning after all, and the rest of the block streams live. */
   private confirmOpenHold(segments: ThinkStreamSegment[]): void {
     if (!this.holdingForOpen) return
     this.holdingForOpen = false
@@ -273,10 +292,7 @@ export class ThinkTagStream {
     return held ? [{ type: 'text', text: held }] : []
   }
 
-  private addReasoning(
-    segments: ThinkStreamSegment[],
-    text: string,
-  ): void {
+  private addReasoning(segments: ThinkStreamSegment[], text: string): void {
     // A nested/duplicated open tag inside a block is scaffolding, never thought.
     const cleaned = text.split(OPEN_TAG).join('')
     if (!cleaned) return
@@ -285,17 +301,21 @@ export class ThinkTagStream {
       return
     }
     // Undecided: reasoning only if a close confirms it, so hold rather than
-    // send. The budget bounds only the implicit-head speculation — a held
-    // chain of thought from a leaking lane runs well past it, so past the
-    // budget the step is answering, not thinking, and the hold is released as
-    // text. An explicit open gets no budget: a genuine think block can
-    // legitimately run long, and only its close (or flush) settles it.
+    // send. Two give-up points settle it, in opposite directions. The
+    // implicit-head budget releases as TEXT — a held chain of thought from a
+    // leaking lane runs well past it, so past the budget the step is
+    // answering, not thinking. The explicit-open hold COMMITS as reasoning —
+    // a genuine block runs arbitrarily long, and buffering one until its
+    // close would freeze the thinking box for the whole trace, so past the
+    // bound the paired-block reading wins and the rest streams live.
     this.held += cleaned
-    if (
-      this.implicitOpen &&
-      this.held.length >= IMPLICIT_OPEN_BUDGET_CHARS
-    ) {
+    if (this.implicitOpen && this.held.length >= IMPLICIT_OPEN_BUDGET_CHARS) {
       segments.push(...this.abandonOpenHold())
+    } else if (
+      !this.implicitOpen &&
+      this.held.length >= EXPLICIT_OPEN_HOLD_CHARS
+    ) {
+      this.confirmOpenHold(segments)
     }
   }
 

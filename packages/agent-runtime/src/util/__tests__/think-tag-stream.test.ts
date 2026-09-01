@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import {
   historyLeaksThinkTags,
+  EXPLICIT_OPEN_HOLD_CHARS,
   IMPLICIT_OPEN_BUDGET_CHARS,
   stripThinkScaffolding,
   ThinkTagStream,
@@ -91,7 +92,36 @@ describe('ThinkTagStream — paired tags', () => {
       { type: 'text', text: 'Here is the answer.' },
     ])
   })
+  it('commits the hold as reasoning past the bound and streams the rest live', () => {
+    // A genuine long trace (R1-style) must not buffer until its close: past
+    // the hold bound the paired-block reading wins and the block streams.
+    const stream = new ThinkTagStream()
+    const long = 'x'.repeat(EXPLICIT_OPEN_HOLD_CHARS)
+    expect(stream.push(`<think>${long}`)).toEqual([
+      { type: 'reasoning', text: long },
+    ])
+    expect(stream.push(' still going')).toEqual([
+      { type: 'reasoning', text: ' still going' },
+    ])
+    // Committed: a step end releases only the trailing partial, as reasoning.
+    expect(stream.push('</thi')).toEqual([])
+    expect(stream.flush()).toEqual([{ type: 'reasoning', text: '</thi' }])
+  })
 
+  it('keeps the answer as text when an unclosed explicit open stays under the bound', () => {
+    const out = run([`<think>${'y'.repeat(EXPLICIT_OPEN_HOLD_CHARS - 1)}`])
+    expect(joined(out, 'text')).toBe('y'.repeat(EXPLICIT_OPEN_HOLD_CHARS - 1))
+    expect(joined(out, 'reasoning')).toBe('')
+  })
+
+  it('does not commit an implicit head past the explicit bound; text release wins', () => {
+    const stream = new ThinkTagStream({ implicitOpen: true })
+    const long = 'x'.repeat(IMPLICIT_OPEN_BUDGET_CHARS)
+    expect(stream.push(long)).toEqual([{ type: 'text', text: long }])
+    expect(stream.push('</think>tail')).toEqual([
+      { type: 'text', text: 'tail' },
+    ])
+  })
   it('releases an explicit open on a native reasoning chunk as text', () => {
     const stream = new ThinkTagStream()
     expect(stream.push('A <think> quoted open')).toEqual([
@@ -105,7 +135,6 @@ describe('ThinkTagStream — paired tags', () => {
     ])
   })
 })
-
 describe('ThinkTagStream — orphan close, not armed', () => {
   // The default for every non-leaking model: the prose is not reclassified
   // (it already streamed), but the bare marker must never reach a transcript.
@@ -126,7 +155,10 @@ describe('ThinkTagStream — orphan close, not armed', () => {
 describe('ThinkTagStream — orphan close, armed', () => {
   it('reclassifies the head as reasoning once the marker lands', () => {
     const out = run(
-      ['Ключевая зацепка: the bundle knows the type.', 'Do that.</think>Real answer.'],
+      [
+        'Ключевая зацепка: the bundle knows the type.',
+        'Do that.</think>Real answer.',
+      ],
       { implicitOpen: true },
     )
     expect(out).toEqual([
@@ -173,7 +205,9 @@ describe('ThinkTagStream — orphan close, armed', () => {
       { type: 'text', text: ' and more' },
     ])
     // Disarmed: a later marker is stripped, not treated as a close.
-    expect(stream.push('</think>tail')).toEqual([{ type: 'text', text: 'tail' }])
+    expect(stream.push('</think>tail')).toEqual([
+      { type: 'text', text: 'tail' },
+    ])
   })
 
   it('disarms on a native reasoning chunk and releases the head as text', () => {
@@ -223,7 +257,10 @@ describe('historyLeaksThinkTags', () => {
     expect(
       historyLeaksThinkTags([
         { role: 'user', content: [{ type: 'text', text: 'why </think>?' }] },
-        { role: 'assistant', content: [{ type: 'reasoning', text: '</think>' }] },
+        {
+          role: 'assistant',
+          content: [{ type: 'reasoning', text: '</think>' }],
+        },
       ]),
     ).toBe(false)
   })
@@ -238,7 +275,9 @@ describe('stripThinkScaffolding', () => {
 
   it('leaves surrounding whitespace alone, unlike stripThinkTags', () => {
     expect(stripThinkScaffolding('  spaced  ')).toBe('  spaced  ')
-    expect(stripThinkScaffolding('a\n\n<think>x</think>\n\nb')).toBe('a\n\n\n\nb')
+    expect(stripThinkScaffolding('a\n\n<think>x</think>\n\nb')).toBe(
+      'a\n\n\n\nb',
+    )
   })
 })
 
