@@ -102,12 +102,31 @@ describe('freebuffPlanSummary', () => {
 describe('freebuffFreeWindowsSummary', () => {
   test('mirrors the plan window shape so the two share one layout', () => {
     const s = freebuffFreeWindowsSummary({
-      dayUsed: 1, dayLimit: 4, weekUsed: 3, weekLimit: 14, monthUsed: 9, monthLimit: 40,
-      dayResetAt: '2026-09-02T07:00:00Z', monthResetAt: '2026-10-01T07:00:00Z',
+      dayUsed: 1,
+      dayLimit: 4,
+      weekUsed: 3,
+      weekLimit: 14,
+      monthUsed: 9,
+      monthLimit: 40,
+      dayResetAt: '2026-09-02T07:00:00Z',
+      monthResetAt: '2026-10-01T07:00:00Z',
     })!
-    expect(formatPlanWindows(s as never)).toBe('today 1 of 4 · week 3 of 14 · month 9 of 40')
+    expect(formatPlanWindows(s as never)).toBe(
+      'today 1 of 4 · week 3 of 14 · month 9 of 40',
+    )
   })
   test('absent block renders nothing', () => {
     expect(freebuffFreeWindowsSummary(undefined)).toBeUndefined()
+  })
+})
+
+describe('formatPlanUnits', () => {
+  test('rounds float artefacts before formatting', () => {
+    // `limit - used` on fractional session draws: 7 - 6.3 is 0.7000000000000002
+    // in IEEE 754, which once rendered as a 40-character ring centre.
+    expect(formatPlanUnits(7 - 6.3)).toBe('0.7')
+    expect(formatPlanUnits(0.1 + 0.2)).toBe('0.3')
+    expect(formatPlanUnits(3)).toBe('3')
+    expect(formatPlanUnits(3.94)).toBe('3.9')
   })
 })
