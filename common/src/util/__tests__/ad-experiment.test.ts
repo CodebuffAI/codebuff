@@ -9,6 +9,7 @@ import {
   firstPartyAdRouteForGeoRequest,
   firstPartyPrimaryBucket,
   firstPartyPrimaryBasisPoints,
+  houseLegOpen,
   isImpreziaAudienceEmail,
 } from '../ad-experiment'
 
@@ -434,5 +435,26 @@ describe('first-party ahead of Imprezia (COD-338)', () => {
     }
     expect(backfill / 2_000).toBeGreaterThan(0.46)
     expect(backfill / 2_000).toBeLessThan(0.54)
+  })
+})
+
+describe('the house leg (COD-358)', () => {
+  test('opens on Tier 1 and Tier 2, never on unknown geo, never signed out, never off', () => {
+    const on = { houseLeg: true, geoRouting: true }
+    expect(houseLegOpen('user', on, 'tier1')).toBe(true)
+    expect(houseLegOpen('user', on, 'tier2')).toBe(true)
+    expect(houseLegOpen('user', on, 'unknown')).toBe(false)
+    expect(houseLegOpen(null, on, 'tier1')).toBe(false)
+    expect(houseLegOpen('user', { ...on, houseLeg: false }, 'tier1')).toBe(
+      false,
+    )
+  })
+
+  test('with geo routing off there is no tier and the knob alone decides', () => {
+    const off = { houseLeg: true, geoRouting: false }
+    expect(houseLegOpen('user', off, 'unknown')).toBe(true)
+    expect(houseLegOpen('user', { ...off, houseLeg: false }, 'tier1')).toBe(
+      false,
+    )
   })
 })

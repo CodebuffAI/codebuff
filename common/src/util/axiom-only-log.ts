@@ -129,8 +129,10 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   first_party_primary_cohort_percent: 'number',
   /** The opaque cohort that actually produced a first-party fill, or `none`. */
   first_party_served_cohort: 'string',
-  /** `primary`, `gravity_no_fill_backfill`, or `none`. */
+  /** `primary`, `gravity_no_fill_backfill`, `house_leg`, ..., or `none`. */
   first_party_entrypoint: 'string',
+  /** Whether the COD-358 house leg could run on this request (not whether it did). */
+  first_party_house_leg: 'boolean',
   /** CPC geo-pricing state. These names predate inventory geo routing and are
    * kept separate from `first_party_inventory_geo_tier`. */
   first_party_geo_tier: 'string',

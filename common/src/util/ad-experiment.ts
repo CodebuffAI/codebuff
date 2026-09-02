@@ -45,6 +45,11 @@ export const DEFAULT_FIRST_PARTY_BACKFILL = false
 export const DEFAULT_FIRST_PARTY_GEO_ROUTING = false
 export const DEFAULT_FIRST_PARTY_TIER2_BONUS_PERCENT = 0
 export const DEFAULT_FIRST_PARTY_IMPREZIA_ARM_PERCENT = 0
+/**
+ * The house leg (COD-358) is a dark deploy too: absent means the house
+ * campaigns keep their legacy single door behind the paid rotation.
+ */
+export const DEFAULT_FIRST_PARTY_HOUSE_LEG = false
 
 /**
  * Coarse, server-resolved inventory geography. `unknown` is intentionally its
@@ -170,6 +175,34 @@ export function firstPartyAdRouteForUser(
     return 'first_party_primary'
   }
   return config.backfill ? 'gravity_then_first_party' : 'paid_network_only'
+}
+
+/**
+ * Whether the HOUSE leg may run on this request (COD-358).
+ *
+ * The house campaigns are our own promotion: they bill nobody, so none of
+ * the sampled windows above apply to them. The leg sits immediately ahead of
+ * Carbon on CLI/Desktop and at the terminal position on the browser surfaces,
+ * on Tier 1 AND Tier 2. Unknown geography stays closed while geo routing is
+ * on, for the same
+ * reason every other first-party door is: a missing or untrusted signal never
+ * opens inventory. With geo routing off there is no tier, and the knob alone
+ * decides.
+ *
+ * Deliberately NOT a `FirstPartyAdRoute`: the paid routes describe where the
+ * BILLABLE book sits relative to the networks, and the house leg is
+ * orthogonal to all of them -- it runs on the paid-network-only route as
+ * readily as on the backfill one.
+ */
+export function houseLegOpen(
+  userId: string | null | undefined,
+  config: { houseLeg: boolean; geoRouting: boolean },
+  geoTier: FirstPartyAdGeoTier,
+): boolean {
+  if (!config.houseLeg) return false
+  if (!userId) return false
+  if (!config.geoRouting) return true
+  return geoTier === 'tier1' || geoTier === 'tier2'
 }
 
 /**
