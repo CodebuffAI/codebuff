@@ -726,14 +726,16 @@ export const FREEBUFF_PREMIUM_SESSION_LIMIT = 4
 /**
  * Limited-region base sessions per Pacific day.
  *
- * 6 → 3, the one genuinely large cut, and it is aimed rather than broad:
- * `docs/freebuff-trust-levels.md` records that the brand-new-account /
- * unsupported-region / often-VPN intersection is the exact shape of the
- * reselling farms, and this is the pool they drain. A real developer abroad
- * climbs straight back past where they started — Levels take this to 7 — while
- * an account minted to be drained never earns a single rung.
+ * Levels shipped this as 6 → 3, aimed at the brand-new-account /
+ * unsupported-region / often-VPN intersection that `docs/freebuff-trust-levels.md`
+ * records as the shape of the reselling farms. Restored to 6 on 2026-09-02,
+ * the day the switch went on: this pool meters MiMo, the ONLY model a
+ * limited-access account can use without a plan, and MiMo is not a premium
+ * model — halving the one thing those users have is not what the premium
+ * retune (5 → 4) was for. The farms are handled by the trust-level matrix and
+ * the signup gate, not by this base. Levels still take it to 7.
  */
-export const FREEBUFF_LIMITED_SESSION_LIMIT = 3
+export const FREEBUFF_LIMITED_SESSION_LIMIT = 6
 
 /**
  * What those two pools paid BEFORE Levels, and the revert lever.

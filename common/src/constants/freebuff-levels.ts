@@ -140,7 +140,7 @@ export interface FreebuffLevelTier {
 export const FREEBUFF_LEVEL_SESSION_CEILING = 7
 
 /**
- * The table. Eleven rungs from a base of 3 free / 4 premium to a ceiling of 7
+ * The table. Eleven rungs from a base of 6 free / 4 premium to a ceiling of 7
  * on both.
  *
  * ## How the numbers were picked
@@ -164,10 +164,13 @@ export const FREEBUFF_LEVEL_SESSION_CEILING = 7
  * That keeps every rung worth something without inflating the ceiling, and it
  * leaves seven meaningful steps between the base and the top.
  *
- * Level 0 is exactly the reduced base (3 limited / 4 premium), which is what
- * makes `levelSessionBonus` a pure delta. Four engagements — two levels — put
- * a limited-region account back above where it started, and the ceiling on
- * both pools is above every base this product has ever had.
+ * Level 0 is exactly the base (6 limited / 4 premium), which is what makes
+ * `levelSessionBonus` a pure delta. The limited column was 3 at launch and
+ * was restored to 6 on 2026-09-02 — it meters MiMo, the only model a
+ * limited-access account has without a plan, and that pool was never meant
+ * to be the premium cut — so the limited ladder now adds its one session at
+ * the top rungs only. The ceiling on both pools is above every base this
+ * product has ever had.
  *
  * The top rungs grant no further sessions and are deliberately not dead:
  * `trustPerEngagement` keeps climbing (200 at Architect, four times the base),
@@ -181,7 +184,7 @@ export const FREEBUFF_LEVELS: readonly FreebuffLevelTier[] = [
     name: 'Newcomer',
     trustRequired: 0,
     trustPerEngagement: 50,
-    freeSessionsPerDay: 3,
+    freeSessionsPerDay: 6,
     premiumSessionsPerDay: 4,
   },
   {
@@ -189,7 +192,7 @@ export const FREEBUFF_LEVELS: readonly FreebuffLevelTier[] = [
     name: 'Contributor',
     trustRequired: 100,
     trustPerEngagement: 55,
-    freeSessionsPerDay: 4,
+    freeSessionsPerDay: 6,
     premiumSessionsPerDay: 4,
   },
   {
@@ -197,7 +200,7 @@ export const FREEBUFF_LEVELS: readonly FreebuffLevelTier[] = [
     name: 'Builder',
     trustRequired: 275,
     trustPerEngagement: 60,
-    freeSessionsPerDay: 4,
+    freeSessionsPerDay: 6,
     premiumSessionsPerDay: 5,
   },
   {
@@ -205,7 +208,7 @@ export const FREEBUFF_LEVELS: readonly FreebuffLevelTier[] = [
     name: 'Maker',
     trustRequired: 525,
     trustPerEngagement: 70,
-    freeSessionsPerDay: 5,
+    freeSessionsPerDay: 6,
     premiumSessionsPerDay: 5,
   },
   {
@@ -213,7 +216,7 @@ export const FREEBUFF_LEVELS: readonly FreebuffLevelTier[] = [
     name: 'Shipper',
     trustRequired: 875,
     trustPerEngagement: 80,
-    freeSessionsPerDay: 5,
+    freeSessionsPerDay: 6,
     premiumSessionsPerDay: 6,
   },
   {

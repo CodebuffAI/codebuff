@@ -33,7 +33,7 @@ freebuff
 
 **Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
 
-**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes MiMo 2.5, with 3 one-hour sessions per day, and you can earn up to 7 by engaging with promoted posts on the Earn page.
+**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes MiMo 2.5, with 6 one-hour sessions per day, and you can earn up to 7 by engaging with promoted posts on the Earn page.
 
 <!-- BEGIN GENERATED FREEBUFF DATA USE -->
 
