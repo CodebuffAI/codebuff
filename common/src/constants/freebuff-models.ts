@@ -2457,6 +2457,21 @@ export const FREEBUFF_ACTING_USER_HEADER = 'x-freebuff-acting-user-id'
  *  the Freebuff Web service account; from any other caller it is ignored, so
  *  forging it buys nothing. */
 export const FREEBUFF_PRIVILEGED_USER_HEADER = 'x-freebuff-privileged-user'
+/**
+ * The house-ad click id (`bfcid`) lifted out of its first-party freebuff.com
+ * cookie and carried to the Stripe checkout route on codebuff.com, which
+ * stamps it onto the subscription so the webhook can report the conversion.
+ *
+ * Server-to-server only, and deliberately NOT a trusted header — unlike the
+ * two above, forging it buys nothing at all. A bfcid must verify its HMAC at
+ * the conversions endpoint before it attributes anything, so an invented value
+ * yields `400 invalid_click_id` and a stolen one can only credit the campaign
+ * that already earned the click.
+ */
+export const FREEBUFF_AD_CLICK_ID_HEADER = 'x-freebuff-bfcid'
+/** The first-party cookie the hosted conversion tag banks a click id in. Same
+ *  name the tag itself writes; read server-side at checkout. */
+export const FREEBUFF_AD_CLICK_ID_COOKIE = 'bfcid'
 /** Trusted Freebuff Web/Cloud session-proxy hint: also resolve the GLM referral
  * pool, which costs a query of its own. Set by the surfaces that render a GLM
  * row. The name is historical — every other pool is now sent unconditionally —
@@ -2711,9 +2726,7 @@ export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
 //
 // It left FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS in the same change, so the two
 // limited catalogs still agree for this row.
-export const LIMITED_FREEBUFF_MODEL_IDS = [
-  FREEBUFF_MIMO_V25_MODEL_ID,
-] as const
+export const LIMITED_FREEBUFF_MODEL_IDS = [FREEBUFF_MIMO_V25_MODEL_ID] as const
 export const LIMITED_FREEBUFF_MODELS = LIMITED_FREEBUFF_MODEL_IDS.map(
   (modelId) => SUPPORTED_FREEBUFF_MODELS.find((model) => model.id === modelId)!,
 )
@@ -2921,7 +2934,10 @@ export function getRecommendedFreebuffModelId(
   // one was not: an unmetered default is unaffected by a spent premium pool, so
   // stepping off it would move a user from the row they were offered to a
   // different unmetered row for no reason, and tell them their quota caused it.
-  if (options.premiumExhausted && isFreebuffPremiumModelId(DEFAULT_FREEBUFF_MODEL_ID)) {
+  if (
+    options.premiumExhausted &&
+    isFreebuffPremiumModelId(DEFAULT_FREEBUFF_MODEL_ID)
+  ) {
     return FALLBACK_FREEBUFF_MODEL_ID
   }
   return DEFAULT_FREEBUFF_MODEL_ID
@@ -3151,7 +3167,11 @@ export function resolveFreebuffModelForAccessTier(
     if (isRewardModelRedeemableAtLimitedTier(id)) return id as FreebuffModelId
     // A plan model survives it for the same reason: the plan's own windows
     // decide whether the session is joinable, not this allowlist.
-    return isFreebuffModelAllowedForAccessTier(id, accessTier, hasPaidSubscription)
+    return isFreebuffModelAllowedForAccessTier(
+      id,
+      accessTier,
+      hasPaidSubscription,
+    )
       ? (id as FreebuffModelId)
       : LIMITED_FREEBUFF_MODEL_ID
   }
@@ -3394,7 +3414,8 @@ export function isFreebuffGpt56LunaModelId(
 // The rollback path is now `FREEBUFF_PAUSED_FREE_MODEL_IDS`, NOT re-adding the
 // id here: pausing stops admissions on every surface in one deploy, while this
 // list would leave a visible picker row that 403s on send.
-export const FREEBUFF_SERVICE_ONLY_MODEL_IDS = [] as const satisfies readonly string[]
+export const FREEBUFF_SERVICE_ONLY_MODEL_IDS =
+  [] as const satisfies readonly string[]
 
 /** Whether `id` may only be served to the Freebuff Web service account. Matches
  *  dated builds for the same reason the price fence does: a variant that slips
