@@ -652,15 +652,12 @@ export const MultilineInput = forwardRef<
     (key: KeyEvent): boolean => {
       const lowerKeyName = (key.name ?? '').toLowerCase()
       const isAltLikeModifier = isAltModifier(key)
-      const lineStart = findLineStart(value, cursorPosition)
-      const lineEnd = findLineEnd(value, cursorPosition)
-      const wordStart = findPreviousWordBoundary(value, cursorPosition)
-      const wordEnd = findNextWordBoundary(value, cursorPosition)
 
       // Ctrl+U: Delete from cursor to beginning of current VISUAL line
       if (key.ctrl && lowerKeyName === 'u' && !key.meta && !key.option) {
         preventKeyDefault(key)
         if (handleSelectionDeletion()) return true
+        const lineStart = findLineStart(value, cursorPosition)
         const visualLineStart = lineInfo?.lineStartCols?.[cursorRow] ?? lineStart
 
         if (cursorPosition > visualLineStart) {
@@ -690,6 +687,7 @@ export const MultilineInput = forwardRef<
       ) {
         preventKeyDefault(key)
         if (handleSelectionDeletion()) return true
+        const wordStart = findPreviousWordBoundary(value, cursorPosition)
         const newValue =
           value.slice(0, wordStart) + value.slice(cursorPosition)
         onChange({
@@ -704,6 +702,7 @@ export const MultilineInput = forwardRef<
       if (key.name === 'delete' && key.meta && !isAltLikeModifier) {
         preventKeyDefault(key)
         if (handleSelectionDeletion()) return true
+        const lineStart = findLineStart(value, cursorPosition)
         const originalValue = value
         let newValue = originalValue
         let nextCursor = cursorPosition
@@ -742,6 +741,7 @@ export const MultilineInput = forwardRef<
       if (key.name === 'delete' && isAltLikeModifier) {
         preventKeyDefault(key)
         if (handleSelectionDeletion()) return true
+        const wordEnd = findNextWordBoundary(value, cursorPosition)
         const newValue = value.slice(0, cursorPosition) + value.slice(wordEnd)
         onChange({
           text: newValue,
@@ -755,6 +755,7 @@ export const MultilineInput = forwardRef<
       if (key.ctrl && lowerKeyName === 'k' && !key.meta && !key.option) {
         preventKeyDefault(key)
         if (handleSelectionDeletion()) return true
+        const lineEnd = findLineEnd(value, cursorPosition)
         const newValue = value.slice(0, cursorPosition) + value.slice(lineEnd)
         onChange({ text: newValue, cursorPosition, lastEditDueToNav: false })
         return true
@@ -834,28 +835,6 @@ export const MultilineInput = forwardRef<
     (key: KeyEvent): boolean => {
       const lowerKeyName = (key.name ?? '').toLowerCase()
       const isAltLikeModifier = isAltModifier(key)
-      const logicalLineStart = findLineStart(value, cursorPosition)
-      const logicalLineEnd = findLineEnd(value, cursorPosition)
-      const wordStart = findPreviousWordBoundary(value, cursorPosition)
-      const wordEnd = findNextWordBoundary(value, cursorPosition)
-
-      // Read lineInfo inside the callback to get current value (not stale from closure)
-      const currentLineInfo = textRef.current
-        ? ((textRef.current as any).textBufferView as TextBufferView)?.lineInfo
-        : null
-
-      // Calculate visual line boundaries from lineInfo (accounts for word wrap)
-      // Fall back to logical line boundaries if visual info is unavailable
-      const lineStarts = currentLineInfo?.lineStartCols ?? []
-      const visualLineIndex = lineStarts.findLastIndex(
-        (start) => start <= cursorPosition,
-      )
-      const visualLineStart = visualLineIndex >= 0
-        ? lineStarts[visualLineIndex]
-        : logicalLineStart
-      const visualLineEnd = lineStarts[visualLineIndex + 1] !== undefined
-        ? lineStarts[visualLineIndex + 1] - 1
-        : logicalLineEnd
 
       // Alt+Left/B: Word left
       if (
@@ -863,6 +842,7 @@ export const MultilineInput = forwardRef<
         (key.name === 'left' || lowerKeyName === 'b')
       ) {
         preventKeyDefault(key)
+        const wordStart = findPreviousWordBoundary(value, cursorPosition)
         onChange({
           text: value,
           cursorPosition: wordStart,
@@ -877,6 +857,7 @@ export const MultilineInput = forwardRef<
         (key.name === 'right' || lowerKeyName === 'f')
       ) {
         preventKeyDefault(key)
+        const wordEnd = findNextWordBoundary(value, cursorPosition)
         onChange({
           text: value,
           cursorPosition: wordEnd,
@@ -892,6 +873,17 @@ export const MultilineInput = forwardRef<
         (key.name === 'home' && !key.ctrl && !key.meta)
       ) {
         preventKeyDefault(key)
+        const currentLineInfo = textRef.current
+          ? ((textRef.current as any).textBufferView as TextBufferView)?.lineInfo
+          : null
+        const lineStarts = currentLineInfo?.lineStartCols ?? []
+        const visualLineIndex = lineStarts.findLastIndex(
+          (start) => start <= cursorPosition,
+        )
+        const visualLineStart =
+          visualLineIndex >= 0
+            ? lineStarts[visualLineIndex]
+            : findLineStart(value, cursorPosition)
         onChange({
           text: value,
           cursorPosition: visualLineStart,
@@ -907,6 +899,17 @@ export const MultilineInput = forwardRef<
         (key.name === 'end' && !key.ctrl && !key.meta)
       ) {
         preventKeyDefault(key)
+        const currentLineInfo = textRef.current
+          ? ((textRef.current as any).textBufferView as TextBufferView)?.lineInfo
+          : null
+        const lineStarts = currentLineInfo?.lineStartCols ?? []
+        const visualLineIndex = lineStarts.findLastIndex(
+          (start) => start <= cursorPosition,
+        )
+        const visualLineEnd =
+          visualLineIndex >= 0 && lineStarts[visualLineIndex + 1] !== undefined
+            ? lineStarts[visualLineIndex + 1] - 1
+            : findLineEnd(value, cursorPosition)
         onChange({
           text: value,
           cursorPosition: visualLineEnd,
@@ -978,6 +981,10 @@ export const MultilineInput = forwardRef<
       // Up arrow (no modifiers)
       if (key.name === 'up' && !key.ctrl && !key.meta && !key.option) {
         preventKeyDefault(key)
+        const currentLineInfo = textRef.current
+          ? ((textRef.current as any).textBufferView as TextBufferView)?.lineInfo
+          : null
+        const lineStarts = currentLineInfo?.lineStartCols ?? []
         const desiredIndex = getOrSetStickyColumn(lineStarts, !shouldHighlight)
         onChange({
           text: value,
@@ -996,6 +1003,10 @@ export const MultilineInput = forwardRef<
       // Down arrow (no modifiers)
       if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
         preventKeyDefault(key)
+        const currentLineInfo = textRef.current
+          ? ((textRef.current as any).textBufferView as TextBufferView)?.lineInfo
+          : null
+        const lineStarts = currentLineInfo?.lineStartCols ?? []
         const desiredIndex = getOrSetStickyColumn(lineStarts, !shouldHighlight)
         onChange({
           text: value,

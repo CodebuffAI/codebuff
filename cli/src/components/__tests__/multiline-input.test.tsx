@@ -1130,3 +1130,54 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
     expect(isAltModifier({ option: false })).toBe(false)
   })
 })
+
+describe('MultilineInput - word and line boundary operations', () => {
+  function findLineStart(text: string, cursor: number): number {
+    let pos = Math.max(0, Math.min(cursor, text.length))
+    while (pos > 0 && text[pos - 1] !== '\n') pos--
+    return pos
+  }
+
+  function findLineEnd(text: string, cursor: number): number {
+    let pos = Math.max(0, Math.min(cursor, text.length))
+    while (pos < text.length && text[pos] !== '\n') pos++
+    return pos
+  }
+
+  function findPreviousWordBoundary(text: string, cursor: number): number {
+    let pos = Math.max(0, Math.min(cursor, text.length))
+    while (pos > 0 && /\s/.test(text[pos - 1])) pos--
+    while (pos > 0 && !/\s/.test(text[pos - 1])) pos--
+    return pos
+  }
+
+  function findNextWordBoundary(text: string, cursor: number): number {
+    let pos = Math.max(0, Math.min(cursor, text.length))
+    while (pos < text.length && !/\s/.test(text[pos])) pos++
+    while (pos < text.length && /\s/.test(text[pos])) pos++
+    return pos
+  }
+
+  test('finds correct word boundaries backward and forward', () => {
+    const text = 'hello world from freebuff'
+    const cursor = text.length
+
+    const wordStart = findPreviousWordBoundary(text, cursor)
+    expect(wordStart).toBe(17) // starts at 'freebuff'
+
+    const wordStart2 = findPreviousWordBoundary(text, wordStart)
+    expect(wordStart2).toBe(12) // starts at 'from'
+
+    const nextWord = findNextWordBoundary(text, 0)
+    expect(nextWord).toBe(6) // starts at 'world'
+  })
+
+  test('finds correct line boundaries for multiline input', () => {
+    const text = 'line one\nline two\nline three'
+    const midCursor = 13 // in 'line two'
+
+    expect(findLineStart(text, midCursor)).toBe(9)
+    expect(findLineEnd(text, midCursor)).toBe(17)
+  })
+})
+
