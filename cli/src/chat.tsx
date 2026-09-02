@@ -61,7 +61,10 @@ import { useChatStore } from './state/chat-store'
 import { useQueuePanelStore } from './state/queue-panel-store'
 import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
-import { useMessageBlockStore } from './state/message-block-store'
+import {
+  useMessageBlockStore,
+  EMPTY_RESPONSE_ADS,
+} from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
 import { reportActivity } from './utils/activity-tracker'
 import { stopActiveRun } from './utils/active-run'
@@ -109,8 +112,6 @@ import type { BoxRenderable, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { SponsoredProposalContentBlock } from './types/chat'
 import type { Dispatch, SetStateAction } from 'react'
-
-const EMPTY_RESPONSE_ADS: Record<string, AdResponse[]> = {}
 
 export const Chat = ({
   consumeInitialPrompt,

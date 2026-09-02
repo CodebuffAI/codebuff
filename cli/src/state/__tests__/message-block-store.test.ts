@@ -60,4 +60,24 @@ describe('MessageBlockStore equality guards', () => {
 
     unsub()
   })
+
+  test('notifies subscribers when setCallbacks has fewer or different keys (full replacement semantics)', () => {
+    let notifications = 0
+    const currentCallbacks = useMessageBlockStore.getState().callbacks
+
+    const unsub = useMessageBlockStore.subscribe(() => {
+      notifications++
+    })
+
+    // Create a copy omitting one key
+    const subset = { ...currentCallbacks } as Partial<typeof currentCallbacks>
+    delete subset.onBuildFast
+
+    // Passing subset must count as changed because full replacement would remove onBuildFast
+    useMessageBlockStore.getState().setCallbacks(subset as any)
+    expect(notifications).toBe(1)
+    expect('onBuildFast' in useMessageBlockStore.getState().callbacks).toBe(false)
+
+    unsub()
+  })
 })
