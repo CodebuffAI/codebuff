@@ -13,9 +13,12 @@ import { FREEBUFF_SUBSCRIPTION_TIERS } from './freebuff-subscriptions'
  *
  * THE FLOOR IS COPY, NOT INVENTORY. There is no campaign row, no budget, no
  * frequency cap and no targeting behind it, and that is deliberate: a house
- * fallback that can itself return nothing is not a fallback. The serving
- * mechanism lives in `@codebuff/internal/ad-serving/house-ad` and is required
- * to be total over every surface below.
+ * fallback that can itself return nothing is not a fallback. It is also off by
+ * default and unset in production. The CAMPAIGN is a different thing and is
+ * capped: it carries the shared per-user frequency default, the same as any
+ * advertiser who configured none. The floor's serving mechanism lives in
+ * `@codebuff/internal/ad-serving/house-ad` and is required to be total over
+ * every surface below.
  *
  * **This file is published.** `common` ships wholesale to the public mirror
  * (docs/public-repo-sync.md). That is fine here -- it is marketing copy and a
@@ -165,9 +168,9 @@ const inline = (title: string, adText: string): HouseAdCreative => ({
  * Variation 0 is the safest of each set and is what the floor serves: it makes
  * the plainest claim, so it is the one that stays true if the others age.
  *
- * Repetition is handled by rotating these, never by capping the campaign -- a
- * cap means "show the promotion three times, then go back to an empty pane",
- * which is the behaviour this whole feature exists to remove.
+ * Rotation is for VARIETY, not for avoiding a cap. The campaign carries the
+ * same per-user frequency cap as any advertiser who configured none, so the
+ * few impressions a reader does get should not all say the same thing.
  */
 export const HOUSE_AD_VARIATIONS: Readonly<
   Record<HouseAdSurface, readonly HouseAdCreative[]>
