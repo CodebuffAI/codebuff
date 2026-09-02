@@ -71,6 +71,7 @@ import {
   isFreebuffModelId,
   isFreebuffMultimodalModelId,
   isFreebuffPausedFreeModelId,
+  getFreebuffPerModelSessionSpendCap,
   isFreebuffPremiumModelId,
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffSessionModelAvailable,
@@ -708,34 +709,29 @@ describe('freebuff model availability', () => {
    * the claim they encoded (dearer per cache read than the uncapped rows) had
    * inverted once the lanes were measured on the rates they actually bill.
    *
-   * GLM 5.3 Flash is the only entry, and its claim is different in kind: it is
-   * the cheapest premium row per token, and the cap bounds what one account can
-   * cost while its fleet cache rate — the number that actually decides its
-   * price, and one no rate card states — is measured. So this asserts the
-   * table's SHAPE rather than its emptiness: exactly one capped row, and every
-   * other picker model on the shared pool alone.
+   * GLM 5.3 Flash's claim was different in kind — the cheapest premium row per
+   * token, capped only while its fleet cache rate was measured — and Solar Pro
+   * 4's (2026-08-31 to 09-01) expired differently again: the spend figure it
+   * answered was OpenRouter's list-price estimate on a BYOK route, ten times
+   * what Upstage invoiced. So this asserts the table's exact contents, which
+   * today means EMPTY: every picker model on the shared pool alone.
    */
-  test('exactly one model is capped, and it is the trial row', () => {
+  test('no model is capped; every premium row is metered by the shared pool alone', () => {
     // Every entry this table has ever held was a claim that expired: Luna's
-    // went 2 -> 3 -> gone across 2026-08-22/23, Pro's went on 08-22, and GLM
-    // 5.3 Flash's came off once its lane was measured. It stood EMPTY from
-    // 08-27 until Solar Pro 4 on 08-31.
+    // went 2 -> 3 -> gone across 2026-08-22/23, Pro's went on 08-22, GLM 5.3
+    // Flash's came off once its lane was measured (08-27), and Solar Pro 4's
+    // came off on 09-01 once its ledger was corrected to the rate we pay.
     //
     // The assertion is the exact contents, so re-adding a row stays a
-    // deliberate edit here rather than something that slips in — and so does
-    // REMOVING this one when its measurement window closes.
-    expect(Object.keys(FREEBUFF_PER_MODEL_SESSION_CAPS)).toEqual([
-      FREEBUFF_SOLAR_PRO_4_MODEL_ID,
-    ])
-    // One a day, not two: this row is dearer per message than GLM 5.3 Flash
-    // ever was, and its corrected cost is still unmeasured.
-    expect(
-      FREEBUFF_PER_MODEL_SESSION_CAPS[FREEBUFF_SOLAR_PRO_4_MODEL_ID]?.limit,
-    ).toBe(1)
+    // deliberate edit here rather than something that slips in.
+    expect(Object.keys(FREEBUFF_PER_MODEL_SESSION_CAPS)).toEqual([])
     for (const model of FREEBUFF_MODELS) {
-      if (model.id === FREEBUFF_SOLAR_PRO_4_MODEL_ID) continue
       expect(FREEBUFF_PER_MODEL_SESSION_CAPS[model.id]).toBeUndefined()
     }
+    // Solar Pro 4 keeps its per-SESSION dollar ceiling: the count cap was the
+    // answer to a wrong number, the dollar one bounds the tail at the right one.
+    expect(getFreebuffPerModelSessionSpendCap(FREEBUFF_SOLAR_PRO_4_MODEL_ID)).toBe(0.5)
+    expect(isFreebuffPremiumModelId(FREEBUFF_SOLAR_PRO_4_MODEL_ID)).toBe(true)
     // Flash was never here and still must not be: it is the catalog's cheapest
     // competent row, and capping the row most users end up on would push them
     // off it after a single hour.

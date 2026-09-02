@@ -308,20 +308,25 @@ export const FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT = 'high' as const
  *  by `applyOpenRouterProviderRouting`. Context 524,288, text in / text out,
  *  and the `upstage/zdr` (zero data retention) tag.
  *
- *  PRICE: $0.30/M in, $1.20/M out. That is what we are BILLED, measured off
- *  real turns (scripts/solar-pro-4-smoke.ts, 2026-08-25) — NOT the $0.03/$0.12
- *  OpenRouter's card advertises. Two things make the card a decoy here:
+ *  PRICE: Upstage's LIST card is $0.30/M in, $0.06/M cached, $1.20/M out.
+ *  OpenRouter's card shows $0.03/$0.006/$0.12 with `"discount": 0.9` — that is
+ *  Upstage's own launch promo ("Solar Pro 4: 90% off through Sep 10 (UTC)" on
+ *  the Upstage console), not an OpenRouter-only price.
  *
- *   - The endpoint carries `"discount": 0.9`, and the card shows the
- *     discounted price. The discount applies to OpenRouter-served capacity.
- *   - This route is BYOK (`usage.is_byok: true`) — OpenRouter serves it with
- *     our own Upstage key, which does not get that discount. Top-level
- *     `usage.cost` is therefore 0 and the real spend arrives in
- *     `cost_details.upstream_inference_cost`. extractUsageAndCost takes the
- *     max of the two, so the ledger is right; a naive read of `cost` is not.
+ *  The route is BYOK (`usage.is_byok: true`): OpenRouter serves it with our
+ *  own Upstage key, bills nothing itself (`usage.cost` is 0) and reports an
+ *  ESTIMATE of the upstream charge in `cost_details.upstream_inference_cost`,
+ *  computed at the LIST card. It does not know our key is on the promo, so
+ *  through 2026-09-10 that estimate is ten times Upstage's invoice. An earlier
+ *  version of this comment read the estimate as "what we are billed" and
+ *  concluded BYOK forfeits the discount; Upstage's invoice says otherwise.
  *
- *  So this is a dearer row than Luna ($0.10/$0.60 list), not a cheaper one.
- *  Read the smoke test's implied $/M before quoting a price from the card. */
+ *  The OpenRouter lane therefore reprices this model from tokens while the
+ *  promo runs (web/src/llm-api/openrouter-price-overrides.ts, with the dates),
+ *  and falls back to OpenRouter's figure — correct again at list — when it
+ *  ends. At list this is a dearer row than Luna ($0.10/$0.60), so the caps in
+ *  FREEBUFF_PER_MODEL_SESSION_SPEND_CAPS tighten tenfold overnight on 09-11;
+ *  decide the row's fate before then. */
 export const FREEBUFF_SOLAR_PRO_4_MODEL_ID = 'upstage/solar-pro4'
 
 /**
@@ -1832,34 +1837,29 @@ export const FREEBUFF_PER_MODEL_SESSION_CAPS: Readonly<
   // stricter. Dropping the cap changes which pool meters this row, never
   // whether one does.
   //
-  // SOLAR PRO 4, at ONE a day since 2026-08-31 — the same measurement window
-  // GLM 5.3 Flash got, opened for the same reason and closed the same way.
+  // SOLAR PRO 4 held the one entry from 2026-08-31 to 2026-09-01, at ONE a
+  // day — the same measurement window GLM 5.3 Flash got, and it closed after a
+  // day for a reason none of the earlier windows had.
   //
-  // The row shipped to every surface on 2026-08-28 with no cap, and the client
-  // release that carried it (0.0.162, 01:42 UTC on 08-31) multiplied its daily
-  // spend by roughly seventy inside fourteen hours. Measured over that first
-  // day it was the joint most expensive row we serve per message, 8-12x the
-  // rows most users are on. (Absolute figures in
-  // ./freebuff-costs.knowledge.md — this file is exported.)
+  // The row shipped to every surface on 2026-08-28 with no cap, and on 08-31
+  // its recorded daily spend multiplied by roughly seventy inside fourteen
+  // hours, to the joint most expensive row per message we served. The cap was
+  // a response to that figure — and the figure was wrong by an order of
+  // magnitude. The route is BYOK and the ledger was recording OpenRouter's
+  // estimate at Upstage's list card, while Upstage was invoicing us at its
+  // launch promo, one tenth of it (see the PRICE note on
+  // FREEBUFF_SOLAR_PRO_4_MODEL_ID). Corrected, the row sits with the cheaper
+  // premium rows, so the window closed on 09-01 and the shared premium pool
+  // meters it alone — which, per the invariant below, is a change of pool and
+  // not a change of whether one applies.
   //
-  // Its cache rate is why, and it is exactly the uncertainty the paragraph
-  // above describes: far below every other high-volume row, on a lane we had
-  // never run at fleet scale. Part of that is now understood and fixed — the
-  // provider pin was matching two endpoints and splitting the cache in half
-  // (SOLAR_PRO_4_OPENROUTER_ENDPOINT) — and the honest position is that we do
-  // not yet know what the rate settles at once traffic lands on one endpoint.
-  // ONE rather than GLM's two because this row is dearer per message and its
-  // corrected cost is still unmeasured.
-  //
-  // So this is a measurement window and it is MEANT TO COME OFF. Read the cache
-  // rate and $/msg on /web/admin/spend once the pin has been live a full day;
-  // if they land near the other premium rows, raise or remove this and let the
-  // shared premium pool meter the row alone.
-  [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: {
-    limit: 1,
-    pool: 'solar_pro4',
-    poolLabel: 'Daily',
-  },
+  // What remains: the per-SESSION dollar ceiling in
+  // FREEBUFF_PER_MODEL_SESSION_SPEND_CAPS, which at the corrected rate is a
+  // bound on the tail rather than a wall after a few prompts. Two things about
+  // the row are still not measured and would justify re-adding an entry here:
+  // its cache rate on the single pinned endpoint (the 08-31 figure was two
+  // endpoints' worth, and the day the cap ran truncated every session too
+  // short to warm), and its cost at LIST once the promo ends on 2026-09-10 UTC.
 }
 
 /**
@@ -1934,8 +1934,15 @@ export const FREEBUFF_PER_MODEL_SESSION_SPEND_CAPS: Readonly<
   // exactly as the row gets cheaper, without anyone editing it. (Both rates in
   // ./freebuff-costs.knowledge.md.)
   //
-  // Comes off with the count cap, and for the same reason: this is a
-  // measurement window on a row whose corrected cost is not yet known.
+  // The count cap came off on 2026-09-01; this one deliberately stayed. Since
+  // that day the ledger records the row at the promo rate we are invoiced
+  // rather than OpenRouter's list-price estimate (see the PRICE note on
+  // FREEBUFF_SOLAR_PRO_4_MODEL_ID). The "roughly 25 messages" above was
+  // measured against the inflated figure; at the corrected one the same $0.50
+  // buys about ten times as many, which turns this from a wall after a few
+  // prompts into what it was meant to be — a bound on the runaway tail. When
+  // the promo ends the ledger steps back up and this ceiling bites ten times
+  // sooner, unchanged; that is the moment to revisit it along with the row.
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 0.5,
 }
 

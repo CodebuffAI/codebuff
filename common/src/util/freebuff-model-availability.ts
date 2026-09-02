@@ -76,9 +76,17 @@ export const FREEBUFF_PAUSED_MODEL_NOTICE =
  * users "2 sessions a day". The test now checks BOTH — a capped model's number
  * must appear, and a per-model session count must not survive the cap that
  * justified it.
+ *
+ * 2026-09-01: Solar Pro 4's number is gone again, after one day. The spend
+ * figure that justified it was OpenRouter's list-price estimate on a BYOK
+ * route, ten times what Upstage invoices under its launch promo; corrected,
+ * the row is metered by the shared pool like every other premium model. The
+ * string SAYS the limit was lifted rather than going silent, because the users
+ * who met the cap yesterday are the ones reading this today — but it quotes no
+ * count, so the empty-table half of the test holds.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Every model runs on your normal daily sessions, except Solar Pro 4 — an experimental model we are trialling, limited to 1 session a day. Your shared premium allowance still charges partial time, rounded up to a tenth. MiMo, DeepSeek V4 Flash and GLM 5.3 Flash are unmetered. —❤️ Freebuff Team'
+  'Every model runs on your normal daily sessions, including Solar Pro 4 — its one-a-day trial limit has been lifted. Your shared premium allowance still charges partial time, rounded up to a tenth. MiMo, DeepSeek V4 Flash and GLM 5.3 Flash are unmetered. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {
