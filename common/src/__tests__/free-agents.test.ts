@@ -698,8 +698,10 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-deepseek-pro-max': BASE2,
     'base2-free-deepseek-flash-max': BASE2,
     'base2-free-luna-max': BASE2,
-    // Web-only Muse Spark root; createBase2('free', …) like its siblings.
+    // Muse Spark roots (1.2 draining, 1.3 live); createBase2('free', …) like
+    // their siblings.
     'base2-free-muse-spark': BASE2,
+    'base2-free-muse-spark-1-3': BASE2,
     // Web/Cloud-only Ox Alpha root; createBase2('free', …) like its siblings.
     'base2-free-ox-alpha': BASE2,
     'base2-free-cloud-planner': CLOUD_PLANNER,

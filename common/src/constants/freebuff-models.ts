@@ -399,17 +399,22 @@ export const FREEBUFF_FABLE_5_MODEL_ID = 'anthropic/claude-fable-5'
  * prefix names the only place it exists — there is no second wire id, so it
  * cannot become a quota-bypass route the way `crof/glm-5.2` did.
  *
- * FREEBUFF WEB ONLY. It is absent from FREEBUFF_MODELS and
- * SUPPORTED_FREEBUFF_MODELS, so no CLI/Desktop build can select it and
- * `isFreebuffSessionModelId` refuses it on those surfaces. Web reaches it
- * through FREEBUFF_WEB_MODELS.
+ * RETIRED FROM EVERY PICKER ON 2026-09-02, replaced by
+ * FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID below. The id is still served —
+ * it stays in FREEBUFF_WEB_MODELS and the Web premium pool — because a Web
+ * session admitted on it before the deploy runs for the rest of its hour, and
+ * dropping the id from the catalog fails that session's admission mid-run
+ * (see FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS, which is what hides the row).
+ * Keeping it reachable is harmless in the meantime: it costs the same, is
+ * metered by the same pool, and draws on the same Contributor-tier budget at
+ * Meta as the row that replaced it. A saved 1.2 pick is rewritten to 1.3 by
+ * `supersededBy`. Delete the row, its roots and the retired-list entry once
+ * live sessions have drained.
  *
- * The reason for the narrow surface is the rate limit, not the price: the
- * Contributor tier is capped at 60 RPM per TEAM — i.e. across every Freebuff
- * user at once — against Standard's 3,000. That is roughly one request per
- * second for the whole product, so this model needs the Convex-side queue
- * (see docs/freebuff-muse-spark.md) that the browser can render a wait for.
- * The CLI has no such queue and would just surface 429s.
+ * It was Freebuff Web only for its whole life: the Contributor tier was capped
+ * at 60 requests/minute per TEAM, and the only surface that could render the
+ * resulting wait was the browser (docs/freebuff-muse-spark.md). What changed
+ * that for 1.3 is below.
  *
  * Contributor pricing (a small fraction of Standard's published per-M rates;
  * the negotiated numbers stay out of this exported file) is bought with
@@ -421,10 +426,67 @@ export const FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID =
 /** Meta's own model id for the wire id above — what api.meta.ai receives. */
 export const MUSE_SPARK_12_CONTRIBUTOR_UPSTREAM_MODEL_ID =
   'muse-spark-1.2-contributor'
-/** Published Contributor-tier limit: 60 requests/min PER TEAM, shared by every
- *  Freebuff user. Sizes the queue's drain rate, so keep it in sync with
- *  https://dev.meta.ai/docs/pricing-rate-limits. */
-export const MUSE_SPARK_CONTRIBUTOR_RPM = 60
+
+/**
+ * Meta Muse Spark 1.3 (Contributor tier) — the current Muse Spark row,
+ * FREEBUFF WEB AND CLOUD ONLY since 2026-09-02, exactly where 1.2 was.
+ *
+ * Same Contributor terms as 1.2: the same per-token price and the same
+ * training grant (`dataUse: 'training'`), so the disclosure on the row is
+ * unchanged. Meta's card for it: a 1,048,576-token context, tuned for
+ * agentic multi-step tool work, with better coding than 1.2. It also shares
+ * 1.2's RATE LIMIT — Meta meters the Contributor tier as one bucket across
+ * both versions — so this row adds capability, not capacity.
+ *
+ * Absent from FREEBUFF_MODELS and SUPPORTED_FREEBUFF_MODELS, so no CLI or
+ * Desktop build can select it; Web reaches it through FREEBUFF_WEB_MODELS.
+ * Those catalogs are a client-side filter, not the gate: the gate is
+ * FREEBUFF_SERVICE_ONLY_MODEL_IDS, which refuses the model to any request not
+ * authenticated as the Web runner's own service account — the one claim a
+ * hand-written API caller cannot make. That is a STAGING decision, not the
+ * structural one 1.2's was. 1.2 could not
+ * leave the browser because a team-wide ceiling needs a wait the surface can
+ * explain; since 2026-09-02 anything the silent retry window cannot absorb is
+ * served on MUSE_SPARK_FALLBACK_MODEL_ID with no client involvement, so the
+ * CLI and Desktop COULD carry this row. They do not yet because a swap of
+ * Meta model under the same terms should prove itself on the surfaces that
+ * already ran 1.2 first — completion rate, spend per message and the
+ * `muse_spark_fallback` share on Web and Cloud — before every released
+ * binary is asked to hold the id. Widening is then: SUPPORTED_ and
+ * FREEBUFF_MODELS entries, FREEBUFF_PREMIUM_MODEL_IDS (in place of the explicit
+ * Web premium entry), the Desktop bucket and allowlist, a CLI root in
+ * `agents/`, and the four lists in docs/freebuff-base3-harness.md.
+ *
+ * Still PREMIUM, and not for the usual reason: it is cheaper per token than
+ * the unmetered rows. The shared daily premium pool is doing a different job
+ * here — bounding how many accounts sit inside the team-wide ceiling at once —
+ * and being in SOME pool is mandatory, since FREEBUFF_STANDARD_MODEL_IDS is
+ * derived by filtering `!premium`.
+ */
+export const FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID =
+  'meta/muse-spark-1.3-contributor'
+/** Meta's own model id for the wire id above — what api.meta.ai receives. */
+export const MUSE_SPARK_13_CONTRIBUTOR_UPSTREAM_MODEL_ID =
+  'muse-spark-1.3-contributor'
+/** Every Muse Spark wire id, current first. One entry per Meta model, and
+ *  every entry is metered by the same pool: a second id for the SAME upstream
+ *  model would be the `crof/glm-5.2` quota-bypass shape, which this list is
+ *  not — 1.2 and 1.3 are different models on one shared rate-limit bucket. */
+export const FREEBUFF_MUSE_SPARK_MODEL_IDS = [
+  FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+] as const
+/** Contributor-tier limits, PER TEAM and shared by every Freebuff user — and
+ *  shared across BOTH Contributor versions, so 1.3 did not add headroom.
+ *  Meta's pricing page says 100 RPM / 3M TPM (up from 60 RPM in Aug 2026);
+ *  the `x-ratelimit-limit-*` headers on a live 2026-09-02 response for OUR
+ *  team said **150** requests and 3,000,000 tokens, and the header is what
+ *  the limiter actually enforces, so that is the number recorded here. The
+ *  TPM figure is the one to watch for agent traffic, since a single
+ *  long-context request spends far more of it than of the request budget.
+ *  Re-check both against a live response after any key or team change. */
+export const MUSE_SPARK_CONTRIBUTOR_RPM = 150
+export const MUSE_SPARK_CONTRIBUTOR_TPM = 3_000_000
 /**
  * Reasoning effort sent with every Muse Spark request.
  *
@@ -683,12 +745,17 @@ export const MUSE_SPARK_FALLBACK_MODEL_ID = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 /**
  * How long a caller may be asked to wait before the request is rerouted.
  *
- * Deliberately the same 10s as the provider's silent retry window, and that
- * identity is the whole design: a wait we can hide costs nothing and keeps the
- * user on the model they picked, while a wait we would have to *explain* is
- * worse than quietly serving the answer on a peer model. Meta answers a real
- * rate limit with `Retry-After: 60`, so in practice this splits cleanly —
- * blips are absorbed, genuine saturation reroutes.
+ * This IS the provider's silent retry window — `web/src/llm-api/meta.ts`
+ * imports it rather than keeping a twin — and that identity is the whole
+ * design: a wait we can hide costs nothing and keeps the user on the model
+ * they picked, while a wait we would have to *explain* is worse than quietly
+ * serving the answer on a peer model. So the rule is exactly two-sided: a
+ * rate limit the window absorbs is invisible, and a rate limit that outlives
+ * it reroutes. There is no third outcome. (Until 2026-09-02 there was one — a
+ * handoff whose remaining Retry-After happened to be under this number fell
+ * through to the Web queue, or to a bare 429 on any surface without one. That
+ * gap is what kept the model browser-bound, and closing it is what makes a
+ * later CLI/Desktop rollout a catalog change rather than a design one.)
  */
 export const MUSE_SPARK_FALLBACK_AFTER_MS = 10_000
 
@@ -1554,19 +1621,15 @@ const FABLE_5_MODEL = {
 } as const satisfies FreebuffModelOption
 
 /**
- * Meta Muse Spark 1.2 Contributor. Premium on Web, and unusual in WHY: every
- * other premium row is priced premium, while this one is cheaper per token than
- * DeepSeek V4 Flash. What is scarce is the 60 RPM team-wide rate limit, so the
- * daily premium session pool is doing double duty here as a way to bound how
- * many people are inside that limit at once. See
- * FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID.
+ * Meta Muse Spark 1.2 Contributor — RETIRED from the picker on 2026-09-02 and
+ * kept only so live Web sessions drain (FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS
+ * hides it; see FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID for the removal
+ * order). Every field except `supersededBy` is as it shipped, so a session
+ * still on it behaves exactly as it did.
  */
 const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
   id: FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   displayName: 'Muse Spark 1.2',
-  // The tagline names the thing that actually differentiates this row for a
-  // user: it is the one model that can make you wait. Context length is not
-  // what they need to know before picking it.
   tagline: 'Queue',
   taglineTooltip: MUSE_SPARK_FALLBACK_NOTICE,
   availability: 'always',
@@ -1579,6 +1642,52 @@ const MUSE_SPARK_12_CONTRIBUTOR_MODEL = {
   reasoningEffort: FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
   efforts: EFFORTS_THROUGH_XHIGH,
   defaultEffort: FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
+  // The one supersedes pointer in the catalog, and a strict version bump
+  // rather than a steer: identical price, identical terms, identical pool, a
+  // better model. migrateSupersededFreebuffModelPreference rewrites a saved
+  // 1.2 pick to 1.3 on load, which is the only way a browser that remembered
+  // this row ever reaches the new one — the retired row itself is not offered.
+  supersededBy: {
+    modelId: FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+    notice:
+      'Muse Spark 1.3 replaces 1.2: same price and terms, better at agentic coding.',
+    actionLabel: 'Switch to Muse Spark 1.3',
+  },
+} as const satisfies FreebuffModelOption
+
+/**
+ * Meta Muse Spark 1.3 Contributor. Premium on Web and Cloud, and unusual in
+ * WHY: every other premium row is priced premium, while this one is cheaper
+ * per token than DeepSeek V4 Flash. What is scarce is the team-wide rate
+ * limit, so the daily premium session pool is doing double duty here as a way
+ * to bound how many people are inside that limit at once. See
+ * FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID for why it stays off the CLI and
+ * Desktop for now, and what widening it takes.
+ */
+const MUSE_SPARK_13_CONTRIBUTOR_MODEL = {
+  id: FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  displayName: 'Muse Spark 1.3',
+  // The tagline names the thing that actually differentiates this row for a
+  // user: it is the one model that may quietly answer as another. The
+  // tooltip names which. Written so it still carries the caveat on a picker
+  // with no tooltip, which is what the CLI and Desktop would be.
+  tagline: 'Falls back when busy',
+  taglineTooltip: MUSE_SPARK_FALLBACK_NOTICE,
+  availability: 'always',
+  // Load-bearing pair (a catalog invariant test enforces it): the Contributor
+  // tier's whole discount is Meta training on prompts and completions.
+  warning: FREEBUFF_AI_TRAINING_NOTICE,
+  dataUse: 'training',
+  premium: true,
+  // Meta lists image/video/PDF input for this model, but the Meta handler
+  // sends text only; an image reaching this row is substituted with a
+  // vision-model description at the completions layer, which is a real
+  // fallback and not a capability worth badging (same call as 1.2).
+  multimodal: false,
+  reasoningEffort: FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
+  efforts: EFFORTS_THROUGH_XHIGH,
+  defaultEffort: FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
+  isNew: true,
 } as const satisfies FreebuffModelOption
 
 /**
@@ -2175,6 +2284,15 @@ export const FREEBUFF_WEB_MODELS = [
   // back in the picker without making it admissible — a visible row whose
   // first send is coerced away, which is the offer-without-gate shape
   // common/src/testing/freebuff-offer-invariants.ts exists to catch.
+  // Muse Spark 1.3 Contributor took 1.2's place on 2026-09-02 — here, and
+  // only here: it is deliberately absent from FREEBUFF_MODELS while its
+  // performance is measured on the surfaces that already ran 1.2 (see the
+  // constant for what widening it takes).
+  MUSE_SPARK_13_CONTRIBUTOR_MODEL,
+  // Muse Spark 1.2 is RETIRED from the picker as of 2026-09-02
+  // (FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS) and stays here only so sessions
+  // admitted on it finish their hour. Remove this entry with the row once
+  // those sessions have drained.
   MUSE_SPARK_12_CONTRIBUTOR_MODEL,
   // GLM 5.2 LEFT on 2026-08-31, when the reward it backed moved to GLM 5.3
   // Flash and the row was withdrawn (FREEBUFF_PAUSED_FREE_MODEL_IDS). It
@@ -2216,7 +2334,7 @@ export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = Object.freeze(
  * dropping a live session's model from the catalog fails admission mid-run and
  * dropping it from its quota list alone would leave it metered by NO pool.
  *
- * DELIBERATELY EMPTY, and the bar for adding to it is high.
+ * EMPTY BY DEFAULT, and the bar for adding to it is high.
  *
  * A picker-only retirement is a UI change, not a gate: the filter runs
  * client-side, so anything talking to the API directly still reaches the id.
@@ -2230,7 +2348,16 @@ export const FREEBUFF_WEB_GOD_ONLY_MODEL_IDS = Object.freeze(
  * itself, and never for a model that costs real money or is entitlement-earned.
  * Then finish the removal.
  */
-export const FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS = [] as const
+export const FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS = [
+  // Muse Spark 1.2, from 2026-09-02, while sessions admitted on it drain. This
+  // is the case the bar above was set for: the id being reachable meanwhile
+  // is harmless because it costs exactly what its replacement costs, is
+  // metered by the same premium pool, and spends the same Contributor-tier
+  // budget at Meta. A saved pick is rewritten to 1.3 by `supersededBy`.
+  // Finish the removal (row, roots, allowlist entries, this line) once the
+  // last 1.2 session is gone — a day is plenty.
+  FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+] as const
 
 /** Whether the Web/Cloud picker should offer `id` as a new selection. False
  *  for retired routes (see FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS), which the
@@ -2257,10 +2384,16 @@ export const FREEBUFF_WEB_PREMIUM_MODEL_IDS = [
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   // Not here for cost — Muse Spark Contributor is cheaper per token than the
-  // Standard pool's models. The premium pool is what bounds how many users sit
-  // inside its 60 RPM team-wide ceiling at once, and being in SOME pool is
-  // mandatory: FREEBUFF_STANDARD_MODEL_IDS is derived by filtering
-  // `!premium`, so a premium model left out of here is metered by no pool.
+  // unmetered rows. The premium pool is what bounds how many users sit inside
+  // its team-wide ceiling at once, and being in SOME pool is mandatory:
+  // FREEBUFF_STANDARD_MODEL_IDS is derived by filtering `!premium`, so a
+  // premium model left out of here is metered by no pool. Explicit rather
+  // than inherited from FREEBUFF_PREMIUM_MODEL_IDS because the row is Web and
+  // Cloud only; the CLI's pool must not learn a model the CLI cannot select.
+  FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  // 1.2, retired from the picker but still served while its sessions drain
+  // (FREEBUFF_WEB_RETIRED_PICKER_MODEL_IDS): metered for exactly as long as it
+  // is served.
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
 ] as const
 
@@ -3289,12 +3422,16 @@ export function isFreebuffWebPremiumModelId(
   )
 }
 
-/** True for the Muse Spark wire id. Suffix-tolerant like the other model
- *  predicates so a dated provider snapshot can't slip past the rate-limit queue
- *  that keys off it (see docs/freebuff-muse-spark.md). */
+/** True for any Muse Spark Contributor wire id (FREEBUFF_MUSE_SPARK_MODEL_IDS).
+ *  Every version shares one team-wide rate limit at Meta, so the queue, the
+ *  cooldown and the fallback that key off this predicate treat them as one
+ *  model. Suffix-tolerant like the other model predicates so a dated provider
+ *  snapshot can't slip past the rate-limit queue (docs/freebuff-muse-spark.md). */
 export function isMuseSparkModelId(id: string | null | undefined): boolean {
   if (!id) return false
-  return freebuffModelIdMatches(id, FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)
+  return FREEBUFF_MUSE_SPARK_MODEL_IDS.some((modelId) =>
+    freebuffModelIdMatches(id, modelId),
+  )
 }
 
 export function isFreebuffSessionPremiumModelId(
@@ -3384,31 +3521,36 @@ export function isFreebuffGpt56LunaModelId(
  * Cloud only" is expressed as "authenticated as the runner", which is the same
  * statement made in the only terms an attacker cannot restate.
  *
- * ONLY OX ALPHA IS LISTED, deliberately. Muse Spark and Kimi K3 Eco are also
- * browser-only and would also pass this gate in normal operation, but they are
- * metered by the premium pool, so a third-party caller reaching one spends a
- * quota that runs out. Ox Alpha is metered by NOTHING and costs nothing to
- * serve, which makes it the single most attractive target in the catalog for a
- * reselling proxy — the one row where "they can only take four sessions a day"
- * is not a backstop. Add the others here too if that ever stops being the
- * distinction; the check is per-model on purpose.
+ * MUSE SPARK IS LISTED (both Contributor versions) as of 2026-09-02. Its
+ * premium-pool metering was the reason it was left off while Ox Alpha was
+ * the only entry — a third-party caller reaching a metered row spends a quota
+ * that runs out — and that argument turned out to be weaker than it read:
+ * over 1.2's only production run, 52% of its messages carried a non-browser
+ * surface even though no CLI or Desktop build could select it, because the
+ * catalogs are a client-side filter and every other gate (agent id, model id,
+ * self-reported surface) is text the caller writes. What a proxy spends on
+ * this row is not the point either: the row's scarce resource is a team-wide
+ * rate limit shared by every real user, and every request a proxy makes is a
+ * request a browser turn cannot. So the fence here is the one the model
+ * actually needs. Kimi K3 Eco stays off the list: it is god-gated on its own.
  *
  * Enforced in web/src/app/api/v1/chat/completions/_post.ts, next to the
  * free-mode agent+model allowlist. That is where inference is actually spent,
  * so a caller who somehow admits a session still cannot run a single turn on it.
  */
-// EMPTIED 2026-08-24, when Ox Alpha went to CLI and Desktop.
+// This list means "served only to the Freebuff Web service account", and it is
+// the one real gate that keeps a model on surfaces we can withdraw it from in a
+// single deploy. Shipping a row inside a CLI binary is incompatible with that
+// promise — keeping the id here would 403 every CLI and Desktop turn — which
+// is why Ox Alpha LEFT on 2026-08-24 when it went to the CLI and Desktop, and
+// why the list sat empty until Muse Spark 1.3 was staged on Web/Cloud.
 //
-// This list means "served only to the Freebuff Web service account", and it was
-// the one real gate keeping the model on surfaces we could withdraw it from in
-// a single deploy. Shipping the row inside a CLI binary is incompatible with
-// that promise, so the gate could not survive the rollout -- keeping the id
-// here would 403 every CLI and Desktop turn.
-//
-// Understand what that costs before adding a model here again, or removing one:
-// Ox Alpha is metered by NOTHING (premium: false, no pool, price fenced at $0),
-// which made it the single most attractive row in the catalog for a reselling
-// proxy. The remaining defences are narrower than this one was:
+// So this entry and the CLI/Desktop rollout are mutually exclusive by
+// construction. Widening Muse Spark to the CLI and Desktop (the checklist on
+// FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID) REQUIRES removing it from here
+// in the same change, and the reverse: as long as the row is browser-only, a
+// missing entry here means the catalogs are the only gate, and they are not
+// one. The remaining defences without it are narrower:
 //
 //   - the tool-schema check (docs/freebuff-abuse-detection.md), which downgrades
 //     third-party clients on every model, but not a caller who has faithfully
@@ -3416,11 +3558,15 @@ export function isFreebuffGpt56LunaModelId(
 //   - FREEBUFF_PAUSED_FREE_MODEL_IDS, which is the rollback lever rather than a
 //     standing gate
 //
-// The rollback path is now `FREEBUFF_PAUSED_FREE_MODEL_IDS`, NOT re-adding the
-// id here: pausing stops admissions on every surface in one deploy, while this
-// list would leave a visible picker row that 403s on send.
-export const FREEBUFF_SERVICE_ONLY_MODEL_IDS =
-  [] as const satisfies readonly string[]
+// Withdrawing a model entirely is still `FREEBUFF_PAUSED_FREE_MODEL_IDS`, not
+// this list: pausing stops admissions on every surface in one deploy, while
+// this list leaves a visible picker row that 403s on send.
+export const FREEBUFF_SERVICE_ONLY_MODEL_IDS = [
+  // Both Contributor versions: 1.3 is the live row, 1.2 is draining, and a
+  // caller who could name the retired id would otherwise have a door the live
+  // one has closed.
+  ...FREEBUFF_MUSE_SPARK_MODEL_IDS,
+] as const satisfies readonly string[]
 
 /** Whether `id` may only be served to the Freebuff Web service account. Matches
  *  dated builds for the same reason the price fence does: a variant that slips
