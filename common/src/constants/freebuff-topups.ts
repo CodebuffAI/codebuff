@@ -52,6 +52,14 @@ export const AD_TOP_UP_PRESET_CENTS = [
  * for.
  */
 export const AD_TOP_UP_PRODUCT_NAME = 'Freebuff placements balance'
+/**
+ * Suffix on every one-off Freebuff card charge (placements top-ups and the
+ * postpaid sweep). The Stripe account is Codebuff's, so a card line reads
+ * `CODEBUFF* <suffix>`; prefix + `* ` + suffix must fit Stripe's 22 characters
+ * and this fits exactly. Subscription Products carry `FREEBUFF.COM` on the
+ * Product itself instead.
+ */
+export const AD_STATEMENT_DESCRIPTOR_SUFFIX = 'FREEBUFF.COM'
 
 /** The only currency this rail accepts. Asserted at parse time, not assumed. */
 export const AD_TOP_UP_CURRENCY = 'usd'
