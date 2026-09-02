@@ -37,21 +37,6 @@ export const FIRST_PARTY_ROUTING_EXPERIMENT =
   'ads_first_party_before_paid_networks_2026_08'
 
 /**
- * Salt for the STICKY per-user first-party arm (COD-369).
- *
- * Dated, like every salt in this module, and for a stronger reason than the
- * others: rotating it is the ONLY way to reshuffle the arm, so a rotation is
- * a new experiment and has to look like one. The rollout doc's "keep the
- * cohort salt unchanged" rule is literally true of this constant.
- *
- * It replaced a fresh `randomUUID()` per request. That drew a new bucket on
- * every auction, so one person flipped between our book and the paid networks
- * from turn to turn and no per-user treatment contrast could ever be
- * measured -- which is the whole point of having an arm.
- */
-export const FIRST_PARTY_ARM_SALT = 'ads_first_party_arm_2026_09'
-
-/**
  * An absent runtime knob is a dark deploy. Allocation is deliberately opt-in:
  * a missing Infisical value must not take paid-network inventory.
  */
@@ -128,24 +113,6 @@ export function firstPartyPrimaryBasisPoints(primaryPercent: number): number {
  */
 export function firstPartyPrimaryBucket(sampleId: string): number {
   return fnv1a(`${FIRST_PARTY_ROUTING_EXPERIMENT}:${sampleId}`) % 10_000
-}
-
-/**
- * The sticky sample key for one user's first-party arm.
- *
- * Fed to {@link firstPartyPrimaryBucket} exactly where the per-request UUID
- * used to go, so routing and campaign allocation keep reading ONE sample and
- * a request admitted to the primary window cannot be allocated from a
- * different one.
- *
- * Both rails always have a user id -- the browser route 401s without a
- * session and the v1 route is API-key authenticated -- so the empty-id case
- * is defensive rather than a supported path; it parks every anonymous caller
- * on one bucket, which is the same place the routing helpers already send
- * them (`paid_network_only`).
- */
-export function firstPartyArmKey(userId: string | null | undefined): string {
-  return `fpa_${fnv1a(`${FIRST_PARTY_ARM_SALT}:${userId ?? ''}`).toString(36)}`
 }
 
 export type AdExperimentArm = 'imprezia_forced' | 'imprezia_first' | 'control'

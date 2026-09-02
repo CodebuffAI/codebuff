@@ -98,58 +98,6 @@ const STREAM_RECOVERY_FIELDS = {
 
 const ADS_FETCH_COMPLETED_FIELDS = {
   outcome: 'string',
-  /**
-   * The one correlation handle for this ad request (COD-369), minted before
-   * either rail forks into provider waterfall vs first-party and stamped on
-   * `ad_impression.opportunity_id` for every first-party fill. Opaque and
-   * server-minted: never derived from the prompt, the IP, or the session.
-   *
-   * Every join the first-party chain needs already hangs off
-   * `ad_impression.id`, so this is what connects an auction -- including the
-   * ones that filled nothing -- to the row the rest of that chain reaches.
-   */
-  opportunity_id: 'string',
-  /**
-   * The frozen decision policy. `policy_version` is a 12-character digest of
-   * the selection version, the deploy commit and the serving flag tuple;
-   * `policy_commit` is the deploy SHA, `unknown` where the platform supplies
-   * none (every local run). Two events sharing a `policy_version` were
-   * decided by the same rules, on every pod.
-   */
-  policy_version: 'string',
-  policy_commit: 'string',
-  /**
-   * Integer denominator for this event. Always 1 today -- nothing samples --
-   * and present from the start so that future sampling becomes a divisor
-   * rather than a silent break in every count already built on this stream.
-   */
-  sample_rate: 'number',
-  /**
-   * The 0-9999 bucket of the STICKY per-user first-party arm. It replaced a
-   * per-request UUID, so one person now lands in the same arm on every
-   * request and every surface, which is what an incrementality read needs.
-   */
-  first_party_arm_bucket: 'number',
-  /**
-   * The eligibility census: two counts and two producer-encoded histogram
-   * strings. `eligible_campaign_labels` comma-joins opaque allocation labels
-   * (`unlabeled` for a campaign carrying none) and `exclusion_reasons` is
-   * `code:count` pairs sorted by code, omitted when nothing was excluded.
-   * Campaign and advertiser ids never enter this event -- the label is the
-   * campaign handle on Axiom, the raw id stays in Postgres.
-   */
-  eligible_campaign_count: 'number',
-  excluded_campaign_count: 'number',
-  eligible_campaign_labels: 'string',
-  exclusion_reasons: 'string',
-  /** Frozen decision context a later ranker cannot reconstruct after the fact. */
-  hour_utc: 'number',
-  /** Ads already served in this session; `-1` when the counter is unavailable. */
-  session_ad_seq: 'number',
-  /** The caller's model id, validated against the catalog; `unknown` when absent. */
-  model: 'string',
-  /** Slot value prior. `unscored` until provider eRPM priors exist (COD-272). */
-  slot_erpm_bucket: 'string',
   requested_provider: 'string',
   served_provider: 'string',
   // This is a producer-encoded, bounded string such as
@@ -190,12 +138,6 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    * kept separate from `first_party_inventory_geo_tier`. */
   first_party_geo_tier: 'string',
   first_party_geo_floored: 'boolean',
-  /** COD-264: the multiplier actually applied, and the resulting click price
-   * as a bounded cents bucket. Both are carried because neither recovers the
-   * other -- a scale that lands on the floor and one that lands below it
-   * price the same, and only `first_party_geo_floored` tells them apart. */
-  first_party_geo_multiplier_bps: 'number',
-  first_party_geo_cpc_bucket: 'string',
   geo_cpc_enabled: 'boolean',
   /** Whether the immediately preceding Gravity attempt filled, no-filled, or
    * failed. This makes recovered no-fill inventory observable without logging
