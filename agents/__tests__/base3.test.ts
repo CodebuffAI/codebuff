@@ -2,6 +2,7 @@ import {
   FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL,
   hasFreebuffRootSystemPromptOpening,
 } from '@codebuff/common/constants/free-agents'
+import { compactionPolicyForModel } from '@codebuff/common/constants/compaction-policy'
 import { SUPPORTED_FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
 import { describe, test, expect } from 'bun:test'
 
@@ -63,11 +64,12 @@ describe('base3 CLI roots', () => {
       // Windowed reads + the 100-entry glob cap + search-first tool wording.
       expect(agent.windowedFileReads).toBe(true)
       // Mechanical compaction in-process, instead of spawning context-pruner —
-      // with the 30-min idle trigger pushed out to an hour, so a coffee break
-      // never rewrites the history (see base3.ts for the cost trade).
-      expect(agent.compactContext).toEqual({
-        cacheExpiryMs: 60 * 60 * 1000,
-      })
+      // with the idle trigger sized per model: an hour for most, so a coffee
+      // break never rewrites the history, and 15 minutes for DeepSeek Flash,
+      // whose Luminal lane forgets the prefix by then anyway (see base3.ts).
+      expect(agent.compactContext).toEqual(
+        compactionPolicyForModel(agent.model),
+      )
       // Single loop: no subagents at all, which is what the harness IS.
       expect(agent.spawnableAgents ?? []).toEqual([])
       expect(agent.toolNames ?? []).not.toContain('spawn_agents')
@@ -75,6 +77,19 @@ describe('base3 CLI roots', () => {
       // message breaks the prompt cache the harness is built to keep warm.
       expect(agent.instructionsPrompt).toBeUndefined()
     }
+  })
+
+  test('DeepSeek Flash roots get 15 minutes / 40k, the rest the hour / 140k', () => {
+    // Literal values, so a refactor of the policy table cannot move both
+    // sides of the loop above at once (common/src/constants/compaction-policy.ts).
+    expect(base3FreeDeepseekFlash.compactContext).toEqual({
+      cacheExpiryMs: 15 * 60 * 1000,
+      cacheExpiryMinTokens: 40_000,
+    })
+    expect(base3FreeDeepseek.compactContext).toEqual({
+      cacheExpiryMs: 60 * 60 * 1000,
+      cacheExpiryMinTokens: 140_000,
+    })
   })
 
   test('declares no reasoning, leaving the catalog the single authority', () => {

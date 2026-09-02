@@ -34,6 +34,9 @@ const definition: AgentDefinition = {
         cacheExpiryMs: {
           type: 'number',
         },
+        cacheExpiryMinTokens: {
+          type: 'number',
+        },
       },
       required: [],
     },
@@ -89,6 +92,10 @@ const definition: AgentDefinition = {
 
     /** Prompt cache expiry time (Anthropic caches for 5 minutes by default) */
     const CACHE_EXPIRY_MS: number = params?.cacheExpiryMs ?? 5 * 60 * 1000
+
+    /** Smallest context the cache-expiry trigger will prune; unset means any
+     *  size. The context-limit trigger ignores it. */
+    const CACHE_EXPIRY_MIN_TOKENS: number = params?.cacheExpiryMinTokens ?? 0
 
     /** Header used in conversation summaries */
     const SUMMARY_HEADER =
@@ -398,7 +405,9 @@ const definition: AgentDefinition = {
       if (userPromptMsg.sentAt && lastAssistantMsg?.sentAt) {
         const gap = userPromptMsg.sentAt - lastAssistantMsg.sentAt
         cacheGapMs = gap
-        cacheWillMiss = gap > CACHE_EXPIRY_MS
+        cacheWillMiss =
+          gap > CACHE_EXPIRY_MS &&
+          agentState.contextTokenCount >= CACHE_EXPIRY_MIN_TOKENS
       }
     }
 
@@ -918,6 +927,7 @@ ${SUMMARY_DISCLAIMER}`,
           max_context_length: maxContextLength,
           ...(cacheGapMs === null ? {} : { cache_gap_ms: cacheGapMs }),
           cache_expiry_ms: CACHE_EXPIRY_MS,
+          cache_expiry_min_tokens: CACHE_EXPIRY_MIN_TOKENS,
           previous_summary_entry_count: previousSummaryEntries.length,
           user_budget: userBudget,
           user_entry_count: userEntryCount,

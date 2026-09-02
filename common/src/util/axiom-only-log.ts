@@ -69,6 +69,7 @@ const CONTEXT_PRUNING_FIELDS = {
   max_context_length: 'number',
   cache_gap_ms: 'number',
   cache_expiry_ms: 'number',
+  cache_expiry_min_tokens: 'number',
   previous_summary_entry_count: 'number',
   user_budget: 'number',
   user_entry_count: 'number',

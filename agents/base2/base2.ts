@@ -10,7 +10,6 @@ import {
   canFreebuffModelSpawnGeminiThinker,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
-import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 
 import {
   FOLLOWUP_STYLE_GUIDANCE,
@@ -109,7 +108,6 @@ export function createBase2(
     (isFreebuff
       ? FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL
       : CODEBUFF_REVIEWER_BY_MODEL)[model] ?? FALLBACK_REVIEWER_AGENT_ID
-  const contextPrunerMaxContextLength = contextPrunerBudgetForModel(model)
   const defaultProviderOptions = getBase2ProviderOptions(model)
 
   return {
@@ -349,13 +347,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           noReview,
           leanCodeReviewerAgentId,
         }),
-    // handleSteps is serialized via .toString() and re-eval'd, so closure
-    // variables like `isFreebuff` are not in scope at runtime. Pick the right
-    // literal-baked function here instead.
-    handleSteps: getBase2HandleSteps({
-      isFreebuff,
-      maxContextLength: contextPrunerMaxContextLength,
-    }),
+    handleSteps: base2HandleSteps,
   }
 }
 
@@ -386,91 +378,35 @@ function getBase2ProviderOptions(
     : { data_collection: 'deny' }
 }
 
-function getBase2HandleSteps({
-  isFreebuff,
-  maxContextLength,
-}: {
-  isFreebuff: boolean
-  maxContextLength: 250_000 | 400_000
-}): Base2HandleSteps {
-  if (isFreebuff) {
-    if (maxContextLength === 250_000) return handleStepsFree250k
-    return handleStepsFree400k
-  }
-  if (maxContextLength === 250_000) return handleSteps250k
-  return handleSteps400k
-}
-
-const handleStepsFree250k: Base2HandleSteps = function* ({ params }) {
+/**
+ * Serialized with .toString(), so every number arrives via `contextPruning`
+ * (resolved by the runtime from contextPrunerBudgetForModel and
+ * compactionPolicyForModel). Only DeepSeek Flash takes the compaction policy:
+ * base2 is the base3 kill-switch fallback, so every other model keeps the
+ * 30-minute gap and no floor it always had rather than the hour/140k default.
+ * Without `contextPruning` (direct drive, older runtime): 400k and 30 minutes.
+ */
+const base2HandleSteps: Base2HandleSteps = function* ({
+  params,
+  model,
+  contextPruning,
+}) {
+  const compaction =
+    model === 'deepseek/deepseek-v4-flash' && contextPruning
+      ? {
+          cacheExpiryMs: contextPruning.cacheExpiryMs,
+          cacheExpiryMinTokens: contextPruning.cacheExpiryMinTokens,
+        }
+      : { cacheExpiryMs: 30 * 60 * 1000 }
   while (true) {
     yield {
       toolName: 'spawn_agent_inline',
       input: {
         agent_type: 'context-pruner',
         params: {
-          maxContextLength: 250_000,
+          maxContextLength: contextPruning?.maxContextLength ?? 400_000,
           ...(params ?? {}),
-          cacheExpiryMs: 30 * 60 * 1000,
-        },
-      },
-      includeToolCall: false,
-    } as any
-
-    const { stepsComplete } = yield 'STEP'
-    if (stepsComplete) break
-  }
-}
-
-const handleStepsFree400k: Base2HandleSteps = function* ({ params }) {
-  while (true) {
-    yield {
-      toolName: 'spawn_agent_inline',
-      input: {
-        agent_type: 'context-pruner',
-        params: {
-          maxContextLength: 400_000,
-          ...(params ?? {}),
-          cacheExpiryMs: 30 * 60 * 1000,
-        },
-      },
-      includeToolCall: false,
-    } as any
-
-    const { stepsComplete } = yield 'STEP'
-    if (stepsComplete) break
-  }
-}
-
-const handleSteps250k: Base2HandleSteps = function* ({ params }) {
-  while (true) {
-    yield {
-      toolName: 'spawn_agent_inline',
-      input: {
-        agent_type: 'context-pruner',
-        params: {
-          maxContextLength: 250_000,
-          ...(params ?? {}),
-          cacheExpiryMs: 30 * 60 * 1000,
-        },
-      },
-      includeToolCall: false,
-    } as any
-
-    const { stepsComplete } = yield 'STEP'
-    if (stepsComplete) break
-  }
-}
-
-const handleSteps400k: Base2HandleSteps = function* ({ params }) {
-  while (true) {
-    yield {
-      toolName: 'spawn_agent_inline',
-      input: {
-        agent_type: 'context-pruner',
-        params: {
-          maxContextLength: 400_000,
-          ...(params ?? {}),
-          cacheExpiryMs: 30 * 60 * 1000,
+          ...compaction,
         },
       },
       includeToolCall: false,

@@ -9,6 +9,8 @@ import {
   promptCacheGapMs,
 } from '../compact-history'
 
+import { compactionPolicyForModel } from '@codebuff/common/constants/compaction-policy'
+
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 const MINUTE = 60 * 1000
@@ -547,5 +549,40 @@ describe('maybeCompactHistory', () => {
         logger: brokenLogger,
       }),
     ).not.toThrow()
+  })
+})
+
+describe('per-model compaction policies at the runtime entry point', () => {
+  const resumedHistory = (gapMinutes: number): Message[] => [
+    { ...assistant('done for now'), sentAt: 1_000_000 },
+    {
+      ...user('back after a break', ['USER_PROMPT']),
+      sentAt: 1_000_000 + gapMinutes * MINUTE,
+    },
+  ]
+  const compacts = (model: string, gapMinutes: number, tokens: number) =>
+    maybeCompactHistory({
+      ...compactionPolicyForModel(model),
+      messages: resumedHistory(gapMinutes),
+      contextTokenCount: tokens,
+      maxContextLength: 400_000,
+    }) !== null
+
+  it('the runtime default floor is two summary ceilings (20k + 50k, doubled)', () => {
+    expect(DEFAULT_CACHE_EXPIRY_MIN_TOKENS).toBe(2 * (20_000 + 50_000))
+    expect(DEFAULT_CACHE_EXPIRY_MS).toBe(60 * MINUTE)
+  })
+
+  it('DeepSeek Flash compacts a 60k thread after 16 minutes, not 14, and never under 40k', () => {
+    const flash = 'deepseek/deepseek-v4-flash'
+    expect(compacts(flash, 16, 60_000)).toBe(true)
+    expect(compacts(flash, 14, 60_000)).toBe(false)
+    expect(compacts(flash, 30, 39_999)).toBe(false)
+  })
+
+  it('every other model stays on the hour / 140k', () => {
+    const pro = 'deepseek/deepseek-v4-pro'
+    expect(compacts(pro, 61, 60_000)).toBe(false)
+    expect(compacts(pro, 61, 200_000)).toBe(true)
   })
 })

@@ -209,6 +209,13 @@ export type StepHandler<
    * keep compiling. Treat `undefined` as "unknown model".
    */
   model?: string
+  /** Context-pruning thresholds for `model`, resolved by the runtime; read by
+   *  generators that spawn `context-pruner`. */
+  contextPruning?: {
+    maxContextLength: number
+    cacheExpiryMs: number
+    cacheExpiryMinTokens: number
+  }
   logger: Logger
 }) => StepGenerator
 
