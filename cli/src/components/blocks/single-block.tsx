@@ -7,6 +7,7 @@ import { AskUserBranch } from './ask-user-branch'
 import { trimNewlines, isReasoningTextBlock } from './block-helpers'
 import { ContentWithMarkdown } from './content-with-markdown'
 import { ImageBlock } from './image-block'
+import { SponsoredProposalBlock } from './sponsored-proposal-block'
 import { UserBlockTextWithInlineCopy } from './user-content-copy'
 import { useTheme } from '../../hooks/use-theme'
 import { PlanBox } from '../renderers/plan-box'
@@ -149,6 +150,16 @@ export const SingleBlock = memo(
         return (
           <AskUserBranch
             key={`${messageId}-ask-user-${idx}`}
+            block={block}
+            availableWidth={availableWidth}
+          />
+        )
+      }
+
+      case 'sponsored-proposal': {
+        return (
+          <SponsoredProposalBlock
+            key={`${messageId}-sponsored-proposal-${block.target}`}
             block={block}
             availableWidth={availableWidth}
           />

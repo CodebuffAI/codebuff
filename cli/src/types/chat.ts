@@ -1,3 +1,4 @@
+import type { SponsoredProposalRow } from '@codebuff/common/ads/sponsored-proposal-view'
 import type { ChatTheme } from './theme-system'
 import type { ToolName } from '@codebuff/sdk'
 import type { ReactNode } from 'react'
@@ -140,6 +141,36 @@ export type FileAttachment = {
   note?: string
 }
 
+/**
+ * A sponsored proposal, in the transcript (COD-376).
+ *
+ * A BLOCK rather than an `HtmlContentBlock`: html blocks are not serializable
+ * and this one has to survive being written to and read back from history like
+ * every other block. It carries the ROW and nothing derived -- every label,
+ * every action and both destination gates come from
+ * `@codebuff/common/ads/sponsored-proposal-view`, so the terminal card and the
+ * web card cannot drift.
+ *
+ * PHASE 1 HAS NO ACCEPT. Accepting spawns a thread in an isolated Cloud
+ * workspace; the CLI runs against `process.cwd()`. The block carries no accept
+ * affordance and the renderer draws none.
+ */
+export type SponsoredProposalContentBlock = {
+  type: 'sponsored-proposal'
+  /** The proposal row, as `activeProposal` projects it. */
+  proposal: SponsoredProposalRow & { _id: string; advertiser_id: string }
+  /** `owner/name` -- what the offer is about, and what a decline is keyed to. */
+  target: string
+  /** The four-item channel menu is open. */
+  menuOpen?: boolean
+  /** "Why this?" is expanded. */
+  whyOpen?: boolean
+  /** A control is in flight; every control reads it, so a second press is inert. */
+  busy?: boolean
+  /** Answered, and standing down. Kept in place so history stays honest. */
+  answered?: boolean
+}
+
 export type ContentBlock =
   | AgentContentBlock
   | AgentListContentBlock
@@ -147,6 +178,7 @@ export type ContentBlock =
   | HtmlContentBlock
   | ImageContentBlock
   | ModeDividerContentBlock
+  | SponsoredProposalContentBlock
   | TextContentBlock
   | ToolContentBlock
   | PlanContentBlock
@@ -238,4 +270,10 @@ export function isAskUserBlock(
 
 export function isImageBlock(block: ContentBlock): block is ImageContentBlock {
   return block.type === 'image'
+}
+
+export function isSponsoredProposalBlock(
+  block: ContentBlock,
+): block is SponsoredProposalContentBlock {
+  return block.type === 'sponsored-proposal'
 }

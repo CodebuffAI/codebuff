@@ -68,6 +68,25 @@ export interface MessageBlockCallbacks {
   onAdImpression: (ad: AdResponse) => void
   /** Ensure the response has fetched ads for every currently eligible slot. */
   onResponseAdsNeeded: (messageId: string, count: number) => void
+  /**
+   * Sponsored proposals (COD-376). Beside `responseAds` because they share a
+   * transcript and nothing else -- a display ad is a link out, a proposal is an
+   * offer to do work in this repository, and the two have different controls.
+   *
+   * Keyed by TARGET (`owner/name`), never by message: a repository has one live
+   * offer, and declining it in one place must not leave it standing in another.
+   *
+   * There is deliberately NO `onSponsoredProposalAccept`. Phase 1 ships no
+   * Accept control at all, and a callback with no caller is how a stub becomes
+   * a shipped affordance.
+   */
+  onSponsoredProposalMenu: (target: string, open: boolean) => void
+  onSponsoredProposalDisclose: (target: string, open: boolean) => void
+  /** Dismiss, report, never-this-advertiser, or the channel opt-out. */
+  onSponsoredProposalControl: (
+    target: string,
+    control: 'dismiss' | 'report' | 'never-advertiser' | 'opt-out',
+  ) => void
 }
 
 interface MessageBlockStoreState {
@@ -119,6 +138,9 @@ const initialCallbacks: MessageBlockCallbacks = {
   onAdClick: noop,
   onAdImpression: noop,
   onResponseAdsNeeded: noop,
+  onSponsoredProposalMenu: noop,
+  onSponsoredProposalDisclose: noop,
+  onSponsoredProposalControl: noop,
 }
 
 const initialState: MessageBlockStoreState = {

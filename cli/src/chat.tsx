@@ -2,6 +2,9 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 import { setFreeModeCapacityDeferralListener } from '@codebuff/sdk'
 import { safeOpen } from './utils/open-url'
+import { getAuthToken } from './utils/auth'
+import { isSponsoredProposalBlock } from './types/chat'
+import { runSponsoredProposalControl } from './utils/sponsored-proposal-control'
 import {
   useCallback,
   useEffect,
@@ -104,6 +107,7 @@ import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { BoxRenderable, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
+import type { SponsoredProposalContentBlock } from './types/chat'
 import type { Dispatch, SetStateAction } from 'react'
 
 export const Chat = ({
@@ -208,6 +212,133 @@ export const Chat = ({
   const handleAdClick = useEvent(recordClick)
   const handleAdImpression = useEvent(recordImpression)
   const handleResponseAdsNeeded = useEvent(requestResponseAds)
+
+  // ------------------------------------------------- sponsored proposals
+
+  /**
+   * Patch the one sponsored-proposal block for a target, wherever it sits.
+   *
+   * BY TARGET rather than by message id: a repository has one live offer, and
+   * if it were ever rendered twice, declining it in one place must not leave it
+   * standing in the other.
+   */
+  // The transcript as of this render. A control has to find its own block
+  // synchronously -- `busy` is what makes a double press inert, and reading it
+  // out of a `setMessages` updater would be a check inside a state write.
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
+
+  const patchProposalBlock = useEvent(
+    (target: string, patch: Partial<SponsoredProposalContentBlock>) => {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.blocks?.some(
+            (block) =>
+              isSponsoredProposalBlock(block) && block.target === target,
+          )
+            ? {
+                ...message,
+                blocks: message.blocks.map((block) =>
+                  isSponsoredProposalBlock(block) && block.target === target
+                    ? { ...block, ...patch }
+                    : block,
+                ),
+              }
+            : message,
+        ),
+      )
+    },
+  )
+
+  const findProposalBlock = useEvent((target: string) => {
+    for (const message of messagesRef.current) {
+      for (const block of message.blocks ?? []) {
+        if (isSponsoredProposalBlock(block) && block.target === target) {
+          return block
+        }
+      }
+    }
+    return null
+  })
+
+  // Whether a card is currently holding the keyboard. Derived from the
+  // transcript rather than kept as its own flag: the menu is a property of a
+  // block, and a second source of truth would go stale the moment a block is
+  // answered or replaced while its menu is open.
+  const sponsoredProposalMenuOpen = useMemo(
+    () =>
+      messages.some((message) =>
+        message.blocks?.some(
+          (block) =>
+            isSponsoredProposalBlock(block) &&
+            block.menuOpen === true &&
+            block.answered !== true,
+        ),
+      ),
+    [messages],
+  )
+
+  const handleSponsoredProposalMenu = useEvent((target: string, open: boolean) =>
+    patchProposalBlock(target, { menuOpen: open }),
+  )
+  const handleSponsoredProposalDisclose = useEvent(
+    (target: string, open: boolean) => patchProposalBlock(target, { whyOpen: open }),
+  )
+
+  const handleSponsoredProposalControl = useEvent(
+    (
+      target: string,
+      control: 'dismiss' | 'report' | 'never-advertiser' | 'opt-out',
+    ) => {
+      const block = findProposalBlock(target)
+      const authToken = getAuthToken()
+      // `busy` is checked before the await, not after: the impatient double
+      // press is synchronous, and a guard on the far side of a promise arrives
+      // too late to stop the second call.
+      if (!block || block.busy || block.answered || !authToken) return
+      patchProposalBlock(target, { busy: true, menuOpen: false })
+      const proposalId = block.proposal._id
+      const advertiserId = block.proposal.advertiser_id
+      void (async () => {
+        let succeeded = false
+        try {
+          // The ordering rules -- preference before dismiss, and the
+          // preference's RESULT deciding whether the dismiss happens at all --
+          // live in `runSponsoredProposalControl` so they can be tested
+          // without a network and without mounting chat.
+          succeeded = await runSponsoredProposalControl(
+            control,
+            { proposalId, advertiserId },
+            authToken,
+          )
+        } finally {
+          // ANSWERED ONLY WHEN IT WAS. `answered` stands the card's controls
+          // down permanently, so setting it in a `finally` marked a failed
+          // control as an answer the user gave: the card stayed on screen
+          // looking spent, with no way to retry and nothing saved.
+          //
+          // ANSWERED, not removed, when it did succeed. The card stays in the
+          // transcript with its controls stood down, because a block that
+          // vanishes reflows text the user is reading and leaves history
+          // claiming the offer never happened.
+          patchProposalBlock(
+            target,
+            succeeded ? { busy: false, answered: true } : { busy: false },
+          )
+          if (!succeeded) {
+            // Said out loud, unlike the transport's own debug log. Everything
+            // else in this channel is optional and stays quiet, but this is the
+            // one moment the user made a request of us and the card must not
+            // silently keep the answer.
+            setMessages((prev) => [
+              ...prev,
+              getSystemMessage("Couldn't save that — try again"),
+            ])
+          }
+        }
+      })()
+    },
+  )
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -1324,7 +1455,18 @@ export const Chat = ({
   useChatKeyboard({
     state: chatKeyboardState,
     handlers: chatKeyboardHandlers,
-    disabled: askUserState !== null || reviewMode || queuePanelOpen,
+    // `sponsoredProposalMenuOpen` joins askUser for exactly the same reason
+    // askUser is here (COD-376): both take over the keyboard, and `useKeyboard`
+    // is a GLOBAL listener rather than a focus-scoped one -- so without this,
+    // the menu's arrows, Enter and Esc would reach the card AND the composer,
+    // and the user would move a selection while also navigating history. The
+    // card claims no keys at all outside this span; that is what makes turning
+    // chat's off for the span safe rather than a second overlap.
+    disabled:
+      askUserState !== null ||
+      reviewMode ||
+      queuePanelOpen ||
+      sponsoredProposalMenuOpen,
   })
 
   // Sync message block context to zustand store for child components
@@ -1371,6 +1513,9 @@ export const Chat = ({
       onAdClick: handleAdClick,
       onAdImpression: handleAdImpression,
       onResponseAdsNeeded: handleResponseAdsNeeded,
+      onSponsoredProposalMenu: handleSponsoredProposalMenu,
+      onSponsoredProposalDisclose: handleSponsoredProposalDisclose,
+      onSponsoredProposalControl: handleSponsoredProposalControl,
     })
   }, [
     handleCollapseToggle,

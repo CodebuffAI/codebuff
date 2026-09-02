@@ -1,5 +1,21 @@
+/**
+ * The VM layer of the sponsored-proposal conformance matrix (COD-376).
+ *
+ * VM-1..VM-24 are these `test(...)` cases in file order, and the IDs are in
+ * the names so a surface's report can cite them. These run ONCE, here: the
+ * view model is shared, and a surface that re-implemented them would be
+ * asserting against its own copy of the state machine rather than the one
+ * every surface renders. `sponsoredProposalConformance.test.ts`, beside the
+ * Web panel, fails if an ID in `./sponsored-proposal-conformance.ts` has no
+ * case naming it.
+ */
 import { describe, expect, test } from 'bun:test'
 
+import {
+  HOSTILE_PR_URLS,
+  MALFORMED_LOGO_TOKENS,
+  VALID_LOGO_TOKEN,
+} from './__fixtures__/sponsored-proposal-rows'
 import {
   SPONSORED_STATE_TITLE,
   SPONSORED_STEP_STATE_LABEL,
@@ -37,7 +53,7 @@ const kinds = (overrides: Partial<SponsoredProposalRow>) =>
   view(overrides).actions.map((action) => action.kind)
 
 describe('state copy', () => {
-  test('every state names its own outcome', () => {
+  test('VM-1 every state names its own outcome', () => {
     for (const state of ALL_STATES) {
       expect(view({ state }).title).toBe(SPONSORED_STATE_TITLE[state])
       expect(view({ state }).title.length).toBeGreaterThan(0)
@@ -46,7 +62,7 @@ describe('state copy', () => {
 
   // The state COD-279 exists for: the run finished and stopped, and nothing
   // here may read as though a pull request is pending.
-  test('committed names the outcome, not a next step', () => {
+  test('VM-2 committed names the outcome, not a next step', () => {
     expect(view({ state: 'committed' }).title).toBe(
       'Sponsored thread committed its work',
     )
@@ -61,18 +77,18 @@ describe('steps', () => {
     { text: 'Open a pull request', state: 'pending' as const },
   ]
 
-  test('counts the done steps for the progress counter', () => {
+  test('VM-3 counts the done steps for the progress counter', () => {
     const model = view({ state: 'running', steps: STEPS })
     expect(model.steps).toEqual(STEPS)
     expect(model.doneStepCount).toBe(1)
   })
 
-  test('absent steps are an empty list, not undefined', () => {
+  test('VM-4 absent steps are an empty list, not undefined', () => {
     expect(view({ state: 'running' }).steps).toEqual([])
     expect(view({ state: 'running' }).doneStepCount).toBe(0)
   })
 
-  test('reads in the todo-dock vocabulary', () => {
+  test('VM-5 reads in the todo-dock vocabulary', () => {
     expect(SPONSORED_STEP_STATE_LABEL).toEqual({
       pending: 'Pending',
       active: 'In progress',
@@ -82,13 +98,13 @@ describe('steps', () => {
 })
 
 describe('actions', () => {
-  test('offered leads with accept', () => {
+  test('VM-6 offered leads with accept', () => {
     const accept = sponsoredProposalAction(view({}), 'accept')
     expect(accept?.label).toBe('Start sponsored thread')
     expect(accept?.primary).toBe(true)
   })
 
-  test('accepted and failed offer no answer beyond the decline', () => {
+  test('VM-7 accepted and failed offer no answer beyond the decline', () => {
     for (const state of ['accepted', 'failed'] as const) {
       expect(kinds({ state })).toEqual([
         'dismiss',
@@ -100,7 +116,7 @@ describe('actions', () => {
   })
 
   // Every state declines the same way, and this is the only decline.
-  test('dismiss is available in every state and is not destructive', () => {
+  test('VM-8 dismiss is available in every state and is not destructive', () => {
     for (const state of ALL_STATES) {
       const dismiss = sponsoredProposalAction(view({ state }), 'dismiss')
       expect(dismiss?.label).toBe('Dismiss sponsored proposal')
@@ -110,7 +126,7 @@ describe('actions', () => {
 
   // Turning a channel off for good is a different weight of answer from
   // declining one offer.
-  test('the standing channel controls are available in every state', () => {
+  test('VM-9 the standing channel controls are available in every state', () => {
     for (const state of ALL_STATES) {
       const model = view({ state })
       expect(
@@ -125,7 +141,7 @@ describe('actions', () => {
     }
   })
 
-  test('running offers the live view only once a thread exists', () => {
+  test('VM-10 running offers the live view only once a thread exists', () => {
     expect(
       sponsoredProposalAction(
         view({ state: 'running', thread_ref: 'thread-1' }),
@@ -137,7 +153,7 @@ describe('actions', () => {
 
   // The PR is the user's decision, so `committed` offers to make one and
   // claims none exists.
-  test('committed offers the PR decision and the read-only view', () => {
+  test('VM-11 committed offers the PR decision and the read-only view', () => {
     const model = view({
       state: 'committed',
       branch: 'sponsored/acme-deploys',
@@ -154,13 +170,13 @@ describe('actions', () => {
     expect(sponsoredProposalAction(model, 'open-pull-request')).toBeNull()
   })
 
-  test('committed still offers the PR decision with no thread to view', () => {
+  test('VM-12 committed still offers the PR decision with no thread to view', () => {
     expect(kinds({ state: 'committed' })).toContain('create-pull-request')
     expect(kinds({ state: 'committed' })).not.toContain('view-run')
   })
 
   // Opening the PR must not take the read-only view away.
-  test('the read-only view survives into landed', () => {
+  test('VM-13 the read-only view survives into landed', () => {
     const model = view({
       state: 'landed',
       thread_ref: 'thread-1',
@@ -176,7 +192,7 @@ describe('actions', () => {
 
   // One kind, two labels: reviewing a PR the user has not seen and revisiting
   // one that already merged are different sentences.
-  test('merged links the merged PR under its own label', () => {
+  test('VM-14 merged links the merged PR under its own label', () => {
     const model = view({
       state: 'merged',
       pr_url: 'https://github.com/x/y/pull/7',
@@ -198,26 +214,11 @@ describe('actions', () => {
  * touched their real repo.
  */
 describe('pr_url is https-only before it becomes a destination', () => {
-  const REJECTED = [
-    'javascript:alert(1)',
-    'JavaScript:alert(1)',
-    'data:text/html,<script>alert(1)</script>',
-    'vbscript:msgbox(1)',
-    'file:///etc/passwd',
-    // Downgrade: a PR we would send the user to over plaintext.
-    'http://github.com/x/y/pull/7',
-    // Protocol-relative — no scheme at all, so it is unparseable as an
-    // absolute URL and must never be guessed into one.
-    '//evil.example/pull/7',
-    '/x/y/pull/7',
-    'github.com/x/y/pull/7',
-    'not a url',
-    '',
-  ]
-
+  // Shared with the other two surfaces' render suites, so none of them can
+  // quietly test a shorter list than this one does.
   for (const state of ['landed', 'merged'] as const) {
-    for (const pr_url of REJECTED) {
-      test(`${state}: refuses ${JSON.stringify(pr_url)}`, () => {
+    for (const pr_url of HOSTILE_PR_URLS) {
+      test(`VM-15 ${state}: refuses ${JSON.stringify(pr_url)}`, () => {
         const model = view({ state, pr_url })
         expect(model.pullRequestHref).toBeNull()
         // Not just a null href: the action itself is off the menu, so a
@@ -228,13 +229,13 @@ describe('pr_url is https-only before it becomes a destination', () => {
 
     // An unusable URL is the absent-field case, exactly like a missing
     // `branch` — the user still learns a sponsored thread reached their repo.
-    test(`${state}: a refused link does not cost the rest of the card`, () => {
+    test(`VM-16 ${state}: a refused link does not cost the rest of the card`, () => {
       const model = view({ state, pr_url: 'javascript:alert(1)' })
       expect(model.title).toBe(SPONSORED_STATE_TITLE[state])
       expect(model.actions.map((action) => action.kind)).toContain('dismiss')
     })
 
-    test(`${state}: passes an https pull request through`, () => {
+    test(`VM-17 ${state}: passes an https pull request through`, () => {
       expect(
         view({ state, pr_url: 'https://github.com/x/y/pull/7' })
           .pullRequestHref,
@@ -249,27 +250,21 @@ describe('pr_url is https-only before it becomes a destination', () => {
  * request or a path segment.
  */
 describe('advertiser logo', () => {
-  const TOKEN = '11111111-1111-4111-8111-111111111111'
+  const TOKEN = VALID_LOGO_TOKEN
 
-  test('a well-formed token becomes the creative-image route', () => {
+  test('VM-18 a well-formed token becomes the creative-image route', () => {
     const model = view({ advertiser_logo_token: TOKEN })
     expect(model.logoToken).toBe(TOKEN)
     expect(model.logoSrc).toBe(`/api/ads/first-party/creative-image/${TOKEN}`)
   })
 
-  test('no token is the ordinary no-logo case', () => {
+  test('VM-19 no token is the ordinary no-logo case', () => {
     expect(view({}).logoToken).toBeNull()
     expect(view({}).logoSrc).toBeNull()
   })
 
-  for (const token of [
-    '../../etc/passwd',
-    'not-a-token',
-    '',
-    // Right length, wrong charset: 36 characters outside [0-9a-f-].
-    'zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz',
-  ]) {
-    test(`never mints a request for ${JSON.stringify(token)}`, () => {
+  for (const token of MALFORMED_LOGO_TOKENS) {
+    test(`VM-20 never mints a request for ${JSON.stringify(token)}`, () => {
       const model = view({ advertiser_logo_token: token })
       expect(model.logoToken).toBeNull()
       expect(model.logoSrc).toBeNull()
@@ -278,7 +273,7 @@ describe('advertiser logo', () => {
 })
 
 describe('copy fallbacks', () => {
-  test('why_this falls back to the channel promise', () => {
+  test('VM-21 why_this falls back to the channel promise', () => {
     expect(view({}).whyThis).toContain(
       'never read your code without your go-ahead',
     )
@@ -287,7 +282,7 @@ describe('copy fallbacks', () => {
     )
   })
 
-  test('a failed run promises nothing changed even with no reason', () => {
+  test('VM-22 a failed run promises nothing changed even with no reason', () => {
     expect(view({ state: 'failed' }).failureReason).toContain(
       'Nothing was changed in your project',
     )
@@ -299,7 +294,7 @@ describe('copy fallbacks', () => {
 
   // A run old enough to predate the reconciler recording a branch still has to
   // render, and must not invent a branch name it cannot prove.
-  test('an absent branch is null rather than a guess', () => {
+  test('VM-23 an absent branch is null rather than a guess', () => {
     expect(view({ state: 'committed' }).branch).toBeNull()
     expect(view({ state: 'committed', branch: '' }).branch).toBeNull()
     expect(view({ state: 'committed', branch: 'sponsored/acme' }).branch).toBe(
@@ -309,7 +304,7 @@ describe('copy fallbacks', () => {
 })
 
 describe('sponsoredProposalMenu', () => {
-  test('lists every channel control, in order', () => {
+  test('VM-24 lists every channel control, in order', () => {
     expect(sponsoredProposalMenu('Acme Deploys')).toEqual([
       { key: 'why', label: 'Why this?' },
       { key: 'never-advertiser', label: 'Never show Acme Deploys' },
