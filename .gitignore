@@ -73,6 +73,11 @@ scratch-*
 # Ad-hoc investigation scripts — scratch, never committed
 scripts/_tmp-*
 
+# The intent-batch orchestrator's resume state. It holds a live approval
+# capability (shown once, at the mint) and the cohort's own references, so it
+# is operator-local and never committed.
+scratch/
+
 # Local operator launch manifests contain real advertiser identifiers. The
 # checked-in example is intentionally non-routable.
 ads-pilot-launch.local.json
