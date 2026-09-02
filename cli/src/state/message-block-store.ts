@@ -154,11 +154,39 @@ export const useMessageBlockStore = create<MessageBlockStore>()(
 
     setContext: (updates) =>
       set((state) => {
+        let changed = false
+        for (const key of Object.keys(updates) as Array<keyof MessageBlockContext>) {
+          const prev = state.context[key]
+          const next = updates[key]
+          if (prev === next) continue
+          if (
+            key === 'responseAds' &&
+            prev &&
+            next &&
+            typeof prev === 'object' &&
+            typeof next === 'object' &&
+            Object.keys(prev).length === 0 &&
+            Object.keys(next).length === 0
+          ) {
+            continue
+          }
+          changed = true
+          break
+        }
+        if (!changed) return
         state.context = { ...state.context, ...updates }
       }),
 
     setCallbacks: (callbacks) =>
       set((state) => {
+        let changed = false
+        for (const key of Object.keys(callbacks) as Array<keyof MessageBlockCallbacks>) {
+          if (state.callbacks[key] !== callbacks[key]) {
+            changed = true
+            break
+          }
+        }
+        if (!changed) return
         state.callbacks = callbacks
       }),
 
