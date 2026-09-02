@@ -5,12 +5,40 @@ import path from 'path'
 import { listDirectory } from '../tools/list-directory'
 
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
-import type { Dirent, PathLike } from 'node:fs'
+import type { Dirent, PathLike, Stats } from 'node:fs'
 
 const PROJECT_ROOT = path.resolve('workspace', 'project')
 
-function createFs(realpaths: Record<string, string>) {
+function createFs(
+  realpaths: Record<string, string>,
+  options: {
+    /** Called for each stat, so a test can make the directory change identity. */
+    identities?: Array<{ dev: number; ino: number }>
+    /** Realpath answers to use once the listing has been read. */
+    realpathsAfterRead?: Record<string, string>
+  } = {},
+) {
   const readdir = mock(async (_path: PathLike) => {
+    return [
+      {
+        name: 'index.ts',
+        isDirectory: () => false,
+        isFile: () => true,
+      },
+    ] as Dirent[]
+  })
+
+  const identities = options.identities ?? []
+  let statCalls = 0
+  const stat = mock(async (_path: PathLike) => {
+    const identity = identities[statCalls] ?? { dev: 1, ino: 1 }
+    statCalls += 1
+    return identity as unknown as Stats
+  })
+
+  let listed = false
+  readdir.mockImplementation(async (_path: PathLike) => {
+    listed = true
     return [
       {
         name: 'index.ts',
@@ -23,12 +51,15 @@ function createFs(realpaths: Record<string, string>) {
   const fs = {
     realpath: mock(async (path: PathLike) => {
       const pathString = String(path)
-      return realpaths[pathString] ?? pathString
+      const table =
+        listed && options.realpathsAfterRead ? options.realpathsAfterRead : realpaths
+      return table[pathString] ?? realpaths[pathString] ?? pathString
     }),
     readdir,
+    stat,
   } as unknown as CodebuffFileSystem
 
-  return { fs, readdir }
+  return { fs, readdir, stat }
 }
 
 describe('listDirectory', () => {
@@ -191,6 +222,55 @@ describe('listDirectory', () => {
       },
     ])
     expect(readdir).not.toHaveBeenCalled()
+  })
+
+  it('refuses a listing whose directory was swapped while it was read', async () => {
+    // The check approved one inode; by the time the read finished the path was a
+    // different one. Returning that listing is the escape the check exists to stop.
+    const { fs } = createFs(
+      { [PROJECT_ROOT]: PROJECT_ROOT },
+      {
+        identities: [
+          { dev: 1, ino: 1 },
+          { dev: 1, ino: 2 },
+        ],
+      },
+    )
+
+    const result = await listDirectory({
+      directoryPath: '.',
+      projectPath: PROJECT_ROOT,
+      fs,
+    })
+
+    expect(result[0]).toEqual({
+      type: 'json',
+      value: {
+        errorMessage: `Invalid path: Path '.' changed while it was being read.`,
+      },
+    })
+  })
+
+  it('refuses a listing whose path started resolving outside the project', async () => {
+    const childPath = path.join(PROJECT_ROOT, 'src')
+    const outsidePath = path.resolve('workspace', 'other', 'src')
+    const { fs } = createFs(
+      { [PROJECT_ROOT]: PROJECT_ROOT, [childPath]: childPath },
+      { realpathsAfterRead: { [childPath]: outsidePath } },
+    )
+
+    const result = await listDirectory({
+      directoryPath: 'src',
+      projectPath: PROJECT_ROOT,
+      fs,
+    })
+
+    expect(result[0]).toEqual({
+      type: 'json',
+      value: {
+        errorMessage: `Invalid path: Path 'src' changed while it was being read.`,
+      },
+    })
   })
 
   it('allows a symlink that resolves inside the project', async () => {
