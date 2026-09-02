@@ -392,8 +392,10 @@ export async function* promptAiSdkStream(
       | OpenRouterUsageAccounting
       | undefined
     const costOverrideDollars = openrouterUsage
-      ? (openrouterUsage.cost ?? 0) +
-        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+      ? Math.max(
+          openrouterUsage.cost ?? 0,
+          openrouterUsage.costDetails?.upstreamInferenceCost ?? 0,
+        )
       : undefined
     if (!params.onCostCalculated || !costOverrideDollars) return
     costReported = true
@@ -732,9 +734,10 @@ export async function promptAiSdk(
       const openrouterUsage = providerMetadata.codebuff
         .usage as OpenRouterUsageAccounting
 
-      costOverrideDollars =
-        (openrouterUsage.cost ?? 0) +
-        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+      costOverrideDollars = Math.max(
+        openrouterUsage.cost ?? 0,
+        openrouterUsage.costDetails?.upstreamInferenceCost ?? 0,
+      )
     }
   }
 
@@ -803,9 +806,10 @@ export async function promptAiSdkStructured<T>(
       const openrouterUsage = providerMetadata.codebuff
         .usage as OpenRouterUsageAccounting
 
-      costOverrideDollars =
-        (openrouterUsage.cost ?? 0) +
-        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+      costOverrideDollars = Math.max(
+        openrouterUsage.cost ?? 0,
+        openrouterUsage.costDetails?.upstreamInferenceCost ?? 0,
+      )
     }
   }
 
