@@ -10,7 +10,7 @@ import {
 } from '@codebuff/common/testing/mocks'
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
 
-import { codeSearch } from '../tools/code-search'
+import { codeSearch, clearHiddenDirsCache, getExistingHiddenDirs } from '../tools/code-search'
 
 import type { MockChildProcess } from '@codebuff/common/testing/mocks'
 
@@ -19,6 +19,7 @@ describe('codeSearch', () => {
   let mockProcess: MockChildProcess
 
   beforeEach(async () => {
+    clearHiddenDirsCache()
     mockProcess = createMockChildProcess()
     mockSpawn = mock(() => mockProcess)
     await mockModule('child_process', () => ({
@@ -29,6 +30,7 @@ describe('codeSearch', () => {
   afterEach(() => {
     mock.restore()
     clearMockedModules()
+    clearHiddenDirsCache()
   })
 
   describe('basic search', () => {
@@ -899,4 +901,22 @@ describe('codeSearch', () => {
       expect(spawnOptions.cwd).toBe('/test/outside')
     })
   })
+
+  describe('hidden directories caching', () => {
+    it('caches existing hidden directories across repeated calls', () => {
+      const dir = process.cwd()
+      const first = getExistingHiddenDirs(dir)
+      const second = getExistingHiddenDirs(dir)
+      expect(first).toEqual(second)
+    })
+
+    it('clears cache when clearHiddenDirsCache is called', () => {
+      const dir = process.cwd()
+      const first = getExistingHiddenDirs(dir)
+      clearHiddenDirsCache()
+      const second = getExistingHiddenDirs(dir)
+      expect(first).toEqual(second)
+    })
+  })
 })
+

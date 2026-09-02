@@ -19,6 +19,36 @@ const INCLUDED_HIDDEN_DIRS = [
   '.husky', // Git hooks
 ]
 
+const HIDDEN_DIRS_CACHE_TTL_MS = 30_000 // 30 seconds TTL
+const hiddenDirsCache = new Map<string, { dirs: string[]; timestamp: number }>()
+
+export function getExistingHiddenDirs(searchCwd: string): string[] {
+  const cached = hiddenDirsCache.get(searchCwd)
+  const now = Date.now()
+  if (cached && now - cached.timestamp < HIDDEN_DIRS_CACHE_TTL_MS) {
+    return cached.dirs
+  }
+
+  const existingHiddenDirs = INCLUDED_HIDDEN_DIRS.filter((dir) => {
+    try {
+      return fs.statSync(path.join(searchCwd, dir)).isDirectory()
+    } catch {
+      return false
+    }
+  })
+
+  if (hiddenDirsCache.size >= 100) {
+    hiddenDirsCache.clear()
+  }
+  hiddenDirsCache.set(searchCwd, { dirs: existingHiddenDirs, timestamp: now })
+
+  return existingHiddenDirs
+}
+
+export function clearHiddenDirsCache(): void {
+  hiddenDirsCache.clear()
+}
+
 export function codeSearch({
   projectPath,
   pattern,
@@ -68,13 +98,7 @@ export function codeSearch({
     // "--"" prevents pattern from being misparsed as a flag (e.g., pattern starting with '-')
     // Search paths: '.' plus blessed hidden directories that actually exist
     // Filter out non-existent directories to avoid ripgrep stderr errors
-    const existingHiddenDirs = INCLUDED_HIDDEN_DIRS.filter((dir) => {
-      try {
-        return fs.statSync(path.join(searchCwd, dir)).isDirectory()
-      } catch {
-        return false
-      }
-    })
+    const existingHiddenDirs = getExistingHiddenDirs(searchCwd)
     const searchPaths = ['.', ...existingHiddenDirs]
     const args = [
       '--no-config',
