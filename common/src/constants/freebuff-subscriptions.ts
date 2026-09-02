@@ -285,7 +285,11 @@ export function freebuffSubscriptionTierDisclaimers(
           `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or GLM 5.3 Flash; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
         ]
       : []),
-    'The 5-day limit is a rolling window — it frees up as your oldest sessions age out, rather than resetting on a fixed day',
+    // Says "weekly" and takes the length from the constant: the window widened
+    // 5 -> 7 days on 2026-08-31 and only the `fiveDay*` WIRE fields were meant
+    // to keep the old name, but this sentence and two account-page labels were
+    // left describing a five-day rule that no longer exists.
+    `The weekly limit is a rolling ${FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS}-day window — it frees up as your oldest sessions age out, rather than resetting on a fixed day`,
     'Daily hours reset at midnight Pacific; unused ones do not carry over',
     'Adds to your free sessions rather than replacing them',
   ]
