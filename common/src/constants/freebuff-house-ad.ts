@@ -20,6 +20,14 @@ import { FREEBUFF_SUBSCRIPTION_TIERS } from './freebuff-subscriptions'
  * `@codebuff/internal/ad-serving/house-ad` and is required to be total over
  * every surface below.
  *
+ * ONE EXCEPTION, AND IT IS NOT TARGETING: since 2026-09-02 an entitled
+ * subscriber is served nothing here. This copy advertises the subscription, so
+ * the one reader it must never reach is the one who already bought it. Every
+ * serve path -- the campaign's candidate filter and all four checked-in floors
+ * -- asks `resolveHouseSuppressedForUser` first. That is the ONLY thing a
+ * serve path reads about a subscription; the claims below are unaffected, and
+ * in particular a subscription still does not remove ads.
+ *
  * **This file is published.** `common` ships wholesale to the public mirror
  * (docs/public-repo-sync.md). That is fine here -- it is marketing copy and a
  * price we print on the pricing page anyway -- but do not reach for anything
