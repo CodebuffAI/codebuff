@@ -530,13 +530,12 @@ describe('isLimitedTierSubstitutedModel', () => {
   // The free-session gate substitutes the limited tier's model for a pick that
   // tier no longer offers, so the request lands on a root pinned to the model
   // the user picked. Billing has to admit it too, or the turn silently meters.
-  const FLASH_PINNED_ROOTS = [
-    'base3-free-deepseek-flash',
-    'base2-free-deepseek-flash',
-  ]
+  // Roots pinned to a full-access-only row; a Flash-pinned root would admit
+  // the limited model on its own allowlist and exercise nothing.
+  const OUT_OF_TIER_PINNED_ROOTS = ['base3-free-luna', 'base2-free-luna']
 
   test('admits the limited model on roots pinned to something else', () => {
-    for (const agentId of FLASH_PINNED_ROOTS) {
+    for (const agentId of OUT_OF_TIER_PINNED_ROOTS) {
       // The premise: without this, billing would call the substituted turn metered.
       expect(isFreeModeAllowedAgentModel(agentId, LIMITED_FREEBUFF_MODEL_ID)).toBe(
         false,
@@ -554,15 +553,17 @@ describe('isLimitedTierSubstitutedModel', () => {
     }
   })
 
-  test('is only ever the limited tier’s own model', () => {
+  test('is only ever the limited tier’s own model or the fallback', () => {
     for (const model of [
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
       FREEBUFF_GLM_V52_MODEL_ID,
     ]) {
       expect(isLimitedTierSubstitutedModel('base2-free', model)).toBe(false)
     }
+    expect(
+      isLimitedTierSubstitutedModel('base2-free', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
+    ).toBe(true)
   })
 
   // The substitution widens free mode, so it must not widen who can claim it:

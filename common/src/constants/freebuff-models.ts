@@ -1264,10 +1264,7 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   // 2026-08-24 21:35Z, with ~90% of Flash sessions refused a slot. Metering
   // Flash by the premium pool throttles the demand that would fill that lane.
   //
-  // FULL ACCESS ONLY. The limited tier is a separate catalog
-  // (LIMITED_FREEBUFF_MODEL_IDS) and is deliberately untouched: those users
-  // still get MiMo 2.5 alone, and Flash's pause there is what keeps those
-  // sessions free.
+  // The limited tier is a separate catalog (LIMITED_FREEBUFF_MODEL_IDS).
   //
   // What did NOT move with it, on purpose:
   //  - FALLBACK_FREEBUFF_MODEL_ID stays MiMo. The fallback has to be available
@@ -1835,9 +1832,10 @@ export const FREEBUFF_MODELS = [
   // badged RECOMMENDED, because a `supersededBy` would rewrite saved picks on
   // every load (see migrateSupersededFreebuffModelPreference). Leading the list
   // IS the recommendation; a returning user who chose another row keeps it.
+  // A test pins the first row to DEFAULT_FREEBUFF_MODEL_ID.
+  DEEPSEEK_V4_FLASH_MODEL,
   GLM_V53_FLASH_MODEL,
   GPT_5_6_LUNA_MODEL,
-  DEEPSEEK_V4_FLASH_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
   // OX ALPHA LEFT THIS LIST on 2026-08-27, when its anonymous host ended the
   // free promotion the row existed for. MiMo is the sole UNMETERED row again.
@@ -2702,7 +2700,10 @@ export type FreebuffWebPremiumModelId =
   (typeof FREEBUFF_WEB_PREMIUM_MODEL_IDS)[number]
 
 /** What new freebuff users see selected in the CLI and Desktop pickers, and the
- *  model their "RECOMMENDED" hero opens on. GLM 5.3 Flash as of 2026-08-30.
+ *  model their "RECOMMENDED" hero opens on. DeepSeek V4 Flash 07/31 as of
+ *  2026-09-02 (unmetered on the Luminal lane; it carries the AI-training
+ *  notice, and it is also the limited tier's default). The paragraphs below
+ *  were written for the GLM 5.3 Flash default of 2026-08-30 and still hold.
  *
  *  THE FIRST DEFAULT SINCE 2026-08-18 THAT IS NOT PREMIUM, and that is the
  *  substantive change rather than a detail. Every default in between drew on the
@@ -2732,11 +2733,19 @@ export type FreebuffWebPremiumModelId =
  *  user sees changes — pickers still render `warning`, there is simply no
  *  longer one to render on the default row. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+
+/** The default this one replaced, and the stamp of the one-time move of saved
+ *  picks off it (util/freebuff-default-model-migration.ts). Every surface
+ *  persists the model a session ran on, so a saved old default is usually
+ *  inherited, not chosen. Bump both together at the next flip. */
+export const PREVIOUS_DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_GLM_V53_FLASH_MODEL_ID
+export const FREEBUFF_DEFAULT_MODEL_MIGRATION_ID = 'deepseek-v4-flash-2026-09-02'
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
- *  the model a new Cloud thread starts on. GLM 5.3 Flash as of 2026-08-30,
- *  moving with DEFAULT_FREEBUFF_MODEL_ID rather than independently.
+ *  the model a new Cloud thread starts on. DeepSeek V4 Flash 07/31 as of
+ *  2026-09-02, moving with DEFAULT_FREEBUFF_MODEL_ID rather than independently.
  *
  *  The browser surfaces are where this default matters most and where the trade
  *  cuts both ways hardest. A browser build is one long agentic run against a
@@ -2764,7 +2773,7 @@ export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
  *  browser surfaces can steer independently. They name the same model today and
  *  diverged as recently as 2026-08-04 -> 2026-08-12. */
 export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
-  FREEBUFF_GLM_V53_FLASH_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 
 /** Premium models the Web/Cloud picker renders small and muted: they are
  *  materially more expensive per token than the recommended default without
@@ -2831,27 +2840,24 @@ export function isFreebuffWebDeemphasizedModelId(
  *  hour Flash became premium: the two edits are one change, and restoring
  *  either alone re-creates the loop.
  *
- *  MiMo 2.5 is now the only unlimited row in the catalog, so it is both this
- *  fallback and LIMITED_FREEBUFF_MODEL_ID. Those coinciding is a consequence of
- *  the pause, not a rule — keep them separate constants. */
+ *  MiMo 2.5, the cheapest row we serve, which is what the token-heavy Cloud
+ *  planner and build paths reading this want. A separate constant from
+ *  LIMITED_FREEBUFF_MODEL_ID (the limited hero) on purpose. */
 export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_MIMO_V25_MODEL_ID
 
-/**
- * The limited tier's catalog, and the model an out-of-tier or stale pick is
- * coerced to. MiMo 2.5 alone since 2026-08-18: DeepSeek V4 Flash 07/31 was this
- * tier's default until DeepSeek repriced the V4 family on 2026-08-16 (see
- * DEEPSEEK_V4_PRO_MODEL), and it is the tier's highest-volume model, so pausing
- * it here is what keeps these sessions free.
- *
- * A PAUSE, NOT A RETIREMENT. Flash stays in SUPPORTED_FREEBUFF_MODELS,
- * FREEBUFF_MODELS and FALLBACK_FREEBUFF_MODEL_ID, so full access is unaffected
- * and restoring it is re-adding the id here (and to
- * FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS) plus dropping
- * FREEBUFF_PAUSED_MODEL_NOTICE from the pickers.
- */
+/** The limited tier's hero, and the model an out-of-tier or stale pick is
+ *  coerced to. The same row as the full-access default since 2026-09-02. */
 export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_MIMO_V25_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+/**
+ * The limited tier's catalog, hero first — the ONE owner of which models are
+ * limited-tier: the web geo-exempt list, the quota pool, and chat's list all
+ * derive from it. The tier is metered by region rather than by model, so a
+ * row here widens what those users may pick, not how much they get. Removing a
+ * row is not a no-op for installed clients: admission coerces their pick and
+ * the chat gate must substitute rather than refuse (#1801).
+ */
 // Ox Alpha joined the limited tier on 2026-08-24 and LEFT it on 2026-08-27,
 // when its host ended the free promotion (FREEBUFF_PAUSED_FREE_MODEL_IDS).
 // Limited access is metered by REGION rather than by model, so this narrows
@@ -2864,10 +2870,19 @@ export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
 //
 // It left FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS in the same change, so the two
 // limited catalogs still agree for this row.
-export const LIMITED_FREEBUFF_MODEL_IDS = [FREEBUFF_MIMO_V25_MODEL_ID] as const
+export const LIMITED_FREEBUFF_MODEL_IDS = [
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_MIMO_V25_MODEL_ID,
+] as const
 export const LIMITED_FREEBUFF_MODELS = LIMITED_FREEBUFF_MODEL_IDS.map(
   (modelId) => SUPPORTED_FREEBUFF_MODELS.find((model) => model.id === modelId)!,
 )
+
+/** The `session_model_mismatch` message for a limited-tier caller naming a
+ *  model the tier cannot run; derived so it cannot lag the catalog again. */
+export const LIMITED_FREEBUFF_MODEL_MISMATCH_MESSAGE = `Limited free access is only available with ${LIMITED_FREEBUFF_MODELS.map(
+  (model) => model.displayName,
+).join(' or ')}.`
 
 export type FreebuffAccessTier = 'full' | 'limited'
 
@@ -2953,27 +2968,11 @@ export const FREEBUFF_CLOUD_BLANK_PROJECT_DAILY_LIMIT = 10
  * keep chatting. */
 export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
 
-/** Models available to limited-region Freebuff Web users. They share the
- * limited-region session pool; every other model remains geo-gated.
- *
- * Flash left this list with LIMITED_FREEBUFF_MODEL_IDS — restore it in both or
- * neither, since FREEBUFF_WEB_LIMITED_MODEL_IDS is the union of the two.
- *
- * Ox Alpha was here from 2026-08-20 and LEFT on 2026-08-27 alongside
- * LIMITED_FREEBUFF_MODEL_IDS, when its host ended the free promotion — restore
- * it in both or neither, since FREEBUFF_WEB_LIMITED_MODEL_IDS is the union of
- * the two. It was also the entry that made the split between these lists
- * matter, and the split still holds: this one is the browser surfaces' limited
- * catalog and that one is the CLI/Desktop's, so a Web/Cloud-only row can reach
- * limited regions without appearing anywhere it cannot run.
- *
- * Being here costs the limited tier nothing extra. That tier is metered by
- * REGION, not by model — every limited session draws on the same
- * FREEBUFF_LIMITED_SESSION_LIMIT pool whichever row it picks — so this widens
- * what those users can choose without widening how much they get. */
-export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS = [
-  FREEBUFF_MIMO_V25_MODEL_ID,
-] as const
+/** Models available to limited-region Freebuff Web users: the limited catalog
+ * itself. Its own name so a browser-only row (as Ox Alpha once was) can be
+ * appended without reaching the CLI/Desktop picker. */
+export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS: readonly string[] =
+  LIMITED_FREEBUFF_MODEL_IDS
 
 export function isFreebuffWebGeoExemptModelId(
   id: string | null | undefined,
@@ -3015,8 +3014,7 @@ export function isFreebuffWebModelAllowedForLimitedTier(
 }
 
 /** Coerce a limited-tier Freebuff Web selection (premium ids, stale
- * localStorage values — including a Flash pick saved before that model was
- * paused for this tier) to LIMITED_FREEBUFF_MODEL_ID. */
+ * localStorage values) to LIMITED_FREEBUFF_MODEL_ID. */
 export function resolveFreebuffWebModelForLimitedTier(
   id: string | null | undefined,
   /** See `hasPaidSubscription` on isFreebuffSessionModelAllowedForAccessTier. */

@@ -45,7 +45,6 @@ import {
   getReferralInfo,
 } from '@codebuff/common/types/freebuff-session'
 import {
-  FREEBUFF_PAUSED_MODEL_NOTICE,
   FREEBUFF_TIER_CHANGE_NOTICE,
   getFreebuffModelAvailabilityNotice,
 } from '@codebuff/common/util/freebuff-model-availability'
@@ -423,20 +422,18 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
 
   const accessTier =
     session && 'accessTier' in session ? session.accessTier : 'full'
-  // Answers "why these models?" in the order it gets asked. The two tiers ask
-  // different versions of it, so they get different answers: limited asks why
-  // the catalog is small and why a model that used to be in it isn't; full asks
-  // why Pro is gone and why Flash now costs a session.
+  // Answers "why these models?". The two tiers ask different versions of it:
+  // limited asks why the catalog is small; full asks which rows are metered.
   //
-  // Never both — a limited-tier user has neither Pro nor a premium pool, so the
-  // full-tier line would describe an account they do not have.
+  // Never both — a limited-tier user has no premium pool, so the full-tier line
+  // would describe an account they do not have.
   //
   // Hidden in compact terminals either way: nice-to-have context, and below 22
   // rows every line competes with the picker itself.
   const belowPickerNotices = compact
     ? []
     : accessTier === 'limited'
-      ? [getLimitedModeNotice(session), FREEBUFF_PAUSED_MODEL_NOTICE]
+      ? [getLimitedModeNotice(session)]
       : [FREEBUFF_TIER_CHANGE_NOTICE]
   // 'none' = user hasn't started a session yet. We're in the pre-chat landing
   // state: show the picker with a prompt. Picking a model triggers

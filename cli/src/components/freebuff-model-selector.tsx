@@ -91,7 +91,7 @@ import type {
 // once that empties — the hero must always be joinable. Pro is also the only
 // premium row open at every hour, which is why it holds this slot: V4 Flash now
 // closes for the ten-hour peak window. The limited tier's hero is MiMo 2.5,
-// which is that tier's entire catalog. UNLIMITED needs no
+// with DeepSeek V4 Flash as its one other row. UNLIMITED needs no
 // annotation. Empty sections are filtered so a model set with no premium (or no
 // unlimited) entries doesn't render an orphan header.
 //

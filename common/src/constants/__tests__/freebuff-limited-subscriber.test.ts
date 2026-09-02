@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   FREEBUFF_WEB_LIMITED_MODEL_IDS,
   LIMITED_FREEBUFF_MODEL_ID,
+  LIMITED_FREEBUFF_MODEL_IDS,
   getFreebuffModelsForAccessTier,
   isFreebuffSessionModelAllowedForAccessTier,
   isFreebuffWebModelAllowedForLimitedTier,
@@ -27,19 +28,31 @@ import { FREEBUFF_SUBSCRIPTION_MODEL_IDS } from '../freebuff-subscriptions'
  * `session_model_mismatch` — the POOL is the gate, not the catalog. The
  * carve-out is therefore asserted here rather than worked around, because if it
  * ever widened past this one id the plan would stop being worth paying for.
+ *
+ * A plan model can also be an ordinary free row of the limited catalog (Flash
+ * is), so the assertions distinguish "free in this tier" from "plan-only".
  */
+const freeAtLimitedTier = (model: string): boolean =>
+  (LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).includes(model)
+
 describe('paid plans at limited access', () => {
-  test('the limited catalog still excludes every plan model when unpaid', () => {
+  test('the limited catalog still excludes every plan-only model when unpaid', () => {
     for (const model of FREEBUFF_SUBSCRIPTION_MODEL_IDS) {
-      // The free limited CATALOG excludes every plan model, reward row
-      // included — nothing here is a row a limited user is simply handed.
-      expect(FREEBUFF_WEB_LIMITED_MODEL_IDS).not.toContain(model)
+      // The free limited CATALOG excludes every plan model that the tier does
+      // not already hand out, reward row included.
+      expect(FREEBUFF_WEB_LIMITED_MODEL_IDS.includes(model)).toBe(
+        freeAtLimitedTier(model),
+      )
       expect(isFreebuffSessionModelAllowedForAccessTier(model, 'limited')).toBe(
         // The reward row is NAMEABLE without a plan so a bounty grant can fund
         // it; its pool reports 0 for everyone else. See the docblock above.
-        isFreebuffRewardModelId(model),
+        isFreebuffRewardModelId(model) || freeAtLimitedTier(model),
       )
     }
+    // Widening the overlap is a product decision that has to come here.
+    expect(FREEBUFF_SUBSCRIPTION_MODEL_IDS.filter(freeAtLimitedTier)).toEqual([
+      'deepseek/deepseek-v4-flash',
+    ])
   })
 
   test('a paid plan unlocks exactly the models it meters', () => {
@@ -109,13 +122,16 @@ describe('paid plans at limited access', () => {
  * model they had paid for answer as the free one.
  */
 describe('a plan model survives resolution, not just the allowlist', () => {
-  test('unpaid limited access still coerces every plan model to MiMo', () => {
+  test('unpaid limited access still coerces every plan-only model to MiMo', () => {
     for (const model of FREEBUFF_SUBSCRIPTION_MODEL_IDS) {
       expect(resolveFreebuffSessionModelForAccessTier(model, 'limited')).toBe(
         // The reward row survives coercion without a plan, so a grant-funded
         // session is launchable from any region; the pool decides whether it
-        // is joinable. Everything else is rewritten to the free row.
-        isFreebuffRewardModelId(model) ? model : LIMITED_FREEBUFF_MODEL_ID,
+        // is joinable. A row the tier hands out for free survives too, being
+        // simply allowed. Everything else is rewritten to the free default.
+        isFreebuffRewardModelId(model) || freeAtLimitedTier(model)
+          ? model
+          : LIMITED_FREEBUFF_MODEL_ID,
       )
     }
   })
@@ -135,12 +151,14 @@ describe('a plan model survives resolution, not just the allowlist', () => {
       // The picker's own allowlist — the one whose coercion effect reset a
       // subscriber's selection back to MiMo on the next render.
       expect(isFreebuffWebModelAllowedForLimitedTier(model)).toBe(
-        isFreebuffRewardModelId(model),
+        isFreebuffRewardModelId(model) || freeAtLimitedTier(model),
       )
       expect(isFreebuffWebModelAllowedForLimitedTier(model, true)).toBe(true)
       expect(resolveFreebuffWebModelForLimitedTier(model, true)).toBe(model)
       expect(resolveFreebuffWebModelForLimitedTier(model)).toBe(
-        isFreebuffRewardModelId(model) ? model : LIMITED_FREEBUFF_MODEL_ID,
+        isFreebuffRewardModelId(model) || freeAtLimitedTier(model)
+          ? model
+          : LIMITED_FREEBUFF_MODEL_ID,
       )
     }
   })

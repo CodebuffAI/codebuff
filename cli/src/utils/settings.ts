@@ -2,12 +2,18 @@ import fs from 'fs'
 import path from 'path'
 
 import {
+  DEFAULT_FREEBUFF_MODEL_ID,
   FREEBUFF_MODELS,
+  PREVIOUS_DEFAULT_FREEBUFF_MODEL_ID,
   getFreebuffModelEfforts,
   isFreebuffModelId,
   migrateSupersededFreebuffModelPreference,
 } from '@codebuff/common/constants/freebuff-models'
 import { isReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
+import {
+  migrateSavedDefaultModel,
+  type SavedModelStore,
+} from '@codebuff/common/util/freebuff-default-model-migration'
 
 import { getConfigDir } from './auth'
 import { AGENT_MODES } from './constants'
@@ -33,6 +39,9 @@ export interface Settings {
    *  next freebuff launch so users land in the queue for their preferred
    *  model without re-picking. Persisted as the canonical model id. */
   freebuffModel?: string
+  /** Which default flip `freebuffModel` has been migrated through — see
+   *  FREEBUFF_DEFAULT_MODEL_MIGRATION_ID. */
+  freebuffModelDefaultMigration?: string
   /** Reasoning effort the user picked per model, keyed by canonical model id.
    *  Per-model rather than a single value because the ladders differ: DeepSeek
    *  V4 offers low/high/max while Luna offers low..max, so one shared value
@@ -140,6 +149,9 @@ const validateSettings = (parsed: unknown): Settings => {
     FREEBUFF_MODELS.map((model) => model.id),
   )
   if (replacement) settings.freebuffModel = replacement
+  if (typeof obj.freebuffModelDefaultMigration === 'string') {
+    settings.freebuffModelDefaultMigration = obj.freebuffModelDefaultMigration
+  }
 
   // Validate saved efforts against BOTH the effort vocabulary and each model's
   // own ladder. A rung dropped from a catalog row (or a model that stopped
@@ -217,13 +229,25 @@ export const saveModePreference = (mode: AgentMode): void => {
   saveSettings({ mode })
 }
 
-/**
- * Load the saved freebuff model preference. Returns undefined if none is
- * saved yet — callers should fall back to DEFAULT_FREEBUFF_MODEL_ID.
- */
-export const loadFreebuffModelPreference = (): string | undefined => {
-  return loadSettings().freebuffModel
+/** The settings file, as the store the shared default migration runs over. */
+const settingsModelStore: SavedModelStore = {
+  readPick: () => loadSettings().freebuffModel,
+  writePick: (freebuffModel) => saveSettings({ freebuffModel }),
+  readStamp: () => loadSettings().freebuffModelDefaultMigration,
+  writeStamp: (freebuffModelDefaultMigration) =>
+    saveSettings({ freebuffModelDefaultMigration }),
 }
+
+/**
+ * Load the saved freebuff model preference, through the one-time default
+ * migration (migrateSavedDefaultModel). Returns undefined if none is saved —
+ * callers should fall back to DEFAULT_FREEBUFF_MODEL_ID.
+ */
+export const loadFreebuffModelPreference = (): string | undefined =>
+  migrateSavedDefaultModel(settingsModelStore, {
+    previous: PREVIOUS_DEFAULT_FREEBUFF_MODEL_ID,
+    current: DEFAULT_FREEBUFF_MODEL_ID,
+  }) ?? undefined
 
 /**
  * Save an ordinary freebuff picker preference so the next launch defaults to

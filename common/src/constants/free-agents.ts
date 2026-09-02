@@ -206,7 +206,11 @@ export const FREEBUFF_BASE3_AGENT_IDS: ReadonlySet<string> = new Set([
 export const CLOUD_PLANNER_AGENT_ID = 'base2-free-cloud-planner'
 export const CLOUD_PLANNER_MODEL_ID = FALLBACK_FREEBUFF_MODEL_ID
 export const CLOUD_PLANNER_LIMITED_AGENT_ID = 'base2-free-cloud-planner-limited'
-export const CLOUD_PLANNER_LIMITED_MODEL_ID = LIMITED_FREEBUFF_MODEL_ID
+/** The unlimited model, not LIMITED_FREEBUFF_MODEL_ID: the planner and build
+ *  are the token-heavy paths and want the cheapest row (see
+ *  CLOUD_BUILD_MODEL_ID). Must be in LIMITED_FREEBUFF_MODEL_IDS, or limited
+ *  planner turns fail admission — a test pins that. */
+export const CLOUD_PLANNER_LIMITED_MODEL_ID = FALLBACK_FREEBUFF_MODEL_ID
 
 /**
  * The model the build runs on after "Start building".
@@ -611,7 +615,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Freebuff Cloud custom-stack planner (freebuff_bundled_agents.ts). One
   // variant per model, each allowed exactly the model its definition pins.
   'base2-free-cloud-planner': new Set([CLOUD_PLANNER_MODEL_ID]),
-  'base2-free-cloud-planner-limited': new Set([LIMITED_FREEBUFF_MODEL_ID]),
+  'base2-free-cloud-planner-limited': new Set([CLOUD_PLANNER_LIMITED_MODEL_ID]),
 
   // base3 roots: exactly the one model each is pinned to, like every other
   // per-model root. Derived from the maps rather than written out, so a model
@@ -881,11 +885,11 @@ export function isFreeModeAllowedAgentModel(
  *
  * Cannot be an escalation, which is what the allowlist exists to prevent. Both
  * accepted targets are models the server picks for users it is stepping DOWN,
- * never up: the limited tier's only model, and the always-available fallback
- * every surface lands on when a premium pool is spent. They name the same model
- * today; they are checked separately because that is a coincidence of the
- * current catalog rather than a rule, and the day it stops being true this
- * must keep accepting both.
+ * never up: the limited tier's default (DeepSeek V4 Flash since 2026-09-02),
+ * and the always-available fallback every surface lands on when a premium pool
+ * is spent (MiMo 2.5). They named the same model from 2026-08-18 to 09-02 and
+ * are checked separately because that was a coincidence of the catalog rather
+ * than a rule; both are unmetered, so admitting either meters nothing.
  */
 export function isLimitedTierSubstitutedModel(
   fullAgentId: string,

@@ -34,13 +34,13 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 
 | Model                       | Access                  | Best for                                                          |
 | --------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| **GLM 5.3 Flash**           | Full access             | The default in full mode; deepest reasoning, unmetered            |
+| **DeepSeek V4 Flash 07/31** | Full and limited access | The default everywhere; fast coding and tool use, unmetered       |
+| **GLM 5.3 Flash**           | Full access             | Deepest reasoning, unmetered                                      |
 | **GPT-5.6 Luna**            | Full access             | Strong all-around with native images                              |
-| **DeepSeek V4 Flash 07/31** | Full access             | Fast coding and tool use; pauses during peak hours                |
-| **MiMo 2.5**                | Full and limited access | The limited-mode default; balanced performance with image support |
+| **MiMo 2.5**                | Full and limited access | Balanced performance with image support                           |
 | **Solar Pro 4**             | Full access             | Limited-time trial; 524K context, text only                       |
 
-Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash and MiMo 2.5 are unmetered and cost no session at all. Models may still serve from a quantized (Q8_0) build.
+Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash, DeepSeek V4 Flash 07/31 and MiMo 2.5 are unmetered and cost no session at all. Models may still serve from a quantized (Q8_0) build.
 
 DeepSeek V4 Pro was retired from the catalog; GLM 5.3 Flash replaces it as the deep-reasoning pick.
 
@@ -63,7 +63,7 @@ Freebuff uses specialized agents instead of sending every task through one model
 
 ## Free access
 
-Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access, currently MiMo 2.5 with three one-hour sessions per day, earnable up to seven.
+Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access, currently MiMo 2.5 and DeepSeek V4 Flash 07/31 with six one-hour sessions per day, earnable up to seven.
 
 Text ads support the included models. Freebuff shows the applicable session limits and any model-specific data-use notice before you start.
 

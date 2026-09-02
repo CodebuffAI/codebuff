@@ -354,7 +354,7 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
     const frame = setup.captureCharFrame()
     // `›` is the cursor: it has to be on the row Enter now commits.
-    expect(frame).toContain('› GLM 5.3 Flash')
+    expect(frame).toContain('› DeepSeek V4 Flash 07/31')
     // …and that row is the whole screen, exactly as for a user who is already
     // on the recommendation. The spent rows live behind the toggle.
     expect(frame).toContain('See all')
@@ -389,7 +389,7 @@ describe('FreebuffModelSelector tier layout', () => {
     // premium; an unmetered default is always joinable, so an invalid selection
     // now lands on the row the picker leads with.
     expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
-    expect(setup.captureCharFrame()).toContain('› GLM 5.3 Flash')
+    expect(setup.captureCharFrame()).toContain('› DeepSeek V4 Flash 07/31')
   })
 
   test('shows every limited-tier model when the access tier arrives after mount', async () => {
@@ -419,8 +419,8 @@ describe('FreebuffModelSelector tier layout', () => {
       expect(frame).toContain(model.displayName)
     }
     // The pre-transition pick was a full-access model, so this is the path
-    // where a paused row would linger.
-    expect(frame).not.toContain('DeepSeek V4 Flash')
+    // where a full-access-only row would linger.
+    expect(frame).not.toContain('GPT-5.6 Luna')
     expect(frame).not.toContain('PREMIUM')
     expect(frame).not.toContain('UNLIMITED')
   })
@@ -530,12 +530,9 @@ describe('FreebuffModelSelector tier layout', () => {
     useFreebuffModelStore
       .getState()
       // NOT the hero, so the picker opens expanded and the chip under test is
-      // drawn at all. Luna took the hero slot on 2026-08-24; selecting it here
-      // collapses the list to a single row and the chip disappears. V4 Flash
-      // also supplies the warning-ONLY second line asserted below, which the
-      // chip row cannot: every row carrying a pool row here also carries a
-      // chip.
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+      // drawn at all. The expanded list still draws the Flash row, which
+      // supplies the warning-ONLY second line asserted below.
+      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
 
     const frame = (await renderSelector()).captureCharFrame()
     // Gutters inside the card borders, which is what "centred" means here and
@@ -580,13 +577,11 @@ describe('FreebuffModelSelector tier layout', () => {
       accessTier: 'full',
     })
     // A row that isn't the hero, so the picker opens expanded and the PREMIUM
-    // header is actually drawn. Flash since 2026-08-24 -- Luna took the hero
-    // slot, so selecting Luna here would collapse the list. The assertion is
-    // the ABSENCE of numbers on that header, so the fact that Flash itself
-    // stopped being premium that same day changes nothing here.
+    // header is actually drawn. The assertion is the ABSENCE of numbers on
+    // that header, so which unmetered row is selected changes nothing here.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
 
     const frame = (await renderSelector()).captureCharFrame()
     // The section still groups the rows; only the invented numbers are gone.
