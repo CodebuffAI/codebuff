@@ -613,8 +613,30 @@ const OX_ALPHA_REASONING_EFFORTS = ['low', 'high', 'max'] as const
  * still maps OpenRouter's wider enum onto the gateway's declared three, `max`
  * included: a caller paying their own bill keeps the rung. This list governs
  * what Freebuff itself picks and offers.
+ *
+ * `max` IS BACK (2026-09-01, evening), and it is the ONLY rung on which this
+ * model thinks at all. Measured with agent tools in the body, thinking
+ * characters, two samples per cell, same prompt as the reasoning monitor:
+ *
+ *              low       high        xhigh      max              unset
+ *   zai        0 / 40    229 / 538   157 / 277  7,282 / 9,104    12,272 / 16,652
+ *   particle   0 / 26    178 / 447   262 / 296  5,506 / 6,729    237 / 255
+ *   OpenRouter          49 tok      78 tok     2,381 tok        1,814 tok
+ *
+ * `high` had measured 2-4k on particle on 2026-08-31; by the next evening it
+ * was ~300 characters on both vendors, and `xhigh` is `high` under another
+ * name on Z.ai's side. Nothing in between exists: OpenRouter's reasoning
+ * token budget is ignored and the native `thinking` parameter switches
+ * thinking OFF. So the ladder is none / almost-none / deep, and a "Deep
+ * reasoning" row that never reaches the third rung is mislabelled. On the
+ * tool-bearing mini-bench `max` scored 10/10 at ~614 reasoning tokens against
+ * 8/10 at ~15 for `high`, at 21s median latency against 9s.
+ *
+ * The looping that removed the rung (#2528) is real and is the trade being
+ * made here on purpose: depth over the loop risk, with the wire default
+ * moving to `max` in the same change. Watch tool-call repetition per turn.
  */
-const GLM_V53_FLASH_REASONING_EFFORTS = ['low', 'high'] as const
+const GLM_V53_FLASH_REASONING_EFFORTS = ['low', 'high', 'max'] as const
 /**
  * The marker that turns a Muse Spark rate limit into a queued turn rather than
  * a failed one.
@@ -1430,39 +1452,20 @@ const GLM_V53_FLASH_MODEL = {
   // setting, never a compatibility alias) is met. MiniMax M3, Solar Pro 4 and
   // MiMo stay bare — those genuinely expose no effort parameter.
   //
-  // PINNED TO `high` ON 2026-08-31, AND THE PIN IS THE POINT. `max` left the
-  // ladder the same day for looping on agent work (see
-  // GLM_V53_FLASH_REASONING_EFFORTS), and this row's wire default was UNSET,
-  // which is DEEPER than `max`:
+  // PINNED TO `max` ON 2026-09-01 (evening). The 08-31 pin to `high` was made
+  // when `high` still measured 2-4k thinking characters on particle; a day
+  // later it measured ~300 on both vendors, and every rung below `max` is
+  // effectively no thinking at all (see GLM_V53_FLASH_REASONING_EFFORTS for the
+  // table). An explicit default still matters for the reason the 08-31 note
+  // gave — unset inherits whatever the vendor feels like today, 12-17k on zai
+  // and ~250 on particle the same evening — it just has to name the rung
+  // that thinks. The loop risk that removed `max` is accepted on purpose and
+  // is the thing to watch: tool-call repetition per turn, not thinking depth.
   //
-  //   unset  8118 / 9942 / 9871      max  7271 / 8011 / 5781
-  //
-  // (agent-shaped prompt, thinking characters, three samples each, 2026-08-29).
-  // Unset is not a neutral setting and never was — it is the top of the range.
-  // So the rung that looped was also what every untouched turn ran at, on every
-  // surface: `applyFreebuffReasoningDefaults` reads THIS field, and with it
-  // absent it sent no `reasoning_effort` at all. The CHAT surfaces
-  // (freebuff.com/chat, iMessage) have no effort control whatsoever, so unset
-  // was the only thing they could ever run.
-  //
-  // Dropping the rung without pinning the default would therefore have fixed
-  // the loop only for users who had already found the picker and moved off it,
-  // and left it in place for everyone who never touched the control — which is
-  // nearly all of them. The two changes are one change.
-  //
-  // WHAT THIS GIVES UP: depth. This is still the catalog's deep row, but `high`
-  // is a real step down from unset, and the "Deep reasoning" tagline is now a
-  // claim about the model rather than about its setting. If a turn is ever
-  // observed under-thinking rather than looping, the lever is to move this to
-  // `max` for a WIRE default while leaving it off the ladder — not to restore
-  // the rung users can pick.
-  //
-  // `defaultEffort` now EQUALS `reasoningEffort`, which is the ordinary shape;
-  // they were deliberately unequal only while the wire default sat off the top
-  // of the ladder and the picker had to name the nearest rung to it.
+  // `defaultEffort` EQUALS `reasoningEffort`, the ordinary shape.
   efforts: GLM_V53_FLASH_REASONING_EFFORTS,
-  reasoningEffort: 'high',
-  defaultEffort: 'high',
+  reasoningEffort: 'max',
+  defaultEffort: 'max',
   //
   // No `supersededBy` and no RECOMMENDED badge: nothing in this catalog nudges
   // anyone anywhere, and a notice here would rewrite saved picks on every load

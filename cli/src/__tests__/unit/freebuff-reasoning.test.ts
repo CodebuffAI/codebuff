@@ -135,18 +135,17 @@ describe('/reasoning', () => {
     // catalog row losing `efforts` again, which the LADDERED constant above
     // would not notice.
     useFreebuffModelStore.setState({ selectedModel: FREEBUFF_GLM_V53_FLASH_MODEL_ID })
-    // TWO rungs since 2026-08-31: `max` was removed for looping on agent work.
-    expect(getFreebuffModelEfforts(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toEqual([
-      'low',
-      'high',
-    ])
+    // Three rungs again since the evening of 2026-09-01: `max` left on 08-31 for
+    // looping and returned as the default because it is the only rung on which
+    // this model thinks (see GLM_V53_FLASH_REASONING_EFFORTS).
+    expect(getFreebuffModelEfforts(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toEqual(['low', 'high', 'max'])
 
     const before = handleReasoningCommand('')
-    expect(before.message).toContain('high (model default)')
-    expect(before.message).toContain('low, high')
+    expect(before.message).toContain('max (model default)')
+    expect(before.message).toContain('low, high, max')
     // Nothing sent until the user actually picks — the model default is the
     // server's job, and sending it would look like a decision. (It is a REAL
-    // default on the wire now, `reasoningEffort: 'high'`, rather than the unset
+    // default on the wire now, `reasoningEffort: 'max'`, rather than the unset
     // this row used to run at; the CLI still says nothing until asked.)
     expect(getSelectedFreebuffReasoningEffort()).toBeNull()
 
@@ -163,9 +162,14 @@ describe('/reasoning', () => {
     expect(refused.message).toContain('is not a reasoning level')
     expect(getSelectedFreebuffReasoningEffort()).toBe('low')
 
-    const refusedMax = handleReasoningCommand('max')
-    expect(refusedMax.message).toContain('is not a reasoning level')
-    expect(getSelectedFreebuffReasoningEffort()).toBe('low')
+    // `max` is a rung again (2026-09-01 evening) and the default; `xhigh` is
+    // still not on this ladder and is refused rather than silently mapped.
+    const acceptedMax = handleReasoningCommand('max')
+    expect(acceptedMax.message).toContain('set to max')
+    expect(getSelectedFreebuffReasoningEffort()).toBe('max')
+    const refusedXhigh = handleReasoningCommand('xhigh')
+    expect(refusedXhigh.message).toContain('is not a reasoning level')
+    expect(getSelectedFreebuffReasoningEffort()).toBe('max')
   })
 
   test('a stored rung the model no longer offers is ignored, not clamped', () => {
