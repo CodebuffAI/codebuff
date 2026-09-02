@@ -417,6 +417,11 @@ const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
   settlement_status: 'string',
   charged_cents: 'number',
   duration_ms: 'number',
+  // Identity rail only (docs/freebuff-placements-conversions.md §16): how the
+  // hashed-email lookup ended — matched | observed_match | unmatched |
+  // ambiguous | gated | consent_denied — and 'none' on every click-id row.
+  // Bounded by construction; never a digest, never a user.
+  match_outcome: 'string',
 } as const satisfies AxiomOnlyFieldSchema
 
 export type AxiomOnlyLogEvent = {
