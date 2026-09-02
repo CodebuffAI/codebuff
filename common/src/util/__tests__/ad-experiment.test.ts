@@ -7,6 +7,9 @@ import {
   adExperimentArmForUser,
   firstPartyAdRouteForUser,
   firstPartyAdRouteForGeoRequest,
+  firstPartyArmKey,
+  FIRST_PARTY_ARM_SALT,
+  fnv1a,
   firstPartyPrimaryBucket,
   firstPartyPrimaryBasisPoints,
   houseLegOpen,
@@ -455,6 +458,35 @@ describe('the house leg (COD-358)', () => {
     expect(houseLegOpen('user', off, 'unknown')).toBe(true)
     expect(houseLegOpen('user', { ...off, houseLeg: false }, 'tier1')).toBe(
       false,
+    )
+  })
+})
+
+describe('sticky first-party arm', () => {
+  test('one user lands in one bucket, on every surface and every request', () => {
+    const first = firstPartyPrimaryBucket(firstPartyArmKey('user-a'))
+    for (let attempt = 0; attempt < 5; attempt++) {
+      expect(firstPartyPrimaryBucket(firstPartyArmKey('user-a'))).toBe(first)
+    }
+    expect(first).toBeGreaterThanOrEqual(0)
+    expect(first).toBeLessThan(10_000)
+  })
+
+  test('two users do not share a bucket by construction', () => {
+    const buckets = new Set(
+      Array.from({ length: 200 }, (_, index) =>
+        firstPartyPrimaryBucket(firstPartyArmKey(`user-${index}`)),
+      ),
+    )
+    // A hash into 10,000 buckets will collide a little; what would be wrong is
+    // every user landing together.
+    expect(buckets.size).toBeGreaterThan(150)
+  })
+
+  test('rotating the salt is the only thing that reshuffles the arm', () => {
+    const rotated = `fpa_${fnv1a(`${FIRST_PARTY_ARM_SALT}_rotated:user-a`).toString(36)}`
+    expect(firstPartyPrimaryBucket(rotated)).not.toBe(
+      firstPartyPrimaryBucket(firstPartyArmKey('user-a')),
     )
   })
 })
