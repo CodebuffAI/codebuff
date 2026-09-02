@@ -1,11 +1,22 @@
 import { withTimeout } from '@codebuff/common/util/promise'
 
+import type { ResearchEffort } from '@codebuff/common/constants/web-search'
 import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 import type { JSONObject } from '@codebuff/common/types/json'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const FETCH_TIMEOUT_MS = 30_000
-const MAX_RETRIES = 3
+// Exported so the latency-pairing pin (web deep-research latency-pairing test)
+// can assert the ceilings stay ordered; raising one constant alone fails it.
+export const FETCH_TIMEOUT_MS = 30_000
+export const MAX_RETRIES = 3
+// Deep research is slow by design, so give it its own (longer) budget. Three
+// hops, not one: a completed run costs (server-side poll budget) + (~5s cost
+// lookup) + (result fetch). This timeout must exceed that sum so the endpoint
+// always answers — or cancels — before the client aborts; the web-search path
+// (FETCH_TIMEOUT_MS) must likewise exceed its 25s budget + ~5s cost hop. See
+// the ceiling comment in futuresearch-api.ts; raise the paired constants
+// together.
+export const DEEP_RESEARCH_FETCH_TIMEOUT_MS = 6 * 60_000
 const RETRY_BASE_DELAY_MS = 1000
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 
@@ -41,17 +52,24 @@ const callCodebuffV1 = async (params: {
     | '/api/v1/web-search'
     | '/api/v1/docs-search'
     | '/api/v1/gravity-index'
+    | '/api/v1/deep-research'
   payload: unknown
   fetch: typeof globalThis.fetch
   logger: Logger
   env: CodebuffWebApiEnv
   baseUrl?: string
   apiKey?: string
-  requestName: 'web-search' | 'docs-search' | 'gravity-index'
+  timeoutMs?: number
+  maxRetries?: number
+  requestName: 'web-search' | 'docs-search' | 'gravity-index' | 'deep-research'
 }): Promise<{ json?: unknown; error?: string; creditsUsed?: number }> => {
   const { endpoint, payload, fetch, logger, env, requestName } = params
   const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
   const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
+  const fetchTimeoutMs = params.timeoutMs ?? FETCH_TIMEOUT_MS
+  // Research calls are not safe to retry: a re-submitted task bills twice. The
+  // caller opts in to retry-free behavior via maxRetries: 1.
+  const maxRetries = params.maxRetries ?? MAX_RETRIES
 
   if (!baseUrl || !apiKey) {
     return { error: 'Missing Codebuff base URL or API key' }
@@ -60,7 +78,7 @@ const callCodebuffV1 = async (params: {
   const url = `${baseUrl}${endpoint}`
   let lastError: string | undefined
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const res = await withTimeout(
         fetch(url, {
@@ -72,8 +90,8 @@ const callCodebuffV1 = async (params: {
           },
           body: JSON.stringify(payload),
         }),
-        FETCH_TIMEOUT_MS,
-        `Request to ${endpoint} timed out after ${FETCH_TIMEOUT_MS}ms`,
+        fetchTimeoutMs,
+        `Request to ${endpoint} timed out after ${fetchTimeoutMs}ms`,
       )
 
       const text = await res.text()
@@ -87,7 +105,7 @@ const callCodebuffV1 = async (params: {
           'Request failed'
 
         // Retry on transient errors
-        if (RETRYABLE_STATUS_CODES.has(res.status) && attempt < MAX_RETRIES) {
+        if (RETRYABLE_STATUS_CODES.has(res.status) && attempt < maxRetries) {
           const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1)
           logger.warn(
             {
@@ -123,7 +141,7 @@ const callCodebuffV1 = async (params: {
       lastError = error instanceof Error ? error.message : 'Network error'
 
       // Retry on network errors
-      if (attempt < MAX_RETRIES) {
+      if (attempt < maxRetries) {
         const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1)
         logger.warn(
           {
@@ -180,6 +198,52 @@ export async function callWebSearchAPI(params: {
     baseUrl: params.baseUrl,
     apiKey: params.apiKey,
     requestName: 'web-search',
+  })
+  if (res.error) return { error: res.error }
+
+  const result = getStringField(res.json, 'result')
+  if (result) {
+    return { result, creditsUsed: res.creditsUsed }
+  }
+
+  const error = getStringField(res.json, 'error')
+  return { error: error ?? 'Invalid response format' }
+}
+
+export async function callDeepResearchAPI(params: {
+  query: string
+  effort?: ResearchEffort
+  /** Up to 6 explicit research angles for the agent team. */
+  directions?: string[]
+  /** Prior findings the research agents should build on (up to 10). */
+  context?: string[]
+  fetch: typeof globalThis.fetch
+  logger: Logger
+  env: CodebuffWebApiEnv
+  baseUrl?: string
+  apiKey?: string
+}): Promise<{ result?: string; error?: string; creditsUsed?: number }> {
+  const { query, effort, directions, context, fetch, logger, env } = params
+  // The server owns the effort default; absent fields are simply omitted from
+  // the payload (JSON.stringify drops undefined values).
+  const payload = {
+    query,
+    effort,
+    ...(directions && directions.length > 0 ? { directions } : {}),
+    ...(context && context.length > 0 ? { context } : {}),
+  }
+
+  const res = await callCodebuffV1({
+    endpoint: '/api/v1/deep-research',
+    payload,
+    fetch,
+    logger,
+    env,
+    baseUrl: params.baseUrl,
+    apiKey: params.apiKey,
+    timeoutMs: DEEP_RESEARCH_FETCH_TIMEOUT_MS,
+    maxRetries: 1,
+    requestName: 'deep-research',
   })
   if (res.error) return { error: res.error }
 

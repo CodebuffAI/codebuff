@@ -1,6 +1,9 @@
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
-import { callWebSearchAPI } from '../../../llm-api/codebuff-web-api'
+import {
+  callDeepResearchAPI,
+  callWebSearchAPI,
+} from '../../../llm-api/codebuff-web-api'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -49,13 +52,21 @@ export const handleWebSearch = (async (params: {
     clientEnv,
     ciEnv,
   } = params
-  const { query, depth } = toolCall.input
+  const {
+    query,
+    depth,
+    research,
+    researchEffort,
+    researchDirections,
+    researchContext,
+  } = toolCall.input
 
   const searchStartTime = Date.now()
   const searchContext = {
     toolCallId: toolCall.toolCallId,
     query,
     depth,
+    research,
     userId,
     agentStepId,
     clientSessionId,
@@ -69,15 +80,30 @@ export const handleWebSearch = (async (params: {
   let creditsUsed = 0
 
   try {
-    const webApi = await callWebSearchAPI({
-      query,
-      depth,
-      repoUrl: repoUrl ?? null,
-      fetch,
-      logger,
-      apiKey,
-      env: { clientEnv, ciEnv },
-    })
+    const webApi = research
+      ? await callDeepResearchAPI({
+          query,
+          ...(researchEffort ? { effort: researchEffort } : {}),
+          ...(researchDirections && researchDirections.length > 0
+            ? { directions: researchDirections }
+            : {}),
+          ...(researchContext && researchContext.length > 0
+            ? { context: researchContext }
+            : {}),
+          fetch,
+          logger,
+          apiKey,
+          env: { clientEnv, ciEnv },
+        })
+      : await callWebSearchAPI({
+          query,
+          depth,
+          repoUrl: repoUrl ?? null,
+          fetch,
+          logger,
+          apiKey,
+          env: { clientEnv, ciEnv },
+        })
 
     if (webApi.error) {
       const searchDuration = Date.now() - searchStartTime

@@ -21,11 +21,11 @@ const definition: SecretAgentDefinition = {
   toolNames: ['web_search', 'read_url'],
   spawnableAgents: [],
 
-  systemPrompt: `You are an expert researcher who can search the web to find relevant information. Your goal is to answer the user's question from current search results and useful source pages. Use web_search to get Serper JSON search results. Use read_url to fetch and extract readable text from pages that would help answer the user's question. Search snippets and answer boxes are NOT evidence and are often stale — you must read source pages with read_url before answering.`,
+  systemPrompt: `You are an expert researcher who can search the web to find relevant information. Your goal is to answer the user's question from current search results and useful source pages. Use web_search to get search results. Use read_url to fetch and extract readable text from pages that would help answer the user's question. Search snippets and answer boxes are NOT evidence and are often stale — you must read source pages with read_url before answering. For hard, multi-source questions, call web_search with research: true to run agentic deep research that returns a synthesized, cited answer instead of raw results.`,
   instructionsPrompt: `Provide comprehensive research on the user's prompt.
 
 Research iteratively, in multiple rounds:
-1. Start with 1-2 web_search calls. Inspect the titles, links, snippets, answer boxes, and related results.
+1. Start with 1-2 web_search calls. For multi-part, comparative, or otherwise hard questions, make the first call with research: true — it runs deeper research and returns a synthesized answer with citations, replacing several keyword searches. When you use research: true, break the question into its concrete sub-angles with researchDirections (each becomes an agent's research prompt), and pass anything already established — the question's constraints, prior findings, assumptions to verify — as researchContext so the agents build on it instead of starting from zero. Inspect the titles, links, snippets, answer boxes, and related results.
 2. Call read_url on the most promising results, especially official or primary sources. Call read_url on several pages at once, in parallel.
 3. After reading, check what is still missing, uncertain, or worth verifying. Run follow-up searches with refined queries (using new terms you learned from the pages) and read more pages until the question is well covered from multiple sources.
 

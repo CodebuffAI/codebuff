@@ -204,6 +204,67 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     )
   })
 
+  test('should call the deep research facade when research mode is set', async () => {
+    const mockResearchResult = JSON.stringify({
+      provider: 'futuresearch',
+      answer: 'A synthesized, cited answer.',
+    })
+    const researchSpy = spyOn(webApi, 'callDeepResearchAPI').mockResolvedValue({
+      result: mockResearchResult,
+    })
+    const searchSpy = spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({
+      result: 'unused',
+    })
+
+    mockAgentStream([
+      createToolCallChunk('web_search', {
+        query: 'hard question',
+        research: true,
+        researchEffort: 'high',
+        researchDirections: ['Compare official docs', 'Check pricing'],
+        researchContext: ['The docs recommend approach A.'],
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
+
+    const sessionState = getInitialSessionState(mockFileContextWithAgents)
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'researcher' as const,
+    }
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      ...agentRuntimeImpl,
+      fileContext: mockFileContextWithAgents,
+    })
+
+    const { agentState: newAgentState } = await runAgentStep({
+      ...runAgentStepBaseParams,
+      localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['researcher'],
+      agentState,
+      prompt: 'Research a hard question',
+    })
+
+    expect(researchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ query: 'hard question' }),
+    )
+    // Effort and steering knobs are forwarded to the facade.
+    expect(researchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        effort: 'high',
+        directions: ['Compare official docs', 'Check pricing'],
+        context: ['The docs recommend approach A.'],
+      }),
+    )
+    expect(searchSpy).not.toHaveBeenCalled()
+
+    const toolMsgs = newAgentState.messageHistory.filter(
+      (m) => m.role === 'tool' && m.toolName === 'web_search',
+    )
+    const toolContent = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
+    expect(toolContent).toContain('A synthesized, cited answer.')
+  })
+
   test('should surface no-results as error in tool output', async () => {
     const msg = 'No search results found for "very obscure"'
     spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({ error: msg })
