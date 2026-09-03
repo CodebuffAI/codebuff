@@ -22,8 +22,10 @@ import {
   userMessage,
 } from '@codebuff/common/util/messages'
 import { type ToolSet } from 'ai'
-import { cloneDeep, mapValues } from 'lodash'
+import { mapValues } from 'lodash'
 import z from 'zod/v4'
+
+import { cloneDeepKeepingZod } from './util/zod-safe-clone'
 
 import { maybeCompactHistory } from './compact-history'
 import { CACHE_DEBUG_FULL_LOGGING } from './constants'
@@ -151,7 +153,7 @@ async function additionalToolDefinitions(
 ): Promise<CustomToolDefinitions> {
   const { agentTemplate, fileContext } = params
 
-  const defs = cloneDeep(
+  const defs = cloneDeepKeepingZod(
     Object.fromEntries(
       Object.entries(fileContext.customToolDefinitions).filter(([toolName]) =>
         agentTemplate!.toolNames.includes(toolName),
