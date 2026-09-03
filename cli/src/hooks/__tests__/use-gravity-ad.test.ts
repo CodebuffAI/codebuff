@@ -5,6 +5,7 @@ import {
   dispatchFirstPartyViewAcknowledgement,
   isAnswerMessage,
   isInlineAdEligibleAnswer,
+  renderDelaySinceReceipt,
 } from '../use-gravity-ad'
 
 import type { ChatMessage } from '../../types/chat'
@@ -60,6 +61,19 @@ describe('isInlineAdEligibleAnswer', () => {
         }),
       ),
     ).toBe(false)
+  })
+})
+
+describe('renderDelaySinceReceipt (COD-365)', () => {
+  test('measures from the auction-response receipt stamp, floored at zero', () => {
+    expect(renderDelaySinceReceipt({ receivedAtMs: 1_000 }, 1_234)).toBe(234)
+    expect(renderDelaySinceReceipt({ receivedAtMs: 2_000 }, 1_000)).toBe(0)
+    expect(renderDelaySinceReceipt({ receivedAtMs: 1_000 }, 1_000.4)).toBe(0)
+  })
+
+  test('an ad without a stamp reports unknown rather than a guess', () => {
+    expect(renderDelaySinceReceipt({})).toBeUndefined()
+    expect(renderDelaySinceReceipt({ receivedAtMs: NaN })).toBeUndefined()
   })
 })
 

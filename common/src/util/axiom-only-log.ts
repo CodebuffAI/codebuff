@@ -468,6 +468,24 @@ const ADS_FIRST_PARTY_TRACKING_FIELDS = {
   already_clicked: 'boolean',
   impression_recorded: 'boolean',
   pixel_count: 'number',
+  /**
+   * COD-365 hygiene. `client_event_id` is the client-minted, per-logical-
+   * event UUID (opaque, bounded, never parsed); `deduped` says this request
+   * did NOT transition the row, so a transition count is
+   * `where deduped == false`. `render_delay_ms` is the client-measured
+   * receipt-to-mount delay, clamped and never derived. `opportunity_id` and
+   * `creative_version` are copied off the impression row so the event can
+   * join the auction and the copy without a database read.
+   * `client_family` is derived server-side from the UA; `sample_rate` is the
+   * integer denominator, 1 until something samples.
+   */
+  client_event_id: 'string',
+  deduped: 'boolean',
+  render_delay_ms: 'number',
+  opportunity_id: 'string',
+  creative_version: 'number',
+  client_family: 'string',
+  sample_rate: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
 /**
@@ -485,6 +503,19 @@ const FIRST_PARTY_VIEW_ACK_FIELDS = [
   'duration_ms',
   'client_family',
 ] as const
+
+/**
+ * Fields a NEWER client may add to the exact set above (COD-365). Optional
+ * on the check, not appended to the exact set, because a released CLI or
+ * Desktop binary still sends the six-field shape and its events must stay
+ * valid. Each is still validated when present -- a malformed value rejects
+ * the whole event exactly as a malformed required field does.
+ */
+const FIRST_PARTY_VIEW_ACK_OPTIONAL_FIELDS = [
+  'client_event_id',
+  'sample_rate',
+] as const
+const FIRST_PARTY_VIEW_ACK_CLIENT_EVENT_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/
 
 const FIRST_PARTY_VIEW_ACK_PLACEMENTS = new Map<string, string>(
   PLACEMENT_SLOTS.map((slot) => [slot.id, slot.surface]),
@@ -504,14 +535,24 @@ export function createFirstPartyViewAckTelemetry(
   }
   const record = input as Record<string, unknown>
   const keys = Object.keys(record)
+  const required = new Set<string>(FIRST_PARTY_VIEW_ACK_FIELDS)
+  const optional = new Set<string>(FIRST_PARTY_VIEW_ACK_OPTIONAL_FIELDS)
   if (
-    keys.length !== FIRST_PARTY_VIEW_ACK_FIELDS.length ||
-    keys.some(
-      (key) =>
-        !FIRST_PARTY_VIEW_ACK_FIELDS.includes(
-          key as (typeof FIRST_PARTY_VIEW_ACK_FIELDS)[number],
-        ),
-    )
+    keys.some((key) => !required.has(key) && !optional.has(key)) ||
+    FIRST_PARTY_VIEW_ACK_FIELDS.some((key) => !(key in record))
+  ) {
+    return null
+  }
+  const clientEventId = record.client_event_id
+  const sampleRate = record.sample_rate
+  if (
+    (clientEventId !== undefined &&
+      (typeof clientEventId !== 'string' ||
+        !FIRST_PARTY_VIEW_ACK_CLIENT_EVENT_ID_RE.test(clientEventId))) ||
+    (sampleRate !== undefined &&
+      (typeof sampleRate !== 'number' ||
+        !Number.isInteger(sampleRate) ||
+        sampleRate < 1))
   ) {
     return null
   }
@@ -550,6 +591,10 @@ export function createFirstPartyViewAckTelemetry(
     attempt: attempt as 1 | 2 | 3,
     duration_ms: durationMs,
     client_family: clientFamily as FirstPartyViewAckClientFamily,
+    ...(clientEventId !== undefined
+      ? { client_event_id: clientEventId as string }
+      : {}),
+    ...(sampleRate !== undefined ? { sample_rate: sampleRate as number } : {}),
   }
 }
 
@@ -715,3 +760,25 @@ export function getAxiomOnlyLogEvent(
   }
   return null
 }
+
+/**
+ * COD-365 hygiene contract, exported for the CI guard in
+ * `__tests__/axiom-only-log.test.ts`: every ads event allowlist this module
+ * owns for CLIENT-emitted events must carry these keys, and an unsampled
+ * producer emits `sample_rate: 1`. `ADS_FETCH_COMPLETED_FIELDS` is a server
+ * event owned by the rail slice (COD-369): it carries `sample_rate` already
+ * and is deliberately outside this guard until it also carries
+ * `client_family`, at which point the guard widens to
+ * `ADS_FETCH_COMPLETED_FIELD_NAMES`.
+ */
+export const ADS_CLIENT_EVENT_HYGIENE_FIELDS = [
+  'client_event_id',
+  'client_family',
+  'sample_rate',
+] as const
+export const ADS_FIRST_PARTY_TRACKING_FIELD_NAMES: readonly string[] =
+  Object.keys(ADS_FIRST_PARTY_TRACKING_FIELDS)
+export const FIRST_PARTY_VIEW_ACK_FIELD_NAMES: readonly string[] = [
+  ...FIRST_PARTY_VIEW_ACK_FIELDS,
+  ...FIRST_PARTY_VIEW_ACK_OPTIONAL_FIELDS,
+]
