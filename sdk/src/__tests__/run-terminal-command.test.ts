@@ -109,6 +109,27 @@ describe('BoundedOutputBuffer', () => {
     expect(output.format()).toStartWith('chunk-0000')
     expect(output.format()).toEndWith('chunk-0999')
   })
+
+  test('strips non-color ANSI control sequences such as line clears and cursor controls', () => {
+    const output = new BoundedOutputBuffer(100)
+    output.append('building...\u001b[2K\r')
+    output.append('\u001b[?25lprogress\u001b[?25h')
+    output.append('\u001b[1A\u001b[2Jdone')
+
+    expect(output.format()).toBe('building...\rprogressdone')
+    expect(output.format()).not.toContain('\u001b[')
+  })
+
+  test('buffers and strips split ANSI control sequences across chunk boundaries', () => {
+    const output = new BoundedOutputBuffer(100)
+    output.append('step 1\u001b[2')
+    output.append('K-cleared')
+    output.append(' \u001b[?25')
+    output.append('h-visible')
+
+    expect(output.format()).toBe('step 1-cleared -visible')
+    expect(output.format()).not.toContain('\u001b[')
+  })
 })
 
 describe('terminal command process diagnostics', () => {
