@@ -1084,18 +1084,30 @@ describe('consecutive assistant messages', () => {
   })
 })
 
-describe('non-image file parts (the bug: application/gzip threw at prompt build)', () => {
-  it('degrades a non-image file part to a text placeholder instead of throwing', () => {
-    // The bug: this threw UnsupportedFunctionalityError during prompt build.
-    // Because the message stays in history, the session died on every
-    // subsequent turn.
+/**
+ * Regression tests for non-image file parts.
+ *
+ * Given: MCP resources can put non-image file parts (e.g. gzip) into
+ *   message history, which is replayed into every later prompt build.
+ * When: the OpenAI-compatible converter meets such a part.
+ * Then: it must degrade to a text placeholder. Throwing here failed the
+ *   entire prompt build and, because the message stays in history, killed
+ *   the session on every subsequent turn.
+ */
+describe('non-image file parts', () => {
+  // The fixture's base64 string is 20 chars; the placeholder estimates raw
+  // bytes as round(20 * 3 / 4) = 15.
+  const GZIP_FIXTURE_BASE64 = Buffer.from('Hello freebuff!').toString('base64')
+  const EXPECTED_BYTE_ESTIMATE = 15
+
+  it('degrades non-image file part to text placeholder instead of throwing', () => {
     const result = convertToOpenAICompatibleChatMessages([
       {
         role: 'user',
         content: [
           {
             type: 'file',
-            data: Buffer.from('Hello freebuff!').toString('base64'),
+            data: GZIP_FIXTURE_BASE64,
             mediaType: 'application/gzip',
           },
         ],
@@ -1108,14 +1120,14 @@ describe('non-image file parts (the bug: application/gzip threw at prompt build)
         content: [
           {
             type: 'text',
-            text: '[application/gzip file part not displayable (~15 bytes)]',
+            text: `[application/gzip file part not displayable (~${EXPECTED_BYTE_ESTIMATE} bytes)]`,
           },
         ],
       },
     ])
   })
 
-  it('still converts image file parts to image_url data URIs', () => {
+  it('converts image file parts to image_url data URIs unchanged', () => {
     const result = convertToOpenAICompatibleChatMessages([
       {
         role: 'user',
