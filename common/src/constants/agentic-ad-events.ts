@@ -55,6 +55,28 @@ export const AGENTIC_FUNNEL_EVENT_TYPES = [
 export type AgenticFunnelEventType = (typeof AGENTIC_FUNNEL_EVENT_TYPES)[number]
 
 /**
+ * The `accepted` event's idempotency key, derived from the PROPOSAL id.
+ *
+ * Funnel recording dedupes on `(campaignId, eventId)`, so the key is what
+ * makes "Accept twice records one row" true rather than hoped for. The
+ * proposal id is the only identifier that is stable across a retried
+ * settlement, a redelivered scheduler run and a second Accept attempt — an
+ * impression token would be equally stable but is absent on a seeded row, and
+ * a fresh uuid per attempt would record the same accept twice.
+ *
+ * Prefixed rather than used bare so a future funnel event derived from the
+ * same proposal (a `dismissed` census, say) cannot collide with this one.
+ *
+ * Lives HERE, in the dependency-free vocabulary, because the producer (the
+ * Next settle route) and the consumer of the guarantee (Convex, which may
+ * never import `@codebuff/internal`) must agree on it without either one
+ * importing the other.
+ */
+export function agenticAcceptEventId(proposalId: string): string {
+  return `accept_${proposalId}`
+}
+
+/**
  * The only funnel stage that may ever bill, and it bills as a click. Kept as
  * data so tests can prove the rule instead of trusting a comment.
  */
