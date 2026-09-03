@@ -1087,12 +1087,12 @@ describe('consecutive assistant messages', () => {
 /**
  * Regression tests for non-image file parts.
  *
- * Given: MCP resources can put non-image file parts (e.g. gzip) into
- *   message history, which is replayed into every later prompt build.
- * When: the OpenAI-compatible converter meets such a part.
- * Then: it must degrade to a text placeholder. Throwing here failed the
- *   entire prompt build and, because the message stays in history, killed
- *   the session on every subsequent turn.
+ * MCP resources can put non-image file parts (e.g. gzip) into message
+ * history, which is replayed into every later prompt build. The
+ * OpenAI-compatible converter must degrade such parts to a text
+ * placeholder: throwing here failed the entire prompt build and, because
+ * the message stays in history, killed the session on every subsequent
+ * turn.
  */
 describe('non-image file parts', () => {
   // The fixture's base64 string is 20 chars; the placeholder estimates raw

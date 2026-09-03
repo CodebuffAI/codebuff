@@ -6,11 +6,11 @@ import { toTokenCountInputSchema } from '../to-json-schema'
 /**
  * Regression tests for the persisted-state schema conversion.
  *
- * Given: tool inputSchemas are persisted into agent state, snapshotted and
- *   replayed on every turn, and shipped to Anthropic's count_tokens API.
- * When: toTokenCountInputSchema converts them.
- * Then: every output is plain JSON Schema with a top-level type, and zod
- *   internals never leak into state.
+ * Tool inputSchemas are persisted into agent state, snapshotted and replayed
+ * on every turn, and shipped to Anthropic's count_tokens API. Every stored
+ * schema must therefore be plain JSON Schema with a top-level type: zod
+ * internals never leak into state, and foreign (already-JSON) schemas pass
+ * through unmangled.
  */
 describe('toTokenCountInputSchema', () => {
   /**

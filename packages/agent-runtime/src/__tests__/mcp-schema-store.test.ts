@@ -7,14 +7,12 @@ import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
 /**
  * Regression tests for MCP tool-schema storage.
  *
- * Given: tool definitions returned by getMCPToolData are written into
- *   project file context and persisted in run/session state, which is
- *   snapshotted and JSON-serialized on every turn.
- * When: an MCP server reports a tool's input schema.
- * Then: that schema is stored verbatim. Storing a converted live zod
- *   instance instead round-trips to def/shape internals and can carry
- *   cycles that detonate JSON.stringify over the whole run state ("cannot
- *   serialize cyclic structures", session death from turn 2 onward).
+ * Tool definitions returned by getMCPToolData are persisted in run/session
+ * state, which is snapshotted and JSON-serialized on every turn. Schemas
+ * must be stored verbatim: storing converted live zod instances instead
+ * round-trips to def/shape internals and can carry cycles that detonate
+ * JSON.stringify over the whole run state ("cannot serialize cyclic
+ * structures", session death from turn 2 onward).
  */
 describe('getMCPToolData schema storage', () => {
   /**

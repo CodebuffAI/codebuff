@@ -5,13 +5,12 @@ import { mcpContentToToolResultOutputs } from '../client'
 /**
  * Regression tests for MCP tool-result content mapping.
  *
- * Given: tool results live in message history and are replayed into every
- *   later prompt build.
- * When: MCP content blocks are mapped to codebuff tool-result outputs.
- * Then: text content never travels as media. The AI SDK base64-decodes
- *   file-part data at prompt build, so prose stored as media died with
- *   "The string contains invalid characters" on every subsequent turn,
- *   permanently, because the poisoned message replays from history.
+ * Tool results live in message history and are replayed into every later
+ * prompt build, and the AI SDK base64-decodes file-part data at prompt
+ * build. Text content therefore never travels as media: prose stored as
+ * media died with "The string contains invalid characters" on every
+ * subsequent turn, permanently, because the poisoned message replays from
+ * history.
  */
 describe('mcpContentToToolResultOutputs resources', () => {
   /**

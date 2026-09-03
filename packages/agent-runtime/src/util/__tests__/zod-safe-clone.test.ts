@@ -7,13 +7,12 @@ import { cloneDeepKeepingZod } from '../zod-safe-clone'
 /**
  * Regression tests for tool-schema cloning.
  *
- * Given: tool definitions carry live zod v4 schemas whose engine lives on
- *   the non-enumerable _zod property.
- * When: surrounding plain data is deep-cloned at a state boundary.
- * Then: the clone must keep schemas alive by reference. An amputated clone
- *   still looks like a schema (safeParse, def, shape all present) but
- *   throws the first time zod internals touch it - which is how MCP and
- *   custom tool schemas silently became empty {} at the model.
+ * Tool definitions carry live zod v4 schemas, and state boundaries
+ * deep-clone the surrounding data. lodash cloneDeep strips zod's
+ * non-enumerable _zod engine: the amputated clone still looks like a schema
+ * (safeParse, def, shape all present) but throws the first time zod
+ * internals touch it - which is how MCP and custom tool schemas silently
+ * became empty {} at the model. cloneDeepKeepingZod is the fix pinned here.
  */
 describe('lodash cloneDeep zod amputation (the bug)', () => {
   /**
