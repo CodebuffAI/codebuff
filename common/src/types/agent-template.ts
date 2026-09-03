@@ -134,6 +134,7 @@ export type AgentTemplate<
   includeMessageHistory: boolean
   inheritParentSystemPrompt: boolean
   windowedFileReads?: boolean
+  suppressCommitAttribution?: boolean
   compactContext?:
     | boolean
     | { cacheExpiryMs?: number | null; cacheExpiryMinTokens?: number | null }

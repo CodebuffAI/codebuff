@@ -900,6 +900,8 @@ export async function loopAgentSteps(
     : await getToolSet({
         toolNames: agentTemplate.toolNames,
         windowedFileReads: agentTemplate.windowedFileReads === true,
+        suppressCommitAttribution:
+          agentTemplate.suppressCommitAttribution === true,
         additionalToolDefinitions: async () => {
           if (!cachedAdditionalToolDefinitions) {
             cachedAdditionalToolDefinitions = await additionalToolDefinitions({

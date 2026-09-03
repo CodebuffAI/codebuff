@@ -550,6 +550,39 @@ const SPONSORED_DEVICE_WRITE_SUBPATHS: readonly string[] = ['/dev/fd']
 const SPONSORED_RESOLVER_READ_LITERALS: readonly string[] = ['/var']
 
 /**
+ * macOS's shell selector, which `/bin/sh` reads at startup.
+ *
+ * NOISE, not containment — and noise is not free here. Without this literal
+ * EVERY command in a sponsored run prints
+ *
+ *     Error opening /private/var/select/sh: Operation not permitted
+ *
+ * on stderr before doing anything, and that stderr is tool output: it reaches
+ * the MODEL, on every command, in a run whose whole premise is a bounded change
+ * an advertiser wrote. A constant fake error in front of every result is how a
+ * run learns to read past its own errors. Measured on macOS 26.5 against the
+ * shipped profile: `/bin/sh -c 'echo hi'` emits it, `/bin/bash -c 'echo hi'`
+ * does not — so it is `/bin/sh` resolving which shell to be, not the command.
+ *
+ * The same shape as the `/var` literal above, a readlink-only grant on a
+ * symlink, and it discloses NOTHING new: `/private/var/select/sh` resolves to
+ * `/bin/bash`, which `(subpath "/bin")` already makes readable. Measured with
+ * it in place, `ls /var`, `ls /private/var`, `ls /var/select` and `cat
+ * /var/run/resolv.conf` are all still `Operation not permitted`.
+ *
+ * Chosen over filtering the line out of stderr, which would have been the other
+ * way to silence it: a broker that edits a run's error output is a broker that
+ * can hide a real one.
+ *
+ * NOT the Xcode shim. `/var/select/developer_dir` is a different file and a
+ * different failure — a Mac with no full Xcode cannot run `/usr/bin/git` under
+ * this profile at all — and it is deliberately still not granted.
+ */
+const SPONSORED_SHELL_SELECT_READ_LITERALS: readonly string[] = [
+  '/private/var/select/sh',
+]
+
+/**
  * What a linked worktree's git needs from the USER'S REAL `.git`, and nothing more.
  *
  * ## Why this is an enumeration and not `<project>/.git`
@@ -728,6 +761,9 @@ export function sponsoredMacProfile(
     '(deny network-inbound (local ip "localhost:*"))',
     `(allow file-read* (literal "/") ${[
       ...SPONSORED_RESOLVER_READ_LITERALS.map((item) => `(literal ${q(item)})`),
+      ...SPONSORED_SHELL_SELECT_READ_LITERALS.map(
+        (item) => `(literal ${q(item)})`,
+      ),
       ...readable.map((item) => `(subpath ${q(item)})`),
     ].join(' ')})`,
     // Traverse, do not enumerate. See `traversableAncestors` above.

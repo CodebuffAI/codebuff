@@ -65,7 +65,60 @@ export const terminalCommandOutputSchema = z.union([
   }),
 ])
 
-export const gitCommitGuidePrompt = `
+/**
+ * The commit guidance, with or without the agent attribution trailer.
+ *
+ * `attribution: false` exists for ONE caller shape: a run whose commit lands in
+ * somebody else's repository on somebody else's behalf. Today that is a
+ * sponsored proposal — an advertiser-authored change, committed on a branch in
+ * a user's own checkout, delivered through a pull request whose body already
+ * says where it came from. A `Co-Authored-By` line there attributes the change
+ * to us in a stranger's history, on a change we did not author, redundantly.
+ *
+ * Suppressed in the TOOL DESCRIPTION rather than by adding a "do not add a
+ * trailer" bullet to the run's prompt, because this description ships a worked
+ * `git commit` example containing the trailer, and a prose instruction losing
+ * to a concrete example is the ordinary failure here. The variant removes the
+ * footer step and the example both.
+ *
+ * The default is byte-identical to what shipped before, so a normal user run is
+ * unchanged.
+ */
+export function buildGitCommitGuidePrompt(options: {
+  attribution: boolean
+}): string {
+  return GIT_COMMIT_GUIDE_HEAD.concat(
+    options.attribution ? GIT_COMMIT_ATTRIBUTION_STEP : GIT_COMMIT_PLAIN_STEP,
+    GIT_COMMIT_GUIDE_TAIL,
+  )
+}
+
+const GIT_COMMIT_ATTRIBUTION_STEP = `4. **Create the commit, ending with this specific footer:**
+   \`\`\`
+   Generated with Codebuff 🤖
+   Co-Authored-By: Codebuff <noreply@codebuff.com>
+   \`\`\`
+   Commands run in bash on every OS (Git Bash on Windows), so always use HEREDOC syntax to format the message:
+   \`\`\`
+   git commit -m "$(cat <<'EOF'
+   Your commit message here.
+
+   🤖 Generated with Codebuff
+   Co-Authored-By: Codebuff <noreply@codebuff.com>
+   EOF
+   )"
+   \`\`\``
+
+const GIT_COMMIT_PLAIN_STEP = `4. **Create the commit.** Do NOT add any trailer, footer, co-author line or attribution of any kind to the commit message — no \`Co-Authored-By\`, no "Generated with" line. The message is the message and nothing else.
+   Commands run in bash on every OS (Git Bash on Windows), so always use HEREDOC syntax to format the message:
+   \`\`\`
+   git commit -m "$(cat <<'EOF'
+   Your commit message here.
+   EOF
+   )"
+   \`\`\``
+
+const GIT_COMMIT_GUIDE_HEAD = `
 ### Using git to commit changes
 
 When the user requests a new git commit, please follow these steps closely:
@@ -90,21 +143,9 @@ When the user requests a new git commit, please follow these steps closely:
    - Ensure the message provides clarity—avoid generic or vague terms like “Update” or “Fix” without context.
    - Revisit your draft to confirm it truly reflects the changes and their intention.
 
-4. **Create the commit, ending with this specific footer:**
-   \`\`\`
-   Generated with Codebuff 🤖
-   Co-Authored-By: Codebuff <noreply@codebuff.com>
-   \`\`\`
-   Commands run in bash on every OS (Git Bash on Windows), so always use HEREDOC syntax to format the message:
-   \`\`\`
-   git commit -m "$(cat <<'EOF'
-   Your commit message here.
+`
 
-   🤖 Generated with Codebuff
-   Co-Authored-By: Codebuff <noreply@codebuff.com>
-   EOF
-   )"
-   \`\`\`
+const GIT_COMMIT_GUIDE_TAIL = `
 
 **Important details**
 
@@ -115,6 +156,11 @@ When the user requests a new git commit, please follow these steps closely:
 - Do not create an empty commit if there are no changes.
 - Make sure your commit message is concise yet descriptive, focusing on the intention behind the changes rather than merely describing them.
 `
+
+/** The default guidance. Byte-identical to what shipped before it was split. */
+export const gitCommitGuidePrompt = buildGitCommitGuidePrompt({
+  attribution: true,
+})
 
 const toolName = 'run_terminal_command'
 const endsAgentStep = true
@@ -151,7 +197,7 @@ const inputSchema = z
   .describe(
     `Execute a CLI command from the **project root** (different from the user's cwd).`,
   )
-const description = `
+const buildDescription = (options: { attribution: boolean }) => `
 Stick to these use cases:
 1. Typechecking the project or running build (e.g., "npm run build"). Reading the output can help you edit code to fix build errors. If possible, use an option that performs checks but doesn't emit files, e.g. \`tsc --noEmit\`.
 2. Running tests (e.g., "npm test"). Reading the output can help you edit code to fix failing tests. Or, you could write new unit tests and then run them.
@@ -177,7 +223,7 @@ Notes:
 - If the user references a specific file, it could be either from their cwd or from the project root. You **must** determine which they are referring to (either infer or ask). Then, you must specify the path relative to the project root (or use the cwd parameter)
 - Commands can succeed without giving any output, e.g. if no type errors were found.
 
-${gitCommitGuidePrompt}
+${buildGitCommitGuidePrompt(options)}
 
 Example:
 ${$getNativeToolCallExampleString({
@@ -193,14 +239,29 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
-    command: `git commit -m "Your commit message here.
+    command: options.attribution
+      ? `git commit -m "Your commit message here.
 
 🤖 Generated with Codebuff
-Co-Authored-By: Codebuff <noreply@codebuff.com>"`,
+Co-Authored-By: Codebuff <noreply@codebuff.com>"`
+      : `git commit -m "Your commit message here."`,
   },
   endsAgentStep,
 })}
     `.trim()
+
+const description = buildDescription({ attribution: true })
+
+/**
+ * The `run_terminal_command` description with every agent-attribution trailer
+ * removed, for a run that commits into somebody else's repository.
+ *
+ * Selected per run in `getToolSet`, off the agent definition's
+ * `suppressCommitAttribution`. See {@link buildGitCommitGuidePrompt}.
+ */
+export const runTerminalCommandNoAttributionDescription = buildDescription({
+  attribution: false,
+})
 
 export const runTerminalCommandParams = {
   toolName,

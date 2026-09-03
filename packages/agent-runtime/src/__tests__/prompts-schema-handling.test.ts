@@ -451,3 +451,62 @@ describe('Schema handling error recovery', () => {
     })
   })
 })
+
+describe('getToolSet: commit-attribution suppression', () => {
+  const build = async (suppressCommitAttribution?: boolean) =>
+    getToolSet({
+      toolNames: ['run_terminal_command'],
+      windowedFileReads: false,
+      ...(suppressCommitAttribution === undefined
+        ? {}
+        : { suppressCommitAttribution }),
+      additionalToolDefinitions: async () => ({}),
+      agentTools: {},
+      skills: {},
+    })
+
+  test('the default serves the trailer; the flag serves the variant that does not', async () => {
+    // This is the layer that decides what the MODEL reads, so it is the layer
+    // the suppression has to hold at. A gate that only changes the prompt would
+    // still leave a worked `git commit` example with a trailer in it, which is
+    // the concrete demonstration that beats the prose.
+    const ordinary = await build()
+    const ordinaryDescription = ordinary.run_terminal_command
+      ?.description as string
+    expect(ordinaryDescription).toContain('Co-Authored-By: Codebuff')
+    expect(ordinaryDescription).toContain('noreply@codebuff.com')
+
+    const suppressed = await build(true)
+    const suppressedDescription = suppressed.run_terminal_command
+      ?.description as string
+    expect(suppressedDescription).not.toContain('noreply@codebuff.com')
+    expect(suppressedDescription).toContain('Do NOT add any trailer')
+
+    // Explicit false is the default, not a third state.
+    const explicitlyOff = await build(false)
+    expect(explicitlyOff.run_terminal_command?.description).toBe(
+      ordinaryDescription,
+    )
+  })
+
+  test('suppression touches no other tool', async () => {
+    const suppressed = await getToolSet({
+      toolNames: ['run_terminal_command', 'read_files'],
+      windowedFileReads: false,
+      suppressCommitAttribution: true,
+      additionalToolDefinitions: async () => ({}),
+      agentTools: {},
+      skills: {},
+    })
+    const ordinary = await getToolSet({
+      toolNames: ['run_terminal_command', 'read_files'],
+      windowedFileReads: false,
+      additionalToolDefinitions: async () => ({}),
+      agentTools: {},
+      skills: {},
+    })
+    expect(suppressed.read_files?.description).toBe(
+      ordinary.read_files?.description,
+    )
+  })
+})

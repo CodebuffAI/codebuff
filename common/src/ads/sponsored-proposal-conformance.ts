@@ -209,35 +209,45 @@ export const SPONSORED_CONFORMANCE_ACCEPTED_WAIVERS: Record<
   Record<string, string>
 > = {
   web: {},
-  // COD-397 shipped Desktop's Accept, the local run in a worktree, the
-  // sponsored thread that is never a send target, and Create pull request, so
-  // every R, C, V and B row that was waived for "no execution" or "no
-  // read-only thread view" is now measured.
-  //
-  // THE E ROWS ARE NOT. This table briefly claimed them, and that was wrong.
-  // The E layer is defined as "real backend, real user action" — the entire
-  // point of it being a separate layer is that the others run against fixtures
-  // and this one does not. What exists for the execution rows is
+  // THE ARGUMENT THAT CAUGHT THIS, KEPT BECAUSE IT IS STILL THE RULE. An
+  // earlier revision of this table reported E-3..E-7 as `pass` for Desktop off
   // `services/sponsored-run.test.ts`, which builds a `fakes()` harness: a fake
   // command runner, a fake proposals client, a fake consent gate. Those tests
   // are good and they pin the logic, but a green fake is the C layer's
-  // evidence, not the E layer's. No seeded row has ever been accepted on a
-  // running Desktop, no sponsored run has executed against a real repository,
-  // and no pull request has ever been opened by one.
+  // evidence, not the E layer's — the entire point of E being a separate layer
+  // is that the others run against fixtures and this one does not. The CLI
+  // block below refuses to report a hand-inserted block as `pass` because that
+  // would be "reporting the fixture"; reporting E rows off a fake runner is the
+  // same move, and it is harder to notice, because Desktop's fakes are
+  // convincing enough that the gap does not announce itself. A row clears here
+  // by RUNNING the walk and recording what was observed, never by adding
+  // another test.
   //
-  // The CLI block below refuses to report a hand-inserted block as `pass`
-  // because that would be "reporting the fixture". Reporting E-3..E-7 off a
-  // fake runner is the same move, and it has to be refused here for the same
-  // reason — more so, because Desktop's fakes are convincing enough that the
-  // gap does not announce itself.
+  // E-3, E-4 and E-7 HAVE NOW BEEN RUN (COD-397, 2026-09-02). A seeded row was
+  // accepted on a running Desktop, the consent dialog was drawn, the card
+  // walked accepted -> running -> committed with the branch named, the diff
+  // appeared in ChangesPanel, and Create pull request opened a real one:
   //
-  // These clear by RUNNING the walk in the Agentic Ads testing runbook (Lane
-  // A, loopback) and recording what was observed, not by adding another test.
+  //   https://github.com/obro79/stormhacks/pull/19  (commit 1b4eb49)
+  //
+  // `git ls-remote` was empty for the branch before the click and the row
+  // reached `landed` with the URL stored server-side, so E-7 is the button's
+  // evidence and not the run's.
+  //
+  // WHAT THAT EVIDENCE IS NOT. One run, on one macOS machine, against a
+  // loopback stack, against one repository, on the happy path. It says these
+  // three rows are reachable; it does not say they are reliable, and nothing
+  // here has been run on Linux or Windows or against production.
+  //
+  // E-5 STAYS WAIVED, and the distinction is the point of keeping the reason
+  // strings honest: the walk did produce `failed` rows, and the reason did
+  // render — but incidentally, when earlier attempts broke of their own accord,
+  // never by deliberately driving a run to fail and checking what the card
+  // said. An observation collected while trying to make something else work is
+  // not a measurement of it.
   desktop: {
-    'E-3': 'never run: accept measured against a fake runner, not a live run',
-    'E-4': 'never run: the state walk is measured against a fake runner',
-    'E-5': 'never run: the failure path is measured against a fake runner',
-    'E-7': 'never run: no pull request has been opened by a sponsored run',
+    'E-5':
+      'not deliberately driven: failures were seen incidentally on the local walk, never induced and checked',
   },
   cli: {
     // NOTHING PRODUCES A CARD ON THE CLI YET. The block renders, and every
@@ -285,9 +295,10 @@ export const SPONSORED_CONFORMANCE_ACCEPTED_WAIVERS: Record<
  * on that surface produces a card, so there is no arrival to observe. That is a
  * missing producer, not a missing execution, and the reason string says so.
  *
- * DESKTOP'S ENTRY IS NOW EMPTY (COD-397) and the contradiction above is moot
- * for that surface: E-3..E-7 are all observable there, because a run happens.
- * The CLI's copy of it stands until COD-339.
+ * The contradiction is moot for DESKTOP (COD-397): E-3..E-7 are all observable
+ * there, because a run happens, and E-3, E-4 and E-7 have been observed. E-5 is
+ * still waived, but for having never been driven rather than for being out of
+ * reach. The CLI's copy of the contradiction stands until COD-339.
  */
 export function sponsoredConformanceWaiverAccepted(
   surface: SponsoredConformanceSurface,

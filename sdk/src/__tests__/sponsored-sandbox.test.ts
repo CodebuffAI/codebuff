@@ -838,3 +838,80 @@ describe('sponsored git in the layout Desktop actually creates', () => {
     }
   })
 })
+
+// ------------------------------------------- /bin/sh's selector, and its noise
+
+describe('the shell selector is readable, and nothing around it is', () => {
+  it('a plain command prints nothing on stderr', async () => {
+    if (!containmentUsable()) return
+    // `/bin/sh` reads `/private/var/select/sh` at startup. Ungranted, that emits
+    //   Error opening /private/var/select/sh: Operation not permitted
+    // on stderr BEFORE the command runs -- and in a sponsored run stderr is tool
+    // output, so every single command handed the model a fake error. Driven
+    // through `sh` on purpose: `bash` never reads the selector and would pass
+    // whether or not the grant exists.
+    const { root, runtime, parent } = workspace()
+    try {
+      const handle = createSponsoredTerminalBroker({
+        workspaceRoot: root,
+        runtimeDir: runtime,
+      }).start({
+        executable: 'sh',
+        args: ['-c', 'echo ok'],
+        cwd: root,
+        env: process.env,
+      })
+      const stdout = drain(handle.stdout)
+      const stderr = drain(handle.stderr)
+      await handle.completion
+      const [out, err] = await Promise.all([stdout, stderr])
+      expect(out.trim()).toBe('ok')
+      expect(err).not.toContain('/var/select')
+      expect(err.trim()).toBe('')
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('grants the one link and not the directory it sits in', async () => {
+    if (!containmentUsable()) return
+    // The grant must stay a readlink on one symlink whose target is already
+    // readable through `(subpath "/bin")`. If it ever becomes a subpath of
+    // `/var/select` or of `/private/var`, these stop failing.
+    const { root, runtime, parent } = workspace()
+    try {
+      const handle = createSponsoredTerminalBroker({
+        workspaceRoot: root,
+        runtimeDir: runtime,
+      }).start({
+        executable: 'bash',
+        args: [
+          '-c',
+          [
+            'ls /var >/dev/null 2>&1 || echo "var:denied"',
+            'ls /private/var >/dev/null 2>&1 || echo "private-var:denied"',
+            'ls /var/select >/dev/null 2>&1 || echo "select:denied"',
+            'cat /var/run/resolv.conf >/dev/null 2>&1 || echo "resolv:denied"',
+            'cat /var/select/developer_dir >/dev/null 2>&1 || echo "xcode:denied"',
+          ].join('\n'),
+        ],
+        cwd: root,
+        env: process.env,
+      })
+      const stdout = drain(handle.stdout)
+      await handle.completion
+      const out = await stdout
+      for (const marker of [
+        'var:denied',
+        'private-var:denied',
+        'select:denied',
+        'resolv:denied',
+        'xcode:denied',
+      ]) {
+        expect(out).toContain(marker)
+      }
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+})
