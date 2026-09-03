@@ -139,38 +139,65 @@ export interface FreebuffSubscriptionUsage {
  * Sent only to callers in the rollout audience, so its absence means "this
  * account has no subscriptions surface" rather than "no data".
  */
-/** One window of a Freebucks allowance, as the client should render it. */
+/** The daily Freebucks pool, as the client should render it. */
 export interface FreebuffFreebucksWindow {
-  /** Total allowance for the window: free grant + whatever the plan adds. */
+  /** Freebucks granted for the Pacific day: the access tier's free pool, or
+   *  the plan's daily pool for a subscriber (the plan REPLACES the free
+   *  figure rather than stacking on it). */
   limit: number
-  /** Freebucks already spent inside the window. */
+  /** Freebucks already spent from the daily pool today. */
   spent: number
   /** `limit - spent`, floored at zero so a lowered allowance reads as 0. */
   remaining: number
-  /** ISO instant this window reopens. */
+  /** ISO instant the pool refills. */
+  resetAt: string
+}
+
+/**
+ * The wallet: Freebucks that never expire. Drawn on only once the daily pool
+ * is spent, so a session costing more than what is left in the pool takes the
+ * remainder from here.
+ */
+export interface FreebuffFreebucksWallet {
+  /** Spendable wallet balance right now. */
+  balance: number
+  /** Freebucks the plan credits here once per billing period (0 on free). */
+  monthlyBonus: number
+  /** ISO instant the next plan bonus lands; absent without a plan. */
+  nextBonusAt?: string
+}
+
+/** The hard daily dollar ceiling behind the Freebucks meter. */
+export interface FreebuffFreebucksSpendCeiling {
+  /** Settled provider spend since midnight Pacific at which fresh sessions
+   *  stop being admitted, for this account's tier and access tier. */
+  limitUsd: number
+  /** Today's settled spend, when the rollup answered; absent on a read
+   *  failure (the gate fails open the same way). */
+  spentUsd?: number
+  /** ISO instant the day rolls. */
   resetAt: string
 }
 
 /**
  * The caller's Freebucks position, present on every authenticated session
- * response. Distinct from Trust: Freebucks are a granted, expiring budget that
- * buys premium sessions, Trust is earned standing that buys Levels.
+ * response inside the rollout audience. Distinct from Trust: Freebucks are a
+ * granted budget that buys sessions, Trust is earned standing that buys
+ * Levels.
+ *
+ * Two balances and one ceiling — deliberately nothing else. The 2026-08-31
+ * shape carried day/week/month windows beside the session pools' own rings;
+ * this one is the whole indicator set for an account on the meter.
  */
 export interface FreebuffFreebucksInfo {
-  /**
-   * Spendable right now — the MINIMUM remaining across the three windows, which
-   * is the only number that answers "can I start a session". Rendering the
-   * daily figure alone would promise Freebucks the weekly cap will refuse.
-   */
+  /** Spendable right now: `daily.remaining + wallet.balance`. */
   balance: number
   daily: FreebuffFreebucksWindow
-  weekly: FreebuffFreebucksWindow
-  monthly: FreebuffFreebucksWindow
-  /** Which window is currently binding — the one `balance` came from. */
-  bindingWindow: 'daily' | 'weekly' | 'monthly'
-  /** Freebucks the caller's plan adds on top of the free grant, if subscribed. */
-  planDaily?: number
-  /** Session price per model id. Only models Freebucks can buy appear here. */
+  wallet: FreebuffFreebucksWallet
+  spend: FreebuffFreebucksSpendCeiling
+  /** The plan the daily pool and bonus were sized from; null on free. */
+  planId: string | null
+  /** Session price per model id. Only models on the meter appear here. */
   prices: Record<string, number>
 }
 
@@ -763,6 +790,16 @@ export type FreebuffSessionAdmissionResponse = (
       upgrade?: FreebuffUpgradeHint
       /** The freebuff model the user tried to join. */
       model: string
+      /** The pool that refused, as on `FreebuffSessionRateLimit` — opaque. */
+      pool?: string
+      poolLabel?: string
+      /**
+       * Present when the FREEBUCKS METER refused (2026-09-02): the model's
+       * session price against what the account could spend. A client that
+       * knows the currency says "N Freebucks short"; older clients read the
+       * daily figures above as an ordinary pool.
+       */
+      freebucksShortfall?: { price: number; balance: number }
       /** Max session units permitted per period (e.g. the configured daily
        * premium allowance, including the earned reward on top of it — or, at
        * limited access, the reward balance plus streak entitlement). */

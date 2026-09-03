@@ -230,6 +230,21 @@ export const FREEBUFF_BUDGET_NOTICE_REASONS: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * The refusal copy for the Freebucks catalog's per-tier hard ceiling.
+ *
+ * Its own sentence rather than `FREEBUFF_BUDGET_NOTICE`, which says "free
+ * usage": a Plus subscriber who hits their $5 day was not using free usage,
+ * and the catalog's ceilings are the one limit that IS published next to the
+ * plan (so there is no pacing instruction to withhold). Like its siblings it
+ * carries no reset time — every surface appends its own. Deliberately NOT in
+ * `FREEBUFF_BUDGET_NOTICE_REASONS`: that set is also what the plan's
+ * spend-ceiling BYPASS reads, and the plan must never bypass the one ceiling
+ * the plan itself sets.
+ */
+export const FREEBUFF_FREEBUCKS_CEILING_NOTICE =
+  'You have reached today’s usage limit on this account — your Freebucks cover the session price, and a hard daily ceiling catches only the heaviest days.'
+
+/**
  * The refusal copy for a plain daily allowance.
  *
  * Deliberately says nothing about the account. It names the thing that ran out
@@ -251,6 +266,7 @@ export function freebuffSpendNoticeFor(reason: string): string {
     return FREEBUFF_RESTRICTED_NOTICE
   }
   if (FREEBUFF_BUDGET_NOTICE_REASONS.has(reason)) return FREEBUFF_BUDGET_NOTICE
+  if (reason === 'freebucks_plan') return FREEBUFF_FREEBUCKS_CEILING_NOTICE
   return FREEBUFF_CAPACITY_NOTICE
 }
 
@@ -365,6 +381,12 @@ const PAID_FLOOR_REASONS: ReadonlySet<string> = new Set([
  * hard cut — the same trade the restricted ceilings make.
  */
 const HARD_CAPPED_REASONS: ReadonlySet<string> = new Set([
+  // The Freebucks ceilings are small ($0.50–$8) and sized to catch only the
+  // sessions that ran far past their price, so the same trade the restricted
+  // ceilings make applies: admit under the line, let the open session finish
+  // up to the multiplier, then cut. That multiplier IS the "leeway" the
+  // catalog promises next to each dollar figure.
+  'freebucks_plan',
   'restricted_country',
   'elevated_country',
   'privacy_egress',
@@ -382,6 +404,8 @@ export type FreebuffSpendCeilingReason =
   | 'third_party_client'
   | 'unverified_egress'
   | 'trust_level'
+  /** The Freebucks catalog's per-tier hard daily ceiling (2026-09-02). */
+  | 'freebucks_plan'
 
 export interface FreebuffSpendCeiling {
   usd: number
@@ -437,6 +461,17 @@ export interface FreebuffSpendCeilingInput {
   unverifiedEgress?: boolean
   /** The trust matrix's ceiling, when that rollout is enforcing. */
   trustLevelCeilingUsd?: number | null
+  /**
+   * The Freebucks catalog's hard daily ceiling for this account's plan and
+   * access tier (`freebucksPlan(...).dailySpendLimitUsd`), when the account is
+   * on the Freebucks meter. Null/absent otherwise. REPLACES the region entry
+   * rather than composing with it (see the resolver), still composes by
+   * minimum with the restricted cohorts, and is deliberately NOT eligible for
+   * the paid floor below — the catalog already priced the paid tiers, so a
+   * floor that lifted a Starter's $3 to $7 would undo the one number the tier
+   * sets.
+   */
+  freebucksPlanUsd?: number | null
   /** Overrides, all optional so a missing env var changes nothing. */
   /**
    * True when the account holds a live paid plan (Postgres-entitling row —
@@ -473,13 +508,24 @@ export function resolveFreebuffSpendCeiling(
   const elevatedCountries =
     input.overrides?.elevatedCountries ?? FREEBUFF_ELEVATED_COUNTRIES
 
+  // The base entry: the region ceiling — or, for an account on the Freebucks
+  // meter, the catalog's per-tier ceiling IN ITS PLACE. Both are whole-
+  // population budgets sized for the same job, and the catalog one is the
+  // published number a user planned against, so the two must not compose
+  // (a $5 limited-region ceiling would silently undercut a limited Pro's
+  // advertised $7). The restricted cohorts below still compose by minimum.
+  const onFreebucksMeter =
+    typeof input.freebucksPlanUsd === 'number' &&
+    Number.isFinite(input.freebucksPlanUsd)
   const applied: { reason: FreebuffSpendCeilingReason; usd: number }[] = [
-    {
-      reason: 'region',
-      usd:
-        input.overrides?.regionUsd?.[input.accessTier] ??
-        FREEBUFF_REGION_DAILY_SPEND_USD[input.accessTier],
-    },
+    onFreebucksMeter
+      ? { reason: 'freebucks_plan', usd: input.freebucksPlanUsd as number }
+      : {
+          reason: 'region',
+          usd:
+            input.overrides?.regionUsd?.[input.accessTier] ??
+            FREEBUFF_REGION_DAILY_SPEND_USD[input.accessTier],
+        },
   ]
 
   const country = input.countryCode?.toUpperCase() ?? null
