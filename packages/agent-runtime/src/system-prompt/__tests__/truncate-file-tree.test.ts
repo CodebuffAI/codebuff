@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { truncateFileTreeBasedOnTokenBudget } from '../truncate-file-tree'
-import type { FileTreeNode, ProjectFileContext } from '@codebuff/common/util/file'
+import type {
+  FileTreeNode,
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
 
 const mockLogger = {
   debug: () => {},
@@ -119,5 +122,57 @@ describe('truncateFileTreeBasedOnTokenBudget', () => {
 
     expect(result.tokenCount).toBeLessThanOrEqual(150)
     expect(result.truncationLevel).toBe('depth-based')
+  })
+
+  test('filters out compiled binary and library files including .so', () => {
+    const fileTree: FileTreeNode[] = [
+      {
+        name: 'app.exe',
+        type: 'file',
+        filePath: '/project/bin/app.exe',
+        lastReadTime: 0,
+      },
+      {
+        name: 'libfoo.so',
+        type: 'file',
+        filePath: '/project/lib/libfoo.so',
+        lastReadTime: 0,
+      },
+      {
+        name: 'libbar.dll',
+        type: 'file',
+        filePath: '/project/lib/libbar.dll',
+        lastReadTime: 0,
+      },
+      {
+        name: 'libbaz.lib',
+        type: 'file',
+        filePath: '/project/lib/libbaz.lib',
+        lastReadTime: 0,
+      },
+      {
+        name: 'valid.ts',
+        type: 'file',
+        filePath: '/project/src/valid.ts',
+        lastReadTime: 0,
+      },
+    ]
+
+    const fileContext = {
+      fileTree,
+      fileTokenScores: {},
+    } as unknown as ProjectFileContext
+
+    const result = truncateFileTreeBasedOnTokenBudget({
+      fileContext,
+      tokenBudget: 5000,
+      logger: mockLogger,
+    })
+
+    expect(result.printedTree).toContain('valid.ts')
+    expect(result.printedTree).not.toContain('libfoo.so')
+    expect(result.printedTree).not.toContain('app.exe')
+    expect(result.printedTree).not.toContain('libbar.dll')
+    expect(result.printedTree).not.toContain('libbaz.lib')
   })
 })

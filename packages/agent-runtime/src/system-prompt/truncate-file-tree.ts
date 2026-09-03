@@ -121,11 +121,7 @@ export const truncateFileTreeBasedOnTokenBudget = (params: {
   // Sample 30 random files and count their tokens together
   const sampleCount = Math.min(30, sortedFiles.length)
   const sampleSeed = `${sortedFiles.length}:${sampleCount}:${sortedFiles[0]?.path ?? ''}:${sortedFiles[sortedFiles.length - 1]?.path ?? ''}`
-  const sampleFiles = sampleSizeWithSeed(
-    sortedFiles,
-    sampleCount,
-    sampleSeed,
-  )
+  const sampleFiles = sampleSizeWithSeed(sortedFiles, sampleCount, sampleSeed)
   const sampleText = sampleFiles.map((f) => f.node.name).join(' ')
   const sampleTokens = countTokens(sampleText)
 
@@ -394,6 +390,7 @@ const UNIMPORTANT_EXTENSIONS = [
   '.exe',
   '.dll',
   '.lib',
+  '.so',
 
   // Media and binary files
   '.jpg',
