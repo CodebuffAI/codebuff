@@ -1083,3 +1083,55 @@ describe('consecutive assistant messages', () => {
     ])
   })
 })
+
+describe('non-image file parts (the bug: application/gzip threw at prompt build)', () => {
+  it('degrades a non-image file part to a text placeholder instead of throwing', () => {
+    // The bug: this threw UnsupportedFunctionalityError during prompt build.
+    // Because the message stays in history, the session died on every
+    // subsequent turn.
+    const result = convertToOpenAICompatibleChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: Buffer.from('Hello freebuff!').toString('base64'),
+            mediaType: 'application/gzip',
+          },
+        ],
+      },
+    ])
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: '[application/gzip file part not displayable (~15 bytes)]',
+          },
+        ],
+      },
+    ])
+  })
+
+  it('still converts image file parts to image_url data URIs', () => {
+    const result = convertToOpenAICompatibleChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: Buffer.from([0, 1, 2, 3]).toString('base64'),
+            mediaType: 'image/png',
+          },
+        ],
+      },
+    ])
+
+    expect(result[0].content[0]).toEqual({
+      type: 'image_url',
+      image_url: { url: 'data:image/png;base64,AAECAw==' },
+    })
+  })
+})

@@ -43,6 +43,27 @@ describe('mcpContentToToolResultOutputs: resources (the bug: prose as base64 med
     expect((outputs[0] as { mediaType?: string }).mediaType).toBe('image/png')
   })
 
+  test('a non-image binary resource becomes descriptive text, NOT media', () => {
+    const outputs = mcpContentToToolResultOutputs([
+      {
+        type: 'resource',
+        resource: {
+          uri: 'file:///archive.gz',
+          mimeType: 'application/gzip',
+          blob: 'aGVsbG8=',
+        },
+      },
+    ] as never)
+
+    // The bug: application/gzip media killed the OpenAI-compatible converter
+    // at prompt build on every later turn (session death). Only images may
+    // travel as media through ingestion.
+    expect(outputs[0].type).toBe('json')
+    const value = (outputs[0] as { value: string }).value
+    expect(value).toContain('application/gzip')
+    expect(value).toContain('not displayable')
+  })
+
   test('plain text content still maps to a json value', () => {
     const outputs = mcpContentToToolResultOutputs([
       { type: 'text', text: 'Echo: hello' },
