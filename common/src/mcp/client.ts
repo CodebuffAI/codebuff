@@ -221,10 +221,24 @@ export function mcpContentToToolResultOutputs(
           value: c.resource.text,
         } satisfies ToolResultOutput
       }
+      const mimeType = c.resource.mimeType ?? 'application/octet-stream'
+      // Only images stay media: every provider path (including the
+      // OpenAI-compatible chat converter used by GLM) accepts image file
+      // parts but throws on anything else — and a thrown converter poisons
+      // the whole session, since the message replays on every later turn.
+      if (mimeType.startsWith('image/')) {
+        return {
+          type: 'media',
+          data: getResourceData(c.resource),
+          mediaType: mimeType,
+        } satisfies ToolResultOutput
+      }
+      // Other binary resources (gzip, PDF, ...): surface metadata instead of
+      // undecodable bytes.
+      const blobData = getResourceData(c.resource)
       return {
-        type: 'media',
-        data: getResourceData(c.resource),
-        mediaType: c.resource.mimeType ?? 'text/plain',
+        type: 'json',
+        value: `[Binary resource ${c.resource.uri}: ${mimeType}, ~${Math.round((blobData.length * 3) / 4)} bytes, not displayable]`,
       } satisfies ToolResultOutput
     }
     const fallbackValue =
