@@ -96,7 +96,12 @@ const VM_CHECKS = check('VM', [
 const R_CHECKS = check('R', [
   'every state carries the "Sponsored" disclosure, legible at the surface\'s narrowest width',
   'every state exposes exactly one dismiss affordance',
-  'offered shows body, one primary action labelled from accept.label, and the never-billed disclosure',
+  // Named for the SLOT, not for what it currently says: the two surfaces
+  // disclose different things because they bill differently. A Cloud run is
+  // metered to the advertiser's campaign; a Desktop run is not — the metering
+  // for that is COD-119's and is not built — so it discloses that it uses the
+  // user's own session and credits.
+  'offered shows body, one primary action labelled from accept.label, and the cost disclosure',
   'accepted shows the state title and no accept affordance',
   'running renders steps in the SPONSORED_STEP_STATE_LABEL vocabulary and the done/total count',
   'running offers the read-only view only with a thread_ref AND a host handler; otherwise nothing, never a dead control',
@@ -204,26 +209,17 @@ export const SPONSORED_CONFORMANCE_ACCEPTED_WAIVERS: Record<
   Record<string, string>
 > = {
   web: {},
-  desktop: {
-    // Accept is ABSENT on Desktop in Phase 1, not stubbed: an Accept that
-    // spawns a Cloud thread against a folder that is not a Cloud project is
-    // the wrong test, and a disabled button that bills nothing still teaches
-    // the user the channel is broken.
-    'R-3': 'no execution',
-    'R-6': 'no read-only thread view on Desktop',
-    'R-9': 'no read-only thread view on Desktop',
-    'V-1': 'Phase 2',
-    'V-2': 'Phase 2',
-    'V-3': 'Phase 2',
-    'V-4': 'Phase 2',
-    'V-5': 'Phase 2',
-    'V-6': 'Phase 2',
-    'B-1': 'no execution',
-    'E-3': 'no execution',
-    'E-4': 'no execution',
-    'E-5': 'no execution',
-    'E-7': 'no execution',
-  },
+  // DESKTOP HAS NO WAIVERS SINCE COD-397. Phase 2 shipped the Accept, the
+  // local run in a worktree, the sponsored thread that is never a send target,
+  // and Create pull request -- so every ID that was waived for "no execution"
+  // or "no read-only thread view" is now measured rather than excused.
+  //
+  // Deliberately an empty object rather than a deleted key: an absent surface
+  // and a surface with nothing to excuse are different claims, and
+  // `sponsoredConformanceWaiverAccepted` has to be able to REFUSE a waiver
+  // that turns up in a Desktop report. It is the same reason `web` has always
+  // been empty.
+  desktop: {},
   cli: {
     // NOTHING PRODUCES A CARD ON THE CLI YET. The block renders, and every
     // render-layer ID is pinned by a test — but no poll fetches a proposal and
@@ -269,6 +265,10 @@ export const SPONSORED_CONFORMANCE_ACCEPTED_WAIVERS: Record<
  * The CLI waives E-1, E-2 and E-6 anyway, and for an unrelated reason: nothing
  * on that surface produces a card, so there is no arrival to observe. That is a
  * missing producer, not a missing execution, and the reason string says so.
+ *
+ * DESKTOP'S ENTRY IS NOW EMPTY (COD-397) and the contradiction above is moot
+ * for that surface: E-3..E-7 are all observable there, because a run happens.
+ * The CLI's copy of it stands until COD-339.
  */
 export function sponsoredConformanceWaiverAccepted(
   surface: SponsoredConformanceSurface,

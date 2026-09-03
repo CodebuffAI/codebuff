@@ -116,6 +116,19 @@ export type {
   TerminalCommandProcess,
   TerminalCommandSpawnRequest,
 } from './tools/run-terminal-command'
+// Containment for a sponsored run on the user's own machine (COD-336). Exported
+// from the SDK rather than kept in Desktop because the CLI needs the same
+// boundary, and a second copy of a seatbelt profile is a second thing to be
+// wrong about.
+export {
+  assertSponsoredCommandCwd,
+  assertSponsoredWritePath,
+  createSponsoredTerminalBroker,
+  findBubblewrap,
+  sponsoredContainment,
+  sponsoredMacProfile,
+} from './tools/sponsored-sandbox'
+export type { SponsoredSandboxOptions } from './tools/sponsored-sandbox'
 export {
   promptAiSdk,
   promptAiSdkStream,
