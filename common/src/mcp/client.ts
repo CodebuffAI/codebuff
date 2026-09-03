@@ -181,18 +181,14 @@ function getResourceData(
   return ''
 }
 
-export async function callMCPTool(
-  clientId: string,
-  ...args: Parameters<typeof Client.prototype.callTool>
-): Promise<ToolResultOutput[]> {
-  const client = runningClients[clientId]
-  if (!client) {
-    throw new Error(`callTool: client not found with id: ${clientId}`)
-  }
-  const callResult = await client.callTool(...args)
-  const result = callResult as CallToolResult
-  const content = result.content
-
+/**
+ * Convert MCP tool-result content blocks into codebuff tool-result outputs.
+ * Pure function (no client access) so conversion rules are testable in
+ * isolation. No behavior change from the previous inline map.
+ */
+export function mcpContentToToolResultOutputs(
+  content: CallToolResult['content'],
+): ToolResultOutput[] {
   return content.map((c: (typeof content)[number]) => {
     if (c.type === 'text') {
       return {
@@ -230,4 +226,19 @@ export async function callMCPTool(
       value: fallbackValue,
     } satisfies ToolResultOutput
   })
+}
+
+export async function callMCPTool(
+  clientId: string,
+  ...args: Parameters<typeof Client.prototype.callTool>
+): Promise<ToolResultOutput[]> {
+  const client = runningClients[clientId]
+  if (!client) {
+    throw new Error(`callTool: client not found with id: ${clientId}`)
+  }
+  const callResult = await client.callTool(...args)
+  const result = callResult as CallToolResult
+  const content = result.content
+
+  return mcpContentToToolResultOutputs(content)
 }
