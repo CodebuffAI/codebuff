@@ -346,6 +346,94 @@ export const FREEBUFF_SOLAR_PRO_4_MODEL_ID = 'upstage/solar-pro4'
  * that shows OpenRouter validates tags rather than ignoring them.
  */
 export const SOLAR_PRO_4_OPENROUTER_ENDPOINT = 'upstage/zdr'
+
+/**
+ * Gemini 3.8 Flash (Google), served through OpenRouter. The id is OpenRouter's
+ * own slug, so it falls through to the default OpenRouter route with no
+ * provider-specific handler (same as Luna and Ox Alpha).
+ *
+ * A 1,048,576-token context, text/image/video/audio/PDF in and text out, and
+ * the only row in the catalog that accepts audio at all.
+ *
+ * PRICE IS THE WHOLE STORY HERE, and it is a story about tiers rather than a
+ * number. OpenRouter lists SIX endpoints for this model — two providers
+ * (Google AI Studio, Google Vertex) times three service tiers — in three price
+ * bands per million tokens, read off the live API 2026-09-03:
+ *
+ *   | tier     | in     | cache read | out    |
+ *   | flex     | $0.375 | $0.0375    | $1.875 |
+ *   | standard | $0.75  | $0.075     | $3.75  |
+ *   | priority | $1.35  | $0.135     | $6.75  |
+ *
+ * Flex is the target, and reaching it takes BOTH halves of this row's routing
+ * — which is unusual and is the thing to understand before changing either.
+ * FREEBUFF_GEMINI_38_FLASH_MAX_PRICE fences the dear bands out;
+ * GEMINI_38_FLASH_OPENROUTER_UPSTREAM_ORDER is what puts the cheap band in
+ * range at all. Measured 2026-09-03: an UNPINNED request does not land on flex
+ * and cannot be made to by a ceiling alone — our account's tier filtering cuts
+ * the six endpoints to the two BYOK Vertex ones, so a flex-gap ceiling answers
+ * 404 while an unpinned request quietly serves on Vertex at full list. The
+ * default for this model, in other words, is 2x the price and a seventh of the
+ * speed. Neither half of the routing is decoration.
+ *
+ * TWO THINGS ABOUT THE FLEX PRICE THAT THE TABLE DOES NOT SHOW.
+ *
+ * 1. IT IS A DISCOUNT, NOT A CARD. Flex's list price is $0.75/$3.75 — the same
+ *    as standard — currently at `"discount": 0.5` on both flex endpoints. When
+ *    that promo ends, flex costs what standard costs and the ceiling below
+ *    stops admitting it, so the row 404s rather than doubling its bill
+ *    silently. That is the intended failure and it is the Ox Alpha shape: the
+ *    fix for that 404 is a decision about the row, never a higher number here.
+ *
+ * 2. THE VERTEX ENDPOINTS ARE BYOK AND BILL AT FULL LIST. Measured 2026-09-03:
+ *    every `google-vertex/*` tag serves with `usage.is_byok: true` and
+ *    `usage.cost: 0`, because OpenRouter routes them through our own Google
+ *    credentials and bills Google directly. Its
+ *    `cost_details.upstream_inference_cost` for one such response worked out to
+ *    $0.75/$3.75 per M — the UNDISCOUNTED rate — against $0.375/$1.875 on the
+ *    AI Studio flex response beside it. So the Vertex flex endpoint is listed
+ *    at the flex price and invoiced at twice it, and `max_price` cannot see the
+ *    difference: THE CEILING BOUNDS THE LISTED PRICE, NOT THE BYOK INVOICE.
+ *    That is why routing PREFERS AI Studio (see
+ *    FREEBUFF_GEMINI_38_FLASH_UPSTREAM_ORDER) rather than treating the two flex
+ *    endpoints as interchangeable. The ledger stays honest either way —
+ *    `extractUsageAndCost` records `max(cost, upstream_inference_cost)` — so a
+ *    drift onto Vertex shows up as a doubled $/msg on /web/admin/spend rather
+ *    than as free traffic.
+ *
+ * The row is PREMIUM and carries a per-session dollar ceiling
+ * (FREEBUFF_PER_MODEL_SESSION_SPEND_CAPS). At the flex rate and the cache
+ * rates the browser surfaces actually get, it prices out at roughly 4x DeepSeek
+ * V4 Flash and 9x GLM 5.3 Flash per message; the cache-read rate is the dearest
+ * in the catalog and cache reads are ~96% of an agent turn's tokens. Figures
+ * and the sensitivity to the hit rate are in ./freebuff-costs.knowledge.md.
+ */
+export const FREEBUFF_GEMINI_38_FLASH_MODEL_ID = 'google/gemini-3.8-flash'
+
+/**
+ * The price ceiling Gemini 3.8 Flash routes under, in dollars per MILLION
+ * tokens (OpenRouter's `provider.max_price` unit).
+ *
+ * Sits strictly BETWEEN the flex band ($0.375/$1.875) and the standard band
+ * ($0.75/$3.75), and both halves of "strictly" are load-bearing:
+ *
+ *   - Strictly ABOVE flex. A ceiling equal to list is an outage: verified
+ *     against the live API 2026-09-03, `max_price` of exactly
+ *     {0.375, 1.875} answers `404 No endpoints found that satisfy the max
+ *     price`, with `failed_routing_step: "Filter by Max Price"`. This is the
+ *     same comparison that bit FREEBUFF_GPT_5_6_LUNA_MAX_PRICE.
+ *   - Strictly BELOW standard, which is the entire reason the fence exists —
+ *     four of the six endpoints are 2x or 3.6x the flex band.
+ *
+ * Fallbacks stay ALLOWED, so this bounds cost without pinning a host: two
+ * endpoints sit under it. When both are down OpenRouter returns 404 rather
+ * than serving above the ceiling, and the fix for that 404 is never to raise
+ * this number.
+ */
+export const FREEBUFF_GEMINI_38_FLASH_MAX_PRICE = {
+  prompt: 0.5,
+  completion: 2.5,
+} as const
 /**
  * Kimi K3 (Eco), served by CrofAI. God-only on Freebuff Web, for testing.
  *
@@ -1421,6 +1509,47 @@ const SOLAR_PRO_4_MODEL = {
   experimental: true,
 } as const satisfies FreebuffModelOption
 
+/**
+ * Gemini 3.8 Flash. Premium, and unlike most premium rows it is priced premium
+ * as well as badged it — see FREEBUFF_GEMINI_38_FLASH_MODEL_ID for the tier
+ * table and FREEBUFF_PER_MODEL_SESSION_SPEND_CAPS for the ceiling that bounds
+ * one session on it.
+ */
+const GEMINI_38_FLASH_MODEL = {
+  id: FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  displayName: 'Gemini 3.8 Flash',
+  // The 1M context is the thing a user picks this row FOR, and it is the
+  // largest in the catalog by a wide margin.
+  tagline: '1M context',
+  availability: 'always',
+  // Google's paid APIs do not train on request data, and both endpoints this
+  // row can reach are paid ones — every probe billed a non-zero amount, which
+  // is what distinguishes the paid tier from the AI Studio free tier that does
+  // train. So no training notice and no trace storage
+  // (FREEBUFF_TRACED_MODEL_IDS keys off this field).
+  //
+  // Worth knowing when revisiting: OpenRouter's own UI badges the AI Studio
+  // endpoints with a data-retention warning and the Vertex ones with a shield,
+  // and its public API exposes neither flag, so that badge could not be read
+  // programmatically. The claim above rests on Google's paid-tier terms rather
+  // than on the badge. If this row is ever pinned to the AI Studio endpoint
+  // ALONE, re-check it — that is the Solar Pro 4 lesson, where a `service`
+  // claim rested on a tag half the traffic did not carry.
+  dataUse: 'service',
+  premium: true,
+  // Text, image, video, audio and PDF in — the only row here that takes audio.
+  multimodal: true,
+  // OpenRouter reports `reasoning` and `reasoning_effort` on every endpoint.
+  // No pinned `reasoningEffort`: the row runs at the model's own default, and
+  // the pickers offer the ladder. Note it reasons freely by default — a
+  // two-token "Say hi" spent 111-126 reasoning tokens in probing — and
+  // reasoning bills as output at $1.875/M, so the effort control is a real
+  // cost lever here rather than a latency one.
+  efforts: EFFORTS_THROUGH_MAX,
+  defaultEffort: 'high',
+  isNew: true,
+} as const satisfies FreebuffModelOption
+
 const GLM_V52_MODEL = {
   id: FREEBUFF_GLM_V52_MODEL_ID,
   displayName: 'GLM 5.2',
@@ -1760,6 +1889,7 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   MINIMAX_M3_MODEL,
   GPT_5_6_LUNA_MODEL,
   SOLAR_PRO_4_MODEL,
+  GEMINI_38_FLASH_MODEL,
   GLM_V52_MODEL,
   GLM_V53_FLASH_MODEL,
   DEEPSEEK_V4_FLASH_MODEL,
@@ -1846,6 +1976,12 @@ export const FREEBUFF_MODELS = [
   // stays in SUPPORTED_FREEBUFF_MODELS so the id remains recognisable and
   // coercible for the installed binaries that still hold it.
   SOLAR_PRO_4_MODEL,
+  // Gemini 3.8 Flash, from 2026-09-03. LAST in the list on purpose: ordering is
+  // the only steer this list gives, and this is the dearest row on it per
+  // message (the table on FREEBUFF_GEMINI_38_FLASH_MODEL_ID). It is here for
+  // the 1M context and the multimodal input, which nothing else offers, not as
+  // a row anyone should drift onto.
+  GEMINI_38_FLASH_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
 // Flash joined this list on 2026-08-18 and LEFT it on 2026-08-24, once the
@@ -1880,6 +2016,10 @@ export const FREEBUFF_PREMIUM_MODEL_IDS = [
   // is derived from the flag, so a disagreement makes a row premium for the
   // rate limiter and unmetered for the session pool at the same time.
   FREEBUFF_SOLAR_PRO_4_MODEL_ID,
+  // Gemini 3.8 Flash is premium on price, not only on badge: roughly 4x
+  // DeepSeek V4 Flash and 9x GLM 5.3 Flash per message at the cache rates the
+  // browser surfaces get.
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
 ] as const
 
 /**
@@ -2056,6 +2196,23 @@ export const FREEBUFF_PER_MODEL_SESSION_SPEND_CAPS: Readonly<
   // the promo ends the ledger steps back up and this ceiling bites ten times
   // sooner, unchanged; that is the moment to revisit it along with the row.
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 0.5,
+  // Gemini 3.8 Flash, $0.50 a session from the day it shipped (2026-09-03) —
+  // deliberately NOT the uncapped launch Solar Pro 4 got, which is the incident
+  // this table was created for.
+  //
+  // Sized against the row's own estimated economics, which are unusually
+  // uncertain. What this row costs is decided almost entirely by its cache hit
+  // rate, and that is the one thing about it no price card states. Gemini
+  // caches IMPLICITLY (OpenRouter reports `supports_implicit_caching: true`),
+  // which no other row here relies on, so the rate the rest of the catalog
+  // gets is an assumption rather than a forecast — and across the plausible
+  // range the same $0.50 buys a threefold different number of messages. That
+  // spread is why the ceiling ships WITH the row rather than after it.
+  // (Figures in ./freebuff-costs.knowledge.md, which is export-excluded.)
+  //
+  // Revisit once /web/admin/spend has a week of real hit rates for this model,
+  // and again if the flex 50% promo ends (see the model id's PRICE note).
+  [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 0.5,
 }
 
 /** The per-session dollar ceiling for `model`, or undefined when it has none. */
@@ -2480,6 +2637,12 @@ export const FREEBUFF_REWARD_MODEL_DISPLAY_NAME: string =
  *  multi-tab today. Before making one so, key admit rows by instance id. */
 export const FREEBUFF_DESKTOP_PREMIUM_BUCKET_MODEL_IDS = [
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  // Gemini 3.8 Flash, from the day it shipped. It qualifies on BOTH criteria
+  // this list carries, which is unusual: it is the dearest row per message in
+  // the catalog, so three concurrent tabs of it is a bill we would not want to
+  // underwrite; and it is METERED, and nothing may be metered AND multi-tab
+  // until admit rows are keyed by instance id (see the closing note above).
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   // GLM 5.2 left on 2026-08-31 with its withdrawal from free mode
   // (FREEBUFF_PAUSED_FREE_MODEL_IDS). Nothing may admit it, so a concurrency
   // slot for it can only ever describe sessions that no longer exist.
@@ -3489,6 +3652,22 @@ export function isFreebuffGlmV53FlashModelId(
   id: string | null | undefined,
 ): boolean {
   return freebuffModelIdMatches(id, FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+}
+
+/** Whether the requested model is Gemini 3.8 Flash, tolerating the dated
+ *  snapshot suffix. Used by the OpenRouter layer to apply this row's endpoint
+ *  preference and price ceiling, so a dated variant can dodge neither — and
+ *  the ceiling is the only thing standing between it and an endpoint at 3.6x.
+ *
+ *  DISTINCT from isFreebuffGeminiProModelId, which gates Gemini Pro to the
+ *  gemini-thinker subagents. The two must never be merged or prefix-matched on
+ *  `google/gemini`: Pro is a subagent-only route with its own agent binding,
+ *  this is an ordinary picker row, and a shared predicate would either put Pro
+ *  in the picker or refuse this row to every agent that is not a thinker. */
+export function isFreebuffGemini38FlashModelId(
+  id: string | null | undefined,
+): boolean {
+  return freebuffModelIdMatches(id, FREEBUFF_GEMINI_38_FLASH_MODEL_ID)
 }
 
 /** Whether the requested model is GPT-5.6 Luna, tolerating the dated snapshot

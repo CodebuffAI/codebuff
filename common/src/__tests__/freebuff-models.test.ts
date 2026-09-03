@@ -18,6 +18,7 @@ import {
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_REWARD_MODEL_ID,
   FREEBUFF_REWARD_MODEL_IDS,
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_WEB_LIMITED_MODEL_IDS,
   FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS,
@@ -528,6 +529,14 @@ describe('freebuff model availability', () => {
     // message runs three at once. GLM 5.3 Flash failed exactly that test on
     // 2026-08-28, being the cheapest row we serve and still capped at one tab.
     const COST_PER_MSG: Record<string, number> = {
+      // Gemini 3.8 Flash is an ESTIMATE, not a measurement — the row has no
+      // production traffic yet. Priced from its flex card against the token
+      // mix the browser surfaces actually run (see
+      // FREEBUFF_GEMINI_38_FLASH_MODEL_ID). Replace it with the measured
+      // figure once /web/admin/spend has a week of it; if the real number
+      // comes in BELOW the multi-tab rows, this row's bucket entry is the
+      // thing to revisit, not this constant.
+      [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 0.0092,
       [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 0.000249,
       [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 0.002223,
       [FREEBUFF_MIMO_V25_MODEL_ID]: 0.001151,
@@ -1792,7 +1801,12 @@ describe('freebuff model availability', () => {
     // It left this list by leaving FREEBUFF_MODELS, and its row dropped `isNew`
     // in the same change — a NEW badge on a model its host withdrew is the one
     // claim about it that is actively false. See ox-alpha.test.ts.
-    const undatedNew = [FREEBUFF_GLM_V53_FLASH_MODEL_ID]
+    const undatedNew = [
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+      // Gemini 3.8 Flash arrived 2026-09-03. Its wire id names its version, so
+      // there is no build date for the display name to disambiguate.
+      FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+    ]
     expect(
       catalog.filter(
         (model) => model.isNew && !undatedNew.includes(model.id),

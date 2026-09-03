@@ -39,6 +39,7 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 | **GPT-5.6 Luna**            | Full access             | Strong all-around with native images                              |
 | **MiMo 2.5**                | Full and limited access | Balanced performance with image support                           |
 | **Solar Pro 4**             | Full access             | Limited-time trial; 524K context, text only                       |
+| **Gemini 3.8 Flash**        | Full access             | 1M context; reads images, audio, video and PDFs; the priciest row per message |
 
 Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash, DeepSeek V4 Flash 07/31 and MiMo 2.5 are unmetered and cost no session at all. Models may still serve from a quantized (Q8_0) build.
 

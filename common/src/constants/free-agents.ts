@@ -9,6 +9,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_FABLE_5_MODEL_ID,
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
@@ -136,6 +137,7 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark-1-3',
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base3-free-ox-alpha',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'base3-free-solar-pro4',
+  [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'base3-free-gemini-3-8-flash',
 }
 
 /**
@@ -170,6 +172,9 @@ export const FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   // is the arrangement described in docs/freebuff-base3-harness.md.
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base3-free-ox-alpha',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'base3-free-solar-pro4',
+  // Gemini 3.8 Flash reached every surface on 2026-09-03, sharing its root id
+  // with the Web map above like every other model both surfaces offer.
+  [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'base3-free-gemini-3-8-flash',
 }
 
 /** Every base3 root id, whichever surface registered it. */
@@ -348,6 +353,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // them off the CLI and Desktop.
   'base2-free-muse-spark',
   'base2-free-muse-spark-1-3',
+  'base2-free-gemini-3-8-flash',
   // Ox Alpha's root. The model was WITHDRAWN on 2026-08-27 (see
   // FREEBUFF_PAUSED_FREE_MODEL_IDS) and this entry stays on purpose, exactly
   // like the Fable note below it: withdrawal is enforced at ADMISSION, so a
@@ -388,6 +394,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base3-free-muse-spark',
   'base3-free-muse-spark-1-3',
   'base3-free-ox-alpha',
+  'base3-free-gemini-3-8-flash',
   // Freebuff CLI base3 roots. Every other id it needs is already above,
   // shared with Web; Fable is the one model the CLI offers and Web does not.
   'base3-free-fable',
@@ -415,6 +422,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark',
   [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark-1-3',
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base2-free-ox-alpha',
+  [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'base2-free-gemini-3-8-flash',
 }
 
 /**
@@ -445,6 +453,10 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   // a base2 session falls back to the DeepSeek Flash reviewer, which that
   // session's allowlist does not permit, so the subagent is rejected mid-run.
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'code-reviewer-ox-alpha',
+  // Required the moment Gemini 3.8 Flash became CLI-selectable: without its own
+  // entry a base2 session falls back to the DeepSeek Flash reviewer, which that
+  // session's allowlist does not permit, so the subagent is rejected mid-run.
+  [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'code-reviewer-gemini-3-8-flash',
 }
 
 const FREEBUFF_DESKTOP_MODELS = new Set([
@@ -457,6 +469,7 @@ const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_OX_ALPHA_MODEL_ID,
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
 ])
 
 /**
@@ -596,6 +609,12 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-muse-spark-1-3': new Set([
     FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
   ]),
+  // Gemini 3.8 Flash's root, pinned to its one model like every other. The
+  // pinning matters more than usual here: `google/gemini-3.1-pro-preview` is a
+  // premium route bound to the gemini-thinker subagents, and a root that
+  // allowed both `google/` models would be a door onto Pro from an ordinary
+  // picker session.
+  'base2-free-gemini-3-8-flash': new Set([FREEBUFF_GEMINI_38_FLASH_MODEL_ID]),
   // Ox Alpha's root, pinned to its one model like every other. The pinning
   // matters even now that the model is withdrawn: an agent id is the handle a
   // hand-written caller reaches for, and a root allowed more than one model is
@@ -673,6 +692,9 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'code-reviewer-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   'code-reviewer-glm-5-3-flash': new Set([FREEBUFF_GLM_V53_FLASH_MODEL_ID]),
   'code-reviewer-fable': new Set([FREEBUFF_FABLE_5_MODEL_ID]),
+  'code-reviewer-gemini-3-8-flash': new Set([
+    FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  ]),
   // Wire compatibility only — NOT a freebuff agent. `code-reviewer-lite` now
   // belongs to Codebuff's paid lite mode and is spawned by no freebuff root and
   // shipped in no freebuff bundle. Released clients from before the
