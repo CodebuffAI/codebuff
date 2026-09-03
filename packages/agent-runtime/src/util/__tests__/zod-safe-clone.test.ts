@@ -32,7 +32,7 @@ describe('cloneDeepKeepingZod', () => {
     expect(out.cfg).toBe(schema)
     const jsonSchema = z.toJSONSchema(out.cfg)
     expect(jsonSchema.type).toBe('object')
-    expect(jsonSchema.properties.q.type).toBe('string')
+    expect((jsonSchema.properties as { q: { type: string } }).q.type).toBe('string')
   })
 
   test('deep-clones plain structures exactly like cloneDeep', () => {
