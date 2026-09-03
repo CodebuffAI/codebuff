@@ -65,6 +65,10 @@ export async function getMCPToolData(
               description,
             }
           }
+          logger?.debug(
+            { mcpServer: mcpName, toolCount: mcpData.length },
+            `Loaded ${mcpData.length} tool(s) from MCP server "${mcpName}".`,
+          )
         } catch (error) {
           // A failed MCP server (e.g. a stdio server that can't be spawned)
           // should disable just its own tools, not abort the whole turn. The

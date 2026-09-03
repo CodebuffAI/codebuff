@@ -10,11 +10,26 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 import type { ToolSet } from 'ai'
 
-function ensureJsonSchemaCompatible(schema: z.ZodType): z.ZodType {
+function ensureJsonSchemaCompatible(
+  schema: z.ZodType,
+  opts?: { logger?: Logger; name?: string },
+): z.ZodType {
   try {
     z.toJSONSchema(schema, { io: 'input' })
     return schema
-  } catch {
+  } catch (error) {
+    // Same silent-fallback hazard as the copy in tools/prompts.ts: this once
+    // consumed amputated zod schemas without a trace. Log it loudly.
+    opts?.logger?.warn(
+      {
+        toolName: opts.name,
+        error: String(error),
+        schemaConstructor: schema?.constructor?.name,
+      },
+      `input schema failed JSON Schema conversion; serving empty schema${
+        opts.name ? ` for '${opts.name}'` : ''
+      }`,
+    )
     const fallback = z.object({}).passthrough()
     return schema.description ? fallback.describe(schema.description) : fallback
   }
@@ -81,7 +96,7 @@ export async function buildAgentToolSet(
     'agentId' | 'localAgentTemplates'
   >,
 ): Promise<ToolSet> {
-  const { spawnableAgents, agentTemplates } = params
+  const { spawnableAgents, agentTemplates, logger } = params
 
   const toolSet: ToolSet = {}
 
@@ -97,6 +112,7 @@ export async function buildAgentToolSet(
     const toolName = getAgentToolName(agentType)
     const inputSchema = ensureJsonSchemaCompatible(
       buildAgentToolInputSchema(agentTemplate),
+      { logger, name: toolName },
     )
 
     // Use the same structure as other tools in toolParams

@@ -877,6 +877,7 @@ export async function loopAgentSteps(
         windowedFileReads: agentTemplate.windowedFileReads === true,
         suppressCommitAttribution:
           agentTemplate.suppressCommitAttribution === true,
+        logger,
         additionalToolDefinitions: async () => {
           if (!cachedAdditionalToolDefinitions) {
             cachedAdditionalToolDefinitions = await additionalToolDefinitions({

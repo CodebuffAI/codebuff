@@ -14,6 +14,7 @@ import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { SkillsMap } from '@codebuff/common/types/skill'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   CustomToolDefinitions,
   customToolDefinitionsSchema,
@@ -38,11 +39,28 @@ export function ensureZodSchema(
   return convertJsonSchemaToZod(schema as Record<string, unknown>)
 }
 
-function ensureJsonSchemaCompatible(schema: z.ZodType): z.ZodType {
+function ensureJsonSchemaCompatible(
+  schema: z.ZodType,
+  opts?: { logger?: Logger; name?: string },
+): z.ZodType {
   try {
     z.toJSONSchema(schema, { io: 'input' })
     return schema
-  } catch {
+  } catch (error) {
+    // This fallback once silently consumed amputated zod schemas (lodash
+    // cloneDeep drops zod v4's non-enumerable _zod), turning a broken schema
+    // into an empty tool schema at the model. Loud failure here would have
+    // surfaced that bug in minutes instead of sessions.
+    opts?.logger?.warn(
+      {
+        toolName: opts.name,
+        error: String(error),
+        schemaConstructor: schema?.constructor?.name,
+      },
+      `input schema failed JSON Schema conversion; serving empty schema${
+        opts.name ? ` for '${opts.name}'` : ''
+      }`,
+    )
     const fallback = z.object({}).passthrough()
     return schema.description ? fallback.describe(schema.description) : fallback
   }
@@ -369,6 +387,7 @@ export async function getToolSet(params: {
   additionalToolDefinitions: () => Promise<CustomToolDefinitions>
   agentTools: ToolSet
   skills: SkillsMap
+  logger?: Logger
 }): Promise<ToolSet> {
   const {
     toolNames,
@@ -377,6 +396,7 @@ export async function getToolSet(params: {
     additionalToolDefinitions,
     agentTools,
     skills,
+    logger,
   } = params
 
   // Generate available skills XML for the skill tool description
@@ -434,7 +454,10 @@ export async function getToolSet(params: {
     // Custom tool inputSchema may be JSON Schema (from SDK) or Zod (from MCP)
     // Ensure it's a Zod schema for the AI SDK
     const zodSchema = ensureZodSchema(clonedDef.inputSchema)
-    const safeSchema = ensureJsonSchemaCompatible(zodSchema)
+    const safeSchema = ensureJsonSchemaCompatible(zodSchema, {
+      logger,
+      name: toolName,
+    })
     toolSet[toolName] = {
       ...clonedDef,
       inputSchema: safeSchema,
