@@ -297,6 +297,142 @@ describe('containment availability', () => {
   })
 })
 
+// ----------------------------------------------------------- device nodes
+
+/**
+ * A REAL git commit, through the REAL broker, on this machine.
+ *
+ * This is here because every fake passed. The macOS profile listed `/dev` as
+ * readable and granted `file-write*` only to the worktree and the runtime
+ * directory, so `/dev/null` was read-only -- and every git binary opens it for
+ * reading AND writing at startup. `git --version` died with
+ *
+ *   fatal: could not open '/dev/null' for reading and writing: Operation not permitted
+ *
+ * which put `committed`, `landed` and the pull request out of reach on every
+ * Mac. Nothing above caught it: the write acceptance test is a shell redirect
+ * into the worktree, which needs no device node, and the profile assertions
+ * are string matches on a profile that was wrong.
+ *
+ * So the assertion is the PRODUCT OUTCOME, not the profile text: a sponsored
+ * run's whole purpose is to leave a commit for the user to review, and the
+ * only honest test of that is to make one. A profile-string test would have
+ * been just as green with `/dev/null` unwritable.
+ */
+describe('sponsored git (the commit the whole feature exists to produce)', () => {
+  it('runs git init, add, commit and log through the broker', async () => {
+    if (!containmentUsable()) return
+    const { root, runtime, parent } = workspace()
+    try {
+      const handle = createSponsoredTerminalBroker({
+        workspaceRoot: root,
+        runtimeDir: runtime,
+      }).start({
+        executable: 'bash',
+        args: [
+          '-c',
+          [
+            'set -e',
+            'git init -q .',
+            // The run's HOME is empty by design, so there is no ambient
+            // identity to commit under -- exactly as a real sponsored run
+            // finds it.
+            'git config user.email sponsored@example.invalid',
+            'git config user.name "Sponsored Run"',
+            'echo sponsored-change > CHANGED.md',
+            'git add CHANGED.md',
+            'git commit -q -m "sponsored change" --no-verify',
+            'git log --oneline -1 --format=%s',
+          ].join('\n'),
+        ],
+        cwd: root,
+        env: POLLUTED_ENV as NodeJS.ProcessEnv,
+      })
+      const stdout = drain(handle.stdout)
+      const stderr = drain(handle.stderr)
+      const exitCode = await handle.completion
+      const [out, err] = await Promise.all([stdout, stderr])
+      // The failure text is asserted by name: if this regresses, the next
+      // reader should see the device node in the test output rather than a
+      // bare non-zero exit.
+      expect(err).not.toContain('/dev/null')
+      expect(err).not.toContain('Operation not permitted')
+      expect(exitCode).toBe(0)
+      expect(out.trim()).toContain('sponsored change')
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('writes /dev/null and the /dev/fd stdio aliases, and nothing else in /dev', async () => {
+    if (!containmentUsable()) return
+    const { root, runtime, parent } = workspace()
+    try {
+      const handle = createSponsoredTerminalBroker({
+        workspaceRoot: root,
+        runtimeDir: runtime,
+      }).start({
+        executable: 'bash',
+        args: [
+          '-c',
+          [
+            'echo x > /dev/null && echo null=ok || echo null=DENIED',
+            'echo x > /dev/stderr 2>/dev/null && echo stderr=ok || echo stderr=DENIED',
+            // Granted for nobody. `/dev/zero` stands in for the rest of the
+            // directory -- bpf, the raw disks, auditpipe -- which is why this
+            // is a literal list and not `(subpath "/dev")`.
+            'echo x > /dev/zero 2>/dev/null && echo zero=ALLOWED || echo zero=denied',
+          ].join('\n'),
+        ],
+        cwd: root,
+        env: POLLUTED_ENV as NodeJS.ProcessEnv,
+      })
+      const stdout = drain(handle.stdout)
+      const stderr = drain(handle.stderr)
+      await handle.completion
+      await stderr
+      const out = await stdout
+      expect(out).toContain('null=ok')
+      // `/dev/stderr` is a symlink to `/dev/fd/2`, and seatbelt matches the
+      // path the KERNEL resolves -- so this passes because `/dev/fd` is
+      // granted, and would still fail if only `/dev/stderr` were.
+      expect(out).toContain('stderr=ok')
+      expect(out).toContain('zero=denied')
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('grants /dev/fd without letting a descriptor reach outside the worktree', async () => {
+    if (!containmentUsable()) return
+    const { root, runtime, parent } = workspace()
+    const victim = path.join(parent, 'victim.txt')
+    fs.writeFileSync(victim, 'ORIGINAL\n')
+    try {
+      const handle = createSponsoredTerminalBroker({
+        workspaceRoot: root,
+        runtimeDir: runtime,
+      }).start({
+        executable: 'bash',
+        // Re-opening an inherited read-only descriptor for writing is the one
+        // way `/dev/fd` could be an escape. It is not: seatbelt evaluates the
+        // UNDERLYING file, so this is refused by the same worktree bound as a
+        // plain redirect.
+        args: ['-c', `exec 3< ${JSON.stringify(victim)}; echo PWNED > /dev/fd/3; echo done`],
+        cwd: root,
+        env: POLLUTED_ENV as NodeJS.ProcessEnv,
+      })
+      const stdout = drain(handle.stdout)
+      const stderr = drain(handle.stderr)
+      await handle.completion
+      await Promise.all([stdout, stderr])
+      expect(fs.readFileSync(victim, 'utf8')).toBe('ORIGINAL\n')
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+})
+
 // ------------------------------------------------------------- F1 read clamp
 
 describe('sponsored read containment (F1)', () => {
@@ -319,6 +455,34 @@ describe('sponsored read containment (F1)', () => {
       expect(() => assertSponsoredReadPath(root, 'escape/secret.txt')).toThrow(
         /symlink/,
       )
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses a leading ~ instead of resolving it inside the worktree', () => {
+    // `path.resolve` has never heard of a tilde, so `~/.ssh/id_rsa` used to
+    // come back as `<worktree>/~/.ssh/id_rsa` and PASS -- an ALLOW at the one
+    // spelling every reader of this function expects refused. It stayed
+    // inside the worktree, so it was harmless in fact and unreadable as
+    // intent, which is the wrong pair of properties for the check three
+    // surfaces share. Expanding it would be worse: the floor's whole point is
+    // that HOME is somewhere else.
+    const { root, parent } = workspace()
+    try {
+      for (const spelling of ['~', '~/.ssh/id_rsa', '~root/.ssh/id_rsa', '~/']) {
+        expect(() => assertSponsoredReadPath(root, spelling)).toThrow(/worktree/)
+        expect(() => assertSponsoredWritePath(root, spelling)).toThrow(/worktree/)
+        expect(() => assertSponsoredCommandCwd(root, spelling)).toThrow(/worktree/)
+      }
+      // A tilde that no shell expands is an ordinary filename: Word's lock
+      // file is a real thing to find beside a tracked document.
+      fs.writeFileSync(path.join(root, '~$report.docx'), 'x')
+      expect(assertSponsoredReadPath(root, '~$report.docx')).toContain(
+        '~$report.docx',
+      )
+      // And a tilde anywhere but the front was never a shell expansion.
+      expect(() => assertSponsoredWritePath(root, 'src/backup~')).not.toThrow()
     } finally {
       fs.rmSync(parent, { recursive: true, force: true })
     }

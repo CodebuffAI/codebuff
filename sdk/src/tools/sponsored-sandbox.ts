@@ -122,6 +122,14 @@ export interface SponsoredSandboxOptions {
  * and a silent empty answer would teach an advertiser's procedure that a file
  * was missing rather than that the boundary said no.
  */
+/**
+ * A first segment a shell would tilde-expand: `~`, `~/x`, `~someone/x`.
+ *
+ * `$` after the tilde is excluded deliberately — `~$report.docx` is Word's
+ * lock file, a real tracked-adjacent name, and no shell expands it.
+ */
+const TILDE_PATH = /^~[^$]*(?:[/\\]|$)/
+
 export function containSponsoredPath(
   workspaceRoot: string,
   requested: string,
@@ -130,6 +138,22 @@ export function containSponsoredPath(
   // Realpath the ROOT: a worktree under `/var/folders/...` is really
   // `/private/var/folders/...` on macOS, and comparing a real path against a
   // symlinked root would refuse every path in the worktree.
+  // A LEADING `~` IS REFUSED, NOT RESOLVED, and not quietly accepted either.
+  // `path.resolve` has no idea what a tilde is, so `~/.ssh/id_rsa` used to
+  // come back as `<worktree>/~/.ssh/id_rsa` and PASS both checks below — an
+  // allow, at the exact spelling every reader of this function expects to see
+  // refused. It was harmless in fact (the path stays inside the worktree, and
+  // a symlink out of it is still realpathed) and unreadable as intent, which
+  // is the wrong pair of properties for a boundary. Expanding it instead
+  // would be worse: the whole point of the floor is that `HOME` is somewhere
+  // else, so the only honest answer to "the user's home directory" here is
+  // no. Refused for reads, writes and cwd alike — F9's rule that the three
+  // must not answer the same path differently.
+  if (TILDE_PATH.test(requested)) {
+    throw new Error(
+      `A sponsored run may only ${verb} inside its own worktree, and \`~\` is not a path inside it.`,
+    )
+  }
   const root = realpathOrSelf(path.resolve(workspaceRoot))
   const requestedAbs = path.resolve(root, requested)
 
@@ -350,6 +374,97 @@ function traversableAncestors(targets: string[]): string[] {
   return [...ancestors]
 }
 
+/**
+ * The device nodes a normal toolchain must be able to WRITE, and nothing more.
+ *
+ * `/dev` is in the readable set, and readable is not enough: every git binary
+ * opens `/dev/null` for reading AND writing at startup, so with `file-write*`
+ * granted only to the worktree and the runtime directory, `git --version`
+ * itself dies with
+ *
+ *   fatal: could not open '/dev/null' for reading and writing: Operation not permitted
+ *
+ * That is machine-independent — reproduced on Homebrew git 2.55.0, so it is
+ * not the `/var/select/developer_dir` Xcode-shim failure §9 already describes
+ * — and it put `committed`, `landed` and the pull request out of reach on
+ * every Mac. Nothing caught it, because a shell redirect into the worktree,
+ * which is what the acceptance tests run, needs no device node.
+ *
+ * NOT `(subpath "/dev")`. `/dev` holds `bpf*` (packet capture), `disk*` (the
+ * raw block devices) and `auditpipe`; unix permissions are what keep those out
+ * of reach, and a blanket write grant would leave nothing else in the way the
+ * day one of them is group-writable. Each entry below was MEASURED to be
+ * needed, and the candidates that were measured and are NOT needed are listed
+ * with their reasons so the next person does not re-derive them.
+ *
+ * Measured on macOS 26.5 (Darwin 25.5) by ablation: grant the candidate set,
+ * run a real `git init` / `add` / `commit` / `log` through the shipped broker,
+ * then drop one node at a time and see what breaks.
+ *
+ *  - `/dev/null` — REQUIRED. Dropping it is the blocker above.
+ *  - `/dev/fd` — GRANTED as a subpath, and the only subpath here.
+ *    `/dev/stdout` and `/dev/stderr` are SYMLINKS to `/dev/fd/1` and
+ *    `/dev/fd/2`, and seatbelt matches the path the kernel resolves, so a
+ *    `(literal "/dev/stdout")` grant is inert: measured, with `/dev/null`,
+ *    `/dev/stdout` and `/dev/stderr` all granted as literals, `echo hi >
+ *    /dev/stdout` is still `Operation not permitted`, and it succeeds the
+ *    moment `/dev/fd` is granted instead. `> /dev/stderr` and `tee
+ *    /dev/stderr` are ordinary shell-script spellings; a build that uses one
+ *    should not die inside a sponsored run.
+ *
+ *    It does not widen the boundary. `/dev/fd/N` names the process's OWN
+ *    descriptors, and re-opening one is evaluated by seatbelt against the
+ *    UNDERLYING file — measured: with this grant in place, `exec 3<
+ *    outside.txt; echo PWNED > /dev/fd/3` is refused with the error naming
+ *    `outside.txt` rather than `/dev/fd/3`, and the file is unchanged. Same
+ *    for `/etc/hosts`, which answers `Permission denied`.
+ *  - `/dev/tty` — NOT granted. The broker spawns `detached` with pipes for
+ *    stdio, so the run has no controlling terminal: measured, reading
+ *    `/dev/tty` answers "Device not configured" whether or not the write is
+ *    granted. The grant would be dead code.
+ *  - `/dev/dtracehelper`, `/dev/random`, `/dev/urandom`, `/dev/zero` — NOT
+ *    granted. Reading is what they are for and reading already works through
+ *    the `/dev` read grant: measured, `node`'s crypto, `python3`'s
+ *    `os.urandom` and `head -c 8 /dev/urandom` all work with no write grant,
+ *    and the git flow passes with each of them dropped.
+ *  - `/dev/stdin`, `/dev/ptmx`, `/dev/console` — NOT granted. Nothing in the
+ *    ablation needed them, and `/dev/stdin` is a `/dev/fd/0` symlink already
+ *    covered above.
+ *
+ * KNOWN, AND NOT A DEVICE PROBLEM: BSD `diff <(…)` still fails with
+ * `/dev/fd/63: Operation not permitted`. Measured, that is fixed by neither
+ * `(subpath "/dev")`, nor `file-ioctl`, nor granting the confstr temp
+ * directory — only a blanket `(allow file*)` clears it — so it is a file
+ * operation on the anonymous pipe with no path to name. `cat`, `grep`,
+ * `source` and bash's `<<<` all work with process substitution. Left alone
+ * rather than bought with a blanket grant.
+ */
+const SPONSORED_DEVICE_WRITE_LITERALS: readonly string[] = ['/dev/null']
+const SPONSORED_DEVICE_WRITE_SUBPATHS: readonly string[] = ['/dev/fd']
+
+/**
+ * `readlink("/var")`, which is the whole of what the system resolver needs.
+ *
+ * Without it `getaddrinfo` answers `ENOTFOUND` for every name, so `curl
+ * https://example.com` and `git ls-remote https://…` fail. Egress is accepted
+ * by COD-336 decision item 8, and this made the granted capability work only
+ * for a caller who already knew an address — a silent failure for an honest
+ * procedure, and no boundary at all. It closes a hole in the STATED
+ * capability rather than in the containment; the measurements behind that
+ * claim are in `docs/freebuff-sponsored-local-execution.md` §9, which is
+ * private, because an account of what a boundary does not stop is worth more
+ * to somebody probing it than to anybody maintaining it.
+ *
+ * Bisected to this one literal on macOS 26.5: the resolver reads the `/var`
+ * SYMLINK, and the profile's ancestor grants only ever cover `/private/var`
+ * — measured, `(subpath "/private/var")` does not help and `(literal "/var")`
+ * alone does. It grants exactly `readlink` on the link: with it in place, `ls
+ * /var`, `ls /private/var` and `cat /var/run/resolv.conf` are all still
+ * `Operation not permitted`, and the user's home directory stays unreadable.
+ * Loopback stays denied, which is the denial that matters.
+ */
+const SPONSORED_RESOLVER_READ_LITERALS: readonly string[] = ['/var']
+
 export function sponsoredMacProfile(
   writeRoots: string[],
   additionalReadRoots: string[],
@@ -425,15 +540,24 @@ export function sponsoredMacProfile(
     '(allow network*)',
     '(deny network-outbound (remote ip "localhost:*"))',
     '(deny network-inbound (local ip "localhost:*"))',
-    `(allow file-read* (literal "/") ${readable
-      .map((item) => `(subpath ${q(item)})`)
-      .join(' ')})`,
+    `(allow file-read* (literal "/") ${[
+      ...SPONSORED_RESOLVER_READ_LITERALS.map((item) => `(literal ${q(item)})`),
+      ...readable.map((item) => `(subpath ${q(item)})`),
+    ].join(' ')})`,
     // Traverse, do not enumerate. See `traversableAncestors` above.
     `(allow file-read-metadata ${traversable
       .filter((item) => item !== '/')
       .map((item) => `(literal ${q(item)})`)
       .join(' ')})`,
-    `(allow file-write* ${writable.map((item) => `(subpath ${q(item)})`).join(' ')})`,
+    // The worktree and the run's private runtime directory, and after them the
+    // handful of device nodes a toolchain cannot start without. See
+    // SPONSORED_DEVICE_WRITE_LITERALS for why each one is on that list and why
+    // the rest of `/dev` is not.
+    `(allow file-write* ${[
+      ...writable.map((item) => `(subpath ${q(item)})`),
+      ...SPONSORED_DEVICE_WRITE_LITERALS.map((item) => `(literal ${q(item)})`),
+      ...SPONSORED_DEVICE_WRITE_SUBPATHS.map((item) => `(subpath ${q(item)})`),
+    ].join(' ')})`,
   ].join('\n')
 }
 
@@ -499,6 +623,20 @@ function spawnLinux(
   for (const dir of additionalReadRoots) {
     if (fs.existsSync(dir)) args.push('--ro-bind', dir, dir)
   }
+  // `--dev /dev` mounts a FRESH devtmpfs the run owns, so the macOS device
+  // problem does not exist on this arm: bubblewrap populates it with
+  // null/zero/full/random/urandom/tty (writable, because the mount is the
+  // run's own) plus the `/dev/fd -> /proc/self/fd` and stdin/stdout/stderr
+  // symlinks, and it does NOT carry the host's `bpf*`, `disk*` or
+  // `auditpipe`. The macOS profile has to enumerate literals precisely
+  // because seatbelt filters the host's real `/dev` rather than replacing it.
+  //
+  // NOT VERIFIED ON A LINUX HOST — there is none on the machine this was
+  // written on, and the SDK's containment tests self-skip without `bwrap`, so
+  // CI's Linux runner does not close this either. It is read off bubblewrap's
+  // documented `--dev` behaviour, and the git regression test in
+  // `sdk/src/__tests__/sponsored-sandbox.test.ts` will exercise it the first
+  // time it runs somewhere `bwrap` exists.
   args.push('--proc', '/proc', '--dev', '/dev')
   for (const dir of writeRoots) {
     if (fs.existsSync(dir)) args.push('--bind', dir, dir)

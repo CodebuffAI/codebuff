@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import {
   SPONSORED_LOCAL_ENV_ALLOWLIST,
+  SPONSORED_LOCAL_UNAVAILABLE_COPY,
   SPONSORED_LOCAL_UNCONTAINED_GRANT,
   SPONSORED_LOCAL_V1_GRANT,
   commandInstallsDependencies,
@@ -82,6 +83,33 @@ describe('containment availability, as the card reads it', () => {
         sponsoredLocalContainment('linux', { bwrapAvailable: false }),
       ),
     ).toBe('unavailable:bubblewrap-missing')
+  })
+
+  it('never blames the operating system for a missing consent bridge', () => {
+    // `no-consent-bridge` is reached most often on a perfectly supported Mac
+    // -- `dev:web`, a bare orchestrator, the ui-shots harness -- and it used
+    // to share `unsupported-platform`'s sentence, which told that user their
+    // OS could not run sponsored tasks. It can; nobody was there to ask them.
+    expect(sponsoredLocalUnavailableReason('unavailable:no-consent-bridge')).toBe(
+      'no-consent-bridge',
+    )
+    const consent = SPONSORED_LOCAL_UNAVAILABLE_COPY['no-consent-bridge']
+    expect(consent).not.toBe(
+      SPONSORED_LOCAL_UNAVAILABLE_COPY['unsupported-platform'],
+    )
+    expect(consent).not.toContain('operating system')
+    // Fixable, and the sentence has to say how -- the same property the
+    // bubblewrap line has and the two permanent ones do not.
+    expect(consent).toContain('app')
+    // `sponsoredLocalContainment` answers about CONTAINMENT only. It must
+    // never produce this reason: the caller that has no bridge is the only
+    // thing that knows.
+    for (const platform of ['darwin', 'linux', 'win32', 'freebsd'] as const) {
+      const containment = sponsoredLocalContainment(platform)
+      if (!containment.available) {
+        expect(containment.reason).not.toBe('no-consent-bridge')
+      }
+    }
   })
 
   it('parses its own answer back, and refuses one it did not write', () => {

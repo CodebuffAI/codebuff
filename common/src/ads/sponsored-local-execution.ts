@@ -49,11 +49,19 @@ import {
 
 // --------------------------------------------------------------- containment
 
-/** Why a local sponsored run cannot be contained on this machine. */
+/**
+ * Why a local sponsored run cannot happen on this machine.
+ *
+ * Three of these are about CONTAINMENT and one is not. `no-consent-bridge`
+ * says the machine can contain the run perfectly well and there is nobody
+ * here to ask permission — a different fact, with a different fix, which is
+ * why it does not share `unsupported-platform`'s sentence.
+ */
 export type SponsoredLocalUnavailableReason =
   | 'windows-no-containment'
   | 'bubblewrap-missing'
   | 'unsupported-platform'
+  | 'no-consent-bridge'
 
 export type SponsoredLocalContainment =
   | { available: true; mechanism: 'sandbox-exec' | 'bubblewrap' }
@@ -77,6 +85,17 @@ export const SPONSORED_LOCAL_UNAVAILABLE_COPY: Record<
     'Sponsored tasks need bubblewrap (`bwrap`) to stay inside the workspace. Install it and reopen this project to accept.',
   'unsupported-platform':
     'Sponsored tasks can’t run on this operating system: Freebuff has no way to keep an advertiser’s commands inside the workspace here.',
+  // NOT a property of the operating system, and it must not borrow the
+  // operating system's sentence. `unsupported-platform` used to carry this
+  // case too, so a Mac with no desktop shell behind its orchestrator told its
+  // user "Sponsored tasks can’t run on this operating system" — false, and
+  // unactionable: the containment is right there and working, and what is
+  // missing is the window that would ask them. One enum member cannot mean
+  // both "this OS has no mechanism" and "there is nobody here to ask",
+  // because the first is permanent and the second is fixed by opening the
+  // app.
+  'no-consent-bridge':
+    'Sponsored tasks need the Freebuff desktop app, which is what asks you to approve the task before it runs. Open this project in the app to accept.',
 })
 
 /**
