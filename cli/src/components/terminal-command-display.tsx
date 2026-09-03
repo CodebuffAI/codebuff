@@ -61,7 +61,8 @@ export const TerminalCommandDisplay = ({
       </span>
       {timeoutLabel && (
         <span fg={theme.muted} attributes={TextAttributes.DIM}>
-          {' '}({timeoutLabel})
+          {' '}
+          ({timeoutLabel})
         </span>
       )}
     </text>
@@ -87,40 +88,52 @@ export const TerminalCommandDisplay = ({
   let displayOutput: string
 
   if (isExpanded) {
-    let totalVisual = 0
-    for (const line of allLines) {
-      if (line.length === 0) continue
-      totalVisual +=
-        line.length <= width ? 1 : Math.max(1, Math.ceil(line.length / width))
+    if (allLines.length > maxLines) {
+      hasMoreLines = true
+    } else {
+      let totalVisual = 0
+      for (const line of allLines) {
+        if (line.length === 0) {
+          totalVisual++
+        } else if (line.length <= width) {
+          totalVisual++
+        } else {
+          totalVisual += Math.max(1, Math.ceil(line.length / width))
+        }
+      }
+      hasMoreLines = totalVisual > maxLines
     }
-    hasMoreLines = totalVisual > maxLines
-    hiddenLinesCount = Math.max(0, totalVisual - maxLines)
+    hiddenLinesCount = 0
     displayOutput = output
   } else {
     // Only wrap lines until maxLines visual lines are gathered
     const displayLines: string[] = []
     let linesProcessed = 0
-    let hadMoreInProcessed = false
+    let excessInProcessedLine = 0
 
     for (const line of allLines) {
       if (line.length === 0) {
         linesProcessed++
+        displayLines.push('')
+        if (displayLines.length >= maxLines) break
         continue
       }
       const { lines: wrapped } = getLastNVisualLines(line, width, Infinity)
-      for (const wl of wrapped) {
+      let brokeEarly = false
+      for (let i = 0; i < wrapped.length; i++) {
         if (displayLines.length < maxLines) {
-          displayLines.push(wl)
+          displayLines.push(wrapped[i])
         } else {
-          hadMoreInProcessed = true
+          excessInProcessedLine = wrapped.length - i
+          brokeEarly = true
           break
         }
       }
       linesProcessed++
-      if (hadMoreInProcessed || displayLines.length >= maxLines) break
+      if (brokeEarly || displayLines.length >= maxLines) break
     }
 
-    hasMoreLines = hadMoreInProcessed || linesProcessed < allLines.length
+    hasMoreLines = excessInProcessedLine > 0 || linesProcessed < allLines.length
 
     if (!hasMoreLines) {
       displayOutput = output
@@ -128,20 +141,29 @@ export const TerminalCommandDisplay = ({
     } else {
       displayOutput = displayLines.slice(0, maxLines).join('\n')
 
-      // Estimate remaining visual lines efficiently without regex word-splitting on off-screen lines
-      let remainingVisualLines = 0
+      let remainingVisualLines = excessInProcessedLine
+      const EXACT_WRAP_LINE_BUDGET = 50
+      let exactLinesCount = 0
+
       for (let i = linesProcessed; i < allLines.length; i++) {
         const line = allLines[i]
-        if (line.length === 0) continue
-        if (line.length <= width) {
+        if (line.length === 0) {
           remainingVisualLines++
+          continue
+        }
+        if (exactLinesCount < EXACT_WRAP_LINE_BUDGET) {
+          const { lines: wrapped } = getLastNVisualLines(line, width, Infinity)
+          remainingVisualLines += wrapped.length
+          exactLinesCount++
         } else {
-          remainingVisualLines += Math.max(1, Math.ceil(line.length / width))
+          remainingVisualLines +=
+            line.length <= width
+              ? 1
+              : Math.max(1, Math.ceil(line.length / width))
         }
       }
 
-      const totalVisualLines =
-        displayLines.length + (hadMoreInProcessed ? 1 : 0) + remainingVisualLines
+      const totalVisualLines = displayLines.length + remainingVisualLines
       hiddenLinesCount = Math.max(1, totalVisualLines - maxLines)
     }
   }
