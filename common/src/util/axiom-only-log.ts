@@ -55,6 +55,16 @@ export const ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT =
  * raw provider errors never enter this event. */
 export const ADS_IMPREZIA_FETCH_COMPLETED_EVENT =
   'ads.imprezia_fetch_completed' as const
+/**
+ * Ad routes refusing a request (COD-372) — rate limits and capability
+ * failures on both rails, one event per refusal.
+ *
+ * A census of REFUSALS, never a forensic record: the capability token, the
+ * impression id, the campaign and the ip are all absent by construction, so
+ * this stream can be aggregated without ever having handled a bearer secret.
+ * `reason` is a closed enum owned by `ad-route-rate-limit.ts`.
+ */
+export const ADS_REQUEST_REJECTED_EVENT = 'ads.request_rejected' as const
 
 type AxiomOnlyFieldType = 'string' | 'number' | 'boolean'
 type AxiomOnlyFieldSchema = Record<string, AxiomOnlyFieldType>
@@ -513,6 +523,18 @@ const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
   match_outcome: 'string',
 } as const satisfies AxiomOnlyFieldSchema
 
+/** The refusal census. Bounded producer-encoded labels only; the closed
+ *  `reason` enum lives beside the limiter that produces it. */
+const ADS_REQUEST_REJECTED_FIELDS = {
+  route: 'string',
+  rail: 'string',
+  reason: 'string',
+  limiter_backend: 'string',
+  /** True in the `observe` phase: the request was SERVED and this records the
+   *  verdict enforcement would have produced. */
+  would_limit: 'boolean',
+} as const satisfies AxiomOnlyFieldSchema
+
 export type AxiomOnlyLogEvent = {
   event:
     | typeof CONTEXT_PRUNING_COMPLETED_EVENT
@@ -525,6 +547,7 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
     | typeof ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT
     | typeof ADS_IMPREZIA_FETCH_COMPLETED_EVENT
+    | typeof ADS_REQUEST_REJECTED_EVENT
   data: Record<string, string | number | boolean>
 }
 
@@ -621,6 +644,12 @@ export function getAxiomOnlyLogEvent(
     return {
       event: eventName,
       data: sanitizeAllowlistedFields(record, ADS_FIRST_PARTY_TRACKING_FIELDS),
+    }
+  }
+  if (eventName === ADS_REQUEST_REJECTED_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, ADS_REQUEST_REJECTED_FIELDS),
     }
   }
   if (eventName === ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT) {
