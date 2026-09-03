@@ -27,7 +27,18 @@ import type {
 /** The advertiser every fixture row is from. */
 export const FIXTURE_ADVERTISER_NAME = 'Acme Deploys'
 
-/** A logo token of the shape the creative-image route actually serves. */
+/**
+ * A logo token of the shape the creative-image route actually serves.
+ *
+ * SHAPE-VALID, NOT RESOLVABLE. Nothing serves these bytes: the route only
+ * answers for a token on an approved, active creative whose image is in the
+ * blob store, and this value is on no such row anywhere. A surface under test
+ * must therefore either not fetch at all (the CLI), assert only on the URL it
+ * would request (Web, Desktop), or stub the response (`ui:shots`). Pointing a
+ * real browser at this token gets a 404, which the Web card deliberately
+ * renders as no image at all — so "the card looks right" can never be the
+ * proof that the logo works.
+ */
 export const VALID_LOGO_TOKEN = '11111111-1111-4111-8111-111111111111'
 
 /** The branch a finished run committed to. */
@@ -42,6 +53,13 @@ export const FIXTURE_PR_URL = 'https://github.com/x/y/pull/7'
 const BASE: SponsoredProposalRow = {
   state: 'offered',
   advertiser_name: FIXTURE_ADVERTISER_NAME,
+  // Present on the BASE, so the with-logo header is what the shared rows
+  // exercise by default. It used to be set on no row at all, which left R-16
+  // reachable only from a surface that hand-wrote a token and left every
+  // screenshot anyone took showing the no-logo header. A logo that fails to
+  // load and a logo that was never asked for produce the same picture, so
+  // "the fixtures look fine" was never evidence that the token path worked.
+  advertiser_logo_token: VALID_LOGO_TOKEN,
   headline: 'Add one-click deploys to this project',
   body: 'A sponsored agent can wire Acme Deploys into your repo on its own branch.',
 }
@@ -88,6 +106,13 @@ export const SPONSORED_ROW_FIXTURES: Record<
   failed: {
     ...BASE,
     state: 'failed',
+    // The one row that deliberately carries NO token, so the shared rows keep
+    // covering the ordinary no-logo header (VM-19, R-17) rather than only the
+    // malformed-token refusal. An absent token is not an error: it is the
+    // common case for an advertiser whose creative was never uploaded, and a
+    // matrix in which every row has a logo would stop checking that the header
+    // still reads correctly without one.
+    advertiser_logo_token: undefined,
     failure_reason: 'Budget exceeded',
   },
   merged: {
