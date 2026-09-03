@@ -130,10 +130,20 @@ export interface FreebuffSubscriptionTier {
   /**
    * First billing period, in USD.
    *
-   * A flat **$3 off the first month** on every tier — a nudge, not a deep
-   * promotional price. The earlier $2.50/$12 intros discounted most of the
-   * entry price, which anchored the product at the discount rather than at
-   * $8/mo; $3 off reads as a welcome, and the recurring price stays the story.
+   * **Proportional, not flat, since 2026-09-03**: $3 / $6 / $15 off, so the
+   * discount grows with the tier instead of vanishing into it. A flat $3 was
+   * 38% off Starter and 5% off Pro — the tier with the most to prove got the
+   * least reason to try. The earlier $2.50/$12 intros went the other way and
+   * discounted most of the entry price, which anchored the product at the
+   * discount rather than at $8/mo.
+   *
+   * **This number is DISPLAY ONLY — the charge is a Stripe coupon**
+   * (`FREEBUFF_SUBSCRIPTION_INTRO_COUPON_IDS`, resolved in
+   * `web/src/server/model-subscriptions/pricing.ts`). Nothing in code can
+   * reconcile the two, so changing a figure here without minting the matching
+   * coupon advertises a price we do not charge. The coupon ids encode their
+   * own amount in cents (`freebuff_intro_pro_1500c`) precisely so the
+   * mismatch is visible in the env var.
    *
    * Charged at most once per ACCOUNT. Whichever tier a user starts on consumes
    * it, so upgrading later pays full price — which is why `intro_used` lives
@@ -220,7 +230,7 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       id: 'plus',
       displayName: 'Plus',
       priceUsd: 25,
-      introPriceUsd: 22,
+      introPriceUsd: 19,
       dailySessions: 7,
       fiveDaySessions: 26,
       monthlySessions: 100,
@@ -232,7 +242,7 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       id: 'pro',
       displayName: 'Pro',
       priceUsd: 60,
-      introPriceUsd: 57,
+      introPriceUsd: 45,
       dailySessions: 11,
       fiveDaySessions: 66,
       monthlySessions: 210,
