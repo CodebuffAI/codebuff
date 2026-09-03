@@ -79,6 +79,58 @@ export function sponsoredContainment(
   })
 }
 
+/**
+ * Where a LINKED worktree keeps the repository it belongs to.
+ *
+ * Desktop runs a sponsored turn in a linked worktree at
+ * `<project>/.freebuff/worktrees/<threadId>`, whose `.git` is a gitfile
+ * pointing at `<project>/.git/worktrees/<threadId>` — OUTSIDE the workspace.
+ * With the write roots at `[workspaceRoot, runtimeDir]` and nothing granting
+ * the common dir, every git command died at repository discovery:
+ *
+ *   fatal: not a git repository: (null)
+ *
+ * exit 128, on `status`, `add` and `commit` alike — so `committed`, `landed`
+ * and the pull request were unreachable, which is the entire delivery half of
+ * the feature. See {@link sponsoredLinkedWorktreeGrants} for what is granted
+ * and, more importantly, what is not.
+ *
+ * Absent for a workspace that is a repository in its own right (the eval's
+ * throwaway checkout, a `git init` inside the root), where `.git` is already
+ * under `workspaceRoot` and nothing extra is needed.
+ */
+export interface SponsoredLinkedWorktree {
+  /**
+   * The shared common dir — the USER'S REAL `<project>/.git`.
+   *
+   * `git rev-parse --path-format=absolute --git-common-dir`, asked of the
+   * worktree. Not built from `<project>/.git`, because a project that is
+   * ITSELF a linked worktree (which is how this repository's own dev slots are
+   * laid out) has a gitfile there rather than the common dir.
+   */
+  commonDir: string
+  /**
+   * This worktree's own admin dir, `<commonDir>/worktrees/<something>`.
+   *
+   * `git rev-parse --path-format=absolute --git-dir`, asked rather than
+   * reconstructed: git names this directory after the worktree path's
+   * basename, but DISAMBIGUATES a collision by appending to it, so deriving it
+   * from the thread id is right until two projects produce the same basename
+   * and then silently grants the wrong directory.
+   */
+  gitDir: string
+  /**
+   * The ref namespace the run's own branch lives in, WITHOUT a trailing slash.
+   *
+   * `freebuff` on Desktop, because every branch the app cuts is
+   * `freebuff/<slug>-<threadId>`. It is a namespace rather than the exact
+   * branch so that the grant is a directory — git updates a ref by writing
+   * `<ref>.lock` beside it and renaming, which a grant on the ref file alone
+   * does not cover.
+   */
+  branchNamespace: string
+}
+
 export interface SponsoredSandboxOptions {
   /** The worktree. The only tracked tree this run may write. */
   workspaceRoot: string
@@ -95,6 +147,18 @@ export interface SponsoredSandboxOptions {
   runtimeDir: string
   /** Extra trees the run may READ (a toolchain, a shared cache). Never write. */
   additionalReadRoots?: string[]
+  /**
+   * Set when `workspaceRoot` is a LINKED worktree, so git can reach its
+   * repository. See {@link SponsoredLinkedWorktree}.
+   *
+   * Deliberately NOT a bare "extra write roots" list. The paths that have to
+   * be granted are an exact, security-critical set derived from this one fact,
+   * and a caller passing them itself is a caller that can pass
+   * `<project>/.git` — which is the hole this whole design exists to avoid.
+   * The enumeration lives in {@link sponsoredLinkedWorktreeGrants}, next to
+   * the reasoning and the test.
+   */
+  linkedWorktree?: SponsoredLinkedWorktree
   /** Injected by the eval, which keeps its own (wider) allowlist. */
   scrubEnv?: (
     source: Record<string, string | undefined>,
@@ -348,6 +412,26 @@ function canonicalRoot(target: string): string {
 }
 
 /**
+ * Canonicalise a path to a file that DOES NOT EXIST YET.
+ *
+ * `canonicalRoot` cannot: `realpathSync` throws on a missing path and the
+ * fallback hands back the spelling it was given. For `packed-refs.lock`, which
+ * by definition exists only while git holds it, that spelling is
+ * `/var/folders/...` while the kernel resolves `/private/var/folders/...` —
+ * and seatbelt matches the RESOLVED path, so the grant is inert and the commit
+ * fails with the lock error it was written to prevent. This cost a full
+ * measurement cycle to find, because a grant that silently does not match
+ * looks exactly like a grant that was never needed.
+ *
+ * Only the DIRECTORY can carry the symlink, so resolve that and put the
+ * basename back — the same split `containSponsoredPath` makes, for the same
+ * reason.
+ */
+function canonicalFile(target: string): string {
+  return path.join(canonicalRoot(path.dirname(target)), path.basename(target))
+}
+
+/**
  * Every directory on the way to a granted root must be traversable, or the
  * process cannot follow the symlinks between them — and on macOS 26 a
  * `(deny default)` process whose profile omits `/` aborts with SIGABRT before
@@ -465,9 +549,111 @@ const SPONSORED_DEVICE_WRITE_SUBPATHS: readonly string[] = ['/dev/fd']
  */
 const SPONSORED_RESOLVER_READ_LITERALS: readonly string[] = ['/var']
 
+/**
+ * What a linked worktree's git needs from the USER'S REAL `.git`, and nothing more.
+ *
+ * ## Why this is an enumeration and not `<project>/.git`
+ *
+ * Granting write to the common dir would hand an advertiser-authored run
+ * `.git/hooks/*` — arbitrary code execution as the user on their next git
+ * operation, in a directory that never appears in the pull request they review
+ * — and `.git/config`, which is arbitrary command execution through
+ * `core.pager`, `core.editor`, `diff.external`, `core.fsmonitor` and aliases,
+ * every one of them fired by the ORCHESTRATOR's own unsandboxed `git -C
+ * <worktree>` calls. That is a worse hole than the one it fixes.
+ *
+ * So: READ the common dir, WRITE four subtrees and one lock file. Measured on
+ * macOS 26.5 (Darwin 25.5) against a real `<project>/.git` with its refs
+ * PACKED (`git pack-refs --all`), which is the harder and more realistic case:
+ *
+ *  - `worktrees/<name>` — this worktree's own admin dir: `index`, `HEAD`,
+ *    `index.lock`, `COMMIT_EDITMSG`, `logs/HEAD`. REQUIRED; it is where the
+ *    commit is actually assembled. Scoped to THIS worktree's directory, not to
+ *    `worktrees/`, so one sponsored run cannot reach another's index.
+ *  - `objects` — the new commit, tree and blob objects. REQUIRED, and the one
+ *    grant here that is genuinely wide; see the honest limit below.
+ *  - `refs/heads/<branchNamespace>` — the branch tip. Scoped to the app's own
+ *    namespace, so `refs/heads/main` is NOT writable: measured, `echo x >
+ *    .git/refs/heads/main` is `Operation not permitted` with this grant in
+ *    place. Granting `refs/` wholesale instead would let a run rewrite or
+ *    delete every branch in the user's repository.
+ *  - `logs/refs/heads/<branchNamespace>` — the branch's reflog, same scoping
+ *    and same reason.
+ *  - `packed-refs.lock` — REQUIRED, and the least obvious entry here. A ref
+ *    transaction takes this lock even when it ends up writing a LOOSE ref, so
+ *    without it `git commit` fails outright on any repository whose refs have
+ *    been packed. Measured both ways: with the grant `commit=ok`, without it
+ *    `commit=FAIL`. It is the LOCK ONLY and deliberately not `packed-refs`
+ *    itself, which stays unwritable — so a run can take the lock git needs and
+ *    still cannot rewrite the packed ref table, which is where deleting
+ *    somebody else's branch would happen.
+ *
+ * Everything else in the common dir is readable and not writable. Measured, all
+ * `Operation not permitted`: `hooks/`, `config`, `config.worktree`, `info/`,
+ * `packed-refs`, `refs/heads/main`, and creating any new file at the common
+ * dir's root. After the run, the user's repository still resolves `main` and
+ * `git fsck` is clean, while the sponsored commit is visible from it — which is
+ * the point: the branch has to land in the user's own repository for the pull
+ * request to be openable from it.
+ *
+ * ## The honest limits
+ *
+ * **`objects` is a real write grant on the user's repository.** A run can
+ * create objects freely (that is what committing is) and can also overwrite an
+ * existing loose object, which corrupts the repository. It cannot be narrowed
+ * — the commit has to land where the user's git will find it, and seatbelt
+ * cannot express "create but do not overwrite". It is vandalism rather than
+ * privilege escalation, `git fsck` names it, and nothing about it executes
+ * code; that is the whole of why it is accepted.
+ *
+ * **READ of `<project>/.git/config` cannot be avoided.** git opens it on every
+ * command, so a repository whose remote URL carries an embedded token exposes
+ * that token to the run. Measured: denying read of it makes git fail outright
+ * (`fatal: unable to access '.git/config'`) on `status`, `add` and `commit`
+ * alike, so there is no version of this where git works and that file is
+ * unreadable. Written down rather than left to be discovered; the alternative
+ * designs that avoid it are recorded in
+ * `docs/freebuff-sponsored-local-execution.md` §9 along with why they cost
+ * more than they save.
+ */
+export function sponsoredLinkedWorktreeGrants(linked: SponsoredLinkedWorktree): {
+  readSubpaths: string[]
+  writeSubpaths: string[]
+  writeLiterals: string[]
+} {
+  const commonDir = path.resolve(linked.commonDir)
+  return {
+    readSubpaths: [commonDir],
+    writeSubpaths: [
+      path.resolve(linked.gitDir),
+      path.join(commonDir, 'objects'),
+      path.join(commonDir, 'refs', 'heads', linked.branchNamespace),
+      path.join(commonDir, 'logs', 'refs', 'heads', linked.branchNamespace),
+    ],
+    writeLiterals: [path.join(commonDir, 'packed-refs.lock')],
+  }
+}
+
+/**
+ * The paths under a common dir that must NEVER be writable, whatever else is.
+ *
+ * Exported so the test asserts the SAME list the reasoning above names, rather
+ * than a list a test author remembered. It is not consulted when building the
+ * profile — the grant is an allowlist and these are simply absent from it —
+ * which is the point: this is the invariant, not the mechanism.
+ */
+export const SPONSORED_GIT_FORBIDDEN_WRITES: readonly string[] = [
+  'hooks',
+  'config',
+  'config.worktree',
+  'info',
+  'packed-refs',
+]
+
 export function sponsoredMacProfile(
   writeRoots: string[],
   additionalReadRoots: string[],
+  writeLiterals: string[] = [],
 ): string {
   const q = JSON.stringify
   const writable = writeRoots.map(canonicalRoot)
@@ -555,6 +741,11 @@ export function sponsoredMacProfile(
     // the rest of `/dev` is not.
     `(allow file-write* ${[
       ...writable.map((item) => `(subpath ${q(item)})`),
+      // Single FILES the run may write, which is not the same grant as a
+      // subpath and must not become one: `packed-refs.lock` is granted so a
+      // ref transaction can take its lock, while `packed-refs` beside it stays
+      // unwritable. See `sponsoredLinkedWorktreeGrants`.
+      ...writeLiterals.map((item) => `(literal ${q(canonicalFile(item))})`),
       ...SPONSORED_DEVICE_WRITE_LITERALS.map((item) => `(literal ${q(item)})`),
       ...SPONSORED_DEVICE_WRITE_SUBPATHS.map((item) => `(subpath ${q(item)})`),
     ].join(' ')})`,
@@ -566,13 +757,14 @@ function spawnMac(
   writeRoots: string[],
   env: NodeJS.ProcessEnv,
   additionalReadRoots: string[],
+  writeLiterals: string[],
 ): TerminalCommandProcess {
   return processHandle(
     spawn(
       '/usr/bin/sandbox-exec',
       [
         '-p',
-        sponsoredMacProfile(writeRoots, additionalReadRoots),
+        sponsoredMacProfile(writeRoots, additionalReadRoots, writeLiterals),
         request.executable,
         ...request.args,
       ],
@@ -586,11 +778,70 @@ function spawnMac(
   )
 }
 
+/**
+ * The linked-worktree grant, expressed in bind mounts instead of path rules.
+ *
+ * INVERTED RELATIVE TO macOS, and the inversion is forced rather than chosen.
+ * Seatbelt filters paths, so the macOS arm states an ALLOWLIST and everything
+ * unnamed is refused. bubblewrap composes MOUNTS, and a read-only mount refuses
+ * the creation of new names inside it — including `packed-refs.lock`, which git
+ * must be able to create for `commit` to work at all on a repository with
+ * packed refs. So the common dir is bound writable and the dangerous paths are
+ * covered with read-only binds on top.
+ *
+ * That makes this arm a DENY-LIST where macOS is an allowlist, which is weaker
+ * in the way deny-lists always are: a path nobody thought of is writable here
+ * and refused there. The paths that matter are covered — `hooks`, `config`,
+ * `config.worktree`, `info` and `packed-refs`, plus every branch ref and reflog
+ * outside the run's own namespace and every other worktree's admin dir — so the
+ * two arms agree on every property the macOS measurements assert. They do not
+ * agree on what happens to a path neither list names.
+ *
+ * NOT VERIFIED ON A LINUX HOST. There is none on the machine this was written
+ * on, and the SDK's containment tests self-skip without `bwrap`, so CI's Linux
+ * runner does not close it either — the same honest caveat the `--dev` reasoning
+ * below already carries. The git regression test will exercise this the first
+ * time it runs somewhere `bwrap` exists.
+ */
+function linkedWorktreeBindArgs(linked: SponsoredLinkedWorktree): string[] {
+  const commonDir = path.resolve(linked.commonDir)
+  if (!fs.existsSync(commonDir)) return []
+  const args = ['--bind', commonDir, commonDir]
+  const readOnly = (target: string) => {
+    if (fs.existsSync(target)) args.push('--ro-bind', target, target)
+  }
+  for (const entry of SPONSORED_GIT_FORBIDDEN_WRITES) {
+    readOnly(path.join(commonDir, entry))
+  }
+  // Everything in these directories EXCEPT the run's own namespace, so the
+  // grant matches macOS's `refs/heads/<namespace>` scoping rather than handing
+  // over every branch in the repository.
+  const siblingsOf = (dir: string, keep: string) => {
+    let entries: string[]
+    try {
+      entries = fs.readdirSync(dir)
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (entry !== keep) readOnly(path.join(dir, entry))
+    }
+  }
+  siblingsOf(path.join(commonDir, 'refs', 'heads'), linked.branchNamespace)
+  siblingsOf(
+    path.join(commonDir, 'logs', 'refs', 'heads'),
+    linked.branchNamespace,
+  )
+  siblingsOf(path.join(commonDir, 'worktrees'), path.basename(linked.gitDir))
+  return args
+}
+
 function spawnLinux(
   request: TerminalCommandSpawnRequest,
   writeRoots: string[],
   env: NodeJS.ProcessEnv,
   additionalReadRoots: string[],
+  linkedWorktree: SponsoredLinkedWorktree | undefined,
 ): TerminalCommandProcess {
   const bwrap = findBubblewrap()
   if (!bwrap) {
@@ -641,6 +892,9 @@ function spawnLinux(
   for (const dir of writeRoots) {
     if (fs.existsSync(dir)) args.push('--bind', dir, dir)
   }
+  // AFTER the write roots, because bubblewrap applies binds in order and the
+  // read-only covers inside this one have to land on top of anything above.
+  if (linkedWorktree) args.push(...linkedWorktreeBindArgs(linkedWorktree))
   args.push('--chdir', request.cwd, '--clearenv')
   for (const [key, value] of Object.entries(env)) {
     if (value !== undefined) args.push('--setenv', key, value)
@@ -679,6 +933,7 @@ export function createSponsoredTerminalBroker(
     path.resolve(item),
   )
   const platform = options.platform ?? process.platform
+  const linkedWorktree = options.linkedWorktree
   const scrubEnv = options.scrubEnv ?? scrubSponsoredLocalEnv
   const home = path.join(runtimeDir, 'home')
   const tmp = path.join(runtimeDir, 'tmp')
@@ -689,12 +944,21 @@ export function createSponsoredTerminalBroker(
       fs.mkdirSync(home, { recursive: true })
       fs.mkdirSync(tmp, { recursive: true })
       const env = scrubEnv(request.env, { home, tmp }) as NodeJS.ProcessEnv
-      const writeRoots = [workspaceRoot, runtimeDir]
+      // The linked worktree's grant, or nothing at all for a workspace that is
+      // its own repository. Computed per start rather than once in the closure
+      // because `packed-refs.lock` is canonicalised against a directory that
+      // has to exist, and the worktree is created before the first command but
+      // not necessarily before the broker.
+      const git = linkedWorktree
+        ? sponsoredLinkedWorktreeGrants(linkedWorktree)
+        : { readSubpaths: [], writeSubpaths: [], writeLiterals: [] }
+      const writeRoots = [workspaceRoot, runtimeDir, ...git.writeSubpaths]
+      const readRoots = [...additionalReadRoots, ...git.readSubpaths]
       if (platform === 'darwin') {
-        return spawnMac(request, writeRoots, env, additionalReadRoots)
+        return spawnMac(request, writeRoots, env, readRoots, git.writeLiterals)
       }
       if (platform === 'linux') {
-        return spawnLinux(request, writeRoots, env, additionalReadRoots)
+        return spawnLinux(request, writeRoots, env, readRoots, linkedWorktree)
       }
       throw new Error(
         `A sponsored run cannot be contained on ${platform}, so it will not be started.`,

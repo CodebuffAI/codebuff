@@ -59,6 +59,56 @@ export const SPONSORED_STATE_TITLE: Record<SponsoredProposalState, string> = {
   merged: 'Sponsored PR merged',
 }
 
+/**
+ * Whether a state is the END of the row's life, or somewhere it is passing
+ * through.
+ *
+ * A `Record` rather than a set or a predicate with a `switch` default, so that
+ * adding a state to the union above does not compile until this has decided
+ * about it. The card's refresh cadence reads it, and a new state defaulting to
+ * "terminal" would silently stop watching a run that is still going.
+ */
+export const SPONSORED_STATE_IS_TERMINAL: Record<
+  SponsoredProposalState,
+  boolean
+> = {
+  offered: false,
+  accepted: false,
+  running: false,
+  committed: true,
+  landed: true,
+  failed: true,
+  merged: true,
+}
+
+/**
+ * Does this card owe the user a verdict it does not have yet?
+ *
+ * The question the REFRESH cadence asks, and it is not the same question as
+ * "is there a card". A proposal sitting at `offered` is an OFFER: it changes
+ * only when the server rotates it, and the ordinary once-a-minute cadence is
+ * the right amount of attention to pay that. A row with a RUN behind it is a
+ * process mutating the user's own repository, and the card is the only place
+ * they can watch it — so it is owed an answer whether or not they are
+ * touching the window.
+ *
+ * `runStarted` is why `offered` appears on both sides. Accept deliberately
+ * leaves the card up with the offer still on it and only records the run's
+ * thread id (`acceptProposal`), so between the accept and the first poll the
+ * row still reads `offered` while a run is very much in flight. Keying purely
+ * on the state would therefore stop watching at exactly the moment watching
+ * starts to matter, which is the bug this exists to close: a run that failed
+ * left the card showing `offered` with a live "Start sponsored thread" button
+ * on it, and a second Accept aimed at a proposal that was already dead.
+ */
+export function sponsoredProposalAwaitsVerdict(
+  state: SponsoredProposalState,
+  runStarted: boolean,
+): boolean {
+  if (SPONSORED_STATE_IS_TERMINAL[state]) return false
+  return runStarted || state !== 'offered'
+}
+
 export type SponsoredProposalStepState = 'pending' | 'active' | 'done'
 
 export type SponsoredProposalStep = {

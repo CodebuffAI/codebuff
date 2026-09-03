@@ -554,3 +554,287 @@ describe('sponsored loopback containment (F2)', () => {
     }
   })
 })
+
+// ------------------------------------------------- the layout Desktop creates
+
+/**
+ * A REAL project repository with a REAL linked worktree under it, exactly as
+ * `freebuff-desktop/src/server/git/worktree.ts` lays one out.
+ *
+ * THIS IS THE POINT OF THE WHOLE SECTION. The git test above builds a
+ * standalone repository with `git init` inside the sandbox root, so its `.git`
+ * is a directory inside the write allowlist — a layout Desktop never produces.
+ * Desktop runs every isolated thread in a LINKED worktree at
+ * `<project>/.freebuff/worktrees/<threadId>`, whose `.git` is a GITFILE
+ * pointing at `<project>/.git/worktrees/<threadId>`, which is outside the
+ * sandbox root entirely. With the write roots at `[workspaceRoot, runtimeDir]`
+ * every git command in that layout died at repository discovery:
+ *
+ *   fatal: not a git repository: (null)
+ *
+ * exit 128, on `status`, `add` and `commit` alike. So the standalone test was
+ * green while the product could not commit at all, and the two look identical
+ * from the outside. Building the real layout is the only thing that tells them
+ * apart.
+ *
+ * The refs are PACKED deliberately (`git pack-refs --all`), which is both the
+ * realistic state of any repository with history and the harder case: a ref
+ * transaction takes `packed-refs.lock` even when it goes on to write a loose
+ * ref, and without that one grant `git commit` fails outright. A test on a
+ * freshly-initialised repository passes either way and proves nothing.
+ */
+function desktopLayout(): {
+  project: string
+  worktree: string
+  runtime: string
+  parent: string
+  branch: string
+  linkedWorktree: {
+    commonDir: string
+    gitDir: string
+    branchNamespace: string
+  }
+} {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'sponsored-desktop-'))
+  const project = path.join(parent, 'project')
+  fs.mkdirSync(project, { recursive: true })
+  const git = (args: string[], cwd = project) =>
+    spawnSync('git', args, { cwd, encoding: 'utf8' })
+  git(['init', '-q', '-b', 'main', '.'])
+  git(['config', 'user.email', 'user@example.invalid'])
+  git(['config', 'user.name', 'The User'])
+  // A credential in the user's own config, so the read surface is visible to
+  // anybody reading this test rather than only described in a docblock.
+  git(['config', 'remote.origin.url', 'https://u:SECRET-TOKEN@github.invalid/u/r.git'])
+  fs.writeFileSync(path.join(project, 'README.md'), 'hello\n')
+  git(['add', '-A'])
+  git(['commit', '-q', '-m', 'base'])
+  git(['pack-refs', '--all'])
+
+  const threadId = 'thread-abc'
+  const branch = `freebuff/sponsored-advertiser-${threadId}`
+  const worktree = path.join(project, '.freebuff', 'worktrees', threadId)
+  git(['worktree', 'add', '-q', '-b', branch, worktree, 'main'])
+  const runtime = path.join(project, '.freebuff', 'sponsored-runtime', threadId)
+  fs.mkdirSync(runtime, { recursive: true })
+
+  const resolve = (target: string) => {
+    try {
+      return fs.realpathSync(target)
+    } catch {
+      return target
+    }
+  }
+  const ask = (flag: string) =>
+    resolve(
+      spawnSync(
+        'git',
+        ['-C', worktree, 'rev-parse', '--path-format=absolute', flag],
+        { encoding: 'utf8' },
+      ).stdout.trim(),
+    )
+  return {
+    project,
+    worktree: resolve(worktree),
+    runtime: resolve(runtime),
+    parent,
+    branch,
+    linkedWorktree: {
+      commonDir: ask('--git-common-dir'),
+      gitDir: ask('--git-dir'),
+      branchNamespace: 'freebuff',
+    },
+  }
+}
+
+async function runInSandbox(
+  options: Parameters<typeof createSponsoredTerminalBroker>[0],
+  cwd: string,
+  script: string,
+): Promise<{ exitCode: number | null; out: string; err: string }> {
+  const handle = createSponsoredTerminalBroker(options).start({
+    executable: 'bash',
+    args: ['-c', script],
+    cwd,
+    env: POLLUTED_ENV as NodeJS.ProcessEnv,
+  })
+  const stdout = drain(handle.stdout)
+  const stderr = drain(handle.stderr)
+  const exitCode = await handle.completion
+  const [out, err] = await Promise.all([stdout, stderr])
+  return { exitCode, out, err }
+}
+
+const COMMIT_SCRIPT = [
+  'set -e',
+  'echo sponsored-change > CHANGED.md',
+  'git status --porcelain',
+  'git add CHANGED.md',
+  'git -c user.email=sponsored@example.invalid -c user.name="Sponsored Run" commit -q -m "sponsored change" --no-verify',
+  'git log --oneline -1 --format=%s',
+].join('\n')
+
+describe('sponsored git in the layout Desktop actually creates', () => {
+  it('commits in a linked worktree, and the commit lands in the user\'s repository', async () => {
+    if (!containmentUsable()) return
+    const layout = desktopLayout()
+    try {
+      const { exitCode, out, err } = await runInSandbox(
+        {
+          workspaceRoot: layout.worktree,
+          runtimeDir: layout.runtime,
+          linkedWorktree: layout.linkedWorktree,
+        },
+        layout.worktree,
+        COMMIT_SCRIPT,
+      )
+      // Named, so a regression prints the reason rather than a bare exit code.
+      expect(err).not.toContain('not a git repository')
+      expect(err).not.toContain('packed-refs.lock')
+      expect(err).not.toContain('Operation not permitted')
+      expect(exitCode).toBe(0)
+      expect(out).toContain('sponsored change')
+
+      // THE PRODUCT OUTCOME, asked of the USER'S repository rather than of the
+      // sandbox: the branch has to be visible from the checkout the user will
+      // open the pull request from, or `committed` and `landed` are unreachable
+      // however well the commit went inside the worktree.
+      const tip = spawnSync(
+        'git',
+        ['-C', layout.project, 'log', '--oneline', '-1', layout.branch],
+        { encoding: 'utf8' },
+      )
+      expect(tip.status).toBe(0)
+      expect(tip.stdout).toContain('sponsored change')
+
+      // And it did not damage the repository on the way.
+      expect(
+        spawnSync('git', ['-C', layout.project, 'rev-parse', 'main'], {
+          encoding: 'utf8',
+        }).status,
+      ).toBe(0)
+      expect(
+        spawnSync('git', ['-C', layout.project, 'fsck'], { encoding: 'utf8' })
+          .stderr,
+      ).not.toContain('error')
+    } finally {
+      fs.rmSync(layout.parent, { recursive: true, force: true })
+    }
+  })
+
+  /**
+   * The blocker itself, pinned.
+   *
+   * Without the grant the run cannot even ask what repository it is in. This is
+   * here so that the option above can never be quietly dropped as unnecessary:
+   * if this test starts passing, the sandbox has stopped bounding the common
+   * dir and the one below is no longer proving anything.
+   */
+  it('cannot reach the repository at all without the grant', async () => {
+    if (!containmentUsable()) return
+    const layout = desktopLayout()
+    try {
+      const { out, err } = await runInSandbox(
+        { workspaceRoot: layout.worktree, runtimeDir: layout.runtime },
+        layout.worktree,
+        'git status --porcelain; echo "exit=$?"',
+      )
+      expect(err).toContain('not a git repository')
+      expect(out).toContain('exit=128')
+    } finally {
+      fs.rmSync(layout.parent, { recursive: true, force: true })
+    }
+  })
+
+  /**
+   * The grant is an ALLOWLIST, and this is the half that matters.
+   *
+   * `.git/hooks/*` is arbitrary code execution as the user on their next git
+   * operation, in a directory that never appears in the pull request they
+   * review. `.git/config` is the same thing through `core.pager`,
+   * `diff.external`, `core.fsmonitor` and aliases — and worse, because the
+   * ORCHESTRATOR runs `git -C <worktree>` unsandboxed, as the user, to build
+   * the changes panel. Granting write to the common dir to make the commit work
+   * would have been a bigger hole than the one it closed.
+   */
+  it('refuses every dangerous path under the user\'s real .git', async () => {
+    if (!containmentUsable()) return
+    const layout = desktopLayout()
+    const common = layout.linkedWorktree.commonDir
+    try {
+      const probes: [string, string][] = [
+        ['hooks', `${common}/hooks/post-checkout`],
+        ['config', `${common}/config`],
+        ['config-worktree', `${common}/config.worktree`],
+        ['info', `${common}/info/exclude`],
+        ['packed-refs', `${common}/packed-refs`],
+        ['common-root', `${common}/a-new-file`],
+        // Another branch's tip: the grant is scoped to `refs/heads/freebuff`,
+        // so the user's own branches are out of reach. Granting `refs/`
+        // wholesale would let a run rewrite or delete every branch they have.
+        ['other-branch', `${common}/refs/heads/main`],
+        ['other-branch-log', `${common}/logs/refs/heads/main`],
+      ]
+      const script = probes
+        .map(
+          ([name, target]) =>
+            `echo pwned > ${JSON.stringify(target)} 2>/dev/null && echo "${name}=ALLOWED" || echo "${name}=denied"`,
+        )
+        .join('\n')
+      const { out } = await runInSandbox(
+        {
+          workspaceRoot: layout.worktree,
+          runtimeDir: layout.runtime,
+          linkedWorktree: layout.linkedWorktree,
+        },
+        layout.worktree,
+        script,
+      )
+      for (const [name] of probes) expect(out).toContain(`${name}=denied`)
+      expect(out).not.toContain('ALLOWED')
+
+      // And the user's repository is genuinely untouched by the attempt.
+      expect(
+        fs.readFileSync(path.join(common, 'config'), 'utf8'),
+      ).not.toContain('pwned')
+      expect(fs.existsSync(path.join(common, 'hooks', 'post-checkout'))).toBe(
+        false,
+      )
+    } finally {
+      fs.rmSync(layout.parent, { recursive: true, force: true })
+    }
+  })
+
+  /**
+   * `packed-refs.lock` is granted; `packed-refs` is not.
+   *
+   * Split deliberately, and the split is the whole reason the lock is a
+   * `literal` rather than the directory being writable: git must be able to
+   * CREATE the lock for a ref transaction to run at all, and rewriting the
+   * packed ref table is where deleting somebody else's branch would happen.
+   */
+  it('lets git take the packed-refs lock without letting it rewrite packed-refs', async () => {
+    if (!containmentUsable()) return
+    const layout = desktopLayout()
+    const common = layout.linkedWorktree.commonDir
+    try {
+      const { out } = await runInSandbox(
+        {
+          workspaceRoot: layout.worktree,
+          runtimeDir: layout.runtime,
+          linkedWorktree: layout.linkedWorktree,
+        },
+        layout.worktree,
+        [
+          `echo x > ${JSON.stringify(`${common}/packed-refs.lock`)} 2>/dev/null && echo lock=writable || echo lock=DENIED`,
+          `rm -f ${JSON.stringify(`${common}/packed-refs.lock`)}`,
+          `echo x > ${JSON.stringify(`${common}/packed-refs`)} 2>/dev/null && echo table=WRITABLE || echo table=denied`,
+        ].join('\n'),
+      )
+      expect(out).toContain('lock=writable')
+      expect(out).toContain('table=denied')
+    } finally {
+      fs.rmSync(layout.parent, { recursive: true, force: true })
+    }
+  })
+})
