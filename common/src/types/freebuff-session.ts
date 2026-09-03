@@ -561,7 +561,7 @@ export interface FreebuffLimitedModeReason {
   ipPrivacySignals?: FreebuffIpPrivacySignal[] | null
 }
 
-export type FreebuffSessionServerResponse = (
+export type FreebuffSessionAdmissionResponse = (
   | ({
       /** User has no session row. CLI must POST to start a session. Also
        *  returned when `getSessionState` notices the user has been swept past
@@ -663,14 +663,6 @@ export type FreebuffSessionServerResponse = (
        *  balance is shown in the picker, mid-session and after it. */
       freebucks?: FreebuffFreebucksInfo
     } & FreebuffLimitedModeReason)
-  | {
-      /** Another CLI on the same account rotated our instance id. Polling
-       *  stops and the UI shows a "close the other CLI" screen. The server
-       *  returns this from GET /session when the caller's instance id
-       *  doesn't match the stored one; the chat-completions gate also
-       *  surfaces it as a 409 for fast in-flight feedback. */
-      status: 'superseded'
-    }
   | {
       /** Request originated outside the free-mode allowlist, or from an
        *  unknown/anonymized location that cannot be trusted for free mode.
@@ -828,6 +820,18 @@ export type FreebuffSessionServerResponse = (
    * all Desktop processes for this user. */
   desktopSessionCounts?: FreebuffDesktopSessionCounts
 }
+
+export type FreebuffSessionServerResponse =
+  | FreebuffSessionAdmissionResponse
+  | {
+      /** Another CLI on the same account rotated our instance id. Polling
+       *  stops and the UI shows a "close the other CLI" screen. The server
+       *  returns this from GET /session when the caller's instance id
+       *  doesn't match the stored one; the chat-completions gate also
+       *  surfaces it as a 409 for fast in-flight feedback. */
+      status: 'superseded'
+      desktopSessionCounts?: FreebuffDesktopSessionCounts
+    }
 
 /**
  * The session gate on `/api/v1/chat/completions`, as a wire contract.
