@@ -109,10 +109,19 @@ const STREAM_RECOVERY_FIELDS = {
 const ADS_FETCH_COMPLETED_FIELDS = {
   outcome: 'string',
   /**
-   * The one correlation handle for this ad request (COD-369), minted before
-   * either rail forks into provider waterfall vs first-party and stamped on
-   * `ad_impression.opportunity_id` for every first-party fill. Opaque and
+   * The REQUEST-grain correlation handle (`adr_`, COD-406): one per HTTP ad
+   * request on both rails, and the key of the decision outbox batch the same
+   * request appends (`ad_decision_outbox_batch.request_id`). Opaque and
    * server-minted: never derived from the prompt, the IP, or the session.
+   */
+  request_id: 'string',
+  /**
+   * The AUCTION-grain handle (`opp_`, COD-369). Since COD-406 both rails mint
+   * one per resolved placement; this event is request-grain, so it carries
+   * the FIRST placement's -- exact for the single-placement request that is
+   * the overwhelming case, and the same coarsest-honest answer it always gave
+   * for a batch. Every placement's own id is on its `ad_impression` row and
+   * in the outbox payload under `request_id` above.
    *
    * Every join the first-party chain needs already hangs off
    * `ad_impression.id`, so this is what connects an auction -- including the
