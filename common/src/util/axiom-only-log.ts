@@ -280,8 +280,60 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    * rather than the configured sample. Zero on every unwritten opportunity.
    */
   decision_outbox_status: 'string',
+  /**
+   * DEPRECATED ALIAS of `inclusion_probability_ppm` (COD-367), kept for one
+   * release so existing dashboards and the exporter keep resolving. Producers
+   * emit both and they are pinned equal.
+   *
+   * NOT THE SAME FIELD AS `sample_rate` above, and the two must never be
+   * merged. `sample_rate` is the EVENT-STREAM sampler -- the divisor for
+   * counting `ads.fetch_completed` rows, hardcoded 1 on both rails because
+   * nothing samples the stream. This is the DECISION-OUTBOX sampler: whether
+   * the durable evidence row was written at all. An opportunity is always in
+   * the event stream and usually not in the outbox, so one field cannot carry
+   * both, and a query dividing by the wrong one is off by the sample percent.
+   */
   decision_outbox_sample_rate_ppm: 'number',
+  /**
+   * COD-367. The probability this opportunity had of entering the decision
+   * record, and WHY it did.
+   *
+   * The reason is what makes the probability readable: a value of 1,000,000
+   * means "certain", and there are three different ways to be certain -- a
+   * contested auction kept by the >=2-admitted override, a direct-sold serve,
+   * and a 100%-sampled deployment -- which bias the sample three different
+   * ways. Only `random_baseline` rows are an unbiased draw from the
+   * opportunity population. Closed enum, owned by `AD_INCLUSION_REASONS`.
+   */
+  inclusion_probability_ppm: 'number',
+  inclusion_reason: 'string',
+  /**
+   * COD-367. WHICH keying secret produced the `usr_` handle in the durable
+   * decision payload, as `<label>_<fingerprint>`.
+   *
+   * Never the handle itself -- no user key enters this event. It is here so a
+   * secret rotation is visible on the OPERATIONAL stream at the moment it
+   * happens, rather than being discovered months later as an unexplained
+   * discontinuity in a per-user aggregate built from the warehouse.
+   */
+  user_key_version: 'string',
 } as const satisfies AxiomOnlyFieldSchema
+
+/**
+ * The `ads.fetch_completed` allowlist, exported for the decision-contract test
+ * (COD-367).
+ *
+ * It is the Axiom half of the contract the durable decision record is the
+ * warehouse half of, and it was pinned nowhere: a field could be added,
+ * renamed or dropped here and no test would notice, on a stream several
+ * dashboards and the yield read are built on.
+ *
+ * RAIL PARITY -- that both rails actually EMIT the same subset -- is COD-406's
+ * test, not this one. This pins the vocabulary; that pins the producers.
+ */
+export const ADS_FETCH_COMPLETED_FIELD_NAMES: readonly string[] = Object.keys(
+  ADS_FETCH_COMPLETED_FIELDS,
+)
 
 const ADS_IMPREZIA_FETCH_COMPLETED_FIELDS = {
   outcome: 'string',
