@@ -1962,12 +1962,12 @@ export const FREEBUFF_MODELS = [
   // stays in SUPPORTED_FREEBUFF_MODELS so the id remains recognisable and
   // coercible for the installed binaries that still hold it.
   SOLAR_PRO_4_MODEL,
-  // Gemini 3.8 Flash, from 2026-09-03. LAST in the list on purpose: ordering is
-  // the only steer this list gives, and this is the dearest row on it per
-  // message (the table on FREEBUFF_GEMINI_38_FLASH_MODEL_ID). It is here for
-  // the 1M context and the multimodal input, which nothing else offers, not as
-  // a row anyone should drift onto.
-  GEMINI_38_FLASH_MODEL,
+  // GEMINI 3.8 FLASH LEFT THIS LIST on 2026-09-03, hours after joining it, when
+  // the row was withdrawn (FREEBUFF_PAUSED_FREE_MODEL_IDS). Dropping it here is
+  // what takes it out of every picker on every surface — FREEBUFF_WEB_MODELS
+  // reaches it only by spreading this list — but it is NOT what stops it being
+  // served; the pause is. Its row stays in SUPPORTED_FREEBUFF_MODELS so the id
+  // stays recognisable and coercible for the installed binaries that hold it.
 ] as const satisfies readonly FreebuffModelOption[]
 
 /** Public full-access models metered by the shared premium pool. The catalog
@@ -2121,6 +2121,31 @@ export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly string[] = [
   // SUPPORTED_FREEBUFF_MODELS and its agent entries stay in FREE_MODE_AGENT_MODELS
   // so sessions admitted before the deploy drain instead of failing mid-turn.
   FREEBUFF_GLM_V52_MODEL_ID,
+  // Withdrawn from free mode on 2026-09-03, the day it shipped, on RELIABILITY
+  // and SPEED rather than on cost — a first for this list.
+  //
+  // What users met: turns that ran roughly seven times slower than the row
+  // promised, and runs that died mid-tool-call with "Provider returned error".
+  // Both were measured rather than inferred. The slowness was routing (fixed
+  // separately in #2787 — unpinned turns were landing on the BYOK Vertex
+  // endpoint at 16.37s and 29 tok/s against AI Studio flex's 2.39s and 104
+  // tok/s). The errors are the flex endpoint itself, which answered "Provider
+  // returned error" on roughly one probe in four; once a stream has opened it
+  // cannot be rerouted, so that surfaces as a failed run rather than a retry.
+  //
+  // The routing fix does not rescue the row on its own, which is why this
+  // entry exists alongside it: a faster endpoint that still fails a quarter of
+  // the time, on the dearest row in the catalog, is not something to leave in
+  // front of every full-access user while it is evaluated.
+  //
+  // Paused rather than deleted for the reason every row above gives: it is in
+  // SUPPORTED_FREEBUFF_MODELS, so released CLI and Desktop binaries hold the id
+  // and an unrecognised id can only be refused, never coerced — the #1801 retry
+  // loop. Its roots and FREE_MODE_AGENT_MODELS entries stay so sessions
+  // admitted before the deploy drain instead of failing mid-turn. Restoring it
+  // means deleting this entry and re-adding the picker row and Freebucks price
+  // below; docs/freebuff-gemini-3-8-flash.md has what to measure first.
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
 ]
 
 /**
