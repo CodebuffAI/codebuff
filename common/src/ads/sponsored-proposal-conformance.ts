@@ -209,17 +209,36 @@ export const SPONSORED_CONFORMANCE_ACCEPTED_WAIVERS: Record<
   Record<string, string>
 > = {
   web: {},
-  // DESKTOP HAS NO WAIVERS SINCE COD-397. Phase 2 shipped the Accept, the
-  // local run in a worktree, the sponsored thread that is never a send target,
-  // and Create pull request -- so every ID that was waived for "no execution"
-  // or "no read-only thread view" is now measured rather than excused.
+  // COD-397 shipped Desktop's Accept, the local run in a worktree, the
+  // sponsored thread that is never a send target, and Create pull request, so
+  // every R, C, V and B row that was waived for "no execution" or "no
+  // read-only thread view" is now measured.
   //
-  // Deliberately an empty object rather than a deleted key: an absent surface
-  // and a surface with nothing to excuse are different claims, and
-  // `sponsoredConformanceWaiverAccepted` has to be able to REFUSE a waiver
-  // that turns up in a Desktop report. It is the same reason `web` has always
-  // been empty.
-  desktop: {},
+  // THE E ROWS ARE NOT. This table briefly claimed them, and that was wrong.
+  // The E layer is defined as "real backend, real user action" — the entire
+  // point of it being a separate layer is that the others run against fixtures
+  // and this one does not. What exists for the execution rows is
+  // `services/sponsored-run.test.ts`, which builds a `fakes()` harness: a fake
+  // command runner, a fake proposals client, a fake consent gate. Those tests
+  // are good and they pin the logic, but a green fake is the C layer's
+  // evidence, not the E layer's. No seeded row has ever been accepted on a
+  // running Desktop, no sponsored run has executed against a real repository,
+  // and no pull request has ever been opened by one.
+  //
+  // The CLI block below refuses to report a hand-inserted block as `pass`
+  // because that would be "reporting the fixture". Reporting E-3..E-7 off a
+  // fake runner is the same move, and it has to be refused here for the same
+  // reason — more so, because Desktop's fakes are convincing enough that the
+  // gap does not announce itself.
+  //
+  // These clear by RUNNING the walk in the Agentic Ads testing runbook (Lane
+  // A, loopback) and recording what was observed, not by adding another test.
+  desktop: {
+    'E-3': 'never run: accept measured against a fake runner, not a live run',
+    'E-4': 'never run: the state walk is measured against a fake runner',
+    'E-5': 'never run: the failure path is measured against a fake runner',
+    'E-7': 'never run: no pull request has been opened by a sponsored run',
+  },
   cli: {
     // NOTHING PRODUCES A CARD ON THE CLI YET. The block renders, and every
     // render-layer ID is pinned by a test — but no poll fetches a proposal and
