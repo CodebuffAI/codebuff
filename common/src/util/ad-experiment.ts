@@ -37,6 +37,22 @@ export const FIRST_PARTY_ROUTING_EXPERIMENT =
   'ads_first_party_before_paid_networks_2026_08'
 
 /**
+ * Salt for the sticky per-user first-party arm (COD-369).
+ *
+ * NOTHING ROUTES ON THIS TODAY. The arm is a LOGGED FIELD
+ * (`first_party_arm_bucket` on `ads.fetch_completed`) and not an input to the
+ * route draw, which stays on a fresh per-request `randomUUID()` exactly as it
+ * was. A per-user draw would move which inventory a person gets, and that is a
+ * delivery change that has to be costed on its own -- COD-362 flips routing
+ * onto this once the logged buckets have produced a measured number.
+ *
+ * Dated, like every salt in this module, and for a stronger reason than the
+ * others: once routing does read it, rotating it is the ONLY way to reshuffle
+ * the arm, so a rotation is a new experiment and has to look like one.
+ */
+export const FIRST_PARTY_ARM_SALT = 'ads_first_party_arm_2026_09'
+
+/**
  * An absent runtime knob is a dark deploy. Allocation is deliberately opt-in:
  * a missing Infisical value must not take paid-network inventory.
  */
@@ -113,6 +129,23 @@ export function firstPartyPrimaryBasisPoints(primaryPercent: number): number {
  */
 export function firstPartyPrimaryBucket(sampleId: string): number {
   return fnv1a(`${FIRST_PARTY_ROUTING_EXPERIMENT}:${sampleId}`) % 10_000
+}
+
+/**
+ * The sticky sample key for one user's first-party arm.
+ *
+ * OBSERVATIONAL ONLY. Both rails feed it to {@link firstPartyPrimaryBucket}
+ * and report the result as `first_party_arm_bucket`; neither feeds it to the
+ * route draw or to campaign allocation, which keep reading the per-request
+ * sample. Pointing routing at this is COD-362's job and changes delivery.
+ *
+ * Both rails always have a user id -- the browser route 401s without a
+ * session and the v1 route is API-key authenticated -- so the empty-id case
+ * is defensive rather than a supported path; it parks every anonymous caller
+ * on one bucket.
+ */
+export function firstPartyArmKey(userId: string | null | undefined): string {
+  return `fpa_${fnv1a(`${FIRST_PARTY_ARM_SALT}:${userId ?? ''}`).toString(36)}`
 }
 
 export type AdExperimentArm = 'imprezia_forced' | 'imprezia_first' | 'control'
