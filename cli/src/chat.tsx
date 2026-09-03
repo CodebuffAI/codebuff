@@ -49,7 +49,7 @@ import { useChatStreaming } from './hooks/use-chat-streaming'
 import { useChatUI } from './hooks/use-chat-ui'
 import { useClipboard } from './hooks/use-clipboard'
 import { useEvent } from './hooks/use-event'
-import { useGravityAd } from './hooks/use-gravity-ad'
+import { useGravityAd, type AdResponse } from './hooks/use-gravity-ad'
 import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
@@ -61,7 +61,10 @@ import { useChatStore } from './state/chat-store'
 import { useQueuePanelStore } from './state/queue-panel-store'
 import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
-import { useMessageBlockStore } from './state/message-block-store'
+import {
+  useMessageBlockStore,
+  EMPTY_RESPONSE_ADS,
+} from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
 import { reportActivity } from './utils/activity-tracker'
 import { stopActiveRun } from './utils/active-run'
@@ -1487,7 +1490,7 @@ export const Chat = ({
       isWaitingForResponse,
       timerStartTime,
       availableWidth: messageAvailableWidth,
-      responseAds: showInlineAds ? responseAds : {},
+      responseAds: showInlineAds ? responseAds : EMPTY_RESPONSE_ADS,
     })
   }, [
     theme,

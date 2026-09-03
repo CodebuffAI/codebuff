@@ -118,6 +118,8 @@ type MessageBlockStore = MessageBlockStoreState & MessageBlockStoreActions
 const noop = () => {}
 const noopFeedback: MessageBlockCallbacks['onFeedback'] = () => {}
 
+export const EMPTY_RESPONSE_ADS: Record<string, AdResponse[]> = {}
+
 const initialContext: MessageBlockContext = {
   theme: null,
   markdownPalette: null,
@@ -125,7 +127,7 @@ const initialContext: MessageBlockContext = {
   isWaitingForResponse: false,
   timerStartTime: null,
   availableWidth: 80,
-  responseAds: {},
+  responseAds: EMPTY_RESPONSE_ADS,
 }
 
 const initialCallbacks: MessageBlockCallbacks = {
@@ -154,11 +156,33 @@ export const useMessageBlockStore = create<MessageBlockStore>()(
 
     setContext: (updates) =>
       set((state) => {
+        let changed = false
+        for (const key of Object.keys(updates) as Array<keyof MessageBlockContext>) {
+          if (state.context[key] !== updates[key]) {
+            changed = true
+            break
+          }
+        }
+        if (!changed) return
         state.context = { ...state.context, ...updates }
       }),
 
     setCallbacks: (callbacks) =>
       set((state) => {
+        const prevKeys = Object.keys(state.callbacks)
+        const nextKeys = Object.keys(callbacks)
+        if (prevKeys.length !== nextKeys.length) {
+          state.callbacks = callbacks
+          return
+        }
+        let changed = false
+        for (const key of nextKeys as Array<keyof MessageBlockCallbacks>) {
+          if (state.callbacks[key] !== callbacks[key]) {
+            changed = true
+            break
+          }
+        }
+        if (!changed) return
         state.callbacks = callbacks
       }),
 
