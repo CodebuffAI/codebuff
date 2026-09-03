@@ -211,6 +211,16 @@ export function mcpContentToToolResultOutputs(
       } satisfies ToolResultOutput
     }
     if (c.type === 'resource') {
+      // A resource with text contents is text, not media. Wrapping prose as
+      // media makes the AI SDK base64-decode it when rebuilding the prompt on
+      // every later turn, which dies with "The string contains invalid
+      // characters" forever, since the poisoned message replays from history.
+      if ('text' in c.resource) {
+        return {
+          type: 'json',
+          value: c.resource.text,
+        } satisfies ToolResultOutput
+      }
       return {
         type: 'media',
         data: getResourceData(c.resource),
