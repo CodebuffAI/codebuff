@@ -1,9 +1,17 @@
+import '../../../../sdk/test/setup-env'
+
 import { describe, test, expect } from 'bun:test'
 
 import {
   getKeypadPrintableSequence,
   isKeypadEnter,
 } from '../../utils/keypad-keys'
+import {
+  findLineStart,
+  findLineEnd,
+  findPreviousWordBoundary,
+  findNextWordBoundary,
+} from '../multiline-input'
 
 /**
  * Tests for tab character cursor rendering in MultilineInput component.
@@ -656,9 +664,9 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
     const ESC = '\x1b'
     return Boolean(
       key.option ||
-        (key.sequence?.length === 2 &&
-          key.sequence[0] === ESC &&
-          key.sequence[1] !== '['),
+      (key.sequence?.length === 2 &&
+        key.sequence[0] === ESC &&
+        key.sequence[1] !== '['),
     )
   }
 
@@ -689,10 +697,7 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
     // So we detect it by checking for name === 'linefeed' rather than ctrl + j
     const isCtrlJ =
       lowerKeyName === 'linefeed' ||
-      (key.ctrl &&
-        !key.meta &&
-        !key.option &&
-        lowerKeyName === 'j')
+      (key.ctrl && !key.meta && !key.option && lowerKeyName === 'j')
 
     // Only handle Enter and Ctrl+J here
     if (!isEnterKey && !isCtrlJ) return 'ignore'
@@ -1132,33 +1137,7 @@ describe('MultilineInput - newline keyboard shortcuts', () => {
 })
 
 describe('MultilineInput - word and line boundary operations', () => {
-  function findLineStart(text: string, cursor: number): number {
-    let pos = Math.max(0, Math.min(cursor, text.length))
-    while (pos > 0 && text[pos - 1] !== '\n') pos--
-    return pos
-  }
-
-  function findLineEnd(text: string, cursor: number): number {
-    let pos = Math.max(0, Math.min(cursor, text.length))
-    while (pos < text.length && text[pos] !== '\n') pos++
-    return pos
-  }
-
-  function findPreviousWordBoundary(text: string, cursor: number): number {
-    let pos = Math.max(0, Math.min(cursor, text.length))
-    while (pos > 0 && /\s/.test(text[pos - 1])) pos--
-    while (pos > 0 && !/\s/.test(text[pos - 1])) pos--
-    return pos
-  }
-
-  function findNextWordBoundary(text: string, cursor: number): number {
-    let pos = Math.max(0, Math.min(cursor, text.length))
-    while (pos < text.length && !/\s/.test(text[pos])) pos++
-    while (pos < text.length && /\s/.test(text[pos])) pos++
-    return pos
-  }
-
-  test('finds correct word boundaries backward and forward', () => {
+  test('finds correct word boundaries backward and forward on standard text', () => {
     const text = 'hello world from freebuff'
     const cursor = text.length
 
@@ -1170,14 +1149,56 @@ describe('MultilineInput - word and line boundary operations', () => {
 
     const nextWord = findNextWordBoundary(text, 0)
     expect(nextWord).toBe(6) // starts at 'world'
+
+    const nextWord2 = findNextWordBoundary(text, nextWord)
+    expect(nextWord2).toBe(12) // starts at 'from'
   })
 
-  test('finds correct line boundaries for multiline input', () => {
+  test('finds word boundaries with multiple consecutive whitespace characters', () => {
+    const text = 'hello   \t\n   world'
+    expect(findPreviousWordBoundary(text, text.length)).toBe(13) // start of 'world'
+    expect(findPreviousWordBoundary(text, 13)).toBe(0) // start of 'hello'
+    expect(findNextWordBoundary(text, 0)).toBe(13) // start of 'world'
+    expect(findNextWordBoundary(text, 13)).toBe(text.length) // end of 'world'
+  })
+
+  test('handles word boundaries at text edges and empty strings', () => {
+    expect(findPreviousWordBoundary('', 0)).toBe(0)
+    expect(findNextWordBoundary('', 0)).toBe(0)
+    expect(findPreviousWordBoundary('word', 0)).toBe(0)
+    expect(findNextWordBoundary('word', 4)).toBe(4)
+
+    // Out-of-bounds cursor clamping
+    expect(findPreviousWordBoundary('word', -5)).toBe(0)
+    expect(findNextWordBoundary('word', 100)).toBe(4)
+  })
+
+  test('finds correct line boundaries for multiline input across lines', () => {
     const text = 'line one\nline two\nline three'
     const midCursor = 13 // in 'line two'
 
     expect(findLineStart(text, midCursor)).toBe(9)
     expect(findLineEnd(text, midCursor)).toBe(17)
+
+    // First line boundaries
+    expect(findLineStart(text, 2)).toBe(0)
+    expect(findLineEnd(text, 2)).toBe(8)
+
+    // Last line boundaries
+    expect(findLineStart(text, 20)).toBe(18)
+    expect(findLineEnd(text, 20)).toBe(text.length)
+  })
+
+  test('handles line boundaries on empty lines and edge boundaries', () => {
+    const emptyLineText = 'first\n\nthird'
+    // Position 6 is the empty line between the two newlines
+    expect(findLineStart(emptyLineText, 6)).toBe(6)
+    expect(findLineEnd(emptyLineText, 6)).toBe(6)
+
+    // Edge clamping
+    expect(findLineStart('', 0)).toBe(0)
+    expect(findLineEnd('', 0)).toBe(0)
+    expect(findLineStart('abc', -1)).toBe(0)
+    expect(findLineEnd('abc', 50)).toBe(3)
   })
 })
-
