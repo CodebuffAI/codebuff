@@ -836,15 +836,9 @@ export type FreebuffSessionAdmissionResponse = (
       upgrade?: FreebuffUpgradeHint
     }
   | {
-      /** Freebuff Desktop multi-session only: every premium-bucket slot the
-       *  account holds is already running, and this tab asked for another.
-       *
-       *  A FREE account has one such slot and three unlimited-model sessions
-       *  (`FREEBUFF_DESKTOP_SESSION_LIMITS`); a SUBSCRIBER has three and eight
-       *  (`FREEBUFF_SUBSCRIBER_DESKTOP_SESSION_LIMITS`). Premium-bucket models
-       *  are the expensive rows (Luna / GLM / MiniMax M3 …); on the LIMITED
-       *  tier every model occupies a slot for a free account — one freebuff tab
-       *  at a time — while a subscriber there is metered by their plan instead.
+      /** Freebuff Desktop only: every slot-bound session is occupied. Free
+       *  accounts get one slot-bound and three multi-tab sessions; subscribers
+       *  get three and eight. Limited free access makes every model slot-bound.
        *
        *  The desktop client surfaces this and steers the tab to an unlimited
        *  model (or closes the holding tab). Never returned to CLI/web, which

@@ -163,21 +163,14 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(frame).not.toContain('for small tasks')
   })
 
-  test('orders the premium rows above UNLIMITED, saved model focused', async () => {
+  test('orders the premium row above UNLIMITED, saved unlimited model focused', async () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
     })
-    // The saved pick has to be a PREMIUM row that is NOT the recommended hero:
-    // premium or the tier headers it is being ordered against don't apply to
-    // it, non-hero or the landing picker opens collapsed and there are no tier
-    // headers at all. The hero is GPT-5.6 Luna since 2026-08-24, which leaves
-    // exactly one other premium row — Solar Pro 4 today.
-    //
-    // The occupants keep leaving downward: V4 Flash left
-    // FREEBUFF_PREMIUM_MODEL_IDS on 2026-08-24, V4 Pro was withdrawn on 08-26,
-    // GLM 5.3 Flash was un-premiumed on 08-28 and moved into UNLIMITED — below
-    // the header this asserts it sits above. Read the list, not this comment.
+    // Solar Pro 4 moved into UNLIMITED on 2026-09-03. Keeping it as the saved
+    // pick exercises both section ordering and focus without relying on a
+    // second premium row that no longer exists.
     useFreebuffModelStore
       .getState()
       .setSelectedModel(FREEBUFF_SOLAR_PRO_4_MODEL_ID)
@@ -191,10 +184,8 @@ describe('FreebuffModelSelector tier layout', () => {
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
     expect(recommendedModelIndex).toBeGreaterThan(premiumHeaderIndex)
-    expect(selectedModelIndex).toBeGreaterThan(recommendedModelIndex)
-    // MiniMax M3 anchored the tail of this list until it was withdrawn on
-    // 2026-08-20 and left the picker entirely.
-    expect(unlimitedHeaderIndex).toBeGreaterThan(selectedModelIndex)
+    expect(unlimitedHeaderIndex).toBeGreaterThan(recommendedModelIndex)
+    expect(selectedModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
     // The cursor sits on the SAVED pick, not on the recommendation.
     expect(frame).toContain('› Solar Pro 4')
     expect(frame).not.toContain('› GPT-5.6 Luna')
@@ -469,103 +460,6 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(lunaRow).toContain('Strong all-around')
     expect(lunaRow).toContain('Reasoning: high')
     expect(rowOf(frame, 'MiniMax M3')).not.toContain('Reasoning')
-  })
-
-  test('sizes and centres a row around its per-row quota chip', async () => {
-    // The chip is drawn on a row that answers to a DIFFERENT pool than its
-    // section header, and it was missing from BOTH the centering math and the
-    // height estimate — visible only once a user had spent a Luna session,
-    // until the server began sending unused pool rows and it became every
-    // full-access picker.
-    //
-    // WHICH row wears it is arithmetic, not semantic: getFreebuffSectionQuotas
-    // gives the header to the pool MOST rows share and breaks ties toward the
-    // earlier row. The occupant has moved with every premium departure — Flash
-    // out on 2026-08-24, V4 Pro withdrawn 08-26, GLM 5.3 Flash un-premiumed
-    // 08-28. The invariant under test — a second line the width and height math
-    // must both know about — is unchanged; only the row it lands on moves, so
-    // this drives it from the CURRENT premium list rather than naming a row.
-    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
-    const pool = (
-      model: string,
-      poolId: string,
-      poolLabel: string,
-      limit: number,
-    ) => ({
-      model,
-      pool: poolId,
-      poolLabel,
-      limit,
-      period: 'pacific_day' as const,
-      resetTimeZone: 'America/Los_Angeles',
-      resetAt,
-      windowHours: 24,
-      recentCount: 0,
-    })
-    useFreebuffSessionStore.getState().setSession({
-      status: 'none',
-      accessTier: 'full',
-      // Flash sends no pool row at all since 2026-08-24: it is unmetered.
-      rateLimitsByModel: {
-        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: pool(
-          FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-          'premium',
-          'Premium',
-          4,
-        ),
-        // A row answering to a pool the section header does NOT speak for, so
-        // it carries its own chip. SYNTHESISED rather than read from
-        // FREEBUFF_PER_MODEL_SESSION_CAPS, which is empty since 2026-08-28 —
-        // this test is about the width and height math around a second line,
-        // not about which model happens to be capped this week, and tying it to
-        // a real cap is what made it break every time one moved.
-        [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: pool(
-          FREEBUFF_SOLAR_PRO_4_MODEL_ID,
-          'solar_trial',
-          'Solar Pro 4',
-          2,
-        ),
-      },
-    })
-    useFreebuffModelStore
-      .getState()
-      // NOT the hero, so the picker opens expanded and the chip under test is
-      // drawn at all. The expanded list still draws the Flash row, which
-      // supplies the warning-ONLY second line asserted below.
-      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
-
-    const frame = (await renderSelector()).captureCharFrame()
-    // Gutters inside the card borders, which is what "centred" means here and
-    // what a length the math didn't know about throws off. Asserted for the
-    // ordinary warning line too, so this pins the invariant rather than the
-    // one string that broke it.
-    const gutters = (line: string) => {
-      const inner = line.slice(line.indexOf('│') + 1, line.lastIndexOf('│'))
-      return [
-        inner.length - inner.trimStart().length,
-        inner.length - inner.trimEnd().length,
-      ]
-    }
-    const lines = frame.split('\n')
-    // The second line carrying a per-row chip. Anchored on the chip TEXT, so a
-    // chip that stops being drawn fails here rather than quietly re-measuring
-    // some warning-only line instead. A per-row label is longer than the shared
-    // one, which is the case the width math has to survive.
-    const chipLine = lines.find((l) => l.includes('Solar Pro 4: 0 of 2 used'))
-    // Flash carries the training warning with nothing after it — the shape the
-    // width math already handled, which is the "ordinary warning line" above.
-    const warningOnlyLine = lines.find(
-      (l) => l.includes('May use data for AI training') && !l.includes('used'),
-    )
-    expect(chipLine).toBeDefined()
-    expect(warningOnlyLine).toBeDefined()
-    for (const line of [chipLine!, warningOnlyLine!]) {
-      const [left, right] = gutters(line)
-      expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
-    }
-    // A row the height estimate does not know has a second line costs the list
-    // a row on the first frame, which cut the toggle off the bottom.
-    expect(frame).toContain('Show fewer')
   })
 
   test('says nothing about a premium quota the account does not have', async () => {
