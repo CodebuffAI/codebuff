@@ -81,6 +81,11 @@ function getTargetInfo(): TargetInfo {
 
   const mappings: Record<string, TargetInfo> = {
     'linux-x64': { bunTarget: 'bun-linux-x64', platform: 'linux', arch: 'x64' },
+    'linux-x64-baseline': {
+      bunTarget: 'bun-linux-x64-baseline',
+      platform: 'linux',
+      arch: 'x64',
+    },
     'linux-arm64': {
       bunTarget: 'bun-linux-arm64',
       platform: 'linux',
@@ -98,6 +103,11 @@ function getTargetInfo(): TargetInfo {
     },
     'win32-x64': {
       bunTarget: 'bun-windows-x64',
+      platform: 'win32',
+      arch: 'x64',
+    },
+    'win32-x64-baseline': {
+      bunTarget: 'bun-windows-x64-baseline',
       platform: 'win32',
       arch: 'x64',
     },
