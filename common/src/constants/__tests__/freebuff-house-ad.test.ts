@@ -43,7 +43,18 @@ const SURFACES: HouseAdSurface[] = [
   'waiting_room',
   'freebuff_web_chat',
   'chat_assistant',
+  'chat_assistant_sr',
 ]
+
+/**
+ * Surfaces the FLOOR must cover but no campaign can target: the SR experiment
+ * arm is a placement id under `chat_assistant`'s slot, not a sellable slot of
+ * its own, so it has copy (the floor is total over `AD_SURFACES`) and no
+ * `PLACEMENT_SLOTS` entry. Exempt from the slot check below, by name.
+ */
+const FLOOR_ONLY_SURFACES: ReadonlySet<HouseAdSurface> = new Set([
+  'chat_assistant_sr',
+])
 
 const everyInlineCreative = (): Array<{
   surface: HouseAdSurface
@@ -163,6 +174,7 @@ describe('house ad catalog', () => {
     // The other direction: copy written for a surface nothing targets is copy
     // that can only ever reach the floor, never the campaign.
     for (const surface of SURFACES) {
+      if (FLOOR_ONLY_SURFACES.has(surface)) continue
       const slots = PLACEMENT_SLOTS.filter(
         (slot) => slot.surface === surface && slot.available,
       )
