@@ -157,6 +157,25 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     clearMockedModules()
   })
 
+  it('an abort during agent-run registration is a cancel, not a failed run', async () => {
+    // registration ends on the run's signal now, so the null it returns under an abort is the
+    // abort itself and must read like every other cancel
+    const controller = new AbortController()
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      signal: controller.signal,
+      startAgentRun: async () => {
+        controller.abort()
+        return null
+      },
+    })
+    expect(result.output).toEqual({
+      type: 'error',
+      message: 'Run cancelled by user',
+    })
+    expect(llmCallCount).toBe(0)
+  })
+
   it('should verify correct STEP behavior - LLM called once after STEP', async () => {
     // This test verifies that when a programmatic agent yields STEP,
     // the LLM should be called once in the next iteration

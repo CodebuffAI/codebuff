@@ -47,6 +47,35 @@ describe('getUserInfoFromApiKey', () => {
     expect(result).toEqual({ id: 'user-123' })
   })
 
+  test('an abort ends the lookup and its retries instead of waiting out a silent socket', async () => {
+    // a socket that never answers used to hold the run for the whole retry budget with nothing the
+    // caller's abort could reach
+    const fetchMock = mock(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted', 'AbortError')),
+          )
+        }),
+    )
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    const controller = new AbortController()
+    const started = Date.now()
+    const lookup = getUserInfoFromApiKey({
+      apiKey: 'aborted-api-key',
+      fields: ['id'],
+      logger: createLoggerMocks(),
+      signal: controller.signal,
+    })
+    setTimeout(() => controller.abort(), 20)
+
+    await expect(lookup).rejects.toThrow()
+    expect(Date.now() - started).toBeLessThan(1_000)
+    // no retry after an abort: the one request, then out
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   test('merges cached fields and avoids refetching when present', async () => {
     const fetchMock = mock(async (input: RequestInfo | URL) => {
       const urlString =
