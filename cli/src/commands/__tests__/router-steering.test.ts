@@ -6,11 +6,14 @@ import {
   activateSteering,
   drainSteeringMessages,
 } from '../../utils/steering-buffer'
+import { findCommand } from '../command-registry'
 import { routeUserPrompt } from '../router'
 
 import type { RouterParams } from '../command-registry'
 
-const createMockParams = (overrides: Partial<RouterParams> = {}): RouterParams =>
+const createMockParams = (
+  overrides: Partial<RouterParams> = {},
+): RouterParams =>
   ({
     agentMode: 'DEFAULT',
     inputRef: { current: null },
@@ -124,5 +127,95 @@ describe('mid-turn routing', () => {
 
     expect(params.sendMessage).toHaveBeenCalledTimes(1)
     expect(drainSteeringMessages('run-1')).toEqual([])
+  })
+
+  describe('plan/interview/review input modes queue instead of interrupting', () => {
+    afterEach(() => {
+      useChatStore.getState().setInputMode('default')
+    })
+
+    test('plan mode queues a mid-turn submit instead of sending it', async () => {
+      useChatStore.getState().setInputMode('plan')
+      const params = createMockParams({
+        inputValue: 'add dark mode',
+        isStreaming: true,
+      })
+      await routeUserPrompt(params)
+
+      // Must never fire a second run against the busy owner: that would
+      // register a new active-run owner and interrupt the in-flight one.
+      expect(params.sendMessage).not.toHaveBeenCalled()
+      expect(params.addToQueue).toHaveBeenCalledTimes(1)
+      const [queued] = (params.addToQueue as ReturnType<typeof mock>).mock
+        .calls[0] as [string]
+      expect(queued).toContain('add dark mode')
+    })
+
+    test('interview mode queues a mid-turn submit instead of sending it', async () => {
+      useChatStore.getState().setInputMode('interview')
+      const params = createMockParams({
+        inputValue: 'what should the API look like',
+        isStreaming: true,
+      })
+      await routeUserPrompt(params)
+
+      expect(params.sendMessage).not.toHaveBeenCalled()
+      expect(params.addToQueue).toHaveBeenCalledTimes(1)
+    })
+
+    test('review mode queues a mid-turn submit instead of sending it', async () => {
+      useChatStore.getState().setInputMode('review')
+      const params = createMockParams({
+        inputValue: 'check for null handling',
+        isStreaming: true,
+      })
+      await routeUserPrompt(params)
+
+      expect(params.sendMessage).not.toHaveBeenCalled()
+      expect(params.addToQueue).toHaveBeenCalledTimes(1)
+    })
+
+    test('plan mode still sends immediately when idle', async () => {
+      useChatStore.getState().setInputMode('plan')
+      const params = createMockParams({ inputValue: 'add dark mode' })
+      await routeUserPrompt(params)
+
+      expect(params.sendMessage).toHaveBeenCalledTimes(1)
+      expect(params.addToQueue).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('/interview and /review with inline args queue instead of interrupting', () => {
+    test('/interview <text> queues mid-turn instead of sending', () => {
+      const params = createMockParams({
+        inputValue: '/interview what should the API look like',
+        isStreaming: true,
+      })
+      findCommand('interview')!.handler(params, 'what should the API look like')
+
+      expect(params.sendMessage).not.toHaveBeenCalled()
+      expect(params.addToQueue).toHaveBeenCalledTimes(1)
+    })
+
+    test('/review <text> queues mid-turn instead of sending', () => {
+      const params = createMockParams({
+        inputValue: '/review check for null handling',
+        isStreaming: true,
+      })
+      findCommand('review')!.handler(params, 'check for null handling')
+
+      expect(params.sendMessage).not.toHaveBeenCalled()
+      expect(params.addToQueue).toHaveBeenCalledTimes(1)
+    })
+
+    test('/interview <text> still sends immediately when idle', () => {
+      const params = createMockParams({
+        inputValue: '/interview what should the API look like',
+      })
+      findCommand('interview')!.handler(params, 'what should the API look like')
+
+      expect(params.sendMessage).toHaveBeenCalledTimes(1)
+      expect(params.addToQueue).not.toHaveBeenCalled()
+    })
   })
 })
