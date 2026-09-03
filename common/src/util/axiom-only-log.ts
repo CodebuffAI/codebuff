@@ -167,6 +167,19 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    * by the routing policy. Country is an ISO-style two-letter code or absent;
    * no IP address or user identifier enters this event. */
   first_party_geo_routing_enabled: 'boolean',
+  /**
+   * COD-370. The viewer tier resolved on EVERY request, whether or not geo
+   * routing was allowed to act on it: `tier1`, `tier2`, or `unknown`.
+   *
+   * Deliberately NOT a replacement for `first_party_inventory_geo_tier` below,
+   * which keeps its gated meaning -- that field says what the ROUTING POLICY
+   * saw, and reads `unknown` on every request while the flag is off. Merging
+   * them would erase the distinction between "the viewer is in Tier 2" and
+   * "we declined to look", which is the difference between an inventory fact
+   * and a configuration fact. Carrying both is what lets a geo ramp be sized
+   * from traffic that predates it.
+   */
+  request_geo_tier: 'string',
   first_party_inventory_geo_tier: 'string',
   first_party_geo_source: 'string',
   first_party_country_code: 'string',
@@ -244,6 +257,20 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   yield_live_planned_chain: 'string',
   yield_live_evidence_reservation_status: 'string',
   yield_live_evidence_status: 'string',
+  /**
+   * COD-361. What the decision-outbox producer did with this opportunity:
+   * `scheduled | saturated | cooling_down | schedule_failed | disabled |
+   * not_sampled`. On both rails, so a producer that stops writing is visible
+   * as a change of STATUS rather than as an absence of rows -- an absence is
+   * indistinguishable from the knob being off, which is the missingness this
+   * field exists to make analysable.
+   *
+   * `decision_outbox_sample_rate_ppm` is the rate that ACTUALLY applied, so a
+   * contested auction written by the >=2-admitted override reports certainty
+   * rather than the configured sample. Zero on every unwritten opportunity.
+   */
+  decision_outbox_status: 'string',
+  decision_outbox_sample_rate_ppm: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
 const ADS_IMPREZIA_FETCH_COMPLETED_FIELDS = {
