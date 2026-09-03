@@ -167,14 +167,21 @@ export interface FreebuffFreebucksWallet {
   nextBonusAt?: string
 }
 
-/** The hard daily dollar ceiling behind the Freebucks meter. */
+/**
+ * The hard daily dollar ceiling behind the Freebucks meter.
+ *
+ * NOT SHOWN ANYWHERE, and that is the point: it is an abuse backstop sized to
+ * catch only the heaviest days, while the meter a user plans against is their
+ * Freebucks. Rendering a second, smaller-looking limit beside the pool invited
+ * the reading that the dollars run out first. It stays on the wire because a
+ * refusal names it and an operator surface may want it, and it deliberately
+ * carries no running total — computing one cost an extra spend aggregate on
+ * every session response for a number nothing draws.
+ */
 export interface FreebuffFreebucksSpendCeiling {
   /** Settled provider spend since midnight Pacific at which fresh sessions
    *  stop being admitted, for this account's tier and access tier. */
   limitUsd: number
-  /** Today's settled spend, when the rollup answered; absent on a read
-   *  failure (the gate fails open the same way). */
-  spentUsd?: number
   /** ISO instant the day rolls. */
   resetAt: string
 }
