@@ -2,10 +2,14 @@ import { SPONSORED_ROW_FIXTURES } from '@codebuff/common/ads/__fixtures__/sponso
 import { afterEach, describe, expect, test } from 'bun:test'
 
 import {
+  handleProposalAccept,
   handleProposalDismiss,
   handleProposalMenu,
+  handleProposalPullRequest,
+  handleProposalRemoveWorktree,
   liveSponsoredProposal,
 } from '../ads'
+import { setSponsoredCliAvailability } from '../../utils/sponsored-availability'
 import { useMessageBlockStore } from '../../state/message-block-store'
 
 import type { ChatMessage, SponsoredProposalContentBlock } from '../../types/chat'
@@ -115,5 +119,96 @@ describe('/ads:dismiss-proposal', () => {
 describe('liveSponsoredProposal', () => {
   test('is null for a transcript with no proposal at all', () => {
     expect(liveSponsoredProposal([])).toBeNull()
+  })
+})
+
+/**
+ * Phase 2's three commands (COD-339).
+ *
+ * `/ads:accept-proposal` is the one that matters: it must OPEN the consent and
+ * start nothing, on every path — including the ones where there is nothing to
+ * consent to. The other two are the only route to the two deliberate user
+ * actions after a run, and both have to be honest when there is no run.
+ */
+describe('the Phase 2 commands', () => {
+  test('accept opens the consent, and does not answer the proposal', () => {
+    setSponsoredCliAvailability('available')
+    const calls = recordAcceptCalls()
+    expect(handleProposalAccept(withBlocks(proposalBlock()))).toBeNull()
+    expect(calls).toEqual([['accept', 'acme/deploys']])
+    setSponsoredCliAvailability(null)
+  })
+
+  test('accept says why on a machine that cannot contain a run', () => {
+    // COD-336 item 3, reachable from the command as well as the card: the
+    // command is typed, not clicked, so it does not go through the render-time
+    // gate that hides the control.
+    setSponsoredCliAvailability('unavailable:windows-no-containment')
+    const calls = recordAcceptCalls()
+    const message = handleProposalAccept(withBlocks(proposalBlock()))
+    expect(message).toContain('Windows')
+    expect(calls).toEqual([])
+    setSponsoredCliAvailability(null)
+  })
+
+  test('accept refuses a row that has already been answered', () => {
+    setSponsoredCliAvailability('available')
+    const calls = recordAcceptCalls()
+    const answered = proposalBlock({
+      proposal: {
+        ...SPONSORED_ROW_FIXTURES.committed,
+        _id: 'proposal-1',
+        advertiser_id: 'adv_acme',
+      },
+    })
+    expect(handleProposalAccept(withBlocks(answered))).toContain('already been answered')
+    expect(calls).toEqual([])
+    setSponsoredCliAvailability(null)
+  })
+
+  test('accept with no card on screen says so, and starts nothing', () => {
+    setSponsoredCliAvailability('available')
+    const calls = recordAcceptCalls()
+    expect(handleProposalAccept([])).toBe('No sponsored proposal on screen.')
+    expect(calls).toEqual([])
+    setSponsoredCliAvailability(null)
+  })
+
+  test('the delivery commands are honest when no run has happened', async () => {
+    // Reachable by typing, at any time, with no card and no run. Neither may
+    // throw, and neither may imply something is in flight.
+    expect(await handleProposalPullRequest()).toContain('No sponsored task has run')
+    expect(await handleProposalRemoveWorktree()).toContain('No sponsored task has run')
+  })
+})
+
+function recordAcceptCalls() {
+  const calls: [string, ...unknown[]][] = []
+  useMessageBlockStore.getState().setCallbacks({
+    ...useMessageBlockStore.getState().callbacks,
+    onSponsoredProposalAccept: (target) => calls.push(['accept', target]),
+    onSponsoredProposalConsent: (target, approved) =>
+      calls.push(['consent', target, approved]),
+  })
+  return calls
+}
+
+describe('the commands are reachable by typing them', () => {
+  test('all six sponsored-proposal commands resolve through the registry', async () => {
+    // The card owns no bare keys, so a command that is not in the registry is a
+    // control the user cannot reach at all — and at twenty columns the hint
+    // line has room for two of these names, so the rest are discovered by
+    // typing `/ads:` and reading the menu.
+    const { findCommand } = await import('../command-registry')
+    for (const name of [
+      'ads:proposal',
+      'ads:dismiss-proposal',
+      'ads:accept-proposal',
+      'ads:pull-request',
+      'ads:remove-worktree',
+      'ads:proposals-off',
+    ]) {
+      expect(findCommand(name)?.name, name).toBe(name)
+    }
   })
 })

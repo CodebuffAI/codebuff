@@ -63,8 +63,9 @@ const check = (
  * eleventh rejected URL.
  *
  * Note for anyone reconciling this with the plan document: the doc says
- * "VM-1 through VM-26". The file has 24 `test(...)` sites; 24 is what is
- * encoded here, and the count is asserted so the two cannot drift again.
+ * "VM-1 through VM-26". The file had 24 `test(...)` sites when that was
+ * written, and now has 28 — the four the optional Accept added (COD-339). The
+ * count is asserted, so the list and the suite cannot drift again.
  */
 const VM_CHECKS = check('VM', [
   'every state names its own outcome',
@@ -91,6 +92,15 @@ const VM_CHECKS = check('VM', [
   'a failed run promises nothing changed even with no reason',
   'an absent branch is null rather than a guess',
   'the channel menu lists every control, in order',
+  // VM-25..VM-28: the optional Accept (COD-339). A surface with no room for a
+  // primary needs somewhere to put the answer to the offer, and it is passed
+  // in rather than derived from the row -- so a surface that cannot RUN a
+  // sponsored task simply does not offer it, instead of drawing a control that
+  // refuses.
+  'the channel menu is unchanged when no accept label is given',
+  'an accept label puts the Accept first and changes nothing else',
+  'an empty accept label is not an Accept',
+  'the standing controls survive an Accept being added above them',
 ])
 
 const R_CHECKS = check('R', [
@@ -249,35 +259,52 @@ export const SPONSORED_CONFORMANCE_ACCEPTED_WAIVERS: Record<
     'E-5':
       'not deliberately driven: failures were seen incidentally on the local walk, never induced and checked',
   },
+  // COD-339 (Phase 2) added the producer and the execution half, so what was
+  // waived for "no producer" or "no execution" is gone. Every reason left is
+  // specific to this surface rather than to a phase, and two of them are
+  // deliberately honest about the difference between a property that HOLDS and
+  // a property that has been MEASURED.
   cli: {
-    // NOTHING PRODUCES A CARD ON THE CLI YET. The block renders, and every
-    // render-layer ID is pinned by a test — but no poll fetches a proposal and
-    // no code path inserts the block into a transcript. So the three E rows
-    // that need a seeded row to ARRIVE cannot be observed at all, and reporting
-    // them as `pass` off a hand-inserted block would be reporting the fixture.
-    // Distinct from Desktop's 'no execution' on purpose: Desktop polls and
-    // shows the card, it just cannot Accept. Phase 2 closes these by adding the
-    // producer, not by adding execution.
-    'E-1': 'no producer: nothing polls or inserts the block yet (Phase 1)',
-    'E-2': 'no producer: nothing polls or inserts the block yet (Phase 1)',
-    'E-6': 'no producer: nothing polls or inserts the block yet (Phase 1)',
-    'R-3': 'no execution',
-    'R-6': 'no read-only view',
+    // R-3 is UN-WAIVED. The card offers an Accept, gated on whether this
+    // machine can contain a run; on Windows it renders the shared refusal copy
+    // instead of a control that cannot work. Both are pinned by checked-in
+    // frames at 20, 48 and 60 columns.
+    //
+    // THE V ROWS ARE STRUCTURALLY INAPPLICABLE HERE, which is not the same as
+    // unbuilt. They are about a second, watched THREAD that must never become
+    // the send target. The CLI has one transcript and one send target; a
+    // sponsored run is not a thread at all and never becomes a pointer, so
+    // there is no send target to protect and no view pointer to discard. A
+    // `pass` would claim a control that does not exist.
+    'V-1': 'no second thread on this surface: a sponsored run is never a send target',
+    'V-2': 'no second thread on this surface',
+    'V-3': 'no composer to repoint: the CLI has one',
+    'V-4': 'no view pointer on this surface',
+    'V-5': 'no watched thread header; the card carries the disclosure instead',
+    'V-6': 'no view pointer on this surface',
+    'R-6': 'no read-only view: the run’s transcript is not interleaved with the user’s own',
     'R-9': 'no read-only view',
     // A terminal cannot make a link; it can only print a destination the user
     // may copy. The sanitizing is the part that still has to hold.
     'R-15': 'renders sanitized text, not a link',
-    'V-1': 'Phase 2',
-    'V-2': 'Phase 2',
-    'V-3': 'Phase 2',
-    'V-4': 'Phase 2',
-    'V-5': 'Phase 2',
-    'V-6': 'Phase 2',
-    'B-1': 'no execution',
-    'E-3': 'no execution',
-    'E-4': 'no execution',
-    'E-5': 'no execution',
-    'E-7': 'no execution',
+    // THE E ROWS ARE NOT MEASURED, and the reason has changed from Phase 1's.
+    // A producer polls, an Accept exists and a run executes — but none of it
+    // has been driven against a seeded row on a real backend from this branch,
+    // and reporting `pass` off a unit test would be reporting the fixture. The
+    // harness for exactly this is COD-408.
+    'E-1': 'not driven against a seeded row on a real backend (COD-408)',
+    'E-2': 'not driven against a seeded row on a real backend (COD-408)',
+    'E-3': 'not driven against a seeded row on a real backend (COD-408)',
+    'E-4': 'not driven against a seeded row on a real backend (COD-408)',
+    'E-5': 'not driven against a seeded row on a real backend (COD-408)',
+    'E-6': 'not driven against a seeded row on a real backend (COD-408)',
+    'E-7': 'not driven against a seeded row on a real backend (COD-408)',
+    // B-1 holds by CONSTRUCTION rather than by measurement: nothing on this
+    // path writes `freebuff_daily_usage`, and the turn takes the ordinary
+    // billed path deliberately (Owen, 2026-09-03 — a local sponsored run spends
+    // the user's own session and credits, which is what the card says). Waived
+    // until it is observed across a real run rather than argued from the code.
+    'B-1': 'unchanged by construction; not observed across a real run yet',
   },
 }
 
@@ -291,14 +318,17 @@ export const SPONSORED_CONFORMANCE_ACCEPTED_WAIVERS: Record<
  * waived by range and E-6 is not — on DESKTOP. Recorded here because the next
  * reader will hit the same contradiction.
  *
- * The CLI waives E-1, E-2 and E-6 anyway, and for an unrelated reason: nothing
- * on that surface produces a card, so there is no arrival to observe. That is a
- * missing producer, not a missing execution, and the reason string says so.
- *
  * The contradiction is moot for DESKTOP (COD-397): E-3..E-7 are all observable
  * there, because a run happens, and E-3, E-4 and E-7 have been observed. E-5 is
  * still waived, but for having never been driven rather than for being out of
- * reach. The CLI's copy of the contradiction stands until COD-339.
+ * reach.
+ *
+ * It is moot for the CLI too since COD-339, and for a different reason again.
+ * That surface now has a producer AND execution, so every E row is observable
+ * — and none has been observed, because nothing on this branch drove one
+ * against a seeded row on a real backend. The whole E block is waived on one
+ * honest reason rather than seven different ones, and COD-408 is the harness
+ * that closes it.
  */
 export function sponsoredConformanceWaiverAccepted(
   surface: SponsoredConformanceSurface,

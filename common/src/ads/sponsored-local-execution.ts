@@ -155,6 +155,57 @@ export function sponsoredLocalUnavailableReason(
     : null
 }
 
+// ------------------------------------------------------------ the branch
+
+/**
+ * The ref namespace every branch a local sponsored run commits to lives in.
+ *
+ * WITHOUT A TRAILING SLASH, because that is the spelling the sandbox grant
+ * wants: `sponsoredLinkedWorktreeGrants` writes `refs/heads/<namespace>` and
+ * `logs/refs/heads/<namespace>` into the profile, and nothing else under
+ * `refs/`. A run whose branch lived outside this namespace could not commit at
+ * all, and a namespace widened to `refs` would let one rewrite every branch in
+ * the user's repository.
+ *
+ * SHARED because two surfaces cut these branches and one sandbox grants them.
+ * Desktop's `BRANCH_PREFIX`/`BRANCH_NAMESPACE` (`freebuff-desktop/src/server/
+ * git/worktree.ts`) are deliberately NOT re-pointed at this constant — that
+ * module names every branch the app cuts, sponsored or not, and coupling all
+ * of Desktop's isolated-tab naming to an ads module would be the wrong
+ * dependency. They are held equal by a parity test on Desktop's side instead,
+ * so the two cannot drift without something going red.
+ */
+export const SPONSORED_LOCAL_BRANCH_NAMESPACE = 'freebuff'
+
+/**
+ * A title reduced to something that is legal in a ref.
+ *
+ * The same algorithm Desktop's `slugify` runs, with the same defaults, because
+ * the branch a consent screen NAMES has to be the branch that is cut — and on
+ * the CLI the same function has to produce it in two places (the consent, and
+ * the `git worktree add`).
+ */
+export function sponsoredLocalSlug(
+  input: string,
+  options: { maxLen?: number; fallback?: string } = {},
+): string {
+  const { maxLen = 50, fallback = 'task' } = options
+  const base = input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, maxLen)
+  return base || fallback
+}
+
+/** `freebuff/<slug>-<runId>` — the one branch a local sponsored run may write. */
+export function sponsoredLocalBranchName(
+  titleSlug: string,
+  runId: string,
+): string {
+  return `${SPONSORED_LOCAL_BRANCH_NAMESPACE}/${sponsoredLocalSlug(titleSlug)}-${runId}`
+}
+
 // --------------------------------------------------------------- the grant
 
 /**

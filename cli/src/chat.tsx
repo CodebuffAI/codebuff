@@ -5,6 +5,8 @@ import { safeOpen } from './utils/open-url'
 import { getAuthToken } from './utils/auth'
 import { isSponsoredProposalBlock } from './types/chat'
 import { runSponsoredProposalControl } from './utils/sponsored-proposal-control'
+import { sponsoredRunFor } from './utils/sponsored-run'
+import { useSponsoredProposal } from './hooks/use-sponsored-proposal'
 import {
   useCallback,
   useEffect,
@@ -265,13 +267,18 @@ export const Chat = ({
   // transcript rather than kept as its own flag: the menu is a property of a
   // block, and a second source of truth would go stale the moment a block is
   // answered or replaced while its menu is open.
+  //
+  // AN OPEN CONSENT COUNTS TOO (COD-339), and it matters more than the menu
+  // does: its Enter answers "run an advertiser's procedure on this machine",
+  // and an Enter that also reached the composer would send a prompt at the same
+  // time as it approved a run.
   const sponsoredProposalMenuOpen = useMemo(
     () =>
       messages.some((message) =>
         message.blocks?.some(
           (block) =>
             isSponsoredProposalBlock(block) &&
-            block.menuOpen === true &&
+            (block.menuOpen === true || block.consent !== undefined) &&
             block.answered !== true,
         ),
       ),
@@ -339,6 +346,78 @@ export const Chat = ({
       })()
     },
   )
+
+  /**
+   * Accept, in two halves (COD-339, COD-336 item 4).
+   *
+   * The first half OPENS the consent and writes nothing anywhere -- not
+   * upstream, not on disk. Everything the screen names is known before the
+   * accept, which is exactly what makes a refusal free: there is nothing to
+   * undo. The branch is minted here with the run id it will be created under,
+   * so the branch the screen names is the branch that is cut.
+   */
+  const handleSponsoredProposalAccept = useEvent((target: string) => {
+    const block = findProposalBlock(target)
+    if (!block || block.busy || block.answered || block.consent) return
+    void (async () => {
+      const run = sponsoredRunFor(getProjectRoot())
+      const consent = await run.consentFor(block.proposal)
+      if (!consent.ok) {
+        setMessages((prev) => [...prev, getSystemMessage(consent.message)])
+        return
+      }
+      patchProposalBlock(target, {
+        menuOpen: false,
+        consent: { ...consent.consent, runId: consent.runId },
+        consentIndex: 0,
+      })
+    })()
+  })
+
+  /**
+   * The consent's answer.
+   *
+   * A REFUSAL CLOSES THE SCREEN AND DOES NOTHING ELSE. Not a dismiss, not a
+   * decline recorded upstream -- the user said "not now" to running something,
+   * which is not the same as saying they never want to see it, and conflating
+   * the two would spend a control they did not press.
+   */
+  const handleSponsoredProposalConsent = useEvent(
+    (target: string, approved: boolean) => {
+      const block = findProposalBlock(target)
+      const consent = block?.consent
+      if (!block || !consent) return
+      patchProposalBlock(target, { consent: undefined, consentIndex: 0 })
+      if (!approved) return
+      patchProposalBlock(target, { busy: true })
+      void (async () => {
+        const run = sponsoredRunFor(getProjectRoot())
+        const outcome = await run.accept(block.proposal, consent.runId)
+        // `runStarted` is what makes the poller watch: the row upstream still
+        // reads `offered` until the first poll after the accept, and keying the
+        // cadence on the state alone would slow it down at exactly the moment
+        // watching starts to matter.
+        patchProposalBlock(target, {
+          busy: false,
+          ...(outcome.ok ? { runStarted: true } : {}),
+        })
+        setMessages((prev) => [
+          ...prev,
+          getSystemMessage(
+            outcome.ok
+              ? `Started ${consent.advertiserName}'s sponsored task on ${consent.branch}. Nothing will be pushed.`
+              : 'message' in outcome
+                ? outcome.message
+                : 'The sponsored task was not started.',
+          ),
+        ])
+      })()
+    },
+  )
+
+  // Mounted here rather than inside the card, because the card does not exist
+  // until this hook puts it there (COD-339: nothing polled before it).
+  useSponsoredProposal()
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -1515,6 +1594,8 @@ export const Chat = ({
       onResponseAdsNeeded: handleResponseAdsNeeded,
       onSponsoredProposalMenu: handleSponsoredProposalMenu,
       onSponsoredProposalDisclose: handleSponsoredProposalDisclose,
+      onSponsoredProposalAccept: handleSponsoredProposalAccept,
+      onSponsoredProposalConsent: handleSponsoredProposalConsent,
       onSponsoredProposalControl: handleSponsoredProposalControl,
     })
   }, [

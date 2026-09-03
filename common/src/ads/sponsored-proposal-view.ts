@@ -216,6 +216,7 @@ export function sponsoredChannelActions(
 }
 
 export type SponsoredProposalMenuKey =
+  | 'accept'
   | 'why'
   | 'never-advertiser'
   | 'report'
@@ -228,13 +229,26 @@ export type SponsoredProposalMenuKey =
  * advertiser's name: a surface builds this menu the same way whether or not it
  * has a row in hand, and "Why this?" is a disclosure of copy the view model
  * already carries rather than an answer to the offer.
+ *
+ * `accept` IS OPTIONAL AND FIRST WHEN PRESENT. A surface with no room for a
+ * primary — a terminal at twenty columns has none — needs somewhere to put the
+ * answer to the offer, and the only honest place is at the top of the list of
+ * answers. It is passed in rather than derived from a row so that a surface
+ * which cannot run a sponsored task (Windows, per COD-336 item 3) simply does
+ * not offer it, instead of drawing a control that refuses.
  */
-export function sponsoredProposalMenu(advertiserName: string): Array<{
+export function sponsoredProposalMenu(
+  advertiserName: string,
+  options: { acceptLabel?: string } = {},
+): Array<{
   key: SponsoredProposalMenuKey
   label: string
   separatorBefore?: boolean
 }> {
   return [
+    ...(options.acceptLabel
+      ? [{ key: 'accept' as const, label: options.acceptLabel }]
+      : []),
     { key: 'why', label: 'Why this?' },
     ...sponsoredChannelActions(advertiserName).map((action) => ({
       key: action.kind as SponsoredProposalMenuKey,

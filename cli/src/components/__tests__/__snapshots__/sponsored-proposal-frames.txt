@@ -31,11 +31,11 @@
 │ Add one-click deploys to this project        │
 │ A sponsored agent can wire Acme Deploys      │
 │ into your repo on its own branch.            │
-│ /ads:proposal · /ads:dismiss-proposal        │
+│ It runs here, in its own worktree, and uses  │
+│ your session and credits, like any other     │
+│ task.                                        │
+│ /ads:accept-proposal · /ads:dismiss-proposal │
 └──────────────────────────────────────────────┘
-
-
-
 
 
 
@@ -57,10 +57,10 @@
 │ Add one-click deploys to this project                    │
 │ A sponsored agent can wire Acme Deploys into your repo   │
 │ on its own branch.                                       │
-│ /ads:proposal · /ads:dismiss-proposal                    │
+│ It runs here, in its own worktree, and uses your         │
+│ session and credits, like any other task.                │
+│ /ads:accept-proposal · /ads:dismiss-proposal             │
 └──────────────────────────────────────────────────────────┘
-
-
 
 
 
@@ -245,16 +245,16 @@
 │ Nothing was      │
 │ pushed to your   │
 │ repository.      │
+│ Open a pull      │
+│ request with /   │
+│ ads:pull-        │
+│ request, or      │
+│ discard the      │
+│ workspace with / │
+│ ads:remove-      │
+│ worktree.        │
 │ /ads:proposal    │
 └──────────────────┘
-
-
-
-
-
-
-
-
 
 
 
@@ -265,11 +265,11 @@
 │ Add one-click deploys to this project        │
 │ Committed to sponsored/acme-deploys.         │
 │ Nothing was pushed to your repository.       │
+│ Open a pull request with /ads:pull-request,  │
+│ or discard the workspace with /ads:remove-   │
+│ worktree.                                    │
 │ /ads:proposal · /ads:dismiss-proposal        │
 └──────────────────────────────────────────────┘
-
-
-
 
 
 
@@ -291,10 +291,10 @@
 │ Add one-click deploys to this project                    │
 │ Committed to sponsored/acme-deploys. Nothing was pushed  │
 │ to your repository.                                      │
+│ Open a pull request with /ads:pull-request, or discard   │
+│ the workspace with /ads:remove-worktree.                 │
 │ /ads:proposal · /ads:dismiss-proposal                    │
 └──────────────────────────────────────────────────────────┘
-
-
 
 
 
@@ -530,6 +530,162 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== consent @ 20 ===
+┌──────────────────┐
+│ SPONSORED        │
+│ Acme Deploys     │
+│ Sponsored propos │
+│ Add one-click    │
+│ dep…             │
+│ Run Acme         │
+│ Deploys's        │
+│ sponsored task   │
+│ on this machine? │
+│ Add one-click    │
+│ deploys          │
+│ A sponsored      │
+│ agent can wire   │
+│ Acme Deploys     │
+│ into your repo.  │
+│ Folder: /home/   │
+│ dev/app          │
+│ Branch:          │
+│ freebuff/        │
+│ sponsored-acme-  │
+│ deploys-run-1    │
+│ It runs          │
+│ sandboxed in a   │
+
+=== consent @ 48 ===
+┌──────────────────────────────────────────────┐
+│ Acme Deploys                       SPONSORED │
+│ Sponsored proposal                           │
+│ Add one-click deploys to this project        │
+│ A sponsored agent can wire Acme Deploys      │
+│ into your repo on its own branch.            │
+│ It runs here, in its own worktree, and uses  │
+│ your session and credits, like any other     │
+│ task.                                        │
+│ Run Acme Deploys's sponsored task on this    │
+│ machine?                                     │
+│ Add one-click deploys                        │
+│ A sponsored agent can wire Acme Deploys      │
+│ into your repo.                              │
+│ Folder: /home/dev/app                        │
+│ Branch: freebuff/sponsored-acme-deploys-run- │
+│ 1                                            │
+│ It runs sandboxed in a new worktree with no  │
+│ access to your credentials, commits to that  │
+│ branch only, and pushes nothing. It uses     │
+│ your session and credits, like any other     │
+│ task.                                        │
+│ > Not now                                    │
+│   Run it in a worktree                       │
+
+=== consent @ 60 ===
+┌──────────────────────────────────────────────────────────┐
+│ Acme Deploys                                   SPONSORED │
+│ Sponsored proposal                                       │
+│ Add one-click deploys to this project                    │
+│ A sponsored agent can wire Acme Deploys into your repo   │
+│ on its own branch.                                       │
+│ It runs here, in its own worktree, and uses your         │
+│ session and credits, like any other task.                │
+│ Run Acme Deploys's sponsored task on this machine?       │
+│ Add one-click deploys                                    │
+│ A sponsored agent can wire Acme Deploys into your repo.  │
+│ Folder: /home/dev/app                                    │
+│ Branch: freebuff/sponsored-acme-deploys-run-1            │
+│ It runs sandboxed in a new worktree with no access to    │
+│ your credentials, commits to that branch only, and       │
+│ pushes nothing. It uses your session and credits, like   │
+│ any other task.                                          │
+│ > Not now                                                │
+│   Run it in a worktree                                   │
+│ ↑↓ move · enter choose · esc cancel                      │
+└──────────────────────────────────────────────────────────┘
+
+
+
+
+=== offered-windows @ 20 ===
+┌──────────────────┐
+│ SPONSORED        │
+│ Acme Deploys     │
+│ Sponsored propos │
+│ Add one-click    │
+│ dep…             │
+│ Sponsored tasks  │
+│ can’t run on     │
+│ Windows yet:     │
+│ Freebuff has no  │
+│ way to keep an   │
+│ advertiser’s     │
+│ commands inside  │
+│ the workspace    │
+│ on this          │
+│ operating        │
+│ system.          │
+│ /ads:proposal    │
+└──────────────────┘
+
+
+
+
+
+
+=== offered-windows @ 48 ===
+┌──────────────────────────────────────────────┐
+│ Acme Deploys                       SPONSORED │
+│ Sponsored proposal                           │
+│ Add one-click deploys to this project        │
+│ A sponsored agent can wire Acme Deploys      │
+│ into your repo on its own branch.            │
+│ Sponsored tasks can’t run on Windows yet:    │
+│ Freebuff has no way to keep an advertiser’s  │
+│ commands inside the workspace on this        │
+│ operating system.                            │
+│ /ads:proposal · /ads:dismiss-proposal        │
+└──────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== offered-windows @ 60 ===
+┌──────────────────────────────────────────────────────────┐
+│ Acme Deploys                                   SPONSORED │
+│ Sponsored proposal                                       │
+│ Add one-click deploys to this project                    │
+│ A sponsored agent can wire Acme Deploys into your repo   │
+│ on its own branch.                                       │
+│ Sponsored tasks can’t run on Windows yet: Freebuff has   │
+│ no way to keep an advertiser’s commands inside the       │
+│ workspace on this operating system.                      │
+│ /ads:proposal · /ads:dismiss-proposal                    │
+└──────────────────────────────────────────────────────────┘
 
 
 

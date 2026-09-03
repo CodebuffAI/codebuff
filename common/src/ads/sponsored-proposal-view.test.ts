@@ -1,7 +1,7 @@
 /**
  * The VM layer of the sponsored-proposal conformance matrix (COD-376).
  *
- * VM-1..VM-24 are these `test(...)` cases in file order, and the IDs are in
+ * VM-1..VM-28 are these `test(...)` cases in file order, and the IDs are in
  * the names so a surface's report can cite them. These run ONCE, here: the
  * view model is shared, and a surface that re-implemented them would be
  * asserting against its own copy of the state machine rather than the one
@@ -314,6 +314,59 @@ describe('sponsoredProposalMenu', () => {
         label: 'Turn off sponsored proposals',
         separatorBefore: true,
       },
+    ])
+  })
+})
+
+/**
+ * The Accept in the overflow menu (COD-339).
+ *
+ * A surface with no room for a primary needs somewhere to put the answer to the
+ * offer, and the only honest place is the top of the list of answers. It is
+ * passed in rather than derived from the row, so a surface that cannot RUN a
+ * sponsored task (Windows, per COD-336 item 3) simply does not offer it instead
+ * of drawing a control that refuses.
+ */
+describe('sponsoredProposalMenu and the optional Accept', () => {
+  test('VM-25 is unchanged when no accept label is given', () => {
+    const menu = sponsoredProposalMenu('Acme')
+    expect(menu.map((item) => item.key)).toEqual([
+      'why',
+      'never-advertiser',
+      'report',
+      'opt-out',
+    ])
+  })
+
+  test('VM-26 puts the Accept first, and changes nothing else', () => {
+    const menu = sponsoredProposalMenu('Acme', {
+      acceptLabel: 'Start sponsored thread',
+    })
+    expect(menu[0]).toMatchObject({
+      key: 'accept',
+      label: 'Start sponsored thread',
+    })
+    expect(menu.slice(1)).toEqual(sponsoredProposalMenu('Acme'))
+  })
+
+  test('VM-27 an empty label is not an Accept', () => {
+    // The label comes from the view model's action, which is absent in every
+    // state but `offered`. An empty string reaching here must not draw a
+    // nameless control.
+    expect(
+      sponsoredProposalMenu('Acme', { acceptLabel: '' }).map((i) => i.key),
+    ).not.toContain('accept')
+  })
+
+  test('VM-28 the standing controls are still the last three, in order', () => {
+    // Report, never-this-advertiser and the channel opt-out are the only
+    // controls the user has over this channel. Adding an Accept above them must
+    // not thin them out.
+    const menu = sponsoredProposalMenu('Acme', { acceptLabel: 'Start' })
+    expect(menu.slice(-3).map((item) => item.key)).toEqual([
+      'never-advertiser',
+      'report',
+      'opt-out',
     ])
   })
 })
