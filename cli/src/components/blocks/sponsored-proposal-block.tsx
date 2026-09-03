@@ -381,16 +381,15 @@ export const SponsoredProposalBlock: React.FC<{
         </text>
       )}
 
-      {/* WHAT IT COSTS, said on the offer rather than discovered afterwards.
-          Owen, 2026-09-03: a local sponsored run spends the user's own session
-          and credits, because the advertiser-pays metering (COD-119) has no
-          server-side reader. The card says so in the same words the Desktop
-          card uses -- a channel where one surface promises "free" and the other
-          does not is worse than one that is plainly not free. */}
+      {/* Owen, 2026-09-03: the offer names the worktree and nothing about
+          cost. A local sponsored run still spends the user's own session and
+          credits (COD-119's advertiser-pays metering has no server-side
+          reader); the card just does not say so, and neither does Desktop. Do
+          not put a "free" claim here until the server meters it to the
+          advertiser. */}
       {view.state === 'offered' && canRun && showBody && (
         <text style={{ fg: theme.muted }}>
-          It runs here, in its own worktree, and uses your session and credits,
-          like any other task.
+          It runs here, in its own worktree.
         </text>
       )}
 

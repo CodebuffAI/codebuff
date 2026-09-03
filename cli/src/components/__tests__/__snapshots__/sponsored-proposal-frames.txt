@@ -31,11 +31,11 @@
 │ Add one-click deploys to this project        │
 │ A sponsored agent can wire Acme Deploys      │
 │ into your repo on its own branch.            │
-│ It runs here, in its own worktree, and uses  │
-│ your session and credits, like any other     │
-│ task.                                        │
+│ It runs here, in its own worktree.           │
 │ /ads:accept-proposal · /ads:dismiss-proposal │
 └──────────────────────────────────────────────┘
+
+
 
 
 
@@ -57,10 +57,10 @@
 │ Add one-click deploys to this project                    │
 │ A sponsored agent can wire Acme Deploys into your repo   │
 │ on its own branch.                                       │
-│ It runs here, in its own worktree, and uses your         │
-│ session and credits, like any other task.                │
+│ It runs here, in its own worktree.                       │
 │ /ads:accept-proposal · /ads:dismiss-proposal             │
 └──────────────────────────────────────────────────────────┘
+
 
 
 
@@ -577,9 +577,7 @@
 │ Add one-click deploys to this project        │
 │ A sponsored agent can wire Acme Deploys      │
 │ into your repo on its own branch.            │
-│ It runs here, in its own worktree, and uses  │
-│ your session and credits, like any other     │
-│ task.                                        │
+│ It runs here, in its own worktree.           │
 │ Acme Deploys wants to integrate itself into  │
 │ this project, on its own branch. Nothing is  │
 │ pushed until you review it.                  │
@@ -596,6 +594,8 @@
 
 
 
+
+
 === consent @ 60 ===
 ┌──────────────────────────────────────────────────────────┐
 │ Acme Deploys                                   SPONSORED │
@@ -603,8 +603,7 @@
 │ Add one-click deploys to this project                    │
 │ A sponsored agent can wire Acme Deploys into your repo   │
 │ on its own branch.                                       │
-│ It runs here, in its own worktree, and uses your         │
-│ session and credits, like any other task.                │
+│ It runs here, in its own worktree.                       │
 │ Acme Deploys wants to integrate itself into this         │
 │ project, on its own branch. Nothing is pushed until you  │
 │ review it.                                               │
@@ -612,6 +611,7 @@
 │   Yes                                                    │
 │ ↑↓ move · enter choose · esc cancel                      │
 └──────────────────────────────────────────────────────────┘
+
 
 
 
