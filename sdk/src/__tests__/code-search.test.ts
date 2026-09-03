@@ -1,3 +1,7 @@
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
+
 import {
   clearMockedModules,
   mockModule,
@@ -10,7 +14,11 @@ import {
 } from '@codebuff/common/testing/mocks'
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
 
-import { codeSearch, clearHiddenDirsCache, getExistingHiddenDirs } from '../tools/code-search'
+import {
+  codeSearch,
+  clearHiddenDirsCache,
+  getExistingHiddenDirs,
+} from '../tools/code-search'
 
 import type { MockChildProcess } from '@codebuff/common/testing/mocks'
 
@@ -903,20 +911,140 @@ describe('codeSearch', () => {
   })
 
   describe('hidden directories caching', () => {
-    it('caches existing hidden directories across repeated calls', () => {
-      const dir = process.cwd()
-      const first = getExistingHiddenDirs(dir)
-      const second = getExistingHiddenDirs(dir)
-      expect(first).toEqual(second)
+    let tempDirs: string[] = []
+
+    const createTempDir = () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'code-search-test-'))
+      tempDirs.push(dir)
+      return dir
+    }
+
+    afterEach(() => {
+      clearHiddenDirsCache()
+      for (const dir of tempDirs) {
+        try {
+          fs.rmSync(dir, { recursive: true, force: true })
+        } catch {}
+      }
+      tempDirs = []
     })
 
-    it('clears cache when clearHiddenDirsCache is called', () => {
-      const dir = process.cwd()
-      const first = getExistingHiddenDirs(dir)
+    it('caches detected hidden directories within TTL', () => {
+      const testDir = createTempDir()
+      const t0 = 10_000
+
+      // Initial check when no hidden directories exist
+      expect(getExistingHiddenDirs(testDir, t0)).toEqual([])
+
+      // Create a hidden directory on disk
+      fs.mkdirSync(path.join(testDir, '.github'))
+
+      // Within 1-second TTL, cached result is returned without re-statting
+      expect(getExistingHiddenDirs(testDir, t0 + 500)).toEqual([])
+    })
+
+    it('immediately picks up newly created directories after clearHiddenDirsCache()', () => {
+      const testDir = createTempDir()
+
+      // Initial check
+      expect(getExistingHiddenDirs(testDir)).toEqual([])
+
+      // Create a hidden directory
+      fs.mkdirSync(path.join(testDir, '.github'))
+
+      // Still cached
+      expect(getExistingHiddenDirs(testDir)).toEqual([])
+
+      // Clear cache and verify immediate discovery
       clearHiddenDirsCache()
-      const second = getExistingHiddenDirs(dir)
-      expect(first).toEqual(second)
+      expect(getExistingHiddenDirs(testDir)).toEqual(['.github'])
+    })
+
+    it('immediately picks up newly removed directories after clearHiddenDirsCache()', () => {
+      const testDir = createTempDir()
+      const huskyDir = path.join(testDir, '.husky')
+      fs.mkdirSync(huskyDir)
+
+      // Initial check detects .husky
+      expect(getExistingHiddenDirs(testDir)).toEqual(['.husky'])
+
+      // Remove the directory
+      fs.rmdirSync(huskyDir)
+
+      // Still cached
+      expect(getExistingHiddenDirs(testDir)).toEqual(['.husky'])
+
+      // Clear cache and verify immediate discovery of removal
+      clearHiddenDirsCache()
+      expect(getExistingHiddenDirs(testDir)).toEqual([])
+    })
+
+    it('automatically discovers newly created directories once TTL expires without manual cache clear', () => {
+      const testDir = createTempDir()
+      const t0 = 20_000
+
+      // Initial check
+      expect(getExistingHiddenDirs(testDir, t0)).toEqual([])
+
+      // Create a hidden directory
+      fs.mkdirSync(path.join(testDir, '.agents'))
+
+      // Within TTL: cached
+      expect(getExistingHiddenDirs(testDir, t0 + 500)).toEqual([])
+
+      // Past 1000ms TTL: automatically refreshed on next call
+      expect(getExistingHiddenDirs(testDir, t0 + 1001)).toEqual(['.agents'])
+    })
+
+    it('supports targeted directory invalidation with clearHiddenDirsCache(dir)', () => {
+      const dirA = createTempDir()
+      const dirB = createTempDir()
+
+      // Populate both in cache
+      expect(getExistingHiddenDirs(dirA)).toEqual([])
+      expect(getExistingHiddenDirs(dirB)).toEqual([])
+
+      // Create directories in both
+      fs.mkdirSync(path.join(dirA, '.github'))
+      fs.mkdirSync(path.join(dirB, '.husky'))
+
+      // Invalidate only dirA
+      clearHiddenDirsCache(dirA)
+
+      // dirA is re-evaluated, dirB remains cached
+      expect(getExistingHiddenDirs(dirA)).toEqual(['.github'])
+      expect(getExistingHiddenDirs(dirB)).toEqual([])
+    })
+
+    it('evicts least-recently used entry when cache capacity reaches MAX_CACHE_SIZE', () => {
+      const dirOld = createTempDir()
+      const dirRecent = createTempDir()
+      const t0 = 30_000
+
+      // Cache dirOld then dirRecent
+      expect(getExistingHiddenDirs(dirOld, t0)).toEqual([])
+      expect(getExistingHiddenDirs(dirRecent, t0)).toEqual([])
+
+      // Access dirRecent again to refresh its recency in the LRU Map
+      expect(getExistingHiddenDirs(dirRecent, t0 + 100)).toEqual([])
+
+      // Fill remaining capacity up to 100 entries
+      for (let i = 2; i < 100; i++) {
+        getExistingHiddenDirs(`/mock/nonexistent/dir-${i}`, t0)
+      }
+
+      // Add 101st entry to trigger eviction of the oldest (dirOld)
+      getExistingHiddenDirs('/mock/nonexistent/dir-overflow', t0)
+
+      // Create .github in both test directories
+      fs.mkdirSync(path.join(dirOld, '.github'))
+      fs.mkdirSync(path.join(dirRecent, '.github'))
+
+      // dirRecent was refreshed and preserved in LRU, so it remains cached within TTL
+      expect(getExistingHiddenDirs(dirRecent, t0 + 200)).toEqual([])
+
+      // dirOld was evicted, so it re-stats disk and discovers .github
+      expect(getExistingHiddenDirs(dirOld, t0 + 200)).toEqual(['.github'])
     })
   })
 })
-

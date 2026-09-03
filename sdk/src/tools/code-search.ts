@@ -19,34 +19,53 @@ const INCLUDED_HIDDEN_DIRS = [
   '.husky', // Git hooks
 ]
 
-const HIDDEN_DIRS_CACHE_TTL_MS = 30_000 // 30 seconds TTL
+const HIDDEN_DIRS_CACHE_TTL_MS = 1_000 // 1 second TTL (burst de-duplication window)
+const MAX_CACHE_SIZE = 100
 const hiddenDirsCache = new Map<string, { dirs: string[]; timestamp: number }>()
 
-export function getExistingHiddenDirs(searchCwd: string): string[] {
-  const cached = hiddenDirsCache.get(searchCwd)
-  const now = Date.now()
+export function getExistingHiddenDirs(
+  searchCwd: string,
+  now = Date.now(),
+): string[] {
+  const normalizedCwd = path.resolve(searchCwd)
+  const cached = hiddenDirsCache.get(normalizedCwd)
   if (cached && now - cached.timestamp < HIDDEN_DIRS_CACHE_TTL_MS) {
+    // Refresh LRU recency
+    hiddenDirsCache.delete(normalizedCwd)
+    hiddenDirsCache.set(normalizedCwd, cached)
     return cached.dirs
   }
 
   const existingHiddenDirs = INCLUDED_HIDDEN_DIRS.filter((dir) => {
     try {
-      return fs.statSync(path.join(searchCwd, dir)).isDirectory()
+      return fs.statSync(path.join(normalizedCwd, dir)).isDirectory()
     } catch {
       return false
     }
   })
 
-  if (hiddenDirsCache.size >= 100) {
-    hiddenDirsCache.clear()
+  if (hiddenDirsCache.has(normalizedCwd)) {
+    hiddenDirsCache.delete(normalizedCwd)
+  } else if (hiddenDirsCache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = hiddenDirsCache.keys().next().value
+    if (oldestKey !== undefined) {
+      hiddenDirsCache.delete(oldestKey)
+    }
   }
-  hiddenDirsCache.set(searchCwd, { dirs: existingHiddenDirs, timestamp: now })
+  hiddenDirsCache.set(normalizedCwd, {
+    dirs: existingHiddenDirs,
+    timestamp: now,
+  })
 
   return existingHiddenDirs
 }
 
-export function clearHiddenDirsCache(): void {
-  hiddenDirsCache.clear()
+export function clearHiddenDirsCache(dir?: string): void {
+  if (dir) {
+    hiddenDirsCache.delete(path.resolve(dir))
+  } else {
+    hiddenDirsCache.clear()
+  }
 }
 
 export function codeSearch({
