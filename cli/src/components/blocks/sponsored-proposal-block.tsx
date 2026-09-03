@@ -1,4 +1,9 @@
 import {
+  SPONSORED_CONSENT_NO_NAME,
+  SPONSORED_CONSENT_SENTENCE,
+  sponsoredConsentName,
+} from '@codebuff/common/ads/sponsored-consent'
+import {
   SPONSORED_STEP_STATE_LABEL,
   sponsoredProposalAction,
   sponsoredProposalMenu,
@@ -114,6 +119,13 @@ export const SponsoredProposalBlock: React.FC<{
   const answered = block.answered === true
   const busy = block.busy === true
   const consent = block.consent ?? null
+  // Clamped exactly as the desktop bridge clamps it: the name is the only
+  // advertiser-authored text left on a one-sentence consent, which makes it the
+  // whole attack surface.
+  const consentName = consent ? sponsoredConsentName(consent.advertiserName) : ''
+  const consentChoices: readonly string[] = consentName
+    ? CONSENT_CHOICES
+    : CONSENT_CHOICES_NO_NAME
   // The refusal sentence, shown only where an Accept would otherwise be: a
   // terminal that explained the Windows containment story on a `failed` card
   // would be answering a question nobody asked.
@@ -169,15 +181,20 @@ export const SponsoredProposalBlock: React.FC<{
           }
           if (key.name === 'up' || key.name === 'down') {
             preventDefault()
-            setConsentIndex((index) => (index === 0 ? 1 : 0))
+            // With no name there is one choice, so the caret has nowhere to go
+            // -- the same property as the disabled Yes on the desktop dialog.
+            if (consentChoices.length > 1) setConsentIndex((index) => (index === 0 ? 1 : 0))
             return
           }
           if (isPlainEnterKey(key)) {
             preventDefault()
-            // INDEX 0 IS "NOT NOW". The destructive-looking choice is not the
+            // INDEX 0 IS "NO". The destructive-looking choice is not the
             // default: a consent screen whose caret starts on "run it" is a
             // consent screen that an impatient Enter answers yes.
-            callbacks.onSponsoredProposalConsent(block.target, consentIndex === 1)
+            callbacks.onSponsoredProposalConsent(
+              block.target,
+              consentChoices.length > 1 && consentIndex === 1,
+            )
           }
           return
         }
@@ -221,6 +238,7 @@ export const SponsoredProposalBlock: React.FC<{
         block.target,
         callbacks,
         consent,
+        consentChoices,
         consentIndex,
         menu,
         menuIndex,
@@ -380,32 +398,34 @@ export const SponsoredProposalBlock: React.FC<{
 
       {block.whyOpen && <text style={{ fg: theme.muted }}>{view.whyThis}</text>}
 
-      {/* THE CONSENT: what will run, where, and on which branch. Refusable, and
-          a refusal writes nothing at all -- nothing has been accepted yet. It
-          cannot show the reviewed procedure TEXT because the accept response is
-          the only place that exists; see `utils/sponsored-run.ts` for why that
-          ordering is the one that keeps a Decline honest. */}
+      {/* THE CONSENT: one sentence and two choices (COD-410), the same words
+          Desktop's main-process dialog says. It used to be a field list --
+          headline, body, folder, branch, a paragraph of assurances -- and a
+          list nobody reads is not informed consent however much it contains.
+          The folder is the one this CLI is running in and the branch is
+          covered by "its own branch"; a fact that does not change the
+          decision is not on the screen. Refusable, and a refusal writes
+          nothing at all -- nothing has been accepted yet. It cannot show the
+          reviewed procedure TEXT because the accept response is the only place
+          that exists; see `utils/sponsored-run.ts` for why that ordering is
+          the one that keeps a Decline honest. */}
       {consent && (
         <box style={{ width: '100%', flexDirection: 'column' }}>
-          <text style={{ fg: theme.foreground }}>
-            {`Run ${consent.advertiserName}'s sponsored task on this machine?`}
-          </text>
-          <text style={{ fg: theme.muted }}>{consent.headline}</text>
-          <text style={{ fg: theme.muted }}>{consent.body}</text>
-          {/* WRAPPED, NOT CLIPPED, unlike every other line on this card. The
-              rest of the card clips because a terminal has no ellipsis box and
-              a headline that loses its tail still reads. These two are the
-              facts the confirmation exists to state -- which folder, which
-              branch -- and a folder truncated at twenty columns is a consent
-              screen that does not say what it is asking about. */}
-          <text style={{ fg: theme.muted }}>{`Folder: ${consent.folder}`}</text>
-          <text style={{ fg: theme.muted }}>{`Branch: ${consent.branch}`}</text>
-          <text style={{ fg: theme.muted }}>
-            It runs sandboxed in a new worktree with no access to your
-            credentials, commits to that branch only, and pushes nothing. It
-            uses your session and credits, like any other task.
-          </text>
-          {CONSENT_CHOICES.map((label, index) => (
+          {/* The name is the advertiser's and the sentence is ours, so they are two spans and
+              never one string. `sponsoredConsentName` is the SAME clamp the desktop bridge
+              applies: control characters and bidi overrides escaped rather than dropped, and the
+              length capped at 80 -- unclamped, a 4,000-character name is a wall of text above the
+              choices on a card that is otherwise all clipped single lines. Blank is not a legal
+              render, so a nameless consent states a refusal and offers only the refusal. */}
+          {consentName ? (
+            <text style={{ fg: theme.foreground }}>
+              <span attributes={TextAttributes.BOLD}>{consentName}</span>
+              {SPONSORED_CONSENT_SENTENCE}
+            </text>
+          ) : (
+            <text style={{ fg: theme.foreground }}>{SPONSORED_CONSENT_NO_NAME}</text>
+          )}
+          {consentChoices.map((label, index) => (
             <text
               key={label}
               style={{
@@ -447,7 +467,15 @@ export const SponsoredProposalBlock: React.FC<{
   )
 }
 
-const CONSENT_CHOICES = ['Not now', 'Run it in a worktree'] as const
+/**
+ * Two choices, refusal first. The words themselves and the sentence above them
+ * live in `@codebuff/common/ads/sponsored-consent`, which the desktop dialog
+ * mirrors -- the two surfaces ask the same question, and a reader who has seen
+ * one must recognise the other.
+ */
+const CONSENT_CHOICES = ['No', 'Yes'] as const
+/** Nameless, the only thing left to offer is the refusal. */
+const CONSENT_CHOICES_NO_NAME = ['No'] as const
 
 function answeredOrBusy(block: SponsoredProposalContentBlock): boolean {
   return block.answered === true || block.busy === true

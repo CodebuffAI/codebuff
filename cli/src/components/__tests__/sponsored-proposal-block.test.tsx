@@ -156,11 +156,49 @@ describe('every state, at every width', () => {
       blockFor(SPONSORED_ROW_FIXTURES.offered, { consent: CONSENT }),
       60,
     )
-    // Everything the boundary promises, said before it happens: where it runs,
-    // on which branch, and what it costs.
-    expect(consented).toContain(CONSENT.branch)
-    expect(consented).toContain('Not now')
-    expect(consented).toContain('uses your session and credits')
+    // One sentence and two choices (COD-410): who is asking, that it stays on
+    // its own branch, and that nothing is pushed. The field list this used to
+    // be -- folder, branch, a paragraph of assurances -- is gone on purpose.
+    expect(consented).toContain('Acme Deploys wants to integrate itself into')
+    expect(consented).toContain('Nothing is pushed until you')
+    expect(consented).not.toContain(CONSENT.branch)
+    expect(consented).not.toContain(CONSENT.folder)
+    expect(consented).toContain('> No')
+    expect(consented).toContain('  Yes')
+  })
+
+  test('a hostile advertiser name cannot restyle the sentence or move the choices', async () => {
+    // The name is the only advertiser-authored text left on the consent, which makes it the whole
+    // attack surface. It goes through the SAME clamp the desktop bridge applies -- bidi overrides
+    // and controls escaped rather than dropped, length capped -- so it cannot flip the sentence
+    // around it, and it cannot push the two choices off the card.
+    const hostile = `\u202eEVIL\u200b${'x'.repeat(4_000)}`
+    const out = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, {
+        consent: { ...CONSENT, advertiserName: hostile },
+      }),
+      60,
+    )
+    expect(out).not.toContain('\u202e')
+    expect(out).toContain('\\u202e')
+    expect(out).toContain('wants to integrate itself into')
+    expect(out).toContain('> No')
+    expect(out).toContain('  Yes')
+  })
+
+  test('a nameless consent states a refusal and offers only the refusal', async () => {
+    // Blank is not a legal render: a sentence about nobody asks a human to consent to nothing.
+    // Desktop disables Yes; a terminal has no disabled button, so the choice is simply not there.
+    const out = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, {
+        consent: { ...CONSENT, advertiserName: '   ' },
+      }),
+      60,
+    )
+    // wrapped, so the assertion is on the words rather than on where the line breaks
+    expect(out).toContain('could not say who is asking')
+    expect(out).toContain('> No')
+    expect(out).not.toContain('Yes')
   })
 
   test('R-2 every state offers the same one decline, and names it', async () => {

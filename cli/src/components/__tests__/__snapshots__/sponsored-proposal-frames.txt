@@ -551,24 +551,24 @@
 │ Sponsored propos │
 │ Add one-click    │
 │ dep…             │
-│ Run Acme         │
-│ Deploys's        │
-│ sponsored task   │
-│ on this machine? │
-│ Add one-click    │
-│ deploys          │
-│ A sponsored      │
-│ agent can wire   │
 │ Acme Deploys     │
-│ into your repo.  │
-│ Folder: /home/   │
-│ dev/app          │
-│ Branch:          │
-│ freebuff/        │
-│ sponsored-acme-  │
-│ deploys-run-1    │
-│ It runs          │
-│ sandboxed in a   │
+│ wants to         │
+│ integrate        │
+│ itself into      │
+│ this project,    │
+│ on its own       │
+│ branch. Nothing  │
+│ is pushed until  │
+│ you review it.   │
+│ > No             │
+│   Yes            │
+│ enter · esc      │
+└──────────────────┘
+
+
+
+
+
 
 === consent @ 48 ===
 ┌──────────────────────────────────────────────┐
@@ -580,21 +580,21 @@
 │ It runs here, in its own worktree, and uses  │
 │ your session and credits, like any other     │
 │ task.                                        │
-│ Run Acme Deploys's sponsored task on this    │
-│ machine?                                     │
-│ Add one-click deploys                        │
-│ A sponsored agent can wire Acme Deploys      │
-│ into your repo.                              │
-│ Folder: /home/dev/app                        │
-│ Branch: freebuff/sponsored-acme-deploys-run- │
-│ 1                                            │
-│ It runs sandboxed in a new worktree with no  │
-│ access to your credentials, commits to that  │
-│ branch only, and pushes nothing. It uses     │
-│ your session and credits, like any other     │
-│ task.                                        │
-│ > Not now                                    │
-│   Run it in a worktree                       │
+│ Acme Deploys wants to integrate itself into  │
+│ this project, on its own branch. Nothing is  │
+│ pushed until you review it.                  │
+│ > No                                         │
+│   Yes                                        │
+│ ↑↓ move · enter choose · esc cancel          │
+└──────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
 
 === consent @ 60 ===
 ┌──────────────────────────────────────────────────────────┐
@@ -605,19 +605,19 @@
 │ on its own branch.                                       │
 │ It runs here, in its own worktree, and uses your         │
 │ session and credits, like any other task.                │
-│ Run Acme Deploys's sponsored task on this machine?       │
-│ Add one-click deploys                                    │
-│ A sponsored agent can wire Acme Deploys into your repo.  │
-│ Folder: /home/dev/app                                    │
-│ Branch: freebuff/sponsored-acme-deploys-run-1            │
-│ It runs sandboxed in a new worktree with no access to    │
-│ your credentials, commits to that branch only, and       │
-│ pushes nothing. It uses your session and credits, like   │
-│ any other task.                                          │
-│ > Not now                                                │
-│   Run it in a worktree                                   │
+│ Acme Deploys wants to integrate itself into this         │
+│ project, on its own branch. Nothing is pushed until you  │
+│ review it.                                               │
+│ > No                                                     │
+│   Yes                                                    │
 │ ↑↓ move · enter choose · esc cancel                      │
 └──────────────────────────────────────────────────────────┘
+
+
+
+
+
+
 
 
 
