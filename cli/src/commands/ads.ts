@@ -8,6 +8,8 @@ import { saveSettings, loadSettings } from '../utils/settings'
 import { getAuthToken } from '../utils/auth'
 import { setSponsoredProposalPrefs } from '../utils/sponsored-proposal-api'
 import { runSponsoredProposalControl } from '../utils/sponsored-proposal-control'
+import { sponsoredCliUnavailableCopy } from '../utils/sponsored-availability'
+import { currentSponsoredRun } from '../utils/sponsored-run'
 import { isSponsoredProposalBlock } from '../types/chat'
 
 import type {
@@ -170,6 +172,63 @@ export const handleProposalNeverAdvertiser = (
       ),
     'You will not see proposals from this advertiser again.',
   )
+
+/**
+ * `/ads:accept-proposal` — open the consent screen for the card on screen.
+ *
+ * IT STARTS NOTHING. The command is the gesture; the consent is the decision,
+ * and only the consent can approve a run (COD-336 item 4, adapted for a
+ * terminal in `utils/sponsored-run.ts`). Returns null when it opened one,
+ * because a system line saying "opened" would push the screen it refers to
+ * further up the transcript.
+ */
+export function handleProposalAccept(messages: ChatMessage[]): string | null {
+  const block = liveSponsoredProposal(messages)
+  if (!block) return 'No sponsored proposal on screen.'
+  if (block.proposal.state !== 'offered') {
+    return 'That sponsored task has already been answered.'
+  }
+  const unavailable = sponsoredCliUnavailableCopy()
+  if (unavailable) return unavailable
+  useMessageBlockStore
+    .getState()
+    .callbacks.onSponsoredProposalAccept(block.target)
+  return null
+}
+
+/**
+ * `/ads:pull-request` — turn the run's branch into a pull request.
+ *
+ * THE ONLY PUSH IN THE WHOLE FLOW, and it happens here rather than inside the
+ * run. `createPullRequest` recomputes `committed` from git and verifies the
+ * worktree still points at this repository before either command runs, so this
+ * function is a thin front on those guards and never a second opinion about
+ * whether a push is safe.
+ */
+export async function handleProposalPullRequest(): Promise<string> {
+  const run = currentSponsoredRun()
+  if (!run) return 'No sponsored task has run in this session.'
+  const outcome = await run.createPullRequest()
+  if (!outcome.ok) return outcome.message
+  return outcome.recorded
+    ? `Opened ${outcome.prUrl}`
+    : `Opened ${outcome.prUrl} — Freebuff could not be told about it, which changes nothing about the pull request.`
+}
+
+/**
+ * `/ads:remove-worktree` — discard the workspace a run left behind.
+ *
+ * Named in the interrupt notice as well as here, because an interrupted run is
+ * the moment a user most wants it and the moment they are least likely to go
+ * looking for a command. The run's commits do NOT survive this: the branch goes
+ * with the worktree.
+ */
+export async function handleProposalRemoveWorktree(): Promise<string> {
+  const run = currentSponsoredRun()
+  if (!run) return 'No sponsored task has run in this session.'
+  const outcome = await run.removeWorktree()
+  return outcome.ok ? outcome.message : outcome.message
+}
 
 /**
  * Turns sponsored PROPOSALS off. Deliberately separate from `/ads:disable`,

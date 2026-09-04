@@ -1,5 +1,9 @@
 import { describe, test, expect } from 'bun:test'
-import { FREEBUFF_PROVIDER_USAGE_MESSAGE } from '@codebuff/common/constants/freebuff-errors'
+import {
+  FREEBUFF_PROVIDER_USAGE_MESSAGE,
+  FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE,
+  FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
+} from '@codebuff/common/constants/freebuff-errors'
 
 import {
   getFreebuffRateLimitErrorMessage,
@@ -133,6 +137,17 @@ describe('error-handling', () => {
   })
 
   describe('getFreebuffRateLimitErrorMessage', () => {
+    test('shows the per-turn spend breaker copy verbatim, not a rate-limit framing', () => {
+      expect(
+        getFreebuffRateLimitErrorMessage({
+          type: 'error',
+          statusCode: 429,
+          error: FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE,
+          message: FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
+        }),
+      ).toBe(FREEBUFF_TURN_SPEND_LIMIT_MESSAGE)
+    })
+
     test('returns the generic message for untyped 429 errors', () => {
       expect(
         getFreebuffRateLimitErrorMessage({

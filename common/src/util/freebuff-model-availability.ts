@@ -20,60 +20,11 @@ import type {
 } from '../types/freebuff-session'
 
 /**
- * The limits, in three clauses and a signature.
- *
- * SHORT ON PURPOSE. This replaced a version that listed every rule — per-model
- * caps, peak hours, quantization, which pool each row spends — and was four
- * lines deep in a dropdown. Users skim a picker; a paragraph there is read by
- * nobody, so the details it carried reached fewer people than the summary does.
- * The picker itself shows each row's own count, which is where a user looks
- * when they want the specifics.
- *
- * Keep it to: why, what the limit is, what is still free. Anything more belongs
- * on the rows.
- *
- * CUT AGAIN on 2026-08-21, to three facts: which row sleeps at peak, what to
- * use instead, and the one per-model cap. Everything it used to carry had
- * stopped being true — MiniMax M3 was withdrawn, and V4 Pro no longer pauses
- * (it is the peak-hours recommendation now) — which is the recurring hazard
- * with this string: it describes policy that moves, from a place no test reads.
- * Check it whenever a cap or an availability window changes.
- *
- * 2026-08-28: GLM 5.3 Flash is now UNMETERED, joining MiMo and DeepSeek V4
- * Flash. The 2-a-day cap came off on 08-27 when its measurement window closed;
- * a day of production spend then settled the cost question outright — it is
- * the cheapest row we serve per message, 4.6x under MiMo and 8.9x under V4
- * Flash, both of which already ran uncapped. Keeping a ceiling on the cheapest
- * model while the dearer ones had none inverted the reason ceilings exist.
- *
- * This string therefore names THREE unmetered rows and no per-model number.
- * The partial-time sentence describes the SHARED premium allowance and is
- * unrelated to any of them — it stays.
- *
- * 2026-08-31: a per-model number is BACK, for Solar Pro 4 at one a day, and
- * the string calls the row EXPERIMENTAL rather than just capped. That word is
- * doing real work: a trial row that runs out after a single session behaves
- * unlike every other model here, and a user who meets that without being told
- * why reasonably concludes the product is broken. The same word appears on the
- * refusal itself (freebuffSessionSpendNotice), so the picker and the error
- * agree. Both come off together when the measurement window closes.
- *
- * The failure this comment keeps warning about, in both directions: for one
- * commit the cap was gone from the table while this string still promised
- * users "2 sessions a day". The test now checks BOTH — a capped model's number
- * must appear, and a per-model session count must not survive the cap that
- * justified it.
- *
- * 2026-09-01: Solar Pro 4's number is gone again, after one day. The spend
- * figure that justified it was OpenRouter's list-price estimate on a BYOK
- * route, ten times what Upstage invoices under its launch promo; corrected,
- * the row is metered by the shared pool like every other premium model. The
- * string SAYS the limit was lifted rather than going silent, because the users
- * who met the cap yesterday are the ones reading this today — but it quotes no
- * count, so the empty-table half of the test holds.
+ * A short release note shared by CLI and Desktop. Current policy belongs in
+ * the catalog; this is only the user-facing explanation of the change.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Every model runs on your normal daily sessions, including Solar Pro 4 — its one-a-day trial limit has been lifted. Your shared premium allowance still charges partial time, rounded up to a tenth. MiMo, DeepSeek V4 Flash and GLM 5.3 Flash are unmetered. —❤️ Freebuff Team'
+  'Solar Pro 4 is now unmetered at full access and available with limited access. GPT-5.6 Luna still uses your shared premium allowance, charging partial time rounded up to a tenth. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

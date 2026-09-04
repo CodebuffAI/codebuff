@@ -50,6 +50,32 @@ export const AGENTIC_FUNNEL_EVENT_TYPES = [
    * advertiser may report it many times with distinct event ids.
    */
   'tool_used',
+  // APPEND-ONLY BELOW THIS LINE. The Postgres enum
+  // `ad_agentic_funnel_event_type` mirrors this array in ORDER, and the only
+  // migration Postgres can apply cheaply is `ALTER TYPE ... ADD VALUE`, which
+  // appends. Inserting a member in the middle asks drizzle-kit to drop and
+  // recreate a type an append-only ledger already depends on, so a new stage
+  // goes at the END no matter where it sits in the funnel's story.
+  /**
+   * The user declined the proposal card. The other half of `proposal_offered`:
+   * without it an offer that was neither accepted nor dismissed is
+   * indistinguishable from one the user simply never saw, and the drop-off the
+   * next campaign is priced from cannot be measured.
+   */
+  'dismissed',
+  /**
+   * The sponsored run ended without committable work. Telemetry, and pointedly
+   * not a refund signal — the money already moved at Accept, and COD-92 owns
+   * whether a failed run is refunded.
+   */
+  'run_failed',
+  /**
+   * The run committed its work to its own branch and stopped there. The stage
+   * the advertiser actually buys under COD-279 ("the agent should implement
+   * with commits along the way, user can PR if they think its good") — a PR
+   * that is never opened does not mean the work was not done.
+   */
+  'run_committed',
 ] as const
 
 export type AgenticFunnelEventType = (typeof AGENTIC_FUNNEL_EVENT_TYPES)[number]

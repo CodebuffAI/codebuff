@@ -803,7 +803,12 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   {formatSessionUnits(session.recentCount)} of {session.limit}
                 </span>{' '}
                 sessions{' '}
-                {session.period === 'pacific_week' ? 'this week' : 'today'}. Try
+                {session.period === 'pacific_month'
+                  ? 'this month'
+                  : session.period === 'pacific_week'
+                    ? 'this week'
+                    : 'today'}
+                . Try
                 again in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}

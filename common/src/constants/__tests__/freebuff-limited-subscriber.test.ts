@@ -32,8 +32,14 @@ import { FREEBUFF_SUBSCRIPTION_MODEL_IDS } from '../freebuff-subscriptions'
  * A plan model can also be an ordinary free row of the limited catalog (Flash
  * is), so the assertions distinguish "free in this tier" from "plan-only".
  */
+/**
+ * Free at limited access ON WEB, which since 2026-09-04 is a WIDER set than
+ * the CLI/Desktop limited catalog (`LIMITED_FREEBUFF_MODEL_IDS`): the Web
+ * catalog is every free row except Luna. Read from the web list rather than
+ * the CLI one because that is the list session admission actually consults.
+ */
 const freeAtLimitedTier = (model: string): boolean =>
-  (LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).includes(model)
+  (FREEBUFF_WEB_LIMITED_MODEL_IDS as readonly string[]).includes(model)
 
 describe('paid plans at limited access', () => {
   test('the limited catalog still excludes every plan-only model when unpaid', () => {
@@ -49,10 +55,17 @@ describe('paid plans at limited access', () => {
         isFreebuffRewardModelId(model) || freeAtLimitedTier(model),
       )
     }
-    // Widening the overlap is a product decision that has to come here.
+    // Widening the overlap is a product decision that has to come here, and
+    // on 2026-09-04 it was made: GLM 5.3 Flash joined the free Web limited
+    // catalog. Luna is what keeps a plan worth paying for at this tier, so it
+    // must NOT appear in this list.
     expect(FREEBUFF_SUBSCRIPTION_MODEL_IDS.filter(freeAtLimitedTier)).toEqual([
+      'z-ai/glm-5.3-flash',
       'deepseek/deepseek-v4-flash',
     ])
+    expect(FREEBUFF_SUBSCRIPTION_MODEL_IDS.filter(freeAtLimitedTier)).not.toContain(
+      'openai/gpt-5.6-luna',
+    )
   })
 
   test('a paid plan unlocks exactly the models it meters', () => {

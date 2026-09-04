@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it, test } from 'bun:test'
 
 import {
+  SPONSORED_LOCAL_BRANCH_NAMESPACE,
   SPONSORED_LOCAL_ENV_ALLOWLIST,
   SPONSORED_LOCAL_UNAVAILABLE_COPY,
   SPONSORED_LOCAL_UNCONTAINED_GRANT,
@@ -10,8 +11,10 @@ import {
   looksLikeCredentialEnvVar,
   scrubSponsoredLocalEnv,
   sponsoredLocalAvailability,
+  sponsoredLocalBranchName,
   sponsoredLocalContainment,
   sponsoredLocalGrant,
+  sponsoredLocalSlug,
   sponsoredLocalToolNames,
   sponsoredLocalUnavailableReason,
 } from './sponsored-local-execution'
@@ -202,5 +205,46 @@ describe('no dependency installs in v1', () => {
     ]) {
       expect(commandInstallsDependencies(command)).toBe(false)
     }
+  })
+})
+
+/**
+ * The branch a local sponsored run commits to (COD-339).
+ *
+ * Shared because two surfaces cut these branches and one sandbox grants them:
+ * `sponsoredLinkedWorktreeGrants` writes `refs/heads/<namespace>` and
+ * `logs/refs/heads/<namespace>` into the sandbox profile and nothing else under
+ * `refs/`, so a run whose branch lived outside the namespace could not commit at
+ * all — and a namespace widened to `refs` would let one rewrite every branch in
+ * the user's repository.
+ */
+describe('the sponsored branch namespace', () => {
+  test('has no trailing slash, because the grant is built by joining onto it', () => {
+    expect(SPONSORED_LOCAL_BRANCH_NAMESPACE).toBe('freebuff')
+    expect(SPONSORED_LOCAL_BRANCH_NAMESPACE).not.toContain('/')
+  })
+
+  test('every branch it builds lives inside that namespace', () => {
+    for (const title of ['Sponsored: Acme Deploys', '', '  ---  ', 'ñ']) {
+      const branch = sponsoredLocalBranchName(title, 'run-1')
+      expect(branch.startsWith(`${SPONSORED_LOCAL_BRANCH_NAMESPACE}/`), title).toBe(
+        true,
+      )
+      expect(branch.endsWith('-run-1'), title).toBe(true)
+    }
+  })
+
+  test('the slug is ref-legal, capped, and never empty', () => {
+    // Never empty is the one that matters: `freebuff/-run-1` is a legal ref and
+    // an unreadable one, and a title of pure punctuation is a real advertiser
+    // name away.
+    expect(sponsoredLocalSlug('Sponsored: Acme Deploys')).toBe(
+      'sponsored-acme-deploys',
+    )
+    expect(sponsoredLocalSlug('   ---   ')).toBe('task')
+    expect(sponsoredLocalSlug('')).toBe('task')
+    expect(sponsoredLocalSlug('x'.repeat(120)).length).toBe(50)
+    expect(sponsoredLocalSlug('日本語')).toBe('task')
+    expect(sponsoredLocalSlug('A b/c')).toBe('a-b-c')
   })
 })

@@ -50,6 +50,8 @@ export const ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT =
  * opaque click/event identifiers never leave the request handler. */
 export const ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT =
   'ads.external_conversion_postback' as const
+export const ADS_ADVERTISER_REPORTING_READ_EVENT =
+  'ads.advertiser_reporting_read' as const
 /** Browser-side Imprezia decisions. The route deliberately reports only
  * bounded serving dimensions: request/content/creative identifiers, URLs, and
  * raw provider errors never enter this event. */
@@ -109,10 +111,19 @@ const STREAM_RECOVERY_FIELDS = {
 const ADS_FETCH_COMPLETED_FIELDS = {
   outcome: 'string',
   /**
-   * The one correlation handle for this ad request (COD-369), minted before
-   * either rail forks into provider waterfall vs first-party and stamped on
-   * `ad_impression.opportunity_id` for every first-party fill. Opaque and
+   * The REQUEST-grain correlation handle (`adr_`, COD-406): one per HTTP ad
+   * request on both rails, and the key of the decision outbox batch the same
+   * request appends (`ad_decision_outbox_batch.request_id`). Opaque and
    * server-minted: never derived from the prompt, the IP, or the session.
+   */
+  request_id: 'string',
+  /**
+   * The AUCTION-grain handle (`opp_`, COD-369). Since COD-406 both rails mint
+   * one per resolved placement; this event is request-grain, so it carries
+   * the FIRST placement's -- exact for the single-placement request that is
+   * the overwhelming case, and the same coarsest-honest answer it always gave
+   * for a batch. Every placement's own id is on its `ad_impression` row and
+   * in the outbox payload under `request_id` above.
    *
    * Every join the first-party chain needs already hangs off
    * `ad_impression.id`, so this is what connects an auction -- including the
@@ -280,8 +291,60 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    * rather than the configured sample. Zero on every unwritten opportunity.
    */
   decision_outbox_status: 'string',
+  /**
+   * DEPRECATED ALIAS of `inclusion_probability_ppm` (COD-367), kept for one
+   * release so existing dashboards and the exporter keep resolving. Producers
+   * emit both and they are pinned equal.
+   *
+   * NOT THE SAME FIELD AS `sample_rate` above, and the two must never be
+   * merged. `sample_rate` is the EVENT-STREAM sampler -- the divisor for
+   * counting `ads.fetch_completed` rows, hardcoded 1 on both rails because
+   * nothing samples the stream. This is the DECISION-OUTBOX sampler: whether
+   * the durable evidence row was written at all. An opportunity is always in
+   * the event stream and usually not in the outbox, so one field cannot carry
+   * both, and a query dividing by the wrong one is off by the sample percent.
+   */
   decision_outbox_sample_rate_ppm: 'number',
+  /**
+   * COD-367. The probability this opportunity had of entering the decision
+   * record, and WHY it did.
+   *
+   * The reason is what makes the probability readable: a value of 1,000,000
+   * means "certain", and there are three different ways to be certain -- a
+   * contested auction kept by the >=2-admitted override, a direct-sold serve,
+   * and a 100%-sampled deployment -- which bias the sample three different
+   * ways. Only `random_baseline` rows are an unbiased draw from the
+   * opportunity population. Closed enum, owned by `AD_INCLUSION_REASONS`.
+   */
+  inclusion_probability_ppm: 'number',
+  inclusion_reason: 'string',
+  /**
+   * COD-367. WHICH keying secret produced the `usr_` handle in the durable
+   * decision payload, as `<label>_<fingerprint>`.
+   *
+   * Never the handle itself -- no user key enters this event. It is here so a
+   * secret rotation is visible on the OPERATIONAL stream at the moment it
+   * happens, rather than being discovered months later as an unexplained
+   * discontinuity in a per-user aggregate built from the warehouse.
+   */
+  user_key_version: 'string',
 } as const satisfies AxiomOnlyFieldSchema
+
+/**
+ * The `ads.fetch_completed` allowlist, exported for the decision-contract test
+ * (COD-367).
+ *
+ * It is the Axiom half of the contract the durable decision record is the
+ * warehouse half of, and it was pinned nowhere: a field could be added,
+ * renamed or dropped here and no test would notice, on a stream several
+ * dashboards and the yield read are built on.
+ *
+ * RAIL PARITY -- that both rails actually EMIT the same subset -- is COD-406's
+ * test, not this one. This pins the vocabulary; that pins the producers.
+ */
+export const ADS_FETCH_COMPLETED_FIELD_NAMES: readonly string[] = Object.keys(
+  ADS_FETCH_COMPLETED_FIELDS,
+)
 
 const ADS_IMPREZIA_FETCH_COMPLETED_FIELDS = {
   outcome: 'string',
@@ -401,6 +464,7 @@ const ADS_FIRST_PARTY_DECISION_FIELDS = {
  * advertiser identifiers. The bounded status/reason and amount fields are
  * sufficient for charge and absorption dashboards. */
 const ADS_FIRST_PARTY_SETTLEMENT_FIELDS = {
+  metric: 'string',
   billing_model: 'string',
   settlement_status: 'string',
   absorbed_reason: 'string',
@@ -416,6 +480,24 @@ const ADS_FIRST_PARTY_TRACKING_FIELDS = {
   already_clicked: 'boolean',
   impression_recorded: 'boolean',
   pixel_count: 'number',
+  /**
+   * COD-365 hygiene. `client_event_id` is the client-minted, per-logical-
+   * event UUID (opaque, bounded, never parsed); `deduped` says this request
+   * did NOT transition the row, so a transition count is
+   * `where deduped == false`. `render_delay_ms` is the client-measured
+   * receipt-to-mount delay, clamped and never derived. `opportunity_id` and
+   * `creative_version` are copied off the impression row so the event can
+   * join the auction and the copy without a database read.
+   * `client_family` is derived server-side from the UA; `sample_rate` is the
+   * integer denominator, 1 until something samples.
+   */
+  client_event_id: 'string',
+  deduped: 'boolean',
+  render_delay_ms: 'number',
+  opportunity_id: 'string',
+  creative_version: 'number',
+  client_family: 'string',
+  sample_rate: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
 /**
@@ -433,6 +515,19 @@ const FIRST_PARTY_VIEW_ACK_FIELDS = [
   'duration_ms',
   'client_family',
 ] as const
+
+/**
+ * Fields a NEWER client may add to the exact set above (COD-365). Optional
+ * on the check, not appended to the exact set, because a released CLI or
+ * Desktop binary still sends the six-field shape and its events must stay
+ * valid. Each is still validated when present -- a malformed value rejects
+ * the whole event exactly as a malformed required field does.
+ */
+const FIRST_PARTY_VIEW_ACK_OPTIONAL_FIELDS = [
+  'client_event_id',
+  'sample_rate',
+] as const
+const FIRST_PARTY_VIEW_ACK_CLIENT_EVENT_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/
 
 const FIRST_PARTY_VIEW_ACK_PLACEMENTS = new Map<string, string>(
   PLACEMENT_SLOTS.map((slot) => [slot.id, slot.surface]),
@@ -452,14 +547,24 @@ export function createFirstPartyViewAckTelemetry(
   }
   const record = input as Record<string, unknown>
   const keys = Object.keys(record)
+  const required = new Set<string>(FIRST_PARTY_VIEW_ACK_FIELDS)
+  const optional = new Set<string>(FIRST_PARTY_VIEW_ACK_OPTIONAL_FIELDS)
   if (
-    keys.length !== FIRST_PARTY_VIEW_ACK_FIELDS.length ||
-    keys.some(
-      (key) =>
-        !FIRST_PARTY_VIEW_ACK_FIELDS.includes(
-          key as (typeof FIRST_PARTY_VIEW_ACK_FIELDS)[number],
-        ),
-    )
+    keys.some((key) => !required.has(key) && !optional.has(key)) ||
+    FIRST_PARTY_VIEW_ACK_FIELDS.some((key) => !(key in record))
+  ) {
+    return null
+  }
+  const clientEventId = record.client_event_id
+  const sampleRate = record.sample_rate
+  if (
+    (clientEventId !== undefined &&
+      (typeof clientEventId !== 'string' ||
+        !FIRST_PARTY_VIEW_ACK_CLIENT_EVENT_ID_RE.test(clientEventId))) ||
+    (sampleRate !== undefined &&
+      (typeof sampleRate !== 'number' ||
+        !Number.isInteger(sampleRate) ||
+        sampleRate < 1))
   ) {
     return null
   }
@@ -498,6 +603,10 @@ export function createFirstPartyViewAckTelemetry(
     attempt: attempt as 1 | 2 | 3,
     duration_ms: durationMs,
     client_family: clientFamily as FirstPartyViewAckClientFamily,
+    ...(clientEventId !== undefined
+      ? { client_event_id: clientEventId as string }
+      : {}),
+    ...(sampleRate !== undefined ? { sample_rate: sampleRate as number } : {}),
   }
 }
 
@@ -523,6 +632,16 @@ const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
   match_outcome: 'string',
 } as const satisfies AxiomOnlyFieldSchema
 
+const ADS_ADVERTISER_REPORTING_READ_FIELDS = {
+  advertiser_id: 'string',
+  key_id: 'string',
+  endpoint: 'string',
+  range_days: 'number',
+  rows: 'number',
+  duration_ms: 'number',
+  outcome: 'string',
+} as const satisfies AxiomOnlyFieldSchema
+
 /** The refusal census. Bounded producer-encoded labels only; the closed
  *  `reason` enum lives beside the limiter that produces it. */
 const ADS_REQUEST_REJECTED_FIELDS = {
@@ -546,6 +665,7 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_FIRST_PARTY_CLICK_RECORDED_EVENT
     | typeof ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
     | typeof ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT
+    | typeof ADS_ADVERTISER_REPORTING_READ_EVENT
     | typeof ADS_IMPREZIA_FETCH_COMPLETED_EVENT
     | typeof ADS_REQUEST_REJECTED_EVENT
   data: Record<string, string | number | boolean>
@@ -661,5 +781,36 @@ export function getAxiomOnlyLogEvent(
       ),
     }
   }
+  if (eventName === ADS_ADVERTISER_REPORTING_READ_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(
+        record,
+        ADS_ADVERTISER_REPORTING_READ_FIELDS,
+      ),
+    }
+  }
   return null
 }
+
+/**
+ * COD-365 hygiene contract, exported for the CI guard in
+ * `__tests__/axiom-only-log.test.ts`: every ads event allowlist this module
+ * owns for CLIENT-emitted events must carry these keys, and an unsampled
+ * producer emits `sample_rate: 1`. `ADS_FETCH_COMPLETED_FIELDS` is a server
+ * event owned by the rail slice (COD-369): it carries `sample_rate` already
+ * and is deliberately outside this guard until it also carries
+ * `client_family`, at which point the guard widens to
+ * `ADS_FETCH_COMPLETED_FIELD_NAMES`.
+ */
+export const ADS_CLIENT_EVENT_HYGIENE_FIELDS = [
+  'client_event_id',
+  'client_family',
+  'sample_rate',
+] as const
+export const ADS_FIRST_PARTY_TRACKING_FIELD_NAMES: readonly string[] =
+  Object.keys(ADS_FIRST_PARTY_TRACKING_FIELDS)
+export const FIRST_PARTY_VIEW_ACK_FIELD_NAMES: readonly string[] = [
+  ...FIRST_PARTY_VIEW_ACK_FIELDS,
+  ...FIRST_PARTY_VIEW_ACK_OPTIONAL_FIELDS,
+]

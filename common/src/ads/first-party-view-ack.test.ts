@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
 import {
+  FREEBUFF_EVENT_ID_HEADER,
+  FREEBUFF_RENDER_DELAY_HEADER,
+} from './ad-event-hygiene'
+import {
   acknowledgeFirstPartyView,
   FIRST_PARTY_VIEW_ACK_MAX_DURATION_MS,
   FIRST_PARTY_VIEW_ACK_TIMEOUT_MS,
@@ -206,5 +210,59 @@ describe('acknowledgeFirstPartyView', () => {
       }),
     )
     expect(calls).toBe(MAX_COMPLETED_FIRST_PARTY_VIEW_ACK_TOKENS + 1)
+  })
+
+  // COD-365: one id per LOGICAL event, so the server can tell a retry that
+  // lost a race from a fresh acknowledgement. Captured once with the rest of
+  // the request, so every attempt carries the same value for free.
+  test('sends one X-Freebuff-Event-Id on every attempt and reports it', async () => {
+    const seen: string[] = []
+    const observations: { client_event_id?: string; sample_rate?: number }[] =
+      []
+    let count = 0
+    await acknowledgeFirstPartyView(
+      request({
+        init: {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer t',
+            'Content-Type': 'application/json',
+          },
+        },
+        renderDelayMs: 1234.4,
+        sleep: async () => {},
+        fetch: async (_url, init) => {
+          const headers = new Headers(init?.headers)
+          seen.push(headers.get(FREEBUFF_EVENT_ID_HEADER)!)
+          expect(headers.get('authorization')).toBe('Bearer t')
+          expect(headers.get(FREEBUFF_RENDER_DELAY_HEADER)).toBe('1234')
+          count++
+          return count < 3
+            ? new Response(null, { status: 503 })
+            : new Response(null, { status: 204 })
+        },
+        onAttempt: (observation) => observations.push(observation),
+      }),
+    )
+    expect(seen).toHaveLength(3)
+    expect(new Set(seen).size).toBe(1)
+    expect(seen[0]).toMatch(/^[0-9a-f-]{36}$/)
+    expect(observations.map((o) => o.client_event_id)).toEqual(seen)
+    expect(observations.every((o) => o.sample_rate === 1)).toBe(true)
+  })
+
+  test('honours a caller-minted id and omits the delay header when unmeasured', async () => {
+    let headers: Headers | undefined
+    await acknowledgeFirstPartyView(
+      request({
+        clientEventId: 'caller-minted-id',
+        fetch: async (_url, init) => {
+          headers = new Headers(init?.headers)
+          return new Response(null, { status: 204 })
+        },
+      }),
+    )
+    expect(headers!.get(FREEBUFF_EVENT_ID_HEADER)).toBe('caller-minted-id')
+    expect(headers!.has(FREEBUFF_RENDER_DELAY_HEADER)).toBe(false)
   })
 })

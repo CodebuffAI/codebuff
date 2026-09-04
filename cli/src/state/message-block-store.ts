@@ -76,12 +76,19 @@ export interface MessageBlockCallbacks {
    * Keyed by TARGET (`owner/name`), never by message: a repository has one live
    * offer, and declining it in one place must not leave it standing in another.
    *
-   * There is deliberately NO `onSponsoredProposalAccept`. Phase 1 ships no
-   * Accept control at all, and a callback with no caller is how a stub becomes
-   * a shipped affordance.
+   * ACCEPT IS TWO CALLBACKS, not one, and that is the COD-336 consent gate
+   * expressed in the type. `onSponsoredProposalAccept` OPENS the consent and
+   * writes nothing anywhere; `onSponsoredProposalConsent` carries the user's
+   * answer to it, and only `true` starts a run. A single "accept" callback
+   * would be a control that runs an advertiser's procedure on one keypress,
+   * which is exactly the pattern this channel exists not to be.
    */
   onSponsoredProposalMenu: (target: string, open: boolean) => void
   onSponsoredProposalDisclose: (target: string, open: boolean) => void
+  /** Open the consent screen. Starts nothing, writes nothing. */
+  onSponsoredProposalAccept: (target: string) => void
+  /** The consent's answer. `false` refuses and leaves the row `offered`. */
+  onSponsoredProposalConsent: (target: string, approved: boolean) => void
   /** Dismiss, report, never-this-advertiser, or the channel opt-out. */
   onSponsoredProposalControl: (
     target: string,
@@ -140,6 +147,8 @@ const initialCallbacks: MessageBlockCallbacks = {
   onResponseAdsNeeded: noop,
   onSponsoredProposalMenu: noop,
   onSponsoredProposalDisclose: noop,
+  onSponsoredProposalAccept: noop,
+  onSponsoredProposalConsent: noop,
   onSponsoredProposalControl: noop,
 }
 

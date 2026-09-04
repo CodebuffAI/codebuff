@@ -59,14 +59,9 @@ export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze(
  */
 export const FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS: readonly string[] =
   Object.freeze([
-    // GLM 5.3 Flash is here in V4 Pro's place, and NOT on Pro's argument. It is
-    // cheaper per token than every other model in the pool, so the 4-5x
-    // measurement above does not describe it. It is here because it is the free
-    // catalog's capped row (FREEBUFF_PER_MODEL_SESSION_CAPS) while its cost at
-    // fleet scale is still being measured, and a plan that let a subscriber
-    // spend an entire day's allowance on the one row we have not finished
-    // pricing would be the only way to reach that scale by surprise. Revisit
-    // together with the free cap — they answer the same open question.
+    // GLM 5.3 Flash is cheap enough to be unmetered for ordinary full-access
+    // users. It remains in this subscription-only classification because that
+    // list controls the plan's daily sub-cap, not free-tier entitlement.
     FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   ])
@@ -130,10 +125,20 @@ export interface FreebuffSubscriptionTier {
   /**
    * First billing period, in USD.
    *
-   * A flat **$3 off the first month** on every tier — a nudge, not a deep
-   * promotional price. The earlier $2.50/$12 intros discounted most of the
-   * entry price, which anchored the product at the discount rather than at
-   * $8/mo; $3 off reads as a welcome, and the recurring price stays the story.
+   * **Proportional, not flat, since 2026-09-03**: $3 / $6 / $15 off, so the
+   * discount grows with the tier instead of vanishing into it. A flat $3 was
+   * 38% off Starter and 5% off Pro — the tier with the most to prove got the
+   * least reason to try. The earlier $2.50/$12 intros went the other way and
+   * discounted most of the entry price, which anchored the product at the
+   * discount rather than at $8/mo.
+   *
+   * **This number is DISPLAY ONLY — the charge is a Stripe coupon**
+   * (`FREEBUFF_SUBSCRIPTION_INTRO_COUPON_IDS`, resolved in
+   * `web/src/server/model-subscriptions/pricing.ts`). Nothing in code can
+   * reconcile the two, so changing a figure here without minting the matching
+   * coupon advertises a price we do not charge. The coupon ids encode their
+   * own amount in cents (`freebuff_intro_pro_1500c`) precisely so the
+   * mismatch is visible in the env var.
    *
    * Charged at most once per ACCOUNT. Whichever tier a user starts on consumes
    * it, so upgrading later pays full price — which is why `intro_used` lives
@@ -220,7 +225,7 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       id: 'plus',
       displayName: 'Plus',
       priceUsd: 25,
-      introPriceUsd: 22,
+      introPriceUsd: 19,
       dailySessions: 7,
       fiveDaySessions: 26,
       monthlySessions: 100,
@@ -232,7 +237,7 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       id: 'pro',
       displayName: 'Pro',
       priceUsd: 60,
-      introPriceUsd: 57,
+      introPriceUsd: 45,
       dailySessions: 11,
       fiveDaySessions: 66,
       monthlySessions: 210,
@@ -327,14 +332,10 @@ export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 7
  * cannot be sold, so leaving it here would advertise a paid tier whose first
  * send fails for subscribers too.
  *
- * GLM 5.3 Flash, which that comment named as the row this was built for, ships
- * as a FREE premium row rather than a paid one. It briefly carried a 2-a-day
- * ceiling (FREEBUFF_PER_MODEL_SESSION_CAPS) as a measurement window; that came
- * off on 2026-08-27 once its lane was measured, so it now draws on the ordinary
- * premium allowance like every other row. Still a product decision and still a
- * deliberately reversible one: the machinery below is untouched, so moving it
- * behind the paywall later is one entry here — or, without a deploy at all, one
- * id in `FREEBUFF_PRO_ONLY_MODEL_IDS`.
+ * GLM 5.3 Flash briefly carried a two-a-day measurement ceiling, which came off
+ * on 2026-08-27 once its lane was measured. It is now an unmetered free model,
+ * not a paid-only row. Moving it behind the paywall later would be an explicit
+ * entry here or, without a deploy, in `FREEBUFF_PRO_ONLY_MODEL_IDS`.
  *
  * Everything else #2254 built stays live and simply has nothing to act on: the
  * service-account surface check, the off-peak closure, the DeepSeek-direct
@@ -409,10 +410,12 @@ export function getFreebuffPlanPauseWindowLabel(
   now: Date = new Date(),
   timeZone?: string,
 ): string | undefined {
-  if (!FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS.includes(id)) return undefined
+  if (!FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS.includes(id))
+    return undefined
   // A model already closed outright at peak needs no second sentence about it —
   // its availability label already names the same window.
-  if (getFreebuffWebModel(id)?.availability === 'off_peak_only') return undefined
+  if (getFreebuffWebModel(id)?.availability === 'off_peak_only')
+    return undefined
   return `Plan paused ${formatDeepSeekExpensiveWindowLocal(now, timeZone)}`
 }
 

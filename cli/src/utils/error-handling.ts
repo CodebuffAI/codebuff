@@ -1,4 +1,8 @@
-import { FREEBUFF_PROVIDER_USAGE_ERROR_PATTERN } from '@codebuff/common/constants/freebuff-errors'
+import {
+  FREEBUFF_PROVIDER_USAGE_ERROR_PATTERN,
+  FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE,
+  FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
+} from '@codebuff/common/constants/freebuff-errors'
 import { env } from '@codebuff/common/env'
 import { extractApiErrorDetails } from '@codebuff/common/util/error'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
@@ -127,6 +131,11 @@ export const getFreebuffRateLimitErrorMessage = (
     // Our own rate limiter's message is already user-facing and includes the
     // retry countdown — show it verbatim.
     return details.message ?? FREEBUFF_RATE_LIMIT_MESSAGE
+  }
+  if (details.errorCode === FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE) {
+    // The per-turn spend breaker. Its copy already says what happened and
+    // what to do (send a new message); a rate-limit framing would be wrong.
+    return details.message ?? FREEBUFF_TURN_SPEND_LIMIT_MESSAGE
   }
   // Other 429s (e.g. relayed upstream capacity errors) keep the branded
   // message but include the server detail so users aren't left guessing.

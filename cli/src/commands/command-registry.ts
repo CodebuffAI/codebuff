@@ -3,8 +3,11 @@ import { safeOpen } from '../utils/open-url'
 import {
   handleAdsEnable,
   handleAdsDisable,
+  handleProposalAccept,
   handleProposalDismiss,
   handleProposalMenu,
+  handleProposalPullRequest,
+  handleProposalRemoveWorktree,
   handleProposalNeverAdvertiser,
   handleProposalReport,
   handleProposalsOff,
@@ -248,6 +251,37 @@ const ALL_COMMANDS: CommandDefinition[] = [
     handler: (params) => {
       const message = handleProposalDismiss(useChatStore.getState().messages)
       if (message) params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  // Phase 2 (COD-339): accept, and the two commands that only mean anything
+  // once a run has left a branch behind. `accept-proposal` opens the CONSENT
+  // and starts nothing -- the screen is the decision, and it is refusable.
+  defineCommand({
+    name: 'ads:accept-proposal',
+    handler: (params) => {
+      const message = handleProposalAccept(useChatStore.getState().messages)
+      // Null means the consent screen is up, which is visible on its own.
+      if (message) params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'ads:pull-request',
+    handler: async (params) => {
+      const message = await handleProposalPullRequest()
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'ads:remove-worktree',
+    handler: async (params) => {
+      const message = await handleProposalRemoveWorktree()
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

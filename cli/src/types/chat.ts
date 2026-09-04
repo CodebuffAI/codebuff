@@ -151,9 +151,10 @@ export type FileAttachment = {
  * `@codebuff/common/ads/sponsored-proposal-view`, so the terminal card and the
  * web card cannot drift.
  *
- * PHASE 1 HAS NO ACCEPT. Accepting spawns a thread in an isolated Cloud
- * workspace; the CLI runs against `process.cwd()`. The block carries no accept
- * affordance and the renderer draws none.
+ * ACCEPT ARRIVED IN PHASE 2 (COD-339) and runs LOCALLY, in a git worktree on
+ * this machine, under the COD-336 boundary. It is reached by
+ * `/ads:accept-proposal`, which opens the consent below rather than starting
+ * anything.
  */
 export type SponsoredProposalContentBlock = {
   type: 'sponsored-proposal'
@@ -161,6 +162,36 @@ export type SponsoredProposalContentBlock = {
   proposal: SponsoredProposalRow & { _id: string; advertiser_id: string }
   /** `owner/name` -- what the offer is about, and what a decline is keyed to. */
   target: string
+  /**
+   * The consent screen, open, with everything it names.
+   *
+   * The whole of it is known BEFORE the accept, which is what lets a refusal
+   * write nothing at all: the advertiser, the headline and the body are already
+   * on the card, and the folder and the branch come from this checkout. It
+   * cannot show the reviewed procedure TEXT, because the accept response is the
+   * only place that exists -- the same trade Desktop's dialog makes, for the
+   * same ordering reason (`utils/sponsored-run.ts`).
+   */
+  consent?: {
+    advertiserName: string
+    headline: string
+    body: string
+    folder: string
+    branch: string
+    /** The id the branch above was minted with. Carried into the accept. */
+    runId: string
+  }
+  /** Which consent choice the caret is on. Reset every time it opens. */
+  consentIndex?: number
+  /**
+   * A local run was started from THIS card.
+   *
+   * Distinct from `proposal.state`: an accept leaves the row readable as
+   * `offered` until the first poll, and `sponsoredProposalAwaitsVerdict` has to
+   * know a run exists before the row admits it -- otherwise the poll drops to
+   * the offer cadence at exactly the moment watching starts to matter.
+   */
+  runStarted?: boolean
   /** The four-item channel menu is open. */
   menuOpen?: boolean
   /** "Why this?" is expanded. */

@@ -1,3 +1,9 @@
+import {
+  AD_EVENT_SAMPLE_RATE,
+  FREEBUFF_EVENT_ID_HEADER,
+  FREEBUFF_RENDER_DELAY_HEADER,
+} from './ad-event-hygiene'
+
 /** The only acknowledgement outcomes permitted in privacy-safe telemetry. */
 export const FIRST_PARTY_VIEW_ACK_OUTCOMES = [
   'accepted',
@@ -27,6 +33,15 @@ export type FirstPartyViewAckObservation = {
   attempt: 1 | 2 | 3
   duration_ms: number
   client_family: FirstPartyViewAckClientFamily
+  /**
+   * The `X-Freebuff-Event-Id` every attempt of this sequence carried
+   * (COD-365). Axiom-only client telemetry is deduped at read on
+   * (client_event_id, attempt). Absent only on observations from a build
+   * that predates the header.
+   */
+  client_event_id?: string
+  /** Always 1 today; see `AD_EVENT_SAMPLE_RATE`. Absent from old builds. */
+  sample_rate?: number
 }
 
 export type FirstPartyViewAckRequest = {
@@ -37,6 +52,20 @@ export type FirstPartyViewAckRequest = {
   placementId: string
   clientFamily: FirstPartyViewAckObservation['client_family']
   init?: RequestInit
+  /**
+   * The id minted for this logical event. Omit and the transport mints one;
+   * either way it is captured once and sent as `X-Freebuff-Event-Id` on every
+   * attempt, so the server can tell the retry that lost a race from a fresh
+   * event. Pass it only to coordinate with a client-side event you already
+   * emitted under the same id.
+   */
+  clientEventId?: string
+  /**
+   * Milliseconds from auction-response receipt to card mount on the client's
+   * monotonic clock. Sent as `X-Freebuff-Render-Delay-Ms`; omitted when the
+   * caller could not measure (the server stores NULL, never a derived value).
+   */
+  renderDelayMs?: number
   /** Browser callers opt in; native fetch implementations simply omit this. */
   keepalive?: boolean
   fetch?: FirstPartyAckFetch
@@ -126,8 +155,23 @@ export function acknowledgeFirstPartyView(
   if (existing) return existing
 
   const fetchImpl = request.fetch ?? globalThis.fetch
+  // Captured ONCE, so all three attempts share the id (and the delay) for
+  // free -- a retry is the same logical event, and the header says so.
+  const clientEventId = request.clientEventId ?? crypto.randomUUID()
+  const headers = new Headers(request.init?.headers)
+  headers.set(FREEBUFF_EVENT_ID_HEADER, clientEventId)
+  if (
+    typeof request.renderDelayMs === 'number' &&
+    Number.isFinite(request.renderDelayMs)
+  ) {
+    headers.set(
+      FREEBUFF_RENDER_DELAY_HEADER,
+      String(Math.max(0, Math.round(request.renderDelayMs))),
+    )
+  }
   const init = {
     ...request.init,
+    headers,
     ...(request.keepalive ? { keepalive: true } : {}),
   }
   const run = (async () => {
@@ -167,6 +211,8 @@ export function acknowledgeFirstPartyView(
             Math.max(0, now() - firstStartedAt),
           ),
           client_family: request.clientFamily,
+          client_event_id: clientEventId,
+          sample_rate: AD_EVENT_SAMPLE_RATE,
         })
       } catch {
         // Observability is best-effort; a telemetry client must never alter

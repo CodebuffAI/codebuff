@@ -8,13 +8,44 @@ import {
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
   ADS_FIRST_PARTY_VIEW_ACK_EVENT,
   ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+  ADS_ADVERTISER_REPORTING_READ_EVENT,
   ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
   STREAM_RECOVERY_EVENT,
+  ADS_CLIENT_EVENT_HYGIENE_FIELDS,
+  ADS_FIRST_PARTY_TRACKING_FIELD_NAMES,
+  FIRST_PARTY_VIEW_ACK_FIELD_NAMES,
 } from '../axiom-only-log'
 
 describe('getAxiomOnlyLogEvent', () => {
+  test('keeps only the advertiser reporting audit contract', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_ADVERTISER_REPORTING_READ_EVENT,
+        advertiser_id: 'advertiser-a',
+        key_id: 'key-a',
+        endpoint: 'delivery',
+        range_days: 30,
+        rows: 12,
+        duration_ms: 42,
+        outcome: 'ok',
+        authorization: 'Bearer must-not-leak',
+      }),
+    ).toEqual({
+      event: ADS_ADVERTISER_REPORTING_READ_EVENT,
+      data: {
+        advertiser_id: 'advertiser-a',
+        key_id: 'key-a',
+        endpoint: 'delivery',
+        range_days: 30,
+        rows: 12,
+        duration_ms: 42,
+        outcome: 'ok',
+      },
+    })
+  })
+
   test('sanitizes context-pruning metadata', () => {
     expect(
       getAxiomOnlyLogEvent({
@@ -509,6 +540,100 @@ describe('getAxiomOnlyLogEvent', () => {
         client_family: 'cli',
       },
     })
+  })
+
+  // COD-365: released binaries send the six-field shape, newer ones add
+  // `client_event_id` and `sample_rate`. Both must validate; a malformed
+  // optional field rejects the whole event like a malformed required one.
+  test('accepts the COD-365 optional view-ack fields and keeps the old shape valid', () => {
+    const legacy = {
+      surface: 'cli_chat',
+      placement_id: 'CLI-Chat-Inline',
+      outcome: 'accepted',
+      attempt: 1,
+      duration_ms: 12,
+      client_family: 'cli',
+    }
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+        ...legacy,
+      }),
+    ).toEqual({ event: ADS_FIRST_PARTY_VIEW_ACK_EVENT, data: legacy })
+    const modern = {
+      ...legacy,
+      client_event_id: '123e4567-e89b-42d3-a456-426614174000',
+      sample_rate: 1,
+    }
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+        ...modern,
+      }),
+    ).toEqual({ event: ADS_FIRST_PARTY_VIEW_ACK_EVENT, data: modern })
+    for (const payload of [
+      { ...modern, client_event_id: 'not an id' },
+      { ...modern, client_event_id: 'x'.repeat(129) },
+      { ...modern, client_event_id: 42 },
+      { ...modern, sample_rate: 0 },
+      { ...modern, sample_rate: 1.5 },
+      { ...modern, sample_rate: '1' },
+    ]) {
+      expect(
+        getAxiomOnlyLogEvent({
+          axiomEvent: ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+          ...payload,
+        }),
+      ).toBeNull()
+    }
+  })
+
+  test('carries the COD-365 hygiene fields on the tracking events', () => {
+    for (const event of [
+      ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT,
+      ADS_FIRST_PARTY_CLICK_RECORDED_EVENT,
+    ]) {
+      expect(
+        getAxiomOnlyLogEvent({
+          axiomEvent: event,
+          provider: 'first_party',
+          client_event_id: 'evt-1',
+          deduped: false,
+          render_delay_ms: 1234,
+          opportunity_id: 'opp_1',
+          creative_version: 2,
+          client_family: 'desktop',
+          sample_rate: 1,
+          userId: 'user-private',
+          view_event_id: 'private',
+        }),
+      ).toEqual({
+        event,
+        data: {
+          provider: 'first_party',
+          client_event_id: 'evt-1',
+          deduped: false,
+          render_delay_ms: 1234,
+          opportunity_id: 'opp_1',
+          creative_version: 2,
+          client_family: 'desktop',
+          sample_rate: 1,
+        },
+      })
+    }
+  })
+
+  // AC6 (COD-365), scoped to the allowlists COD-365 owns: the CLIENT-emitted
+  // ads events. `ADS_FETCH_COMPLETED_FIELDS` is a server event owned by the
+  // rail slice (COD-369 / D1): it already carries `sample_rate`, and the day
+  // it also carries `client_family` this guard should be widened to
+  // `ADS_FETCH_COMPLETED_FIELD_NAMES` for both -- deliberately NOT asserted
+  // here so this test cannot red that branch while the two land separately.
+  test('CI guard: every client ads allowlist carries the hygiene fields', () => {
+    for (const field of ADS_CLIENT_EVENT_HYGIENE_FIELDS) {
+      expect(ADS_FIRST_PARTY_TRACKING_FIELD_NAMES).toContain(field)
+      expect(FIRST_PARTY_VIEW_ACK_FIELD_NAMES).toContain(field)
+    }
   })
 
   test('rejects malformed or private first-party view acknowledgement payloads', () => {

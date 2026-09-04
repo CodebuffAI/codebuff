@@ -25,14 +25,19 @@ import {
 } from '@codebuff/common/ads/__fixtures__/sponsored-proposal-rows'
 import { createTestRenderer } from '@opentui/core/testing'
 import { createRoot, flushSync } from '@opentui/react'
-import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import React from 'react'
 
-import { SponsoredProposalBlock, hintFor } from '../blocks/sponsored-proposal-block'
+import {
+  SponsoredProposalBlock,
+  hintFor,
+  hintMode,
+} from '../blocks/sponsored-proposal-block'
 import { initializeThemeStore } from '../../hooks/use-theme'
+import { setSponsoredCliAvailability } from '../../utils/sponsored-availability'
 import { useMessageBlockStore } from '../../state/message-block-store'
 
 import type {
@@ -43,7 +48,14 @@ import type { SponsoredProposalRow } from '@codebuff/common/ads/sponsored-propos
 
 beforeAll(() => {
   initializeThemeStore()
+  // PINNED, so every frame below is the same bytes on a Mac, on CI's Linux and
+  // on a Windows box. The card's Accept is gated on what the HOST can contain
+  // (COD-336 item 3), so a snapshot taken from an unpinned probe records the
+  // machine that ran it rather than the card.
+  setSponsoredCliAvailability('available')
 })
+
+afterAll(() => setSponsoredCliAvailability(null))
 
 const WIDTHS = [20, 48, 60] as const
 
@@ -88,17 +100,105 @@ describe('every state, at every width', () => {
     })
   }
 
-  test('R-3 is waived: there is no Accept control in any state, at any width', async () => {
-    // Phase 1's acceptance criterion, asserted rather than promised. An Accept
-    // here would spawn a Cloud thread against a folder that is not a Cloud
-    // project, so it is absent — not disabled, not stubbed.
-    for (const state of SPONSORED_FIXTURE_STATES) {
-      for (const width of WIDTHS) {
-        const frame = await render(blockFor(SPONSORED_ROW_FIXTURES[state]), width)
-        expect(frame, `${state} at ${width}`).not.toContain('Start sponsored thread')
-        expect(frame, `${state} at ${width}`).not.toContain('Accept')
+  test('R-3: the Accept exists only where a run can actually be contained', async () => {
+    // Phase 2 un-waives R-3, and the property that replaces "there is no
+    // Accept" is narrower and more useful: the control tracks the MACHINE.
+    // `offered` is the only state with an answer to give, and a card is drawn
+    // identically everywhere else.
+    setSponsoredCliAvailability('available')
+    const acceptable = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, { menuOpen: true }),
+      60,
+    )
+    expect(acceptable).toContain('Start sponsored thread')
+
+    // COD-336 item 3, as rendered: on Windows the card SAYS why instead of
+    // offering an Accept that cannot work. The reason is the shared copy, so a
+    // terminal never writes its own account of the containment story.
+    setSponsoredCliAvailability('unavailable:windows-no-containment')
+    const refused = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, { menuOpen: true }),
+      60,
+    )
+    expect(refused).not.toContain('Start sponsored thread')
+    expect(refused).toContain('Windows')
+
+    // And no state but `offered` offers one, on either machine.
+    for (const availability of ['available', 'unavailable:windows-no-containment'] as const) {
+      setSponsoredCliAvailability(availability)
+      for (const state of SPONSORED_FIXTURE_STATES) {
+        if (state === 'offered') continue
+        for (const width of WIDTHS) {
+          const frame = await render(
+            blockFor(SPONSORED_ROW_FIXTURES[state], { menuOpen: true }),
+            width,
+          )
+          expect(frame, `${state} at ${width}`).not.toContain('Start sponsored thread')
+        }
       }
     }
+    setSponsoredCliAvailability('available')
+  })
+
+  test('the run never starts from the Accept: it opens a consent that can refuse', async () => {
+    // COD-336 item 4, adapted for a surface with no second process to draw a
+    // dialog from. The property that has to hold is that the control which
+    // says "Start sponsored thread" reaches a SCREEN, and only the screen can
+    // approve — so a single keypress can never run an advertiser's procedure.
+    setSponsoredCliAvailability('available')
+    const calls: string[] = []
+    useMessageBlockStore.getState().setCallbacks({
+      onSponsoredProposalAccept: (target: string) => calls.push(`accept:${target}`),
+      onSponsoredProposalConsent: (target: string, approved: boolean) =>
+        calls.push(`consent:${target}:${approved}`),
+    } as never)
+    const consented = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, { consent: CONSENT }),
+      60,
+    )
+    // One sentence and two choices (COD-410): who is asking, that it stays on
+    // its own branch, and that nothing is pushed. The field list this used to
+    // be -- folder, branch, a paragraph of assurances -- is gone on purpose.
+    expect(consented).toContain('Acme Deploys wants to integrate itself into')
+    expect(consented).toContain('Nothing is pushed until you')
+    expect(consented).not.toContain(CONSENT.branch)
+    expect(consented).not.toContain(CONSENT.folder)
+    expect(consented).toContain('> No')
+    expect(consented).toContain('  Yes')
+  })
+
+  test('a hostile advertiser name cannot restyle the sentence or move the choices', async () => {
+    // The name is the only advertiser-authored text left on the consent, which makes it the whole
+    // attack surface. It goes through the SAME clamp the desktop bridge applies -- bidi overrides
+    // and controls escaped rather than dropped, length capped -- so it cannot flip the sentence
+    // around it, and it cannot push the two choices off the card.
+    const hostile = `\u202eEVIL\u200b${'x'.repeat(4_000)}`
+    const out = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, {
+        consent: { ...CONSENT, advertiserName: hostile },
+      }),
+      60,
+    )
+    expect(out).not.toContain('\u202e')
+    expect(out).toContain('\\u202e')
+    expect(out).toContain('wants to integrate itself into')
+    expect(out).toContain('> No')
+    expect(out).toContain('  Yes')
+  })
+
+  test('a nameless consent states a refusal and offers only the refusal', async () => {
+    // Blank is not a legal render: a sentence about nobody asks a human to consent to nothing.
+    // Desktop disables Yes; a terminal has no disabled button, so the choice is simply not there.
+    const out = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, {
+        consent: { ...CONSENT, advertiserName: '   ' },
+      }),
+      60,
+    )
+    // wrapped, so the assertion is on the words rather than on where the line breaks
+    expect(out).toContain('could not say who is asking')
+    expect(out).toContain('> No')
+    expect(out).not.toContain('Yes')
   })
 
   test('R-2 every state offers the same one decline, and names it', async () => {
@@ -212,6 +312,11 @@ describe('checked-in frames', () => {
         )
       }
     }
+    // PHASE 2's two new renders, at the same three widths (COD-339). The
+    // consent is the screen a run cannot start without, and the Windows card is
+    // the refusal COD-336 item 3 requires -- both are things a diff should show
+    // before a user does.
+    sections.push(...(await extraSections()))
     const rendered = `${sections.join('\n')}\n`
     if (process.env.UPDATE_PROPOSAL_FRAMES === '1') {
       mkdirSync(dirname(SNAPSHOT), { recursive: true })
@@ -224,6 +329,36 @@ describe('checked-in frames', () => {
   })
 })
 
+/**
+ * The consent screen and the machine that cannot run one.
+ *
+ * Separated from the state loop above because neither is a STATE of the row: a
+ * consent is a screen over an `offered` card, and the Windows refusal is the
+ * same `offered` card on a different machine.
+ */
+async function extraSections(): Promise<string[]> {
+  const out: string[] = []
+  for (const width of WIDTHS) {
+    const frame = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, { consent: CONSENT }),
+      width,
+    )
+    out.push(`=== consent @ ${width} ===\n${frame.replace(/[ \t]+$/gm, '')}`)
+  }
+  setSponsoredCliAvailability('unavailable:windows-no-containment')
+  try {
+    for (const width of WIDTHS) {
+      const frame = await render(blockFor(SPONSORED_ROW_FIXTURES.offered), width)
+      out.push(
+        `=== offered-windows @ ${width} ===\n${frame.replace(/[ \t]+$/gm, '')}`,
+      )
+    }
+  } finally {
+    setSponsoredCliAvailability('available')
+  }
+  return out
+}
+
 describe('the block itself', () => {
   test('is a plain serializable block, not html', () => {
     // `HtmlContentBlock` cannot survive being written to history and read back,
@@ -232,10 +367,10 @@ describe('the block itself', () => {
     expect(JSON.parse(JSON.stringify(block))).toEqual(block)
   })
 
-  test('the hint names commands while the menu is closed, and keys while it is open', () => {
-    // The closed hint may not name a bare key, because the card binds none --
-    // and a hint naming a key that does nothing is worse than no hint.
-    const closed = hintFor(false)
+  test('the hint names commands while nothing is open, and keys while it is', () => {
+    // A hint with nothing open may not name a bare key, because the card binds
+    // none -- and a hint naming a key that does nothing is worse than no hint.
+    const closed = hintFor('closed')
     expect(closed).toContain('/ads:proposal')
     expect(closed).toContain('/ads:dismiss-proposal')
     // Two columns of padding the card's own `inner` does not account for, so
@@ -244,32 +379,71 @@ describe('the block itself', () => {
     for (const key of ['esc dismiss', 'm options', 'enter open PR']) {
       expect(closed).not.toContain(key)
     }
-    // Naming an Accept the surface does not have is how a Phase 1 card starts
-    // looking like it can run a sponsored thread.
+    // ACCEPT IS NAMED ONLY WHERE THERE IS ONE. `closed` is what a machine that
+    // cannot contain a run renders (Windows, COD-336 item 3), and naming a
+    // control that is not there is how a card starts looking like it can run
+    // something it cannot.
     expect(closed.toLowerCase()).not.toContain('accept')
+    expect(hintFor('acceptable')).toContain('/ads:accept-proposal')
 
-    // The open menu is the one span the card owns the keyboard, and chat's is
-    // disabled for exactly it.
-    expect(hintFor(true)).toContain('esc close')
-    expect(hintFor(true).toLowerCase()).not.toContain('accept')
+    // The two spans where the card owns the keyboard, and chat's is disabled
+    // for exactly them.
+    expect(hintFor('menu')).toContain('esc close')
+    expect(hintFor('consent')).toContain('esc cancel')
+    for (const mode of ['menu', 'consent'] as const) {
+      expect(hintFor(mode).length, mode).toBeLessThanOrEqual(44)
+    }
   })
 
   test('a narrow hint never clips a command mid-token', () => {
-    // A truncated `/ads:dismiss-propos` teaches a command that does not exist.
-    for (const width of [0, 1, 5, 13, 20, 30, 36, 37, 44]) {
-      const hint = hintFor(false, width)
-      expect(hint.length, `width ${width}`).toBeLessThanOrEqual(width)
-      if (hint.length > 0) {
-        for (const token of hint.split(' · ')) {
-          expect(
-            ['/ads:proposal', '/ads:dismiss-proposal'],
-            `width ${width}`,
-          ).toContain(token)
+    // A truncated `/ads:dismiss-propos` teaches a command that does not exist,
+    // and `/ads:accept-proposa` is the same failure on the new command.
+    const REAL = [
+      '/ads:proposal',
+      '/ads:dismiss-proposal',
+      '/ads:accept-proposal',
+      '/ads:pull-request',
+      '/ads:remove-worktree',
+    ]
+    for (const mode of ['closed', 'acceptable'] as const) {
+      for (const width of [0, 1, 5, 13, 17, 20, 30, 36, 37, 40, 44]) {
+        const hint = hintFor(mode, width)
+        expect(hint.length, `${mode} @ ${width}`).toBeLessThanOrEqual(width)
+        if (hint.length > 0) {
+          for (const token of hint.split(' · ')) {
+            expect(REAL, `${mode} @ ${width}`).toContain(token)
+          }
         }
       }
     }
   })
+
+  test('the consent screen is the only way a run can start', () => {
+    // `hintMode` is the card's own account of what is reachable, and the
+    // property being pinned is that ACCEPT and CONSENT are never the same
+    // state: accept opens the screen, and only the screen can approve.
+    const offered = blockFor(SPONSORED_ROW_FIXTURES.offered)
+    expect(hintMode(offered, true)).toBe('acceptable')
+    expect(hintMode(offered, false)).toBe('closed')
+    expect(
+      hintMode({ ...offered, consent: CONSENT }, true),
+    ).toBe('consent')
+    // An open consent outranks an open menu: opening it closes the menu, so
+    // the two are never both live and one Enter never has two handlers.
+    expect(
+      hintMode({ ...offered, consent: CONSENT, menuOpen: true }, true),
+    ).toBe('consent')
+  })
 })
+
+const CONSENT = {
+  advertiserName: 'Acme Deploys',
+  headline: 'Add one-click deploys',
+  body: 'A sponsored agent can wire Acme Deploys into your repo.',
+  folder: '/home/dev/app',
+  branch: 'freebuff/sponsored-acme-deploys-run-1',
+  runId: 'run-1',
+}
 
 /**
  * WHAT THE CARD DOES WITH A KEYPRESS, which is the finding this section exists
@@ -303,6 +477,9 @@ describe('the card claims no bare keys while its menu is closed', () => {
         calls.push(['menu', target, open]),
       onSponsoredProposalDisclose: (target, open) =>
         calls.push(['disclose', target, open]),
+      onSponsoredProposalAccept: (target) => calls.push(['accept', target]),
+      onSponsoredProposalConsent: (target, approved) =>
+        calls.push(['consent', target, approved]),
       onSponsoredProposalControl: (target, control) =>
         calls.push(['control', target, control]),
     })
@@ -367,12 +544,67 @@ describe('the card claims no bare keys while its menu is closed', () => {
     )
     await card.press(() => card.input.pressArrow('down'))
     await card.press(() => card.input.pressEnter())
-    // Down moved off `why` onto the second item, which the shared menu order
-    // fixes as never-this-advertiser.
+    // The menu opens on ACCEPT (COD-339: the Accept is the first item, because
+    // this surface has no room for a primary), so one Down lands on `why`.
     expect(card.calls).toEqual([
       ['menu', 'acme/deploys', false],
-      ['control', 'acme/deploys', 'never-advertiser'],
+      ['disclose', 'acme/deploys', true],
     ])
+  })
+
+  test('the menu Accept OPENS the consent and starts nothing', async () => {
+    // The whole of COD-336 item 4 on this surface, as a keypress test: the
+    // first item of the menu reaches `onSponsoredProposalAccept`, which draws
+    // a screen. It does NOT reach a control, and nothing anywhere is written.
+    const card = await mount(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, { menuOpen: true }),
+    )
+    await card.press(() => card.input.pressEnter())
+    expect(card.calls).toEqual([
+      ['menu', 'acme/deploys', false],
+      ['accept', 'acme/deploys'],
+    ])
+  })
+
+  test('the consent starts on Not now, and Esc refuses without writing anything', async () => {
+    // A caret that started on "run it" is a screen an impatient Enter answers
+    // yes, so index 0 is the refusal -- and Esc is a refusal too, reported as
+    // `false` rather than as nothing, so the caller closes the screen.
+    const card = await mount(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, { consent: CONSENT }),
+    )
+    await card.press(() => card.input.pressEnter())
+    expect(card.calls).toEqual([['consent', 'acme/deploys', false]])
+    await card.press(() => card.input.pressEscape())
+    expect(card.calls).toEqual([
+      ['consent', 'acme/deploys', false],
+      ['consent', 'acme/deploys', false],
+    ])
+  })
+
+  test('the consent approves only after the caret is moved onto the run', async () => {
+    const card = await mount(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, { consent: CONSENT }),
+    )
+    await card.press(() => card.input.pressArrow('down'))
+    await card.press(() => card.input.pressEnter())
+    expect(card.calls).toEqual([['consent', 'acme/deploys', true]])
+  })
+
+  test('an open consent takes the keys, and the menu behind it takes none', async () => {
+    // Opening the consent closes the menu, so the two are never both live --
+    // but the block is a plain record and nothing stops both flags being set.
+    // The card resolves it in one direction, always, so one Enter has one
+    // handler.
+    const card = await mount(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, {
+        consent: CONSENT,
+        menuOpen: true,
+      }),
+    )
+    await card.press(() => card.input.pressArrow('down'))
+    await card.press(() => card.input.pressEnter())
+    expect(card.calls).toEqual([['consent', 'acme/deploys', true]])
   })
 
   test('Esc closes the MENU and never answers the proposal', async () => {

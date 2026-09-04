@@ -53,6 +53,7 @@ export type HouseAdSurface =
   | 'waiting_room'
   | 'freebuff_web_chat'
   | 'chat_assistant'
+  | 'chat_assistant_sr'
   | 'cli_chat'
 
 /** Where every house ad sends the reader. */
@@ -211,6 +212,20 @@ export const HOUSE_AD_VARIATIONS: Readonly<
     inline('Freebuff Pro', `Every model, +${SESSIONS_PER_DAY} a day.`),
     inline('Need more?', `Pro starts at ${PRICE}.`),
   ]),
+  // DRAFT (COD-407). The server-rendered-ads experiment arm of
+  // `chat_assistant`: the SAME slot above the composer under a distinct
+  // placement id (`Chat-Assistant-Above-Input-SR`), so it takes the chat
+  // copy verbatim -- a reader in the SR arm should see the same promotion as
+  // one in the control arm, or the arms measure the copy rather than the
+  // renderer. It exists here because `house-ad.ts` requires the floor to be
+  // total over `AD_SURFACES`; there is no sellable slot for it in
+  // `PLACEMENT_SLOTS`, so only the FLOOR ever serves it, never the campaign.
+  chat_assistant_sr: Object.freeze([
+    inline('Freebuff Pro', `${SESSIONS_PER_DAY} more a day. ${PRICE}`),
+    inline('Freebuff Pro', `${SESSIONS_PER_MONTH} more a month. ${PRICE}`),
+    inline('Freebuff Pro', `Every model, +${SESSIONS_PER_DAY} a day.`),
+    inline('Need more?', `Pro starts at ${PRICE}.`),
+  ]),
 })
 
 /**
@@ -228,6 +243,7 @@ export const HOUSE_AD_CREATIVES: Readonly<
   waiting_room: HOUSE_AD_VARIATIONS.waiting_room[0]!,
   freebuff_web_chat: HOUSE_AD_VARIATIONS.freebuff_web_chat[0]!,
   chat_assistant: HOUSE_AD_VARIATIONS.chat_assistant[0]!,
+  chat_assistant_sr: HOUSE_AD_VARIATIONS.chat_assistant_sr[0]!,
 })
 
 /**

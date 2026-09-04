@@ -93,6 +93,8 @@ const defaultCallbacks = {
   onResponseAdsNeeded: () => {},
   onSponsoredProposalMenu: () => {},
   onSponsoredProposalDisclose: () => {},
+  onSponsoredProposalAccept: () => {},
+  onSponsoredProposalConsent: () => {},
   onSponsoredProposalControl: () => {},
 }
 
@@ -213,6 +215,8 @@ describe('MessageBlockStore', () => {
         onResponseAdsNeeded: () => {},
   onSponsoredProposalMenu: () => {},
   onSponsoredProposalDisclose: () => {},
+  onSponsoredProposalAccept: () => {},
+  onSponsoredProposalConsent: () => {},
   onSponsoredProposalControl: () => {},
       })
 
@@ -271,6 +275,8 @@ describe('MessageBlockStore', () => {
         onResponseAdsNeeded: mockFn,
         onSponsoredProposalMenu: mockFn,
         onSponsoredProposalDisclose: mockFn,
+        onSponsoredProposalAccept: mockFn,
+        onSponsoredProposalConsent: mockFn,
         onSponsoredProposalControl: mockFn,
       })
 
