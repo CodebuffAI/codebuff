@@ -2797,11 +2797,49 @@ export const FREEBUFF_CLOUD_BLANK_PROJECT_DAILY_LIMIT = 10
  * keep chatting. */
 export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
 
-/** Models available to limited-region Freebuff Web users: the limited catalog
- * itself. Its own name so a browser-only row (as Ox Alpha once was) can be
- * appended without reaching the CLI/Desktop picker. */
-export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS: readonly string[] =
-  LIMITED_FREEBUFF_MODEL_IDS
+/**
+ * Models available to limited-region Freebuff Web users.
+ *
+ * **Widened 2026-09-04 to the whole Web free catalog except GPT-5.6 Luna.**
+ * It used to alias `LIMITED_FREEBUFF_MODEL_IDS` (Flash, MiMo, Solar), which
+ * left limited regions without the CHEAPEST row we serve — GLM 5.3 Flash at 5
+ * Freebucks an hour, a third of the Flash price — so the tier that can least
+ * afford a session was also the one barred from the cheap one.
+ *
+ * What makes this safe is that the tier is no longer metered by CATALOG. On
+ * the Freebucks meter a limited account holds 25 Freebucks a day under a hard
+ * $0.50 daily ceiling, and every row is priced, so widening WHAT they may pick
+ * cannot widen HOW MUCH they draw — it only lets them spend the same allowance
+ * on a row that goes further. Before the meter, catalog WAS the control, which
+ * is why this list was narrow.
+ *
+ * Luna is the deliberate exception: it stays plan-gated at this tier
+ * (`isFreebuffSubscriptionModelIdForAccessTier` admits it only with a live
+ * paid plan), and the Web picker lists it locked rather than hiding it, so the
+ * row is an offer instead of an absence.
+ *
+ * Its own name, and NOT `LIMITED_FREEBUFF_MODEL_IDS`, because this is a
+ * BROWSER-ONLY widening: the CLI/Desktop limited catalog is unchanged and
+ * those pickers still offer three rows. Note the consequence, since it is not
+ * obvious — `isFreebuffSessionModelAllowedForAccessTier` takes the UNION of
+ * both limited lists for every surface, so a hand-edited CLI config naming one
+ * of these now passes admission where it used to be refused. That is the
+ * existing, deliberate shape of that gate (a shared admission path must accept
+ * every row any surface may legitimately offer); the rows it newly admits are
+ * the cheap ones, and the limited pool meters by tier rather than by model, so
+ * it costs no more per session there than Flash already did.
+ */
+export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS: readonly string[] = [
+  ...new Set<string>([
+    ...LIMITED_FREEBUFF_MODEL_IDS,
+    ...FREEBUFF_WEB_MODELS.filter(
+      (model) =>
+        isFreebuffWebSelectableModelId(model.id) &&
+        !isFreebuffWebGodOnlyModelId(model.id) &&
+        model.id !== FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    ).map((model) => model.id),
+  ]),
+]
 
 export function isFreebuffWebGeoExemptModelId(
   id: string | null | undefined,

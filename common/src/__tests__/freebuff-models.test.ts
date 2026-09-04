@@ -372,7 +372,7 @@ describe('freebuff model availability', () => {
     ).toBe(true)
   })
 
-  test('GLM 5.3 Flash: unmetered for FULL access, still closed to LIMITED', () => {
+  test('GLM 5.3 Flash: unmetered for FULL access, free on WEB at limited', () => {
     // The four properties this change had to deliver, asserted together
     // because they are separately true and separately breakable.
     const id = FREEBUFF_GLM_V53_FLASH_MODEL_ID
@@ -391,18 +391,21 @@ describe('freebuff model availability', () => {
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
 
-    // 3. NOT FREELY GIVEN TO THE LIMITED TIER. Unmetering works through the
-    //    `premium` flag; limited access works through explicit allowlists.
-    //    They are independent, and this pins that they stayed independent —
-    //    limited-region users must not have gained the row as a side effect of
-    //    it being unmetered at full access.
+    // 3. GIVEN TO THE LIMITED TIER ON WEB, DELIBERATELY, AND ONLY THERE.
+    //    Unmetering works through the `premium` flag; limited access works
+    //    through explicit allowlists. They are still INDEPENDENT — which is
+    //    the property this assertion exists to protect — and the proof is
+    //    that the CLI/Desktop limited catalog did NOT move when the Web one
+    //    did. A row arriving at limited access as a side effect of being
+    //    unmetered would have changed both.
+    //
+    //    Widened 2026-09-04: limited regions are metered by Freebucks now
+    //    (25 a day under a hard $0.50 ceiling), so catalog is no longer the
+    //    control it was, and barring the tier from the CHEAPEST row we serve
+    //    only made their allowance go less far.
     expect(LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).not.toContain(id)
-    expect(
-      FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS as readonly string[],
-    ).not.toContain(id)
-    expect(FREEBUFF_WEB_LIMITED_MODEL_IDS as readonly string[]).not.toContain(
-      id,
-    )
+    expect(FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS as readonly string[]).toContain(id)
+    expect(FREEBUFF_WEB_LIMITED_MODEL_IDS as readonly string[]).toContain(id)
     //    What DID change on 2026-08-31: this row became the earned REWARD, so
     //    a limited-tier caller may NAME it — that is how a bounty grant is
     //    redeemed from any region. It is not in any free limited catalog above,
@@ -1855,11 +1858,11 @@ describe('Meta Muse Spark 1.3 Contributor', () => {
     expect(isFreebuffWebModelId(ID)).toBe(true)
     expect(isFreebuffWebGodOnlyModelId(ID)).toBe(false)
     expect(isFreebuffWebSelectableModelId(ID)).toBe(true)
-    // Full access only. The limited tier meters by region and runs MiMo.
+    // Both access tiers on Web since 2026-09-04: the limited catalog is now
+    // the whole Web free catalog except Luna, and the tier is metered by
+    // Freebucks rather than by which rows it may name.
     expect(isFreebuffSessionModelAllowedForAccessTier(ID, 'full')).toBe(true)
-    expect(isFreebuffSessionModelAllowedForAccessTier(ID, 'limited')).toBe(
-      false,
-    )
+    expect(isFreebuffSessionModelAllowedForAccessTier(ID, 'limited')).toBe(true)
   })
 
   test('is metered by the Web premium pool and no other', () => {
