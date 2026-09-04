@@ -450,6 +450,27 @@ export const getFreebucksInfo = (
     ? (session as { freebucks?: FreebuffFreebucksInfo }).freebucks
     : undefined
 
+/**
+ * The access tier the SERVER decided, wherever it rides the response.
+ *
+ * Not the same thing as the tier a client resolved for itself, and the
+ * difference is the point: this is the tier that set the allowance in the same
+ * payload, so anything explaining that allowance has to read it here. A client
+ * that derives the tier separately can disagree with the number it is
+ * labelling — and does, for accounts whose client-side resolution is
+ * short-circuited — leaving a menu that claims one thing beside a balance
+ * computed from another.
+ *
+ * Undefined on the variants that do not carry it, so callers fall back rather
+ * than assert.
+ */
+export const getFreebuffServerAccessTier = (
+  session: { status: string } | null | undefined,
+): FreebuffAccessTier | undefined =>
+  session && 'accessTier' in session
+    ? (session as { accessTier?: FreebuffAccessTier }).accessTier
+    : undefined
+
 /** The free tier's windows off whichever statuses carry them; undefined from
  *  a server that predates the field, for a quota-exempt account, or at
  *  limited access — callers render the daily ring alone in every such case. */
