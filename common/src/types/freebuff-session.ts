@@ -154,7 +154,16 @@ export interface FreebuffFreebucksWindow {
 }
 
 /**
- * The wallet: Freebucks that never expire. Drawn on only once the daily pool
+ * The wallet: what is left once the daily pool is spent. Holds two kinds of
+ * Freebucks that behave differently and are deliberately shown as ONE number,
+ * because the distinction is ours to keep rather than the user's to track:
+ * EARNED ones (bounties, referrals, grants) stay until they are spent, while a
+ * plan's monthly bonus is an allowance for its period and any of it left over
+ * is retired at the roll (`FREEBUCKS_BONUS_EXPIRY_REASON`). Wallet spending is
+ * attributed to the expiring half first, so a user who spends is always
+ * treated as having spent the money that was about to go.
+ *
+ * Drawn on only once the daily pool
  * is spent, so a session costing more than what is left in the pool takes the
  * remainder from here.
  */
