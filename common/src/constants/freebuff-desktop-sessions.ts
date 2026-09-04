@@ -5,6 +5,7 @@ import {
 import {
   FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  FREEBUFF_MUSE_SPARK_MODEL_IDS,
   freebuffModelIdMatches,
 } from './freebuff-models'
 
@@ -15,6 +16,12 @@ const FREEBUFF_DESKTOP_SLOT_BOUND_MODEL_IDS = [
   // ambiguously when usage is finalized.
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  // Muse Spark, from the day it reached Desktop (2026-09-04). Metered like the
+  // rows above it, so the same rule applies — and it earns the slot twice over:
+  // its scarce resource is requests per minute against ceilings Meta meters per
+  // TEAM and every Freebuff user shares, so one tab per user is also one more
+  // bound on how many concurrent turns sit inside them.
+  ...FREEBUFF_MUSE_SPARK_MODEL_IDS,
 ] as const
 
 const FREEBUFF_DESKTOP_CONCURRENCY_LIMITS = {
