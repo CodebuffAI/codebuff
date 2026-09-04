@@ -462,6 +462,7 @@ const ADS_FIRST_PARTY_DECISION_FIELDS = {
  * advertiser identifiers. The bounded status/reason and amount fields are
  * sufficient for charge and absorption dashboards. */
 const ADS_FIRST_PARTY_SETTLEMENT_FIELDS = {
+  metric: 'string',
   billing_model: 'string',
   settlement_status: 'string',
   absorbed_reason: 'string',
