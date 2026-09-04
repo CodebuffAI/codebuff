@@ -846,8 +846,18 @@ export const MUSE_SPARK_FALLBACK_MODEL_ID = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
  * through to the Web queue, or to a bare 429 on any surface without one. That
  * gap is what kept the model browser-bound, and closing it is what makes a
  * later CLI/Desktop rollout a catalog change rather than a design one.)
+ *
+ * FIFTEEN SECONDS since 2026-09-03, up from ten, and the reason is the key
+ * pool rather than a change of heart about how long silence is tolerable.
+ * A rate-limited request now walks the pool before it waits at all
+ * (web/src/llm-api/meta-key-pool.ts): with independent per-team buckets, the
+ * common case that used to spend the whole window on backoff is answered by
+ * another key in one round trip. The window is what remains for the case where
+ * EVERY key is spent — rarer, and worth a little more patience because the
+ * alternative is answering on a different model. Raising it without the pool
+ * would simply have made users wait 50% longer to be told the same thing.
  */
-export const MUSE_SPARK_FALLBACK_AFTER_MS = 10_000
+export const MUSE_SPARK_FALLBACK_AFTER_MS = 15_000
 
 /** Picker copy for the tagline tooltip, and the single source for it — the
  *  server's behavior and the row's promise must not drift. Names the model

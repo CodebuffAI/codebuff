@@ -2077,7 +2077,7 @@ describe('Muse Spark rate-limit fallback', () => {
     // A wait worth explaining, not one worth hiding — and the same number the
     // provider uses for its silent window, so the two cannot disagree about
     // what "too long" means.
-    expect(MUSE_SPARK_FALLBACK_AFTER_MS).toBe(10_000)
+    expect(MUSE_SPARK_FALLBACK_AFTER_MS).toBe(15_000)
   })
 })
 
