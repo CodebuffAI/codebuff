@@ -187,6 +187,36 @@ export interface FreebuffFreebucksSpendCeiling {
 }
 
 /**
+ * The MONTHLY dollar allowance: what this account may draw in provider spend
+ * over the period, what it has drawn, and what is left.
+ *
+ * Unlike the daily ceiling above, this one IS shown — as "$N left" beside the
+ * Freebucks balances — because the two answer different questions. The daily
+ * figure is an abuse backstop nobody should ever meet, and showing it invited
+ * the reading that the dollars run out before the Freebucks do. This one is
+ * the honest size of the gift: it is what the plan card advertises, it is what
+ * the server enforces, and a user who wants to know how much they are being
+ * given can read it directly instead of inferring it from a session price.
+ *
+ * `spentUsd` lags live traffic by up to an hour: it is summed from the hourly
+ * spend rollup rather than the hot `message` table, deliberately, because a
+ * SUM over that table on every session response is the shape of the
+ * 2026-08-17 saturation. For a monthly bound an hour of lag is noise.
+ */
+export interface FreebuffFreebucksMonthlyAllowance {
+  /** Provider spend for the period at which fresh sessions stop. */
+  limitUsd: number
+  /** Settled spend so far this period, from the hourly rollup. */
+  spentUsd: number
+  /** `limitUsd - spentUsd`, floored at zero so an overshoot reads as spent
+   *  rather than as a negative allowance. */
+  remainingUsd: number
+  /** ISO instant the period rolls: the Stripe period end for a subscriber,
+   *  else the first of next month. */
+  resetAt: string
+}
+
+/**
  * The caller's Freebucks position, present on every authenticated session
  * response inside the rollout audience. Distinct from Trust: Freebucks are a
  * granted budget that buys sessions, Trust is earned standing that buys
@@ -202,6 +232,10 @@ export interface FreebuffFreebucksInfo {
   daily: FreebuffFreebucksWindow
   wallet: FreebuffFreebucksWallet
   spend: FreebuffFreebucksSpendCeiling
+  /** The monthly dollar allowance, shown to the user and enforced. Absent
+   *  from a server that predates it, so clients render nothing rather than
+   *  a zero that would read as "you have nothing left". */
+  monthly?: FreebuffFreebucksMonthlyAllowance
   /** The plan the daily pool and bonus were sized from; null on free. */
   planId: string | null
   /** Session price per model id. Only models on the meter appear here. */
@@ -311,8 +345,17 @@ export interface FreebuffSessionRateLimit {
   limit: number
   /** 'pacific_day' for the daily pools (premium/limited, and the reward
    *  referral pool since 2026-07-29). 'pacific_week' is kept for wire compat
-   *  with servers from when the GLM pool reset weekly. */
-  period: 'pacific_day' | 'pacific_week'
+   *  with servers from when the GLM pool reset weekly.
+   *
+   *  'pacific_month' arrived with the monthly dollar allowance. EVERY RELEASED
+   *  CLIENT renders an unrecognised value as "today" (`period === 'pacific_week'
+   *  ? 'this week' : 'today'`), which is wrong copy rather than a crash — it
+   *  invites a user to retry in the morning for an allowance that returns on
+   *  the 1st. Harmless today because only Freebuff Web is on the meter and its
+   *  copy is updated in step; a widening of the Freebucks audience has to
+   *  carry a client release with it, or accept that wording. `resetAt` is
+   *  correct on every client either way, so anything reading THAT is safe. */
+  period: 'pacific_day' | 'pacific_week' | 'pacific_month'
   resetTimeZone: string
   resetAt: string
   /** Deprecated wire field kept for older clients. Session usage now follows
@@ -834,7 +877,7 @@ export type FreebuffSessionAdmissionResponse = (
       limit: number
       /** Additive detail for `limit`; absent on older servers. */
       entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
-      period: 'pacific_day' | 'pacific_week'
+      period: 'pacific_day' | 'pacific_week' | 'pacific_month'
       resetTimeZone: string
       resetAt: string
       /** Deprecated wire field kept for older clients. */
