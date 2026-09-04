@@ -10,17 +10,15 @@ import type { Readable } from 'stream'
 
 import { stripAnsi } from '../../../common/src/util/string'
 import { getSystemProcessEnv } from '../env'
-import {
-  createWindowsBashNotFoundError,
-  findWindowsBash,
-} from './windows-bash'
+import { createWindowsBashNotFoundError, findWindowsBash } from './windows-bash'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 const COMMAND_OUTPUT_LIMIT = 50_000
 const TRUNCATION_MARKER = '\n[...TRUNCATED DUE TO LENGTH...]\n'
 const MAX_PENDING_ESCAPE_SEQUENCE_LENGTH = 32
-const INCOMPLETE_ESCAPE_SEQUENCE_REGEX = /\x1B(?:\[[0-?]*[ -/]*|\][^\x1B]*)?$/
+const INCOMPLETE_ESCAPE_SEQUENCE_REGEX =
+  /\x1B(?:\[[0-?]*[ -/]*|\][^\x07\x1B]*(?:\x1B)?)?$/
 // Grace period between SIGTERM and SIGKILL for commands that trap or ignore
 // SIGTERM.
 const KILL_ESCALATION_MS = 1500
