@@ -247,6 +247,57 @@ describe('shared release launcher safety', () => {
     }
   })
 
+  test('a spawned binary starts from a clean activity marker', () => {
+    const { clearStaleRunActivityMarker, runActivityMarkerPath } =
+      createLauncher({
+        packageName: 'test',
+        displayName: 'Test',
+      }).__testing
+    const pid = 999_999_004
+    const markerPath = runActivityMarkerPath(pid)
+
+    // A marker left by a process that died before it could clear its own --
+    // SIGKILL, a native crash -- outlives it in tmpdir. Reaching the same pid
+    // again would otherwise stall that run's updates for the full bound.
+    writeFileSync(markerPath, '')
+
+    try {
+      clearStaleRunActivityMarker(pid)
+      expect(existsSync(markerPath)).toBe(false)
+    } finally {
+      rmSync(markerPath, { force: true })
+    }
+  })
+
+  test('clearing a stale marker tolerates there being none', () => {
+    const { clearStaleRunActivityMarker, runActivityMarkerPath } =
+      createLauncher({
+        packageName: 'test',
+        displayName: 'Test',
+      }).__testing
+    const pid = 999_999_005
+
+    rmSync(runActivityMarkerPath(pid), { force: true })
+
+    expect(() => clearStaleRunActivityMarker(pid)).not.toThrow()
+  })
+
+  test('spawnInstalledBinary clears the stale marker once it has a pid', () => {
+    const source = readFileSync(launcherPath, 'utf8')
+    const spawnFunction = source.slice(
+      source.indexOf('function spawnInstalledBinary'),
+    )
+    const spawnIndex = spawnFunction.indexOf('child = spawn(CONFIG.binaryPath')
+    const clearIndex = spawnFunction.indexOf('clearStaleRunActivityMarker(')
+    const returnIndex = spawnFunction.indexOf('return child')
+
+    expect(spawnIndex).toBeGreaterThan(-1)
+    // The pid only exists after the spawn, and the marker must be gone before
+    // the caller can hand this child to checkForUpdates.
+    expect(clearIndex).toBeGreaterThan(spawnIndex)
+    expect(returnIndex).toBeGreaterThan(clearIndex)
+  })
+
   test('requires the wrapper release only for missing or older binaries', () => {
     const cases: Array<{
       wrapperVersion: string
