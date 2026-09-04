@@ -798,18 +798,22 @@ function createSkillCommand(skillName: string): CommandDefinition {
  * mid-turn (skill args, /plan, /interview, /review, and their input-mode
  * counterparts in the router) so those entry paths can't drift out of sync
  * with the busy check.
+ *
+ * Attachments are handled on exactly one side of the branch, and must stay
+ * that way. A queued send passes its attachments explicitly, which suppresses
+ * the pendingAttachments fallback in prepareUserMessage, so the queue entry
+ * has to carry them or they sit in the store and surface on some later,
+ * unrelated message. An immediate send passes no attachments key at all and
+ * relies on that same fallback, so capturing here would clear them into a
+ * value this branch never forwards.
  */
-export function sendOrQueuePrompt(
-  params: RouterParams,
-  content: string,
-  attachments: PendingAttachment[] = [],
-): void {
+export function sendOrQueuePrompt(params: RouterParams, content: string): void {
   if (
     params.isStreaming ||
     params.streamMessageIdRef.current ||
     params.isChainInProgressRef.current
   ) {
-    params.addToQueue(content, attachments)
+    params.addToQueue(content, capturePendingAttachments())
     params.setInputFocused(true)
     params.inputRef.current?.focus()
     return
@@ -834,9 +838,5 @@ export function dispatchSkillPrompt(
   skill: { name: string; content: string },
   input: string,
 ): void {
-  sendOrQueuePrompt(
-    params,
-    buildSkillPrompt(skill, input),
-    capturePendingAttachments(),
-  )
+  sendOrQueuePrompt(params, buildSkillPrompt(skill, input))
 }

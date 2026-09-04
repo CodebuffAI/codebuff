@@ -6,7 +6,7 @@ import {
   activateSteering,
   drainSteeringMessages,
 } from '../../utils/steering-buffer'
-import { findCommand } from '../command-registry'
+import { dispatchSkillPrompt, findCommand } from '../command-registry'
 import { routeUserPrompt } from '../router'
 
 import type { RouterParams } from '../command-registry'
@@ -39,11 +39,13 @@ const createMockParams = (
 
 beforeEach(() => {
   useChatStore.getState().clearPendingBashMessages()
+  useChatStore.getState().clearPendingAttachments()
 })
 
 afterEach(() => {
   __resetSteeringForTests()
   useChatStore.getState().clearPendingBashMessages()
+  useChatStore.getState().clearPendingAttachments()
 })
 
 describe('mid-turn routing', () => {
@@ -216,6 +218,46 @@ describe('mid-turn routing', () => {
 
       expect(params.sendMessage).toHaveBeenCalledTimes(1)
       expect(params.addToQueue).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('staged attachments follow the prompt they were staged for', () => {
+    const stageAttachment = () =>
+      useChatStore.getState().addPendingAttachment({
+        kind: 'text',
+        id: 'pasted-1',
+        content: 'a long pasted block',
+        preview: 'a long pasted block',
+        charCount: 19,
+      })
+
+    test('a queued /interview carries the staged attachments with it', () => {
+      stageAttachment()
+      const params = createMockParams({
+        inputValue: '/interview what should the API look like',
+        isStreaming: true,
+      })
+      findCommand('interview')!.handler(params, 'what should the API look like')
+
+      const [, attachments] = (params.addToQueue as ReturnType<typeof mock>)
+        .mock.calls[0] as [string, unknown[]]
+      // Queued sends pass their attachments explicitly, which suppresses the
+      // pendingAttachments fallback in prepareUserMessage. Anything left in
+      // the store here would land on some later, unrelated message.
+      expect(attachments).toHaveLength(1)
+      expect(useChatStore.getState().pendingAttachments).toHaveLength(0)
+    })
+
+    test('an idle skill dispatch leaves the staged attachments for the send path', () => {
+      stageAttachment()
+      const params = createMockParams({ inputValue: '/skill:tidy' })
+      dispatchSkillPrompt(params, { name: 'tidy', content: 'Tidy up.' }, '')
+
+      expect(params.sendMessage).toHaveBeenCalledTimes(1)
+      // sendMessage is called without an attachments key on purpose: it falls
+      // back to the store. Capturing here would clear them into a value the
+      // idle branch never passes on.
+      expect(useChatStore.getState().pendingAttachments).toHaveLength(1)
     })
   })
 })
