@@ -67,6 +67,21 @@ export function isBrowserLikeAdUserAgent(
  * already installed on user machines are corrected server-side the moment this
  * deploys instead of waiting for a client update.
  */
+/**
+ * The user agent Gravity sees, on the auction and on its impression pixel.
+ * Gravity is the exception to the browser-like rule below: they asked for the
+ * real client (2026-09-04) — `Codebuff-CLI/<v>` is served fine, and the Chrome
+ * UA had ~74% of our traffic reported to advertisers as Chrome desktop. The
+ * header wins whenever it has content (including `Bun/<v>` from old builds,
+ * few and shrinking); a missing or blank one falls back to the browser-like UA.
+ */
+export function resolveGravityUserAgent(params: {
+  requestHeader?: string | null
+  fallback?: string
+}): string | undefined {
+  return params.requestHeader?.trim() || params.fallback
+}
+
 export function resolveAdProviderUserAgent(params: {
   /** Browser-like UA the client sent in the request body, when it sends one. */
   submitted?: string | null
