@@ -50,6 +50,8 @@ export const ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT =
  * opaque click/event identifiers never leave the request handler. */
 export const ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT =
   'ads.external_conversion_postback' as const
+export const ADS_ADVERTISER_REPORTING_READ_EVENT =
+  'ads.advertiser_reporting_read' as const
 /** Browser-side Imprezia decisions. The route deliberately reports only
  * bounded serving dimensions: request/content/creative identifiers, URLs, and
  * raw provider errors never enter this event. */
@@ -630,6 +632,16 @@ const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
   match_outcome: 'string',
 } as const satisfies AxiomOnlyFieldSchema
 
+const ADS_ADVERTISER_REPORTING_READ_FIELDS = {
+  advertiser_id: 'string',
+  key_id: 'string',
+  endpoint: 'string',
+  range_days: 'number',
+  rows: 'number',
+  duration_ms: 'number',
+  outcome: 'string',
+} as const satisfies AxiomOnlyFieldSchema
+
 /** The refusal census. Bounded producer-encoded labels only; the closed
  *  `reason` enum lives beside the limiter that produces it. */
 const ADS_REQUEST_REJECTED_FIELDS = {
@@ -653,6 +665,7 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_FIRST_PARTY_CLICK_RECORDED_EVENT
     | typeof ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
     | typeof ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT
+    | typeof ADS_ADVERTISER_REPORTING_READ_EVENT
     | typeof ADS_IMPREZIA_FETCH_COMPLETED_EVENT
     | typeof ADS_REQUEST_REJECTED_EVENT
   data: Record<string, string | number | boolean>
@@ -765,6 +778,15 @@ export function getAxiomOnlyLogEvent(
       data: sanitizeAllowlistedFields(
         record,
         ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS,
+      ),
+    }
+  }
+  if (eventName === ADS_ADVERTISER_REPORTING_READ_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(
+        record,
+        ADS_ADVERTISER_REPORTING_READ_FIELDS,
       ),
     }
   }

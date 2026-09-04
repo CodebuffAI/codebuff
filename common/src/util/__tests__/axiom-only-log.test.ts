@@ -8,6 +8,7 @@ import {
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
   ADS_FIRST_PARTY_VIEW_ACK_EVENT,
   ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+  ADS_ADVERTISER_REPORTING_READ_EVENT,
   ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
   getAxiomOnlyLogEvent,
@@ -18,6 +19,33 @@ import {
 } from '../axiom-only-log'
 
 describe('getAxiomOnlyLogEvent', () => {
+  test('keeps only the advertiser reporting audit contract', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_ADVERTISER_REPORTING_READ_EVENT,
+        advertiser_id: 'advertiser-a',
+        key_id: 'key-a',
+        endpoint: 'delivery',
+        range_days: 30,
+        rows: 12,
+        duration_ms: 42,
+        outcome: 'ok',
+        authorization: 'Bearer must-not-leak',
+      }),
+    ).toEqual({
+      event: ADS_ADVERTISER_REPORTING_READ_EVENT,
+      data: {
+        advertiser_id: 'advertiser-a',
+        key_id: 'key-a',
+        endpoint: 'delivery',
+        range_days: 30,
+        rows: 12,
+        duration_ms: 42,
+        outcome: 'ok',
+      },
+    })
+  })
+
   test('sanitizes context-pruning metadata', () => {
     expect(
       getAxiomOnlyLogEvent({
