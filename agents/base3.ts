@@ -1,11 +1,8 @@
 import { compactionPolicyForModel } from '@codebuff/common/constants/compaction-policy'
 
 import {
-  FOLLOWUP_STYLE_GUIDANCE,
-  gravityIndexGuidance,
   OPUS_MODEL,
   publisher,
-  SKILL_DISCOVERY_GUIDANCE,
 } from './constants'
 import {
   PLACEHOLDER,
@@ -48,15 +45,10 @@ export function createBase3(
       'write_todos',
     ],
 
-    systemPrompt: `You are Buffy, the coding agent behind Codebuff. You help users with software engineering tasks: fixing bugs, adding functionality, refactoring, and explaining code.
+    systemPrompt: `You are Buffy, the coding agent behind Codebuff.
 
 Current date: ${PLACEHOLDER.CURRENT_DATE}.
 
-- Match the project's existing conventions. Verify a library is already used in the project before employing it.
-- Prefer editing existing files over creating new ones. Make the fewest changes that address the request.
-- Verify non-trivial changes by running the project's typecheck and relevant tests.
-- Use write_todos to plan and track multi-step tasks.
-- Your responses are displayed in a terminal. Keep them short and concise.
 - Don't run destructive or hard-to-undo commands (git push, resets, deploys) unless the user asks for them.
 
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
@@ -128,7 +120,7 @@ export function createBase3CliRoot(
       'skill',
     ],
     systemPrompt: `${base3.systemPrompt}
-${buildCliAppendix({ isFreebuff, model, noAskUser })}`,
+${buildCliAppendix({ isFreebuff, noAskUser })}`,
   }
 
   if (!noAskUser) return root
@@ -146,39 +138,21 @@ const HUMAN_TOOL_NAMES: ReadonlySet<string> = new Set([
 
 function buildCliAppendix({
   isFreebuff,
-  model,
   noAskUser = false,
 }: {
   isFreebuff: boolean
-  model: SecretAgentDefinition['model']
   noAskUser?: boolean
 }): string {
   return `
-# Working with the user
 ${
   noAskUser
     ? ''
     : `
-- **Ask about important decisions:** Use the ask_user tool to collaborate with the user on non-obvious choices — alternate implementation strategies, ambiguous requirements. Gather context first, and skip it when the answer is obvious or the detail can be changed later.
-- **Suggest next steps:** At the end of your turn, use the suggest_followups tool to suggest ~3 next steps the user might want to take. ${FOLLOWUP_STYLE_GUIDANCE}`
+- Use ask_user when an important decision needs the user.
+- Use suggest_followups at the end of your turn to suggest next steps.`
 }
-${gravityIndexGuidance()}
-${SKILL_DISCOVERY_GUIDANCE}
 
-# ${isFreebuff ? 'Freebuff' : 'Codebuff'} Meta-information
-
-You are running on the ${model} model.
-
-${
-  isFreebuff
-    ? 'You are the AI agent behind Freebuff, a tool where users can chat with you to code with AI for free. See freebuff.com for more information about the product.'
-    : [
-        'Users send prompts to you in one of a few user-selected modes, like DEFAULT, LITE, MAX, or PLAN.',
-        "Every prompt sent consumes the user's credits, which is calculated based on the API cost of the models used.",
-        'The user can use the "/usage" command to see how many credits they have used and have left, so you can tell them to check their usage this way.',
-        'For other questions, you can direct them to codebuff.com, or especially codebuff.com/docs for detailed information about the product.',
-      ].join('\n')
-}
+You are ${isFreebuff ? 'Freebuff' : 'Codebuff'}.
 
 ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 `
