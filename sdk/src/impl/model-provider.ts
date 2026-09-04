@@ -6,6 +6,10 @@
 import path from 'path'
 
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
+import {
+  FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE,
+  FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
+} from '@codebuff/common/constants/freebuff-errors'
 import { FREEBUFF_ACTING_USER_HEADER } from '@codebuff/common/constants/freebuff-models'
 import { isTransientNetworkError } from '@codebuff/common/util/error'
 import {
@@ -82,9 +86,59 @@ function notifyCapacityDeferralFromResponse(response: Response): void {
     .catch(() => {})
 }
 
+function requestUrlOf(input: Parameters<typeof globalThis.fetch>[0]): string {
+  return typeof input === 'string'
+    ? input
+    : input instanceof URL
+      ? input.toString()
+      : input.url
+}
+
+/**
+ * The per-turn spend breaker (HTTP 429, body `{ error: 'turn_spend_limit',
+ * message }`) is final for THIS turn: its spend only grows, so the same run
+ * id is refused again on every retry. Left to the AI SDK, which treats every
+ * 429 as retryable, a capped turn asked four times over ~14s and then failed
+ * as "Failed after 4 attempts. Last error: Too Many Requests" — which every
+ * client read as an ordinary rate limit and answered with "wait a moment or
+ * switch models", neither of which helps. Throwing a NON-retryable
+ * APICallError stops the retry loop on the first refusal, and carrying the
+ * body lets the runtime's error parser hand the server's own copy (and the
+ * `turn_spend_limit` code) to the client unchanged.
+ */
+async function throwIfTurnSpendCapped(
+  response: Response,
+  url: string,
+): Promise<void> {
+  if (response.status !== 429) return
+  const text = await response
+    .clone()
+    .text()
+    .catch(() => '')
+  let body: { error?: unknown; message?: unknown } | null = null
+  try {
+    body = JSON.parse(text)
+  } catch {
+    return
+  }
+  if (body?.error !== FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE) return
+  throw new APICallError({
+    message:
+      typeof body.message === 'string' && body.message
+        ? body.message
+        : FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
+    url,
+    requestBodyValues: {},
+    statusCode: response.status,
+    responseBody: text,
+    isRetryable: false,
+  })
+}
+
 /**
  * Wrap global fetch so transient connection failures (socket closed/reset,
- * connection refused) are rethrown as retryable APICallErrors.
+ * connection refused) are rethrown as retryable APICallErrors, and a capped
+ * turn's 429 as a non-retryable one (see throwIfTurnSpendCapped).
  *
  * Bun's fetch throws these as plain Errors ("The socket connection was closed
  * unexpectedly...", code ECONNRESET/ConnectionClosed), which the AI SDK does
@@ -96,21 +150,15 @@ function notifyCapacityDeferralFromResponse(response: Response): void {
 function fetchWithRetryableNetworkErrors(
   ...args: Parameters<typeof globalThis.fetch>
 ): ReturnType<typeof globalThis.fetch> {
-  return globalThis
-    .fetch(...args)
-    .then((response) => {
+  const url = requestUrlOf(args[0])
+  return globalThis.fetch(...args).then(
+    async (response) => {
       notifyCapacityDeferralFromResponse(response)
+      await throwIfTurnSpendCapped(response, url)
       return response
-    })
-    .catch((error: unknown) => {
+    },
+    (error: unknown) => {
       if (isTransientNetworkError(error)) {
-        const input = args[0]
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url
         throw new APICallError({
           message: error instanceof Error ? error.message : String(error),
           cause: error,
@@ -120,7 +168,8 @@ function fetchWithRetryableNetworkErrors(
         })
       }
       throw error
-    })
+    },
+  )
 }
 
 /**

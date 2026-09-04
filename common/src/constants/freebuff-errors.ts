@@ -5,3 +5,17 @@ export const FREEBUFF_PROVIDER_USAGE_ERROR_PATTERN =
 /** Shared copy keeps every Freebuff surface clear that the user is not billed. */
 export const FREEBUFF_PROVIDER_USAGE_MESSAGE =
   'Freebuff ran out of provider usage and needs a refill. This is on us, not your account.'
+
+/**
+ * The completions API's per-turn spend breaker (web/src/app/api/v1/chat/
+ * completions/_post.ts, packages/billing/src/freebuff-turn-spend.ts): a 429
+ * whose body is `{ error: 'turn_spend_limit', message }`. It is not a quota
+ * and not transient — the same turn is refused again on every retry, because
+ * its spend only ever grows — so every client stops retrying on sight and
+ * shows the message as-is. A NEW message starts a new turn with a fresh
+ * budget, which is what the copy says.
+ */
+export const FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE = 'turn_spend_limit'
+
+export const FREEBUFF_TURN_SPEND_LIMIT_MESSAGE =
+  'Something went wrong with this turn — it kept accumulating model usage well past what a single turn should use (this usually means an agent got stuck in a loop). Your session is fine: send a new message to continue from here.'
