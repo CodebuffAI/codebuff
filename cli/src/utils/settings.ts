@@ -57,6 +57,10 @@ export interface Settings {
    *  first-time onboarding suggested prompts so they only show to brand-new
    *  users and quietly retire afterwards. */
   hasSubmittedFirstPrompt?: boolean
+  /** When the one-time Freebucks introduction was shown (ISO). Set the
+   *  moment it renders, not when it is dismissed, so "once" holds however
+   *  the launch ends. */
+  freebucksIntroSeenAt?: string
 }
 
 /**
@@ -186,6 +190,13 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.hasSubmittedFirstPrompt = obj.hasSubmittedFirstPrompt
   }
 
+  // The loader is an ALLOWLIST — a key not copied here is dropped on every
+  // load and silently rewritten on the next save. That is how the intro's
+  // "shown once" mark lasted exactly one launch (2026-09-05).
+  if (typeof obj.freebucksIntroSeenAt === 'string') {
+    settings.freebucksIntroSeenAt = obj.freebucksIntroSeenAt
+  }
+
   return settings
 }
 
@@ -308,4 +319,11 @@ export const hasSubmittedFirstPrompt = (): boolean => {
 export const markFirstPromptSubmitted = (): void => {
   if (loadSettings().hasSubmittedFirstPrompt === true) return
   saveSettings({ hasSubmittedFirstPrompt: true })
+}
+
+export const hasSeenFreebucksIntro = (): boolean =>
+  Boolean(loadSettings().freebucksIntroSeenAt)
+
+export const markFreebucksIntroSeen = (): void => {
+  saveSettings({ freebucksIntroSeenAt: new Date().toISOString() })
 }

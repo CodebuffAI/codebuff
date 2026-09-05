@@ -54,7 +54,10 @@ import { fetchSponsoredProposal } from '../utils/sponsored-proposal-api'
 import { sponsoredProposalTarget } from '../utils/sponsored-proposal-target'
 import { isSponsoredProposalBlock } from '../types/chat'
 
-import type { SponsoredProposal } from '../utils/sponsored-proposal-api'
+import type {
+  SponsoredProposal,
+  SponsoredProposalFetchResult,
+} from '../utils/sponsored-proposal-api'
 import type { ChatMessage, SponsoredProposalContentBlock } from '../types/chat'
 
 /** An offer changes when the server rotates it. Once a minute is enough. */
@@ -74,7 +77,10 @@ export function proposalPollIntervalMs(
   block: SponsoredProposalContentBlock | null,
 ): number {
   if (!block) return PROPOSAL_POLL_INTERVAL_MS
-  return sponsoredProposalAwaitsVerdict(block.proposal.state, block.runStarted === true)
+  return sponsoredProposalAwaitsVerdict(
+    block.proposal.state,
+    block.runStarted === true,
+  )
     ? PROPOSAL_RUN_POLL_INTERVAL_MS
     : PROPOSAL_POLL_INTERVAL_MS
 }
@@ -99,40 +105,101 @@ export function findProposalBlock(
  * card for a repository that already has one.
  *
  * A card the user ANSWERED is never revived — `answered` stands its controls
- * down permanently and the row upstream is dismissed, so a poll that still sees
- * something is seeing a rotation the user has not been offered yet and will be
- * on the next one. A card whose row reached a TERMINAL state keeps its place
- * with the new row folded in, so `committed` and `failed` land on the card the
- * user is already looking at rather than below it.
+ * down permanently. An authoritative absence removes an unanswered card;
+ * unavailable transport keeps its context visible but pauses its controls. A
+ * card whose row reached a TERMINAL state keeps its place with the new row
+ * folded in, so `committed` and `failed` land on the card the user is already
+ * looking at rather than below it.
  */
 export function applyPolledProposal(
   messages: ChatMessage[],
   target: string,
-  proposal: SponsoredProposal | null,
+  result: SponsoredProposalFetchResult,
 ): ChatMessage[] {
-  const existing = findProposalBlock(messages)
-  if (!proposal) return messages
+  const anyExisting = findProposalBlock(messages)
+  const existing = findProposalBlockForTarget(messages, target)
+
+  if (result.status === 'absent') {
+    let changed = false
+    const next = messages.flatMap((message) => {
+      if (!message.blocks) return [message]
+      const blocks = message.blocks.filter((block) => {
+        const remove =
+          isSponsoredProposalBlock(block) &&
+          block.target === target &&
+          block.answered !== true
+        if (remove) changed = true
+        return !remove
+      })
+      if (blocks.length === message.blocks.length) return [message]
+      if (blocks.length === 0 && message.content === '') return []
+      return [{ ...message, blocks }]
+    })
+    return changed ? next : messages
+  }
+
+  if (result.status === 'unavailable') {
+    if (
+      !existing ||
+      existing.target !== target ||
+      existing.answered ||
+      existing.refreshUnavailable
+    ) {
+      return messages
+    }
+    return messages.map((message) =>
+      message.blocks?.some(
+        (block) =>
+          isSponsoredProposalBlock(block) &&
+          block.target === target &&
+          block.answered !== true,
+      )
+        ? {
+            ...message,
+            blocks: message.blocks.map((block) =>
+              isSponsoredProposalBlock(block) &&
+              block.target === target &&
+              block.answered !== true
+                ? {
+                    ...block,
+                    refreshUnavailable: true,
+                    menuOpen: false,
+                    consent: undefined,
+                  }
+                : block,
+            ),
+          }
+        : message,
+    )
+  }
+
+  const proposal = result.proposal
+  if (!existing && anyExisting) return messages
   if (existing) {
     if (existing.answered) return messages
     if (existing.target !== target) return messages
     // Same row, same state: nothing to redraw, and a new array here would
     // reflow a transcript the user is reading once every poll.
     if (
-      existing.proposal._id === proposal._id &&
-      existing.proposal.state === proposal.state &&
-      existing.proposal.branch === proposal.branch &&
-      existing.proposal.pr_url === proposal.pr_url &&
-      existing.proposal.failure_reason === proposal.failure_reason
+      proposalPayloadEqual(existing.proposal, proposal) &&
+      !existing.refreshUnavailable
     ) {
       return messages
     }
     return messages.map((message) =>
-      message.blocks?.some(isSponsoredProposalBlock)
+      message.blocks?.some(
+        (block) =>
+          isSponsoredProposalBlock(block) &&
+          block.target === target &&
+          block.answered !== true,
+      )
         ? {
             ...message,
             blocks: message.blocks.map((block) =>
-              isSponsoredProposalBlock(block)
-                ? { ...block, proposal }
+              isSponsoredProposalBlock(block) &&
+              block.target === target &&
+              block.answered !== true
+                ? { ...block, proposal, refreshUnavailable: undefined }
                 : block,
             ),
           }
@@ -151,13 +218,60 @@ export function applyPolledProposal(
   return [...messages, getSystemMessage([block])]
 }
 
+function findProposalBlockForTarget(
+  messages: ChatMessage[],
+  target: string,
+): SponsoredProposalContentBlock | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    for (const block of messages[i]!.blocks ?? []) {
+      if (isSponsoredProposalBlock(block) && block.target === target) return block
+    }
+  }
+  return null
+}
+
+function proposalPayloadEqual(
+  left: SponsoredProposal,
+  right: SponsoredProposal,
+): boolean {
+  return (
+    left._id === right._id &&
+    left.advertiser_id === right.advertiser_id &&
+    left.state === right.state &&
+    left.advertiser_name === right.advertiser_name &&
+    left.advertiser_logo_token === right.advertiser_logo_token &&
+    left.headline === right.headline &&
+    left.body === right.body &&
+    left.why_this === right.why_this &&
+    left.thread_ref === right.thread_ref &&
+    left.branch === right.branch &&
+    left.pr_url === right.pr_url &&
+    left.failure_reason === right.failure_reason &&
+    stepsEqual(left.steps, right.steps)
+  )
+}
+
+function stepsEqual(
+  left: SponsoredProposal['steps'],
+  right: SponsoredProposal['steps'],
+): boolean {
+  if (left === right) return true
+  if (!left || !right || left.length !== right.length) return false
+  return left.every(
+    (step, index) =>
+      step.text === right[index]?.text && step.state === right[index]?.state,
+  )
+}
+
 /**
  * Poll for this repository's sponsored proposal and keep the card current.
  *
  * Mounted from `chat.tsx` beside the display rail. Returns nothing: everything
  * it does is to the transcript, which is where the card lives.
  */
-export function useSponsoredProposal(options: { enabled?: boolean } = {}): void {
+export function useSponsoredProposal(
+  options: { enabled?: boolean } = {},
+): void {
   const enabled = options.enabled ?? true
   const hasUserMessaged = useChatStore((s) =>
     s.messages.some((m) => m.variant === 'user'),
@@ -217,7 +331,10 @@ export function useSponsoredProposal(options: { enabled?: boolean } = {}): void 
     // change with the card's state without tearing the effect down.
     const schedule = (): void => {
       const block = findProposalBlock(useChatStore.getState().messages)
-      timer.current = setTimeout(() => void tick(), proposalPollIntervalMs(block))
+      timer.current = setTimeout(
+        () => void tick(),
+        proposalPollIntervalMs(block),
+      )
     }
 
     void tick()

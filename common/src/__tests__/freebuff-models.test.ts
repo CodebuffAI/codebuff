@@ -31,6 +31,8 @@ import {
   FREEBUFF_MUSE_SPARK_MODEL_IDS,
   FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
   FREEBUFF_OX_ALPHA_MODEL_ID,
+  FREEBUFF_SERVICE_ONLY_MODEL_IDS,
+  isFreebuffServiceOnlyModelId,
   FREEBUFF_STANDARD_MODEL_IDS,
   FREEBUFF_WEB_ALL_MODELS,
   FREEBUFF_WEB_DEEMPHASIZED_MODEL_IDS,
@@ -113,7 +115,7 @@ describe('freebuff model availability', () => {
     // The two constants answer different questions: the default is the STARTING
     // pick (leading FREEBUFF_MODELS is the only steer — nothing is badged), the
     // fallback is what is always joinable when the premium pool is spent.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
 
     //
@@ -200,6 +202,19 @@ describe('freebuff model availability', () => {
   test('trace storage follows machine-readable data-use metadata', () => {
     const models: readonly FreebuffModelOption[] = SUPPORTED_FREEBUFF_MODELS
     for (const model of models) {
+      // Muse Spark is the one row that carries the training grant and is still
+      // NOT traced. Meta trains on these prompts upstream regardless — that is
+      // the Contributor discount — so our own copy buys nothing the grant has
+      // not already given away. It entered this test's scope on 2026-09-04 by
+      // joining the CLI catalog; without the exception the widening would have
+      // started retaining users' prompts as a side effect of a catalog edit.
+      // See FREEBUFF_UNTRACED_TRAINING_MODEL_IDS.
+      if (FREEBUFF_MUSE_SPARK_MODEL_IDS.some((id) => id === model.id)) {
+        expect(model.dataUse).toBe('training')
+        expect(model.warning).toBeDefined()
+        expect(isFreebuffTracedModelId(model.id)).toBe(false)
+        continue
+      }
       expect(isFreebuffTracedModelId(model.id)).toBe(
         model.dataUse === 'training',
       )
@@ -270,23 +285,22 @@ describe('freebuff model availability', () => {
     expect(fallback.availability).toBe('always')
   })
 
-  test('DeepSeek V4 Flash LEADS the catalog, and still nothing is badged', () => {
-    // One default at every tier and on every surface as of 2026-09-02.
+  test('GLM 5.3 Flash LEADS the catalog, and still nothing is badged', () => {
+    // One default at every tier and on every surface as of 2026-09-05, when it
+    // retook the lead it held from 08-30 to 09-02.
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    expect(all[0]).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
+    expect(all[0]).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
 
     // The properties that make it admissible as a default, asserted rather than
     // trusted — each one is a way the first Enter press could fail.
-    expect(isFreebuffPremiumModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toBe(
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(
       false,
     )
-    expect(
-      isFreebuffPausedFreeModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
-    ).toBe(false)
+    expect(isFreebuffPausedFreeModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(
+      false,
+    )
     // STILL NOTHING IS BADGED. Leading the list is the whole recommendation:
     // no ' RECOMMENDED ' badge and no supersedes notice, because a
     // `supersededBy` would rewrite SAVED picks on every load
@@ -372,7 +386,7 @@ describe('freebuff model availability', () => {
     ).toBe(true)
   })
 
-  test('GLM 5.3 Flash: unmetered for FULL access, free on WEB at limited', () => {
+  test('GLM 5.3 Flash: unmetered for FULL access, selectable at limited on every surface', () => {
     // The four properties this change had to deliver, asserted together
     // because they are separately true and separately breakable.
     const id = FREEBUFF_GLM_V53_FLASH_MODEL_ID
@@ -391,28 +405,11 @@ describe('freebuff model availability', () => {
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
 
-    // 3. GIVEN TO THE LIMITED TIER ON WEB, DELIBERATELY, AND ONLY THERE.
-    //    Unmetering works through the `premium` flag; limited access works
-    //    through explicit allowlists. They are still INDEPENDENT — which is
-    //    the property this assertion exists to protect — and the proof is
-    //    that the CLI/Desktop limited catalog did NOT move when the Web one
-    //    did. A row arriving at limited access as a side effect of being
-    //    unmetered would have changed both.
-    //
-    //    Widened 2026-09-04: limited regions are metered by Freebucks now
-    //    (25 a day under a hard $0.50 ceiling), so catalog is no longer the
-    //    control it was, and barring the tier from the CHEAPEST row we serve
-    //    only made their allowance go less far.
-    expect(LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).not.toContain(id)
+    // 3. Explicitly available in both limited catalogs. Freebucks admission
+    //    charges the same model price regardless of the picker surface.
+    expect(LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).toContain(id)
     expect(FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS as readonly string[]).toContain(id)
     expect(FREEBUFF_WEB_LIMITED_MODEL_IDS as readonly string[]).toContain(id)
-    //    What DID change on 2026-08-31: this row became the earned REWARD, so
-    //    a limited-tier caller may NAME it — that is how a bounty grant is
-    //    redeemed from any region. It is not in any free limited catalog above,
-    //    so nothing is handed out; the reward POOL reports 0 for anyone with no
-    //    grant and the session is refused as `rate_limited`. Naming it is
-    //    deliberately allowed so that refusal is legible instead of arriving as
-    //    `session_model_mismatch`.
     expect(isFreebuffWebModelAllowedForLimitedTier(id, false)).toBe(true)
     expect(isRewardModelRedeemableAtLimitedTier(id)).toBe(true)
 
@@ -1151,7 +1148,7 @@ describe('freebuff model availability', () => {
     // model is still named TO a user: the pick is gone, so pointing somewhere
     // is the alternative to a dead end.
     expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
-      'DeepSeek V4 Flash',
+      'GLM 5.3 Flash',
     )
 
     // The AGENT door stays open, and that is not an oversight. Withdrawal is
@@ -1272,13 +1269,18 @@ describe('freebuff model availability', () => {
     expect(completion).toBeLessThan(6.0)
   })
 
-  test('limited access exposes DeepSeek V4 Flash, MiMo 2.5, and Solar Pro 4', () => {
+  test('limited access exposes Flash, MiMo, GLM 5.3 Flash, and Solar Pro 4', () => {
     // The limited default is the same model as the full default, hero first.
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(LIMITED_FREEBUFF_MODEL_ID).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    // DIVERGED from the full-access default on 2026-09-05, deliberately. GLM
+    // 5.3 Flash became the default everywhere else; at limited access without a
+    // plan it is metered by the EARNED reward balance, so a user who has earned
+    // nothing has it locked — and a locked hero is a first keypress that fails.
+    expect(LIMITED_FREEBUFF_MODEL_ID).not.toBe(DEFAULT_FREEBUFF_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       FREEBUFF_MIMO_V25_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
       FREEBUFF_SOLAR_PRO_4_MODEL_ID,
     ])
     expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toEqual(
@@ -1333,7 +1335,7 @@ describe('freebuff model availability', () => {
       ),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_MISMATCH_MESSAGE).toBe(
-      'Limited free access is only available with DeepSeek V4 Flash 07/31 or MiMo 2.5 or Solar Pro 4.',
+      'Limited free access is only available with DeepSeek V4 Flash 07/31 or MiMo 2.5 or GLM 5.3 Flash or Solar Pro 4.',
     )
     // No row in the tier supersedes another, so no picker may offer a switch
     // that admission would coerce straight back.
@@ -1350,10 +1352,10 @@ describe('freebuff model availability', () => {
     // assertions are what keep the first Enter press joinable at every point
     // in a user's day.
     expect(getRecommendedFreebuffModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     // THE STEP-DOWN NO LONGER FIRES FOR FULL ACCESS, and that is the point of
     // an unmetered default rather than an oversight. `premiumExhausted` says
@@ -1365,7 +1367,7 @@ describe('freebuff model availability', () => {
     // reverts to a real step-down automatically if a premium default returns.
     expect(
       getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    ).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     // What actually has to hold either way: whatever the hero is with the pool
     // spent, it must be joinable on an empty wallet.
     expect(
@@ -1391,17 +1393,15 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
-  test('every surface starts on DeepSeek V4 Flash, on two separate constants', () => {
+  test('every surface starts on GLM 5.3 Flash, on two separate constants', () => {
     // They stay TWO constants because they have diverged before and may again.
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     // Neither default may be a paused model — that is the pairing that would
     // put every new user on a row the server refuses.
@@ -1432,7 +1432,7 @@ describe('freebuff model availability', () => {
     // premium default does.
     expect(
       getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    ).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     // The property that must hold whatever the hero is: joinable on an empty
     // wallet.
     expect(
@@ -1447,17 +1447,34 @@ describe('freebuff model availability', () => {
     ).toBe(false)
     // The web default must be a real, selectable web model.
     expect(isFreebuffWebModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID)).toBe(true)
-    // The default IS a limited-tier row — an ordinary free one, not the reward
-    // carve-out the GLM default before it relied on.
+    // The default IS a limited-tier row, from the ORDINARY catalog — which is
+    // the property that matters and is asserted directly, rather than through
+    // the reward list.
     expect(
       (FREEBUFF_WEB_LIMITED_MODEL_IDS as readonly string[]).includes(
         DEFAULT_FREEBUFF_WEB_MODEL_ID,
       ),
     ).toBe(true)
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(LIMITED_FREEBUFF_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).not.toBe(LIMITED_FREEBUFF_MODEL_ID)
+    // A limited user must reach it with NO grant and NO plan. This is the real
+    // invariant: the hero is the row Enter lands on, so if the only door to it
+    // were an earned one, every limited user without a grant would fail their
+    // first send.
     expect(
-      isRewardModelRedeemableAtLimitedTier(DEFAULT_FREEBUFF_WEB_MODEL_ID),
-    ).toBe(false)
+      isFreebuffSessionModelAllowedForAccessTier(
+        DEFAULT_FREEBUFF_WEB_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(true)
+    // It used to assert the default was NOT reward-redeemable. That was a
+    // COINCIDENCE of the two lists, not a requirement, and it stopped holding
+    // on 2026-09-05 when GLM 5.3 Flash — which has been the reward row since
+    // 2026-08-31 — became the default again. Being on the reward list is a
+    // widening: it adds a door for accounts holding a grant. It takes nothing
+    // away, and it cannot, because this row is unmetered and already in the
+    // ordinary limited catalog above. What WOULD be a real fault is the default
+    // drawing on a pool that can run dry, so that is asserted instead.
+    expect(isFreebuffPremiumModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID)).toBe(false)
   })
 
   test('de-emphasizes nothing, and never the default', () => {
@@ -1576,6 +1593,9 @@ describe('freebuff model availability', () => {
       // Gemini 3.8 Flash arrived 2026-09-03. Its wire id names its version, so
       // there is no build date for the display name to disambiguate.
       FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+      // Muse Spark 1.3 reached the CLI and Desktop on 2026-09-04. Its wire id
+      // names its version, so there is no build date to disambiguate either.
+      FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
     ]
     expect(
       catalog.filter((model) => model.isNew && !undatedNew.includes(model.id)),
@@ -1843,18 +1863,24 @@ describe('Meta Muse Spark 1.3 Contributor', () => {
 
   test('is a Freebuff Web model and reachable from no other surface, for now', () => {
     // Web/Cloud only, exactly where 1.2 was — but as a STAGING decision: the
-    // completions layer now reroutes anything the silent window cannot absorb
-    // to DeepSeek V4 Flash, so the CLI and Desktop could carry this row. They
-    // wait until the swap has proven itself on the surfaces that ran 1.2. Until
-    // then, absence from the CLI/Desktop catalogs is the gate:
-    // isModelForHarness('codebuff', …) validates against SUPPORTED_ exactly.
+    // completions layer reroutes anything the silent window cannot absorb to
+    // DeepSeek V4 Flash with no client involvement, and the key pool made
+    // saturation itself far rarer — so a surface no longer needs somewhere to
+    // render a wait, which is the only reason 1.2 was browser-bound.
+    expect(FREEBUFF_MODELS.map((model) => model.id)).toContain(ID)
+    // SUPPORTED_ is the Desktop gate: isModelForHarness('codebuff', …)
+    // validates against exactly this set.
+    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).toContain(ID)
+    expect(isSupportedFreebuffModelId(ID)).toBe(true)
+    // …and it reaches the browser pickers by the FREEBUFF_MODELS spread, so
+    // there is no second catalog entry to keep in step.
     expect(FREEBUFF_WEB_MODELS.map((model) => model.id)).toContain(ID)
-    expect(FREEBUFF_MODELS.map((model) => model.id)).not.toContain(ID)
-    expect(SUPPORTED_FREEBUFF_MODELS.map((model) => model.id)).not.toContain(ID)
-    expect(isSupportedFreebuffModelId(ID)).toBe(false)
-    // Session admission DOES accept it — it must, or no Web session could run
-    // on it. The shared gate is the union of the CLI and Web catalogs.
     expect(isFreebuffSessionModelId(ID)).toBe(true)
+    // The service-account fence is GONE, and had to be: it refuses anything
+    // that cannot authenticate as the Web runner, which no released binary can,
+    // so leaving it would have 403'd every CLI and Desktop turn.
+    expect(FREEBUFF_SERVICE_ONLY_MODEL_IDS).toEqual([])
+    expect(isFreebuffServiceOnlyModelId(ID)).toBe(false)
     expect(isFreebuffWebModelId(ID)).toBe(true)
     expect(isFreebuffWebGodOnlyModelId(ID)).toBe(false)
     expect(isFreebuffWebSelectableModelId(ID)).toBe(true)
@@ -1865,7 +1891,7 @@ describe('Meta Muse Spark 1.3 Contributor', () => {
     expect(isFreebuffSessionModelAllowedForAccessTier(ID, 'limited')).toBe(true)
   })
 
-  test('is metered by the Web premium pool and no other', () => {
+  test('is metered by the shared premium pool, on every surface', () => {
     // Premium here bounds how many accounts sit inside Meta's team-wide
     // ceiling at once — it is NOT a price signal, since Contributor is cheaper
     // per token than the unmetered rows. Being in some pool is mandatory:
@@ -1874,15 +1900,14 @@ describe('Meta Muse Spark 1.3 Contributor', () => {
     expect(isFreebuffWebPremiumModelId(ID)).toBe(true)
     expect(FREEBUFF_STANDARD_MODEL_IDS).not.toContain(ID)
     expect(isFreebuffRewardModelId(ID)).toBe(false)
-    // The CLI's own premium pool must not learn about a model the CLI cannot
-    // select.
-    expect(isFreebuffPremiumModelId(ID)).toBe(false)
+    // Both pools are DERIVED from the row's `premium` flag, so joining the
+    // catalog is what meters it — there is no list to forget.
+    expect(isFreebuffPremiumModelId(ID)).toBe(true)
   })
 
   test('carries a reasoning effort that the server can actually resolve', () => {
-    // getFreebuffWebModel, not getFreebuffModel: the row is Web-only and the
-    // latter reads the CLI/Desktop catalog, where it would resolve to the
-    // fallback row and silently pass with the wrong model.
+    // Either getter resolves it now that the row is in both catalogs; the Web
+    // one is kept because this block was written against it.
     const model = getFreebuffWebModel(ID)
     expect(model.reasoningEffort).toBe(FREEBUFF_MUSE_SPARK_REASONING_EFFORT)
     expect(getFreebuffModelReasoningEffort(ID)).toBe(
@@ -2056,9 +2081,10 @@ describe('Muse Spark rate-limit fallback', () => {
     const model = getFreebuffWebModel(
       FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
     )
-    // The tagline carries the caveat on its own, so a picker with no tooltip
-    // (the CLI and Desktop, if the row widens) still tells the truth.
-    expect(model.tagline).toBe('Falls back when busy')
+    // The tagline carries all three facts on its own — rate limited, queues,
+    // can answer as another model — because the CLI and Desktop pickers render
+    // NO tooltip, and since 2026-09-04 they show this row.
+    expect(model.tagline).toBe('Queues, then falls back')
     expect(model.taglineTooltip).toBe(MUSE_SPARK_FALLBACK_NOTICE)
     // The copy must NAME the model the server actually reroutes to — pinning it
     // to the catalog rather than to a literal is what catches a fallback that
@@ -2077,7 +2103,7 @@ describe('Muse Spark rate-limit fallback', () => {
     // A wait worth explaining, not one worth hiding — and the same number the
     // provider uses for its silent window, so the two cannot disagree about
     // what "too long" means.
-    expect(MUSE_SPARK_FALLBACK_AFTER_MS).toBe(10_000)
+    expect(MUSE_SPARK_FALLBACK_AFTER_MS).toBe(15_000)
   })
 })
 

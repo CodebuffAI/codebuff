@@ -198,6 +198,12 @@ export type SponsoredProposalContentBlock = {
   whyOpen?: boolean
   /** A control is in flight; every control reads it, so a second press is inert. */
   busy?: boolean
+  /**
+   * The latest poll could not establish whether this row is still current.
+   * The card remains visible as context, but proposal-specific controls pause
+   * until a successful refresh clears this marker.
+   */
+  refreshUnavailable?: boolean
   /** Answered, and standing down. Kept in place so history stays honest. */
   answered?: boolean
 }

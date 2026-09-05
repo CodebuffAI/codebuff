@@ -16,6 +16,8 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
+  FALLBACK_FREEBUFF_MODEL_ID,
+  DEFAULT_FREEBUFF_MODEL_ID,
 } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
@@ -561,9 +563,22 @@ describe('isLimitedTierSubstitutedModel', () => {
     ]) {
       expect(isLimitedTierSubstitutedModel('base2-free', model)).toBe(false)
     }
+    // Named through the constants rather than by id: the substitution is
+    // defined as "the limited tier's own model, or the fallback", so a literal
+    // here only records which model that was on the day it was written. Both
+    // doors are asserted, since the predicate opens exactly two.
     expect(
-      isLimitedTierSubstitutedModel('base2-free', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
+      isLimitedTierSubstitutedModel('base2-free', LIMITED_FREEBUFF_MODEL_ID),
     ).toBe(true)
+    expect(
+      isLimitedTierSubstitutedModel('base2-free', FALLBACK_FREEBUFF_MODEL_ID),
+    ).toBe(true)
+    // The FULL-ACCESS default is not a door. It diverged from the limited hero
+    // on 2026-09-05, and this is what keeps the substitution from quietly
+    // widening to whatever the default happens to be.
+    expect(
+      isLimitedTierSubstitutedModel('base2-free', DEFAULT_FREEBUFF_MODEL_ID),
+    ).toBe(false)
   })
 
   // The substitution widens free mode, so it must not widen who can claim it:

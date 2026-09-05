@@ -80,7 +80,16 @@ import {
 } from '@codebuff/common/ads/sponsored-local-execution'
 import { evaluateSponsoredWritePath } from '@codebuff/common/ads/sponsored-capabilities'
 import { sponsoredPullRequestHref } from '@codebuff/common/ads/sponsored-proposal-view'
-import { existsSync } from 'fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
+import { createHash, randomUUID } from 'node:crypto'
 import path from 'path'
 
 import { applyPatchTool } from '../../../sdk/src/tools/apply-patch'
@@ -90,10 +99,13 @@ import { glob } from '../../../sdk/src/tools/glob'
 import { listDirectory } from '../../../sdk/src/tools/list-directory'
 import { getFiles } from '../../../sdk/src/tools/read-files'
 import { runTerminalCommand } from '../../../sdk/src/tools/run-terminal-command'
+import { createSponsoredRootedFileSystem } from '../../../sdk/src/tools/sponsored-rooted-filesystem'
+import { getConfigDir } from './config-dir'
 import {
   assertSponsoredReadPath,
   assertSponsoredWritePath,
-  createSponsoredTerminalBroker,
+  createSponsoredCodeSearchBroker,
+  sponsoredCodeSearchFlagsRefusal,
   sponsoredContainment,
 } from '../../../sdk/src/tools/sponsored-sandbox'
 import { getAuthToken } from './auth'
@@ -102,7 +114,10 @@ import { IS_FREEBUFF } from './constants'
 import { getSystemProcessEnv } from './env'
 import { getAgentIdForMode } from './freebuff-agent-selection'
 import { logger } from './logger'
-import { buildSponsoredPrompt, sponsoredAgentDefinition } from './sponsored-agent'
+import {
+  buildSponsoredPrompt,
+  sponsoredAgentDefinition,
+} from './sponsored-agent'
 import {
   acceptSponsoredProposal,
   reportSponsoredRunState,
@@ -122,8 +137,12 @@ import {
 } from './sponsored-worktree'
 import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
 
-import type { SponsoredProposal, SponsoredStateUpdate } from './sponsored-proposal-api'
+import type {
+  SponsoredProposal,
+  SponsoredStateUpdate,
+} from './sponsored-proposal-api'
 import type { SponsoredLocalAvailability } from '@codebuff/common/ads/sponsored-local-execution'
+import type { FileReadWindow } from '@codebuff/common/types/contracts/client'
 
 /** The title, and therefore the branch slug. */
 export function sponsoredRunTitle(advertiserName: string): string {
@@ -221,7 +240,37 @@ export type SponsoredRunDeps = {
     options: { cwd: string; env: Record<string, string | undefined> },
   ) => Promise<{ exitCode: number; stdout: string; stderr: string }>
   now: () => number
+  terminalReports: {
+    read: () => string | null
+    write: (value: string) => void
+  }
 }
+
+type DurableTerminalReport = {
+  proposalId: string
+  runToken: string
+  update: SponsoredStateUpdate
+  attempts: number
+  nextDueAt: number
+  lastError: string | null
+  disposition?: 'pending' | 'exhausted' | 'permanent_refusal'
+}
+
+function terminalReportPayload(update: SponsoredStateUpdate): string {
+  return JSON.stringify({
+    state: update.state,
+    steps: update.steps,
+    branch: update.branch,
+    prUrl: update.prUrl,
+    failureReason: update.failureReason,
+    diagnosticReason: update.diagnosticReason,
+    head: update.head,
+  })
+}
+
+const TERMINAL_REPORT_STATES = new Set(['committed', 'failed', 'landed'])
+const TERMINAL_REPORT_RETRY_MAX_MS = 5 * 60_000
+const TERMINAL_REPORT_MAX_ATTEMPTS = 8
 
 export type SponsoredTurnContext = {
   prompt: string
@@ -256,11 +305,15 @@ export class SponsoredRun {
 
   private accepting = false
   private pushing = false
+  private reportRetryTimer: ReturnType<typeof setTimeout> | null = null
+  private terminalReportFlushChain: Promise<void> = Promise.resolve()
 
   constructor(
     private readonly projectRoot: string,
     private readonly deps: SponsoredRunDeps,
-  ) {}
+  ) {
+    void this.flushTerminalReports(false)
+  }
 
   // ------------------------------------------------------------- observation
 
@@ -313,9 +366,15 @@ export class SponsoredRun {
    */
   async consentFor(
     proposal: SponsoredProposal,
-  ): Promise<{ ok: true; consent: SponsoredConsent; runId: string } | { ok: false; message: string }> {
+  ): Promise<
+    | { ok: true; consent: SponsoredConsent; runId: string }
+    | { ok: false; message: string }
+  > {
     if (this.availability() !== 'available') {
-      return { ok: false, message: 'Sponsored tasks cannot run on this machine.' }
+      return {
+        ok: false,
+        message: 'Sponsored tasks cannot run on this machine.',
+      }
     }
     if (this.active) {
       return { ok: false, message: 'A sponsored task is already running here.' }
@@ -340,7 +399,10 @@ export class SponsoredRun {
         headline: proposal.headline,
         body: proposal.body,
         folder: this.projectRoot,
-        branch: sponsoredBranchFor(sponsoredRunTitle(proposal.advertiser_name), runId),
+        branch: sponsoredBranchFor(
+          sponsoredRunTitle(proposal.advertiser_name),
+          runId,
+        ),
       },
     }
   }
@@ -357,17 +419,26 @@ export class SponsoredRun {
     runId: string,
   ): Promise<SponsoredRunOutcome> {
     if (this.availability() !== 'available') {
-      return { ok: false, message: 'Sponsored tasks cannot run on this machine.' }
+      return {
+        ok: false,
+        message: 'Sponsored tasks cannot run on this machine.',
+      }
     }
     // C-5: one accept per proposal. The card's `busy` flag covers the ordinary
     // double press; this covers a second command typed while the first is in
     // flight, which `busy` cannot see because it is set on a different tick.
     if (this.accepting || this.active) {
-      return { ok: false, message: 'A sponsored task is already being started.' }
+      return {
+        ok: false,
+        message: 'A sponsored task is already being started.',
+      }
     }
     const authToken = this.deps.getToken()
     if (!authToken) {
-      return { ok: false, message: 'Sign in to Freebuff to accept a sponsored task.' }
+      return {
+        ok: false,
+        message: 'Sign in to Freebuff to accept a sponsored task.',
+      }
     }
     this.accepting = true
     this.set({
@@ -412,13 +483,21 @@ export class SponsoredRun {
         )
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : 'Could not create a workspace.'
-        await this.reportWith(proposal._id, runToken, authToken, {
-          state: 'failed',
-          failureReason:
-            'The sponsored task could not be started on this machine. Nothing was changed in your project.',
-          diagnosticReason: `workspace-failed${diagnosticCause(message)}`,
-        })
+          error instanceof Error
+            ? error.message
+            : 'Could not create a workspace.'
+        await this.reportWith(
+          proposal._id,
+          runToken,
+          authToken,
+          {
+            state: 'failed',
+            failureReason:
+              'The sponsored task could not be started on this machine. Nothing was changed in your project.',
+            diagnosticReason: `workspace-failed${diagnosticCause(message)}`,
+          },
+          runId,
+        )
         this.set({ phase: 'failed', failureReason: message })
         return { ok: false, message }
       }
@@ -426,7 +505,8 @@ export class SponsoredRun {
       this.active = {
         proposalId: proposal._id,
         runToken,
-        advertiserName: accepted.accept.advertiserName || proposal.advertiser_name,
+        advertiserName:
+          accepted.accept.advertiserName || proposal.advertiser_name,
         worktree,
         abort: new AbortController(),
         settled: false,
@@ -445,7 +525,9 @@ export class SponsoredRun {
       return { ok: true }
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Could not start the sponsored task.'
+        error instanceof Error
+          ? error.message
+          : 'Could not start the sponsored task.'
       this.set({ phase: 'failed', failureReason: message })
       return { ok: false, message }
     } finally {
@@ -470,7 +552,10 @@ export class SponsoredRun {
       errorText = await this.deps.runTurn({
         prompt: buildSponsoredPrompt(procedure),
         worktree: active.worktree,
-        runtimeDir: sponsoredRuntimeDir(this.projectRoot, runIdOf(active.worktree)),
+        runtimeDir: sponsoredRuntimeDir(
+          this.projectRoot,
+          runIdOf(active.worktree),
+        ),
         proposalId: active.proposalId,
         signal: active.abort.signal,
       })
@@ -487,10 +572,16 @@ export class SponsoredRun {
       this.deps.git,
       this.deps.exists,
     )
-    if (!aborted && !errorText && head.head && head.head !== active.worktree.baseRef) {
+    if (
+      !aborted &&
+      !errorText &&
+      head.head &&
+      head.head !== active.worktree.baseRef
+    ) {
       active.settled = true
       await this.report(authToken, {
         state: 'committed',
+        head: head.head,
         branch: active.worktree.branch,
       })
       this.set({ phase: 'committed' })
@@ -508,6 +599,7 @@ export class SponsoredRun {
         : 'The sponsored task finished without committing anything. Nothing was changed in your project.'
     await this.report(authToken, {
       state: 'failed',
+      ...(head.head ? { head: head.head } : {}),
       failureReason,
       diagnosticReason: `turn ${
         aborted ? 'interrupted' : errorText ? 'error' : 'completed'
@@ -583,22 +675,32 @@ export class SponsoredRun {
   async createPullRequest(): Promise<SponsoredDeliveryOutcome> {
     const active = this.active
     if (!active?.worktree) {
-      return { ok: false, message: 'There is no sponsored task to open a pull request for.' }
+      return {
+        ok: false,
+        message: 'There is no sponsored task to open a pull request for.',
+      }
     }
     const { worktree } = active
     if (!this.deps.exists(worktree.path)) {
       return {
         ok: false,
-        message: 'The sponsored task’s workspace is gone, so there is nothing to open a pull request from.',
+        message:
+          'The sponsored task’s workspace is gone, so there is nothing to open a pull request from.',
       }
     }
     // ONE PUSH AT A TIME.
     if (this.pushing) {
-      return { ok: false, message: 'A pull request for this task is already being opened.' }
+      return {
+        ok: false,
+        message: 'A pull request for this task is already being opened.',
+      }
     }
     const authToken = this.deps.getToken()
     if (!authToken) {
-      return { ok: false, message: 'Sign in to Freebuff to open a pull request.' }
+      return {
+        ok: false,
+        message: 'Sign in to Freebuff to open a pull request.',
+      }
     }
     this.pushing = true
     try {
@@ -624,29 +726,47 @@ export class SponsoredRun {
       // sandbox permits writing anywhere in the worktree — so a run can point it
       // at a repository of its own, with its own remote and its own hooks, and
       // the push below would go there.
-      if (!(await gitdirUnmoved(this.projectRoot, worktree.path, this.deps.git))) {
+      if (
+        !(await gitdirUnmoved(this.projectRoot, worktree.path, this.deps.git))
+      ) {
         return {
           ok: false,
-          message: 'This workspace no longer points at your repository, so nothing was pushed.',
+          message:
+            'This workspace no longer points at your repository, so nothing was pushed.',
         }
       }
       const env = noHooksEnv(this.projectRoot)
       const push = await this.deps.deliver(
         'git',
-        ['-C', worktree.path, 'push', '--set-upstream', 'origin', worktree.branch],
+        [
+          '-C',
+          worktree.path,
+          'push',
+          '--set-upstream',
+          'origin',
+          worktree.branch,
+        ],
         { cwd: worktree.path, env },
       )
       if (push.exitCode !== 0) {
-        return { ok: false, message: firstLine(push.stderr) || 'Could not push the branch.' }
+        return {
+          ok: false,
+          message: firstLine(push.stderr) || 'Could not push the branch.',
+        }
       }
       const create = await this.deps.deliver(
         'gh',
         [
-          'pr', 'create',
-          '--head', worktree.branch,
-          '--base', worktree.sourceBranch,
-          '--title', `${active.advertiserName}: sponsored change`,
-          '--body', SPONSORED_PR_BODY,
+          'pr',
+          'create',
+          '--head',
+          worktree.branch,
+          '--base',
+          worktree.sourceBranch,
+          '--title',
+          `${active.advertiserName}: sponsored change`,
+          '--body',
+          SPONSORED_PR_BODY,
         ],
         { cwd: worktree.path, env },
       )
@@ -702,12 +822,16 @@ export class SponsoredRun {
     const active = this.active
     const worktree = active?.worktree ?? null
     if (!worktree) {
-      return { ok: false, message: 'There is no sponsored workspace to remove.' }
+      return {
+        ok: false,
+        message: 'There is no sponsored workspace to remove.',
+      }
     }
     if (this.snapshot.phase === 'running') {
       return {
         ok: false,
-        message: 'The sponsored task is still working. Interrupt it before removing its workspace.',
+        message:
+          'The sponsored task is still working. Interrupt it before removing its workspace.',
       }
     }
     try {
@@ -723,7 +847,10 @@ export class SponsoredRun {
     } catch (error) {
       return {
         ok: false,
-        message: error instanceof Error ? error.message : 'Could not remove the workspace.',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Could not remove the workspace.',
       }
     }
   }
@@ -736,7 +863,13 @@ export class SponsoredRun {
   ): Promise<void> {
     const active = this.active
     if (!active) return
-    await this.reportWith(active.proposalId, active.runToken, authToken, update)
+    await this.reportWith(
+      active.proposalId,
+      active.runToken,
+      authToken,
+      update,
+      active.worktree ? runIdOf(active.worktree) : active.proposalId,
+    )
   }
 
   private async reportWith(
@@ -744,25 +877,176 @@ export class SponsoredRun {
     runToken: string,
     authToken: string,
     update: SponsoredStateUpdate,
-  ): Promise<void> {
-    await this.deps
-      .reportState(proposalId, runToken, update, authToken)
-      .catch((error) => {
-        logger.debug({ error, update }, '[sponsored-run] state report failed')
-        return { ok: false as const, status: 0, message: '' }
-      })
+    runId: string = proposalId,
+  ) {
+    if (!TERMINAL_REPORT_STATES.has(update.state)) {
+      return this.deps
+        .reportState(proposalId, runToken, update, authToken)
+        .catch((error) => {
+          logger.debug({ error, update }, '[sponsored-run] state report failed')
+          return { ok: false as const, status: 0, message: String(error) }
+        })
+    }
+    const identified = {
+      ...update,
+      reportId: crypto.randomUUID(),
+      runId,
+    }
+    const reports = this.readTerminalReports()
+    const pending = reports.at(-1)
+    if (
+      pending?.proposalId === proposalId &&
+      pending.update.runId === runId &&
+      terminalReportPayload(pending.update) === terminalReportPayload(update)
+    ) {
+      return this.flushTerminalReports(true)
+    }
+    reports.push({
+      proposalId,
+      runToken,
+      update: identified,
+      attempts: 0,
+      nextDueAt: this.deps.now(),
+      lastError: null,
+      disposition: 'pending',
+    })
+    // Persist the terminal intent before waiting on any earlier HTTP request.
+    this.writeTerminalReports(reports)
+    return this.flushTerminalReports(true)
   }
 
-  private async reportResult(
-    authToken: string,
-    update: SponsoredStateUpdate,
-  ) {
+  private async reportResult(authToken: string, update: SponsoredStateUpdate) {
     const active = this.active
     if (!active) return null
-    return this.deps
-      .reportState(active.proposalId, active.runToken, update, authToken)
-      .catch(() => ({ ok: false as const, status: 0, message: '' }))
+    return this.reportWith(
+      active.proposalId,
+      active.runToken,
+      authToken,
+      update,
+      active.worktree ? runIdOf(active.worktree) : active.proposalId,
+    )
   }
+
+  private readTerminalReports(): DurableTerminalReport[] {
+    const raw = this.deps.terminalReports.read()
+    if (!raw) return []
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? (parsed as DurableTerminalReport[]) : []
+    } catch {
+      return []
+    }
+  }
+
+  private writeTerminalReports(reports: DurableTerminalReport[]): void {
+    this.deps.terminalReports.write(JSON.stringify(reports))
+  }
+
+  private flushTerminalReports(force: boolean) {
+    const result = this.terminalReportFlushChain.then(() =>
+      this.flushTerminalReportsSerial(force),
+    )
+    this.terminalReportFlushChain = result.then(
+      () => undefined,
+      (error) => {
+        logger.debug({ error }, '[sponsored-run] terminal report flush failed')
+      },
+    )
+    return result
+  }
+
+  private async flushTerminalReportsSerial(force: boolean) {
+    let reports = this.readTerminalReports()
+    let last = null
+    for (const report of reports) {
+      if (report.disposition && report.disposition !== 'pending') continue
+      if (!force && report.nextDueAt > this.deps.now()) {
+        this.scheduleTerminalRetry(report.nextDueAt)
+        return last
+      }
+      const authToken = this.deps.getToken()
+      if (!authToken) {
+        this.scheduleTerminalRetry(
+          this.deps.now() + TERMINAL_REPORT_RETRY_MAX_MS,
+        )
+        return last
+      }
+      last = await this.deps
+        .reportState(
+          report.proposalId,
+          report.runToken,
+          report.update,
+          authToken,
+        )
+        .catch((error) => ({
+          ok: false as const,
+          status: 0,
+          message: error instanceof Error ? error.message : String(error),
+        }))
+      // A new terminal intent may have been appended while HTTP was pending.
+      // Update or remove only this report from the latest durable snapshot.
+      reports = this.readTerminalReports()
+      const reportIndex = reports.findIndex(
+        (candidate) => candidate.update.reportId === report.update.reportId,
+      )
+      if (reportIndex < 0) continue
+      reports[reportIndex] = report
+      if (!last.ok) {
+        report.attempts += 1
+        report.lastError = last.message
+        if (isPermanentReportRefusal(last.status)) {
+          report.disposition = 'permanent_refusal'
+          this.writeTerminalReports(reports)
+          continue
+        }
+        if (report.attempts >= TERMINAL_REPORT_MAX_ATTEMPTS) {
+          report.disposition = 'exhausted'
+          this.writeTerminalReports(reports)
+          continue
+        }
+        report.disposition = 'pending'
+        report.nextDueAt =
+          this.deps.now() +
+          Math.min(
+            2 ** Math.min(report.attempts, 8) * 1_000,
+            TERMINAL_REPORT_RETRY_MAX_MS,
+          )
+        this.writeTerminalReports(reports)
+        this.scheduleTerminalRetry(report.nextDueAt)
+        return last
+      }
+      reports = reports.filter(
+        (candidate) => candidate.update.reportId !== report.update.reportId,
+      )
+      this.writeTerminalReports(reports)
+    }
+    return last
+  }
+
+  private scheduleTerminalRetry(dueAt: number): void {
+    if (this.reportRetryTimer) clearTimeout(this.reportRetryTimer)
+    this.reportRetryTimer = setTimeout(
+      () => {
+        this.reportRetryTimer = null
+        void this.flushTerminalReports(false)
+      },
+      Math.max(
+        0,
+        Math.min(dueAt - this.deps.now(), TERMINAL_REPORT_RETRY_MAX_MS),
+      ),
+    )
+    this.reportRetryTimer.unref?.()
+  }
+}
+
+function isPermanentReportRefusal(status: number): boolean {
+  return (
+    status >= 400 &&
+    status < 500 &&
+    status !== 401 &&
+    status !== 408 &&
+    status !== 429
+  )
 }
 
 /** The run id is the worktree's directory name — one place it is written down. */
@@ -783,7 +1067,9 @@ function runIdOf(worktree: SponsoredWorktree): string {
  * "create a pull request". The run's own commits are already made with hooks
  * disabled (COD-336 item 7); the delivery push was not.
  */
-export function noHooksEnv(projectRoot: string): Record<string, string | undefined> {
+export function noHooksEnv(
+  projectRoot: string,
+): Record<string, string | undefined> {
   return {
     // Through the CLI's own accessor rather than `process.env` directly, which
     // `scripts/check-env-architecture.ts` refuses in this package. The point of
@@ -835,8 +1121,11 @@ export function sponsoredWriteGuard(
   workspaceRoot: string,
   requestedPath: string | null,
 ): string | null {
-  if (!requestedPath) return 'Sponsored runs must name the file they are writing.'
-  const classified = evaluateSponsoredWritePath(requestedPath, { workspaceRoot })
+  if (!requestedPath)
+    return 'Sponsored runs must name the file they are writing.'
+  const classified = evaluateSponsoredWritePath(requestedPath, {
+    workspaceRoot,
+  })
   if (!classified.allowed) return classified.message
   try {
     assertSponsoredWritePath(workspaceRoot, classified.path)
@@ -887,10 +1176,20 @@ export function sponsoredReadGuard(
  */
 export function sponsoredOverrideTools(context: SponsoredTurnContext) {
   const workspaceRoot = context.worktree.path
+  const processBroker = createSponsoredCodeSearchBroker({
+    workspaceRoot,
+    runtimeDir: context.runtimeDir,
+    linkedWorktree: context.worktree.linked,
+  })
+  const rootedFs = createSponsoredRootedFileSystem({
+    workspaceRoot,
+    runtimeDir: context.runtimeDir,
+    processBroker,
+  })
   return {
     read_files: async (input: {
       filePaths: string[]
-      fileWindows?: Record<string, unknown[]>
+      fileWindows?: Record<string, FileReadWindow[]>
     }) => {
       const out: Record<string, string | null> = {}
       const allowed: string[] = []
@@ -909,8 +1208,9 @@ export function sponsoredOverrideTools(context: SponsoredTurnContext) {
           await getFiles({
             filePaths: allowed,
             cwd: workspaceRoot,
-            ...(input.fileWindows ? { fileWindows: input.fileWindows as never } : {}),
-          } as Parameters<typeof getFiles>[0]),
+            fs: rootedFs,
+            ...(input.fileWindows ? { fileWindows: input.fileWindows } : {}),
+          }),
         )
       }
       return out
@@ -923,14 +1223,19 @@ export function sponsoredOverrideTools(context: SponsoredTurnContext) {
     }) => {
       const refused = sponsoredReadGuard(workspaceRoot, input.cwd)
       if (refused) return refusal(refused)
+      const flagsRefused = sponsoredCodeSearchFlagsRefusal(input.flags)
+      if (flagsRefused) return refusal(flagsRefused)
       return codeSearch({
         projectPath: workspaceRoot,
         pattern: input.pattern,
         ...(input.flags ? { flags: input.flags } : {}),
         ...(input.cwd ? { cwd: input.cwd } : {}),
-        ...(input.max_results !== undefined ? { maxResults: input.max_results } : {}),
+        ...(input.max_results !== undefined
+          ? { maxResults: input.max_results }
+          : {}),
         signal: context.signal,
-      } as Parameters<typeof codeSearch>[0])
+        processBroker,
+      })
     },
     list_directory: async (input: { path: string }) => {
       const refused = sponsoredReadGuard(workspaceRoot, input.path)
@@ -938,17 +1243,25 @@ export function sponsoredOverrideTools(context: SponsoredTurnContext) {
       return listDirectory({
         directoryPath: input.path,
         projectPath: workspaceRoot,
-      } as Parameters<typeof listDirectory>[0])
+        fs: rootedFs,
+      })
     },
-    glob: async (input: { pattern: string; cwd?: string; max_results?: number }) => {
+    glob: async (input: {
+      pattern: string
+      cwd?: string
+      max_results?: number
+    }) => {
       const refused = sponsoredReadGuard(workspaceRoot, input.cwd)
       if (refused) return refusal(refused)
       return glob({
         pattern: input.pattern,
         projectPath: workspaceRoot,
         ...(input.cwd ? { cwd: input.cwd } : {}),
-        ...(input.max_results !== undefined ? { maxResults: input.max_results } : {}),
-      } as Parameters<typeof glob>[0])
+        ...(input.max_results !== undefined
+          ? { maxResults: input.max_results }
+          : {}),
+        fs: rootedFs,
+      })
     },
     // The SDK routes both write_file and str_replace through this override.
     write_file: async (input: unknown) => {
@@ -957,7 +1270,8 @@ export function sponsoredOverrideTools(context: SponsoredTurnContext) {
       return changeFile({
         parameters: input,
         cwd: workspaceRoot,
-      } as Parameters<typeof changeFile>[0])
+        fs: rootedFs,
+      })
     },
     apply_patch: async (input: unknown) => {
       const refused = sponsoredWriteGuard(workspaceRoot, fileToolPath(input))
@@ -965,11 +1279,12 @@ export function sponsoredOverrideTools(context: SponsoredTurnContext) {
       return applyPatchTool({
         parameters: input,
         cwd: workspaceRoot,
-      } as Parameters<typeof applyPatchTool>[0])
+        fs: rootedFs,
+      })
     },
     run_terminal_command: async (input: {
       command: string
-      process_type?: string
+      process_type?: 'SYNC' | 'BACKGROUND'
       cwd?: string
       timeout_seconds?: number
     }) => {
@@ -986,7 +1301,8 @@ export function sponsoredOverrideTools(context: SponsoredTurnContext) {
         return refusal(SPONSORED_LOCAL_INSTALL_REFUSAL)
       }
       return runTerminalCommand({
-        ...input,
+        command: input.command,
+        process_type: input.process_type ?? 'SYNC',
         cwd: path.resolve(workspaceRoot, input.cwd ?? '.'),
         timeout_seconds: input.timeout_seconds ?? 30,
         signal: context.signal,
@@ -996,22 +1312,17 @@ export function sponsoredOverrideTools(context: SponsoredTurnContext) {
         // `getSystemProcessEnv()` into every request before a broker sees it,
         // so scrubbing anywhere but inside the broker would be scrubbing
         // something that is put back.
-        terminalCommandBroker: createSponsoredTerminalBroker({
-          workspaceRoot,
-          runtimeDir: context.runtimeDir,
-          // WITHOUT THIS THE RUN CANNOT RUN GIT AT ALL. The workspace is a
-          // linked worktree whose repository lives outside it, so with only the
-          // two roots above every git command dies at repository discovery.
-          linkedWorktree: context.worktree.linked,
-        }),
-      } as Parameters<typeof runTerminalCommand>[0])
+        terminalCommandBroker: processBroker,
+      })
     },
   }
 }
 
 function fileToolPath(input: unknown): string | null {
-  const value = (input as { path?: unknown })?.path
-  return typeof value === 'string' ? value : null
+  if (!input || typeof input !== 'object') return null
+  const value = input as { path?: unknown; operation?: { path?: unknown } }
+  if (typeof value.path === 'string') return value.path
+  return typeof value.operation?.path === 'string' ? value.operation.path : null
 }
 
 /**
@@ -1067,7 +1378,44 @@ export async function runSponsoredTurn(
   }
 }
 
-export const defaultSponsoredRunDeps = (): SponsoredRunDeps => ({
+function terminalReportStore(
+  projectRoot: string,
+): SponsoredRunDeps['terminalReports'] {
+  const canonicalRoot = realpathSync(projectRoot)
+  const repoKey = createHash('sha256').update(canonicalRoot).digest('hex')
+  const directory = path.join(getConfigDir(), 'sponsored-terminal-reports')
+  const target = path.join(directory, `${repoKey}.json`)
+  return {
+    read: () => {
+      try {
+        return readFileSync(target, 'utf8')
+      } catch {
+        return null
+      }
+    },
+    write: (value) => {
+      mkdirSync(directory, { recursive: true, mode: 0o700 })
+      const temporary = path.join(directory, `.${repoKey}.${randomUUID()}.tmp`)
+      try {
+        writeFileSync(temporary, value, {
+          encoding: 'utf8',
+          flag: 'wx',
+          mode: 0o600,
+        })
+        renameSync(temporary, target)
+      } catch (error) {
+        try {
+          unlinkSync(temporary)
+        } catch {}
+        throw error
+      }
+    },
+  }
+}
+
+export const defaultSponsoredRunDeps = (
+  projectRoot: string,
+): SponsoredRunDeps => ({
   accept: acceptSponsoredProposal,
   reportState: reportSponsoredRunState,
   getToken: getAuthToken,
@@ -1098,13 +1446,19 @@ export const defaultSponsoredRunDeps = (): SponsoredRunDeps => ({
     }
   },
   now: Date.now,
+  terminalReports: terminalReportStore(projectRoot),
 })
 
 let instance: SponsoredRun | null = null
 
 /** The process's one sponsored run. Null until a project root exists. */
 export function sponsoredRunFor(projectRoot: string): SponsoredRun {
-  if (!instance) instance = new SponsoredRun(projectRoot, defaultSponsoredRunDeps())
+  if (!instance) {
+    instance = new SponsoredRun(
+      projectRoot,
+      defaultSponsoredRunDeps(projectRoot),
+    )
+  }
   return instance
 }
 

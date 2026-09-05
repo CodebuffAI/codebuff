@@ -76,6 +76,22 @@ describe('getUserInfoFromApiKey', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  test('never includes the API key in authentication failure logs', async () => {
+    const apiKey = 'secret-api-key-that-must-not-be-logged'
+    globalThis.fetch = mock(
+      async () => new Response(null, { status: 401 }),
+    ) as unknown as typeof fetch
+    const logger = createLoggerMocks()
+
+    await expect(
+      getUserInfoFromApiKey({ apiKey, fields: ['id'], logger }),
+    ).rejects.toThrow('Authentication failed')
+
+    expect(
+      JSON.stringify((logger.error as ReturnType<typeof mock>).mock.calls),
+    ).not.toContain(apiKey)
+  })
+
   test('merges cached fields and avoids refetching when present', async () => {
     const fetchMock = mock(async (input: RequestInfo | URL) => {
       const urlString =
@@ -126,4 +142,3 @@ describe('getUserInfoFromApiKey', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })
-

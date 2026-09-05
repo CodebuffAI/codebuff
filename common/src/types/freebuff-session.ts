@@ -1,5 +1,6 @@
 import type { FreebuffAccessTier } from '../constants/freebuff-models'
 import type { FreebuffStandingInfo } from '../constants/freebuff-standing'
+import { applyFreebucksPriceChanges } from '../util/freebuff-price-changes'
 
 /**
  * Wire-level shapes returned by `/api/v1/freebuff/session`. Source of truth
@@ -159,8 +160,9 @@ export interface FreebuffFreebucksWindow {
  * because the distinction is ours to keep rather than the user's to track:
  * EARNED ones (bounties, referrals, grants) stay until they are spent, while a
  * plan's monthly bonus is an allowance for its period and any of it left over
- * is retired at the roll (`FREEBUCKS_BONUS_EXPIRY_REASON`). Wallet spending is
- * attributed to the expiring half first, so a user who spends is always
+ * is retired when another period’s bonus is credited, including on upgrade
+ * (`FREEBUCKS_BONUS_EXPIRY_REASON`). Subscription end alone does not retire it.
+ * Wallet spending is attributed to the expiring half first, so a user who spends is always
  * treated as having spent the money that was about to go.
  *
  * Drawn on only once the daily pool
@@ -172,7 +174,8 @@ export interface FreebuffFreebucksWallet {
   balance: number
   /** Freebucks the plan credits here once per billing period (0 on free). */
   monthlyBonus: number
-  /** ISO instant the next plan bonus lands; absent without a plan. */
+  /** Current period end: the next bonus is available then IF the plan renews.
+   * Still present when cancellation is scheduled; absent without a live plan. */
   nextBonusAt?: string
 }
 
@@ -231,11 +234,16 @@ export interface FreebuffFreebucksMonthlyAllowance {
  * granted budget that buys sessions, Trust is earned standing that buys
  * Levels.
  *
+ * For models in `prices`, this balance takes precedence over legacy
+ * `rateLimitsByModel` and referral balances when starting a new session.
+ *
  * Two balances and one ceiling — deliberately nothing else. The 2026-08-31
  * shape carried day/week/month windows beside the session pools' own rings;
  * this one is the whole indicator set for an account on the meter.
  */
 export interface FreebuffFreebucksInfo {
+  /** Server-authorized quota exemption: new sessions remain usable at zero balance. */
+  quotaExempt?: boolean
   /** Spendable right now: `daily.remaining + wallet.balance`. */
   balance: number
   daily: FreebuffFreebucksWindow
@@ -249,6 +257,17 @@ export interface FreebuffFreebucksInfo {
   planId: string | null
   /** Session price per model id. Only models on the meter appear here. */
   prices: Record<string, number>
+  /** Copy resolved with the price, overriding the static model tagline. */
+  priceNotices?: Record<string, string>
+  /** Scheduled changes announced by the server; do not reprice admitted sessions. */
+  priceChanges?: readonly FreebuffPriceChange[]
+}
+
+export interface FreebuffPriceChange {
+  at: string
+  modelId: string
+  price: number
+  tagline: string
 }
 
 export interface FreebuffSubscriptionInfo {
@@ -497,10 +516,12 @@ export const getRateLimitsByModel = (
 /** The caller's Freebucks block, wherever it rides the response. */
 export const getFreebucksInfo = (
   session: { status: string } | null | undefined,
-): FreebuffFreebucksInfo | undefined =>
-  session && 'freebucks' in session
+): FreebuffFreebucksInfo | undefined => {
+  const info = session && 'freebucks' in session
     ? (session as { freebucks?: FreebuffFreebucksInfo }).freebucks
     : undefined
+  return info ? applyFreebucksPriceChanges(info) : undefined
+}
 
 /**
  * The access tier the SERVER decided, wherever it rides the response.
@@ -868,6 +889,9 @@ export type FreebuffSessionAdmissionResponse = (
       accessTier?: FreebuffAccessTier
       /** The way out of this refusal, when there is one to sell. */
       upgrade?: FreebuffUpgradeHint
+      /** Not sent by the server on a refusal; a client may CARRY the block it
+       *  was holding so the refusal is still rendered in the meter's words. */
+      freebucks?: FreebuffFreebucksInfo
       /** The freebuff model the user tried to join. */
       model: string
       /** The pool that refused, as on `FreebuffSessionRateLimit` — opaque. */
@@ -902,6 +926,8 @@ export type FreebuffSessionAdmissionResponse = (
        *  running, including a reconnect to the same live session, continue. */
       status: 'spend_limited'
       accessTier?: FreebuffAccessTier
+      /** See `rate_limited`: carried by the client, never sent. */
+      freebucks?: FreebuffFreebucksInfo
       message: string
       resetAt: string
       retryAfterMs: number

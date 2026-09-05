@@ -12,10 +12,7 @@ import { sponsoredCliUnavailableCopy } from '../utils/sponsored-availability'
 import { currentSponsoredRun } from '../utils/sponsored-run'
 import { isSponsoredProposalBlock } from '../types/chat'
 
-import type {
-  ChatMessage,
-  SponsoredProposalContentBlock,
-} from '../types/chat'
+import type { ChatMessage, SponsoredProposalContentBlock } from '../types/chat'
 
 export const handleAdsEnable = (): {
   postUserMessage: (messages: ChatMessage[]) => ChatMessage[]
@@ -27,7 +24,9 @@ export const handleAdsEnable = (): {
   return {
     postUserMessage: (messages) => [
       ...messages,
-      getSystemMessage('Ads enabled. You will see contextual ads above the input and in the chat.'),
+      getSystemMessage(
+        'Ads enabled. You will see contextual ads above the input and in the chat.',
+      ),
     ],
   }
 }
@@ -90,6 +89,7 @@ async function withProposal(
 ): Promise<string> {
   const block = liveSponsoredProposal(messages)
   if (!block) return 'No sponsored proposal on screen.'
+  if (block.refreshUnavailable) return proposalRefreshUnavailableMessage()
   const authToken = getAuthToken()
   if (!authToken) return 'Sign in to change sponsored proposal settings.'
   return (await act(block, authToken))
@@ -113,6 +113,7 @@ async function withProposal(
 export function handleProposalMenu(messages: ChatMessage[]): string | null {
   const block = liveSponsoredProposal(messages)
   if (!block) return 'No sponsored proposal on screen.'
+  if (block.refreshUnavailable) return proposalRefreshUnavailableMessage()
   useMessageBlockStore
     .getState()
     .callbacks.onSponsoredProposalMenu(block.target, true)
@@ -130,6 +131,7 @@ export function handleProposalMenu(messages: ChatMessage[]): string | null {
 export function handleProposalDismiss(messages: ChatMessage[]): string | null {
   const block = liveSponsoredProposal(messages)
   if (!block) return 'No sponsored proposal on screen.'
+  if (block.refreshUnavailable) return proposalRefreshUnavailableMessage()
   useMessageBlockStore
     .getState()
     .callbacks.onSponsoredProposalControl(block.target, 'dismiss')
@@ -185,6 +187,7 @@ export const handleProposalNeverAdvertiser = (
 export function handleProposalAccept(messages: ChatMessage[]): string | null {
   const block = liveSponsoredProposal(messages)
   if (!block) return 'No sponsored proposal on screen.'
+  if (block.refreshUnavailable) return proposalRefreshUnavailableMessage()
   if (block.proposal.state !== 'offered') {
     return 'That sponsored task has already been answered.'
   }
@@ -194,6 +197,10 @@ export function handleProposalAccept(messages: ChatMessage[]): string | null {
     .getState()
     .callbacks.onSponsoredProposalAccept(block.target)
   return null
+}
+
+function proposalRefreshUnavailableMessage(): string {
+  return 'Could not refresh this sponsored proposal. Try again when Freebuff reconnects.'
 }
 
 /**

@@ -154,10 +154,82 @@ describe('production agent step prompts', () => {
     }
   })
 
-  test('plan-only keeps its no-edit constraint in the instructions', () => {
-    const agent = createBase2('default', { planOnly: true })
+  // A user picked plan mode and got the whole feature built and committed. The
+  // instruction paragraph saying not to was there the entire time; what it was
+  // losing to was the rest of the same prompt (a worked example ending in "you
+  // implement the changes using the editor agent") and a toolset that still
+  // held every capability a build turn has. So these assert the capability and
+  // the demonstration, not the paragraph.
+  describe('plan-only', () => {
+    const plan = createBase2('default', { planOnly: true })
 
-    expect(agent.instructionsPrompt).toContain('Do not make file changes')
+    test('holds no tool that writes a file', () => {
+      for (const tool of [
+        'str_replace',
+        'write_file',
+        'propose_str_replace',
+        'propose_write_file',
+      ]) {
+        expect(plan.toolNames).not.toContain(tool)
+      }
+    })
+
+    test('cannot spawn an agent that edits or runs commands', () => {
+      // basher is the shell: `git commit` reached the repository through it
+      for (const agent of [
+        'editor',
+        'editor-multi-prompt',
+        'basher',
+        'tmux-cli',
+      ]) {
+        expect(plan.spawnableAgents).not.toContain(agent)
+      }
+    })
+
+    test('still holds everything it needs to explore', () => {
+      for (const tool of [
+        'read_files',
+        'read_subtree',
+        'list_directory',
+        'glob',
+      ] as const) {
+        expect(plan.toolNames).toContain(tool)
+      }
+      for (const agent of ['file-picker', 'code-searcher', 'researcher-web']) {
+        expect(plan.spawnableAgents).toContain(agent)
+      }
+    })
+
+    test('never demonstrates building in its worked example', () => {
+      const systemPrompt = plan.systemPrompt!
+
+      for (const phrase of [
+        'You implement the changes',
+        'Spawn the editor agent to implement',
+        'Spawn bashers sequentially',
+        'All tests & typechecks pass',
+      ]) {
+        expect(systemPrompt).not.toContain(phrase)
+      }
+      expect(systemPrompt).toContain('You do NOT implement anything')
+    })
+
+    test("refuses to read the user's wording as permission to build", () => {
+      const instructions = plan.instructionsPrompt!
+
+      expect(instructions).toContain('is not permission to leave plan mode')
+      // the old prompt ended with "answer the user's questions or requests
+      // freely", which reads as exactly that permission
+      expect(instructions).not.toContain('requests freely')
+    })
+
+    test('leaves the build modes alone', () => {
+      const build = createBase2('default')
+
+      expect(build.toolNames).toContain('write_file')
+      expect(build.spawnableAgents).toContain('editor')
+      expect(build.spawnableAgents).toContain('basher')
+    })
   })
 })
 

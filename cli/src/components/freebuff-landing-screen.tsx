@@ -2,9 +2,18 @@ import { TextAttributes } from '@opentui/core'
 import { useKeyboard, useRenderer } from '@opentui/react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
+import {
+  FREEBUCKS_LABEL,
+  FREEBUCKS_PICKER_NOTICE,
+  formatAllowanceUsd,
+  formatFreebucks,
+  freebucksOf,
+  freebucksPriceLabel,
+} from '../utils/freebucks'
 import { Button } from './button'
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
 import { visibleWaitingRoomPlacementIds } from '@codebuff/common/ads/waiting-room-placements'
+import { FreebucksIntroCard } from './freebucks-intro-card'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
 import {
@@ -74,6 +83,9 @@ const formatRetryAfter = (ms: number): string => {
   if (minutes < 1) return 'under a minute'
   if (minutes < 60) return `${minutes} min`
   const hours = Math.floor(minutes / 60)
+  // The monthly allowance resets on the 1st: "622h 18m" is a number nobody
+  // converts, "26 days" is a date.
+  if (hours >= 48) return `${Math.round(hours / 24)} days`
   const rem = minutes % 60
   return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`
 }
@@ -430,15 +442,22 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   //
   // Hidden in compact terminals either way: nice-to-have context, and below 22
   // rows every line competes with the picker itself.
+  // On the meter the tier notices describe pools that no longer gate ("your
+  // shared premium allowance"), so the line says how sessions are priced
+  // instead.
   const belowPickerNotices = compact
     ? []
-    : accessTier === 'limited'
-      ? [getLimitedModeNotice(session)]
-      : [FREEBUFF_TIER_CHANGE_NOTICE]
+    : freebucksOf(session)
+      ? [FREEBUCKS_PICKER_NOTICE]
+      : accessTier === 'limited'
+        ? [getLimitedModeNotice(session)]
+        : [FREEBUFF_TIER_CHANGE_NOTICE]
   // 'none' = user hasn't started a session yet. We're in the pre-chat landing
   // state: show the picker with a prompt. Picking a model triggers
   // startFreebuffSession, which POSTs and transitions straight to 'active' (chat).
   const isLanding = session?.status === 'none'
+  // On the meter, nothing below counts sessions.
+  const metered = freebucksOf(session) !== undefined
   const streakQuery = useFreebuffStreakQuery({
     enabled: FREEBUFF_ENABLE_STREAK_IN_UI && isLanding,
   })
@@ -493,7 +512,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // collapsed picker. When the collapsed recommended hero is a premium model
   // (getRecommendedFreebuffModelId, while the pool has sessions left) the count
   // is exactly what Enter is about to spend.
-  const showSessionCounter = sharedSessionUsed > 0
+  const showSessionCounter = sharedSessionUsed > 0 && !metered
   const showBelowPickerCounter =
     showSessionCounter && (accessTier === 'limited' || !selectorExpanded)
   // Prefer the server-sent limit (base + streak/referral bonuses) so the
@@ -674,6 +693,16 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                 gap: 0,
               }}
             >
+              {/* The one-time Freebucks introduction, only where it fits:
+                  on a short terminal it would push the picker off the
+                  bottom, and an unseen card is shown on the next launch
+                  instead (it is marked seen only when it renders). */}
+              {terminalHeight >= 30 && (
+                <FreebucksIntroCard
+                  metered={freebucksOf(session) !== undefined}
+                  width={Math.min(contentMaxWidth, 72)}
+                />
+              )}
               <LandingHeadingRow
                 streakLine={streakOnHeadingRow ? streakLine : null}
                 marginBottom={textMarginBottom}
@@ -795,33 +824,86 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           {session?.status === 'rate_limited' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ⚠ Session limit reached
+                {session.freebucksShortfall
+                  ? `⚠ Not enough ${FREEBUCKS_LABEL}`
+                  : metered && session.period === 'pacific_month'
+                    ? '⚠ Monthly usage limit reached'
+                    : '⚠ Session limit reached'}
               </text>
-              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                You've used{' '}
-                <span fg={theme.foreground}>
-                  {formatSessionUnits(session.recentCount)} of {session.limit}
-                </span>{' '}
-                sessions{' '}
-                {session.period === 'pacific_month'
-                  ? 'this month'
-                  : session.period === 'pacific_week'
-                    ? 'this week'
-                    : 'today'}
-                . Try
-                again in{' '}
-                <span fg={theme.foreground}>
-                  {formatRetryAfter(session.retryAfterMs)}
-                </span>
-                . Press Ctrl+C to exit.
-              </text>
+              {/* THE METER'S REFUSAL, when the server sent one.
+                  
+                  `freebucksShortfall` is what distinguishes "you are out of
+                  Freebucks" from "you have used your sessions", and the two
+                  want completely different sentences: the counts on this
+                  response are shaped like a session pool for older clients,
+                  so rendering them here would tell a metered user they had
+                  spent N of M sessions — a meter they are no longer on.
+
+                  The monthly wall arrives in the SAME shape with no shortfall
+                  attached and `period: 'pacific_month'`, which is why the
+                  period copy below still has to be right: telling somebody to
+                  come back at midnight for an allowance that returns on the
+                  1st sends them back to the same wall in the morning. */}
+              {session.freebucksShortfall ? (
+                <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                  This model costs{' '}
+                  <span fg={theme.foreground}>
+                    {freebucksPriceLabel(session.freebucksShortfall.price)}
+                  </span>
+                  , and you have{' '}
+                  <span fg={theme.foreground}>
+                    {formatFreebucks(session.freebucksShortfall.balance)}
+                  </span>{' '}
+                  left. More in{' '}
+                  <span fg={theme.foreground}>
+                    {formatRetryAfter(session.retryAfterMs)}
+                  </span>
+                  , or pick a cheaper model. Press Ctrl+C to exit.
+                </text>
+              ) : metered && session.period === 'pacific_month' ? (
+                // The monthly dollar allowance, sent in CENTS in the pool's
+                // shape (`limit`/`recentCount`) so older clients still count
+                // it — rendered here as the dollars it is.
+                <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                  You've used{' '}
+                  <span fg={theme.foreground}>
+                    {formatAllowanceUsd(session.recentCount / 100)} of{' '}
+                    {formatAllowanceUsd(session.limit / 100)}
+                  </span>{' '}
+                  monthly usage. It resets in{' '}
+                  <span fg={theme.foreground}>
+                    {formatRetryAfter(session.retryAfterMs)}
+                  </span>
+                  . Press Ctrl+C to exit.
+                </text>
+              ) : (
+                <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                  You've used{' '}
+                  <span fg={theme.foreground}>
+                    {formatSessionUnits(session.recentCount)} of {session.limit}
+                  </span>{' '}
+                  {session.period === 'pacific_month' ? 'this month' : 'sessions'}{' '}
+                  {session.period === 'pacific_month'
+                    ? ''
+                    : session.period === 'pacific_week'
+                      ? 'this week'
+                      : 'today'}
+                  . Try again in{' '}
+                  <span fg={theme.foreground}>
+                    {formatRetryAfter(session.retryAfterMs)}
+                  </span>
+                  . Press Ctrl+C to exit.
+                </text>
+              )}
               {/* The paywall half (2026-09-01): the server's structured hint
                   when it sent one, the plans page otherwise — a quota wall is
                   never a dead end. */}
               <text style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}>
                 {'upgrade' in session && session.upgrade
                   ? `${session.upgrade.message} ${session.upgrade.url}`
-                  : 'Get more sessions with a plan: https://freebuff.com/plans'}
+                  : metered
+                    ? 'Get more Freebucks with a plan: https://freebuff.com/plans'
+                    : 'Get more sessions with a plan: https://freebuff.com/plans'}
               </text>
             </>
           )}
@@ -832,20 +914,21 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           {session?.status === 'spend_limited' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ☕ Daily Freebuff limit reached
+                {metered ? '☕ Daily usage cap reached' : '☕ Daily Freebuff limit reached'}
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                {session.message} Come back in{' '}
+                {session.message} It resets in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>
-                {' — '}your free usage resets automatically at midnight Pacific.
-                Press Ctrl+C to exit.
+                , at midnight Pacific. Press Ctrl+C to exit.
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}>
                 {'upgrade' in session && session.upgrade
                   ? `${session.upgrade.message} ${session.upgrade.url}`
-                  : 'Get more sessions with a plan: https://freebuff.com/plans'}
+                  : metered
+                    ? 'A plan raises the daily cap: https://freebuff.com/plans'
+                    : 'Get more sessions with a plan: https://freebuff.com/plans'}
               </text>
             </>
           )}

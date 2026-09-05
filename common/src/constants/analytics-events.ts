@@ -170,6 +170,14 @@ export enum AnalyticsEvent {
   ADS_FIRST_PARTY_DECISION = 'ads.first_party_decision',
   ADS_FIRST_PARTY_SETTLEMENT = 'ads.first_party_settlement',
   ADS_FIRST_PARTY_VIEW_ACK = 'ads.first_party_view_ack',
+  /**
+   * The CLI dock was expanded into its detail panel (COD-457). A UI gesture,
+   * NOT an impression and never billable: deduped per `impUrl` per app
+   * session, so opening the same ad ten times is one expansion.
+   */
+  ADS_DOCK_EXPANDED = 'ads.dock_expanded',
+  /** The detail panel closed, with the method that closed it and the dwell. */
+  ADS_DOCK_COLLAPSED = 'ads.dock_collapsed',
 
   // Web - Token Count API
   TOKEN_COUNT_REQUEST = 'api.token_count_request',

@@ -7,7 +7,9 @@ import {
   ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT,
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
   ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+  ADS_EXTERNAL_CONVERSION_CLICK_ID_SHAPES,
   ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+  ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT,
   ADS_ADVERTISER_REPORTING_READ_EVENT,
   ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
@@ -350,11 +352,13 @@ describe('getAxiomOnlyLogEvent', () => {
     })
   })
 
-  test('keeps Imprezia completion telemetry bounded and identity-free', () => {
+  test('keeps only server-shaped Imprezia correlation handles', () => {
     expect(
       getAxiomOnlyLogEvent({
         axiomEvent: ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
         outcome: 'provider_error',
+        request_id: 'adr_0123456789abcdef0123456789abcdef',
+        opportunity_id: 'opp_0123456789abcdef0123456789abcdef',
         selection_reason: 'fallback',
         experiment_arm: 'control',
         surface: 'freebuff_web_chat',
@@ -375,6 +379,8 @@ describe('getAxiomOnlyLogEvent', () => {
       event: ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
       data: {
         outcome: 'provider_error',
+        request_id: 'adr_0123456789abcdef0123456789abcdef',
+        opportunity_id: 'opp_0123456789abcdef0123456789abcdef',
         selection_reason: 'fallback',
         experiment_arm: 'control',
         surface: 'freebuff_web_chat',
@@ -390,6 +396,8 @@ describe('getAxiomOnlyLogEvent', () => {
     const valid = {
       axiomEvent: ADS_IMPREZIA_FETCH_COMPLETED_EVENT,
       outcome: 'no_fill',
+      request_id: 'adr_0123456789abcdef0123456789abcdef',
+      opportunity_id: 'opp_0123456789abcdef0123456789abcdef',
       selection_reason: 'primary',
       experiment_arm: 'imprezia_first',
       surface: 'freebuff_web_chat',
@@ -407,6 +415,10 @@ describe('getAxiomOnlyLogEvent', () => {
       { ...valid, duration_ms: -1 },
       { ...valid, duration_ms: 60_001 },
       { ...valid, failure_class: 'raw upstream stack trace' },
+      { ...valid, request_id: 'request-private' },
+      { ...valid, opportunity_id: 'opp_private' },
+      { ...valid, request_id: undefined },
+      { ...valid, opportunity_id: undefined },
       { ...valid, test_mode: 'false' },
       // Every dimension except failure_class is required.
       { ...valid, experiment_arm: undefined },
@@ -717,6 +729,38 @@ describe('getAxiomOnlyLogEvent', () => {
     })
   })
 
+  test('keeps only closed click-id shape labels on the postback census', () => {
+    const base = {
+      axiomEvent: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+      channel: 's2s',
+      outcome: 'rejected',
+      rejection_reason: 'invalid_click_id',
+      event_type: 'unknown',
+      traffic_class: 'unknown',
+      primary_allocation_cohort: 'none',
+      settlement_status: 'unknown',
+      charged_cents: 0,
+      duration_ms: 8,
+    }
+    for (const clickIdShape of ADS_EXTERNAL_CONVERSION_CLICK_ID_SHAPES) {
+      expect(
+        getAxiomOnlyLogEvent({
+          ...base,
+          click_id_shape: clickIdShape,
+        })?.data,
+      ).toMatchObject({ click_id_shape: clickIdShape })
+    }
+
+    const result = getAxiomOnlyLogEvent({
+      ...base,
+      click_id_shape: 'bfc_1.private-raw-click-value',
+      advertiser_id: 'advertiser-private',
+      api_key: 'fbadv_private',
+    })
+    expect(result?.data).not.toHaveProperty('click_id_shape')
+    expect(JSON.stringify(result)).not.toContain('private')
+  })
+
   test('drops a non-string channel from the postback census', () => {
     const result = getAxiomOnlyLogEvent({
       axiomEvent: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
@@ -731,5 +775,43 @@ describe('getAxiomOnlyLogEvent', () => {
       duration_ms: 8,
     })
     expect(result?.data).not.toHaveProperty('channel')
+  })
+
+  test('keeps only bounded campaign ingress evidence fields', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT,
+        evidence_version: 'campaign_ingress_evidence_v1',
+        evidence_id: 'che_0123456789abcdef0123456789abcdef',
+        advertiser_id: 'advertiser-1',
+        campaign_id: 'campaign-1',
+        campaign_config_revision: 4,
+        binding_status: 'independently_bound',
+        outcome: 'joined',
+        rail: 's2s_postback',
+        traffic_class: 'real',
+        traffic_class_version: 'traffic_class_v1',
+        source_event_id: 'partner-private-id',
+        click_id: 'bfc_private',
+        receiver_secret: 'private',
+        email: 'private@example.com',
+        ip: '192.0.2.1',
+        user_agent: 'private-agent',
+      }),
+    ).toEqual({
+      event: ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT,
+      data: {
+        evidence_version: 'campaign_ingress_evidence_v1',
+        evidence_id: 'che_0123456789abcdef0123456789abcdef',
+        advertiser_id: 'advertiser-1',
+        campaign_id: 'campaign-1',
+        campaign_config_revision: 4,
+        binding_status: 'independently_bound',
+        outcome: 'joined',
+        rail: 's2s_postback',
+        traffic_class: 'real',
+        traffic_class_version: 'traffic_class_v1',
+      },
+    })
   })
 })

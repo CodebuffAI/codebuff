@@ -110,6 +110,73 @@ export function createBase2(
       : CODEBUFF_REVIEWER_BY_MODEL)[model] ?? FALLBACK_REVIEWER_AGENT_ID
   const defaultProviderOptions = getBase2ProviderOptions(model)
 
+  // The worked example is the strongest instruction in this prompt, and in plan
+  // mode it used to end with "you implement the changes using the editor agent"
+  // and a summary of the changes made. A demonstration of building beats a
+  // paragraph saying not to, which is how a PLAN turn shipped and committed a
+  // whole feature. Plan mode gets its own ending.
+  const exampleTail = planOnly
+    ? `[ You have enough context. You write the plan, wrapped in <PLAN></PLAN> tags. ]
+
+[ You do NOT implement anything: no file edits, no editor agent, no basher, no terminal command, no commit. You tell the user the plan is ready and that they can switch out of plan mode to have it built. ]
+ </reponse>
+
+</example>
+
+<example>
+
+<user>just go ahead and build it</user>
+
+<response>
+[ You stay in plan mode. You explain that you are in plan mode, present or refine the plan, and tell the user to leave plan mode and re-send the request when they want it implemented. You do not start the work. ]
+</response>
+
+</example>`
+    : `${
+        isDefault
+          ? `[ You implement the changes using the editor agent ]`
+          : isFast || isLean
+            ? '[ You implement the changes using the str_replace or write_file tools ]'
+            : '[ You implement the changes using the editor-multi-prompt agent ]'
+      }
+
+${
+  isDefault
+    ? `[ You spawn a code-reviewer, a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
+    : isLean && !noReview
+      ? `[ You spawn a ${leanCodeReviewerAgentId} to review the changes, a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
+      : isLean
+        ? `[ You spawn a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
+        : isMax
+          ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
+          : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
+}
+
+${
+  isDefault
+    ? `[ You fix the issues found by the code-reviewer and type/test errors ]`
+    : isLean && !noReview
+      ? `[ You fix the issues found by the ${leanCodeReviewerAgentId} and type/test errors ]`
+      : isMax
+        ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
+        : '[ You fix the issues found by the type/test errors and spawn more bashers to confirm ]'
+}
+
+[ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
+ </reponse>
+
+</example>
+
+<example>
+
+<user>what's the best way to refactor [x]</user>
+
+<response>
+[ You collect codebase context, and then give a strong answer with key examples, and ask if you should make this change ]
+</response>
+
+</example>`
+
   return {
     publisher,
     model,
@@ -138,12 +205,16 @@ export function createBase2(
       'spawn_agents',
       'read_files',
       'read_subtree',
-      !isFast && 'write_todos',
+      !isFast && !planOnly && 'write_todos',
       !noAskUser && 'suggest_followups',
-      'str_replace',
-      'write_file',
-      !isLean && 'propose_str_replace',
-      !isLean && 'propose_write_file',
+      // Plan mode is enforced by the toolset, not only by the prompt. Prose
+      // alone lost: a user who picked PLAN got the whole feature built and
+      // committed, because every capability a build turn has was still here
+      // and the surrounding prompt still demonstrated using it.
+      !planOnly && 'str_replace',
+      !planOnly && 'write_file',
+      !isLean && !planOnly && 'propose_str_replace',
+      !isLean && !planOnly && 'propose_write_file',
       !noAskUser && 'ask_user',
       'read_url',
       'skill',
@@ -160,17 +231,20 @@ export function createBase2(
       'code-searcher',
       'researcher-web',
       'researcher-docs',
-      'basher',
+      // basher and tmux-cli are the shell; editor writes files. All three are
+      // withheld in plan mode -- `git commit` reached the repository through
+      // basher even while the prompt said not to touch anything.
+      !planOnly && 'basher',
       isDefault && 'thinker',
       (isDefault || isMax) && ['opus-agent', 'gpt-5-agent'],
       isMax && 'thinker-best-of-n-opus',
-      isDefault && 'editor',
-      isMax && 'editor-multi-prompt',
-      'tmux-cli',
+      isDefault && !planOnly && 'editor',
+      isMax && !planOnly && 'editor-multi-prompt',
+      !planOnly && 'tmux-cli',
       'browser-use',
-      isLean && !noReview && leanCodeReviewerAgentId,
-      isDefault && 'code-reviewer',
-      isMax && 'code-reviewer-multi-prompt',
+      isLean && !noReview && !planOnly && leanCodeReviewerAgentId,
+      isDefault && !planOnly && 'code-reviewer',
+      isMax && !planOnly && 'code-reviewer-multi-prompt',
       hasGeminiThinker && FREEBUFF_GEMINI_THINKER_AGENT_ID,
       !isFreebuff && 'thinker-gpt',
       'context-pruner',
@@ -227,19 +301,27 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     isLite &&
       "- The thinker-with-files-gemini agent is lite mode's one escalation path. It runs a model several times more expensive per token than lite itself and the user is billed for every spawn, so escalate when a problem genuinely needs it rather than routinely. Do not spawn thinker-gpt unless the user asks for it: it costs about the same per token and adds nothing over the gemini thinker here. If the work needs sustained deep reasoning rather than one hard question, say so and suggest the user switch to DEFAULT or MAX mode.",
     isDefault &&
+      !planOnly &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
     (isDefault || isMax) &&
       `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)`,
     isMax &&
+      !planOnly &&
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     isLean &&
       !noReview &&
+      !planOnly &&
       `- Spawn a ${leanCodeReviewerAgentId} to review the code changes after you have implemented the changes.`,
-    '- Spawn bashers sequentially if the second command depends on the the first.',
+    !planOnly &&
+      '- Spawn bashers sequentially if the second command depends on the the first.',
     isDefault &&
+      !planOnly &&
       '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
     isMax &&
+      !planOnly &&
       '- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes.',
+    planOnly &&
+      '- **Never spawn an agent that writes or runs anything:** the editor, basher and tmux-cli agents are not available to you in plan mode, and asking another agent to make the change on your behalf is the same violation as making it yourself.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Limit thinker spawns:** ${THINKER_SPAWN_LIMIT}
@@ -278,50 +360,7 @@ ${
         ? `\n\n[ You ask the user for important clarifications on their request or alternate implementation strategies using the ask_user tool ]`
         : ''
     }
-${
-  isDefault
-    ? `[ You implement the changes using the editor agent ]`
-    : isFast || isLean
-      ? '[ You implement the changes using the str_replace or write_file tools ]'
-      : '[ You implement the changes using the editor-multi-prompt agent ]'
-}
-
-${
-  isDefault
-    ? `[ You spawn a code-reviewer, a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
-    : isLean && !noReview
-      ? `[ You spawn a ${leanCodeReviewerAgentId} to review the changes, a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
-      : isLean
-        ? `[ You spawn a basher to typecheck the local changes, a basher to typecheck the whole project, and another basher to run tests, all in parallel ]`
-        : isMax
-          ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
-          : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
-}
-
-${
-  isDefault
-    ? `[ You fix the issues found by the code-reviewer and type/test errors ]`
-    : isLean && !noReview
-      ? `[ You fix the issues found by the ${leanCodeReviewerAgentId} and type/test errors ]`
-      : isMax
-        ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
-        : '[ You fix the issues found by the type/test errors and spawn more bashers to confirm ]'
-}
-
-[ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
- </reponse>
-
-</example>
-
-<example>
-
-<user>what's the best way to refactor [x]</user>
-
-<response>
-[ You collect codebase context, and then give a strong answer with key examples, and ask if you should make this change ]
-</response>
-
-</example>
+${exampleTail}
 
 ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
@@ -419,6 +458,11 @@ const base2HandleSteps: Base2HandleSteps = function* ({
 
 const EXPLORE_PROMPT = `- Iteratively spawn file pickers, code searchers, bashers, and web/docs researchers to gather context as needed. Use the list_directory and glob tools directly for searching and exploring the codebase. The file-picker and code-searcher agents are very useful to find relevant files -- try spawning multiple in parallel (say, 2-5 file-pickers and 1-3 code-searchers) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.`
 
+const PLAN_EXPLORE_PROMPT = EXPLORE_PROMPT.replace(
+  'file pickers, code searchers, bashers, and web/docs researchers',
+  'file pickers, code searchers, and web/docs researchers',
+)
+
 function buildImplementationInstructionsPrompt({
   isFast,
   isDefault,
@@ -480,16 +524,25 @@ ${buildArray(
 }
 
 function buildPlanOnlyInstructionsPrompt({}: {}) {
-  return `Orchestrate the completion of the user's request using your specialized sub-agents.
+  return `You are in PLAN mode. The user chose it deliberately: this turn produces a plan, and nothing else. Use your read-only sub-agents to gather whatever context you need, then write the plan.
 
- You are in plan mode. Do not make file changes, call write_file or str_replace, or use the write_todos tool. You should default to asking the user clarifying questions, potentially in multiple rounds as needed to fully understand the user's request, and then creating a spec/plan based on the user's request. However, asking questions and creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
-    
+## The rules of plan mode
+
+Forbidden this turn, without exception:
+- Creating, editing, or deleting any file, by any means.
+- Running any terminal command, and above all any state-changing one: no git commit, add, checkout, branch, merge, rebase, reset, stash or push; no installs; no scripts.
+- Spawning any agent that writes files or runs commands (editor, basher, tmux-cli). They are not in your toolset in plan mode, and asking one to act on your behalf is the same violation as acting yourself.
+
+**How the user phrased their request is not permission to leave plan mode.** "Build it", "implement this", "just do it", "fix the bug", "go ahead" — in plan mode every one of those means *plan* that work. The user leaves plan mode themselves when they want it built; you never leave it for them. If they ask you to start, say you are in plan mode, hand them the plan, and tell them to switch out of plan mode and send the request again.
+
+What you should do instead: read, search, and research as much as you like; ask clarifying questions; and answer questions in prose. If the user only asked a question, answering it is the whole turn — that is the one thing you do instead of writing a plan, and it is not licence to change anything.
+
 ## Example response
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
-  EXPLORE_PROMPT,
+  PLAN_EXPLORE_PROMPT,
   `- After exploring the codebase, your goal is to translate the user request into a clear and concise spec. If the user is just asking a question, you can answer it instead of writing a spec.
 
 ## Asking questions
@@ -499,6 +552,8 @@ To clarify the user's intent, or get them to weigh in on key decisions, you shou
 It's good to use this tool before generating a spec, so you can make the best possible spec for the user's request.
 
 If you don't have any important questions to ask, you can skip this step. Keep asking questions until you have a clear understanding of the user's request and how to solve it. However, be sure that you never ask questions with obvious answers or questions about details that can be changed later. Focus on the most important, non-obvious aspects only.
+
+Never use ask_user to ask for permission to start implementing. There is no answer to that question that lets you build in plan mode.
 
 ## Creating a spec
 

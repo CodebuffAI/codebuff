@@ -42,6 +42,20 @@ export type ChatKeyboardState = {
 
   // Exit handler state
   nextCtrlCWillExit: boolean
+
+  /**
+   * The sponsor dock's detail panel (COD-457).
+   *
+   * `dockExpandable` is the sticky experiment arm: false in control, and then
+   * the chord resolves to `none` exactly as it did before this issue.
+   * `dockPanelOpen` is what makes Escape mean "close the panel" — and ONLY
+   * while it is true. `useKeyboard` is a global listener, so a panel that
+   * listened for Escape on its own would close AND interrupt the stream on one
+   * keypress; routing it through this resolver is what keeps Escape's six
+   * existing meanings intact the moment the panel is shut.
+   */
+  dockExpandable: boolean
+  dockPanelOpen: boolean
 }
 
 /**
@@ -107,6 +121,10 @@ export type ChatKeyboardAction =
   // Out of credits action
   | { type: 'open-buy-credits' }
 
+  // Sponsor dock (COD-457)
+  | { type: 'toggle-dock-panel' }
+  | { type: 'close-dock-panel' }
+
   // No action needed
   | { type: 'none' }
 
@@ -161,6 +179,31 @@ export function resolveChatKeyboardAction(
       return { type: 'paste' }
     }
     return { type: 'none' }
+  }
+
+  // Priority 1.5: The sponsor dock's detail panel (COD-457).
+  //
+  // Escape is claimed here and NOWHERE ELSE, and only while the panel is
+  // actually open — so with it shut, Escape keeps every one of the six
+  // meanings below untouched, which is the acceptance criterion. It sits above
+  // priority 2 and priority 4 deliberately: a user pressing Escape at an open
+  // panel means "close this", not "exit the mode" and not "interrupt the run".
+  // It sits BELOW the out-of-credits and feedback takeovers, which own the
+  // whole keyboard while they are up.
+  //
+  // The chord is Ctrl+O: verified unclaimed across every `useKeyboard`
+  // consumer and inert in the composer (`getPrintableKeySequence` returns null
+  // for any modified key). In the control arm `dockExpandable` is false and
+  // both branches fall through to `none`, so the chord does nothing at all.
+  const isDockChord =
+    key.ctrl && key.name === 'o' && !key.meta && !key.option && !key.shift
+  if (state.dockExpandable) {
+    if (isEscape && state.dockPanelOpen) {
+      return { type: 'close-dock-panel' }
+    }
+    if (isDockChord) {
+      return { type: 'toggle-dock-panel' }
+    }
   }
 
   // Priority 2: Non-default input mode escape
@@ -368,5 +411,7 @@ export function createDefaultChatKeyboardState(): ChatKeyboardState {
     historyNavUpEnabled: false,
     historyNavDownEnabled: false,
     nextCtrlCWillExit: false,
+    dockExpandable: false,
+    dockPanelOpen: false,
   }
 }

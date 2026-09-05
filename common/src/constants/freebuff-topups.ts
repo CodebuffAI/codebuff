@@ -165,6 +165,24 @@ export function effectivePlacementCpcFloorCents(
     : AD_PLACEMENT_CPC_FLOOR_CENTS
 }
 
+/** Safe self-serve ceiling when an operator has not supplied a tighter one. */
+export const AD_PLACEMENT_CPC_SELF_SERVE_CEILING_CENTS = 1_000
+
+/** The advertiser's editable band; operator terms can only make it narrower. */
+export function advertiserPlacementCpcBand(params: {
+  floorOverrideCents: unknown
+  ceilingCents: unknown
+}): { floorCents: number; ceilingCents: number } {
+  return {
+    floorCents: effectivePlacementCpcFloorCents(params.floorOverrideCents),
+    ceilingCents:
+      Number.isInteger(params.ceilingCents) &&
+      (params.ceilingCents as number) >= 1
+        ? (params.ceilingCents as number)
+        : AD_PLACEMENT_CPC_SELF_SERVE_CEILING_CENTS,
+  }
+}
+
 /** A single automatic reprice may move at most 25% in either direction. */
 export const AD_PLACEMENT_CPC_REPRICE_MAX_MOVE_BPS = 2_500
 

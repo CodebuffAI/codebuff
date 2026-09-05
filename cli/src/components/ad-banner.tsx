@@ -1,14 +1,21 @@
 import { TextAttributes } from '@opentui/core'
 import {
+  DOCK_LABEL_SEPARATOR,
+  DOCK_PANEL_MAX_WIDTH,
+  DOCK_SPONSORED_LABEL,
   INLINE_AD_DISCLOSURE,
   INLINE_AD_GAP,
   INLINE_AD_LINK_SUFFIX,
   MAX_DESC_LINES,
   getAdDisplayLabel,
+  getDockAdLayout,
+  getDockPanelLayout,
   getInlineAdLayout,
   truncateToLines,
   truncateToWidth,
 } from '@codebuff/common/ads/inline-ad-layout'
+import type { DockClickOrigin } from '@codebuff/common/ads/ad-event-hygiene'
+import type { CliDockArm } from '@codebuff/common/util/ad-experiment'
 import { visibleWaitingRoomPlacementIds } from '@codebuff/common/ads/waiting-room-placements'
 import { safeOpen } from '../utils/open-url'
 import React, { useState, useMemo, useEffect } from 'react'
@@ -40,6 +47,8 @@ export const INLINE_AD_CARD_HEIGHT = 4 // border-top + header row + detail row +
 export {
   extractDomain,
   getAdDisplayLabel,
+  getDockAdLayout,
+  getDockPanelLayout,
   getInlineAdLayout,
 } from '@codebuff/common/ads/inline-ad-layout'
 
@@ -304,22 +313,451 @@ export const AdCard: React.FC<{
 }
 
 /**
+ * The V2 resting dock (COD-457): `Sponsored · Brand` on the label row, headline
+ * and description on the left, a bordered CTA box on the right.
+ *
+ * Still exactly {@link AD_CARD_HEIGHT} rows, because the landing screen
+ * subtracts that from the model picker's budget. Below
+ * `MIN_INLINE_WIDTH_WITH_DESTINATION` this delegates to {@link AdCard}
+ * verbatim — narrow terminals keep the layout the house-ad width budget was
+ * measured against, and expansion still works there.
+ *
+ * Nothing here depends on hover. Hover tints the border and inverts the CTA
+ * box, exactly as the card always did; expansion is a click or the chord.
+ */
+export const DockAdCard: React.FC<{
+  ad: AdResponse
+  width: number
+  expanded?: boolean
+  chordHint?: string
+  onToggle?: () => void
+  onClick?: (ad: AdResponse, from: DockClickOrigin) => void
+  onImpression?: (ad: AdResponse) => void
+}> = ({
+  ad,
+  width,
+  expanded = false,
+  chordHint,
+  onToggle,
+  onClick,
+  onImpression,
+}) => {
+  const theme = useTheme()
+  const [isHovered, setIsHovered] = useState(false)
+  const [isCtaHovered, setIsCtaHovered] = useState(false)
+
+  const layout = useMemo(
+    () => getDockAdLayout(ad, width, { chordHint, collapsed: !expanded }),
+    [ad, width, chordHint, expanded],
+  )
+
+  useEffect(() => {
+    if (layout.mode !== 'dock') return
+    onImpression?.(ad)
+  }, [ad, onImpression, layout.mode])
+
+  if (layout.mode === 'card') {
+    // The narrow fallback keeps today's card AND today's click semantics: the
+    // whole card opens the landing page, and the dock's toggle is reached from
+    // the chord instead. Two different meanings for one click at 40 columns
+    // would be worse than no expansion affordance at all.
+    return (
+      <AdCard
+        ad={ad}
+        width={width}
+        onClick={(clicked) => onClick?.(clicked, 'dock')}
+        onImpression={onImpression}
+      />
+    )
+  }
+
+  const accentColor = isHovered ? theme.primary : theme.muted
+
+  return (
+    // A plain box, NOT a Button. The CTA used to be a Button nested inside the
+    // dock's own Button, and OpenTUI mouse events propagate: one press on the
+    // CTA opened the advertiser's URL *and* toggled the panel, recording a
+    // false expansion. Rather than rely on stopping propagation through the
+    // shared Button, the two clickable regions are siblings and never nest.
+    // Hover still tints the whole border, because mouse events bubble UP to
+    // this box from either child.
+    <box
+      onMouseOver={() => setIsHovered(true)}
+      onMouseOut={() => setIsHovered(false)}
+      style={{
+        width,
+        height: AD_CARD_HEIGHT,
+        borderStyle: 'single',
+        borderColor: accentColor,
+        customBorderChars: BORDER_CHARS,
+        paddingLeft: 1,
+        paddingRight: 1,
+        flexDirection: 'row',
+        overflow: 'hidden',
+      }}
+    >
+      {/* The copy block is the toggle. */}
+      <Button
+        onClick={() => onToggle?.()}
+        style={{
+          width: layout.copyWidth,
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <box
+          style={{
+            height: 1,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            overflow: 'hidden',
+          }}
+        >
+          <box style={{ flexDirection: 'row', flexShrink: 1 }}>
+            <text style={{ fg: theme.primary, wrapMode: 'none' }}>
+              {layout.sponsored}
+            </text>
+            <text style={{ fg: theme.muted, wrapMode: 'none' }}>
+              {DOCK_LABEL_SEPARATOR}
+            </text>
+            <text
+              style={{
+                fg: theme.foreground,
+                flexShrink: 1,
+                wrapMode: 'none',
+                attributes:
+                  layout.brandVariant === 'domain'
+                    ? TextAttributes.UNDERLINE
+                    : undefined,
+              }}
+            >
+              {layout.brand}
+            </text>
+          </box>
+          {layout.chordHint ? (
+            <text style={{ fg: theme.muted, flexShrink: 0, wrapMode: 'none' }}>
+              {layout.chordHint}
+            </text>
+          ) : null}
+        </box>
+        {layout.headline ? (
+          <text
+            style={{ fg: theme.foreground, height: 1, wrapMode: 'none' }}
+            attributes={TextAttributes.BOLD}
+          >
+            {layout.headline}
+          </text>
+        ) : null}
+        <text
+          style={{ fg: theme.muted, height: layout.descriptionLines }}
+        >
+          {layout.description}
+        </text>
+      </Button>
+      <box style={{ flexGrow: 1 }} />
+      {/* A SIBLING of the toggle, never a child: the CTA opens the landing
+          page and must not also expand the panel. */}
+      <Button
+        onClick={() => {
+          if (!ad.clickUrl) return
+          onClick?.(ad, 'dock')
+          safeOpen(ad.clickUrl)
+        }}
+        onMouseOver={() => setIsCtaHovered(true)}
+        onMouseOut={() => setIsCtaHovered(false)}
+        style={{
+          width: layout.ctaBoxWidth,
+          height: 3,
+          borderStyle: 'single',
+          borderColor: theme.primary,
+          customBorderChars: BORDER_CHARS,
+          paddingLeft: 1,
+          paddingRight: 1,
+          flexShrink: 0,
+        }}
+      >
+        <text
+          style={{
+            fg: isCtaHovered ? INVERTED_CTA_FG : theme.primary,
+            bg: isCtaHovered ? theme.primary : undefined,
+            wrapMode: 'none',
+          }}
+          attributes={TextAttributes.BOLD}
+        >
+          {layout.ctaText + INLINE_AD_LINK_SUFFIX}
+        </text>
+      </Button>
+    </box>
+  )
+}
+
+/**
+ * The expanded detail panel (COD-457).
+ *
+ * Rendered IN FLOW directly above the dock rather than as an absolute overlay
+ * — see the PR: nothing else in the CLI positions absolutely, and a panel that
+ * mispaints over the transcript is worse than one that shortens it.
+ *
+ * Returns null when {@link getDockPanelLayout} says the smallest panel would
+ * still not fit: a panel that covers the composer is never drawn.
+ */
+export const DockDetailPanel: React.FC<{
+  ad: AdResponse
+  width: number
+  availableRows: number
+  onClose: () => void
+  onClick?: (ad: AdResponse, from: DockClickOrigin) => void
+}> = ({ ad, width, availableRows, onClose, onClick }) => {
+  const theme = useTheme()
+  const [isCtaHovered, setIsCtaHovered] = useState(false)
+  const [isCloseHovered, setIsCloseHovered] = useState(false)
+
+  const panel = useMemo(
+    () => getDockPanelLayout(ad, { width, availableRows }),
+    [ad, width, availableRows],
+  )
+
+  if (!panel.fits) return null
+
+  const interiorWidth = Math.max(0, panel.width - 4)
+
+  return (
+    <box
+      style={{
+        width: panel.width,
+        height: panel.height,
+        borderStyle: 'single',
+        borderColor: theme.primary,
+        customBorderChars: BORDER_CHARS,
+        paddingLeft: 1,
+        paddingRight: 1,
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
+      <box
+        style={{
+          height: 1,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          overflow: 'hidden',
+        }}
+      >
+        <text
+          style={{ fg: theme.primary, flexShrink: 1, wrapMode: 'none' }}
+          attributes={TextAttributes.BOLD}
+        >
+          {panel.brand}
+        </text>
+        <text style={{ fg: theme.primary, flexShrink: 0, wrapMode: 'none' }}>
+          {DOCK_SPONSORED_LABEL}
+        </text>
+      </box>
+      <box style={{ height: 1 }} />
+      <text
+        style={{ fg: theme.foreground, height: 1, wrapMode: 'none' }}
+        attributes={TextAttributes.BOLD}
+      >
+        {panel.headline}
+      </text>
+      {panel.bodyLines.map((line, index) => (
+        <text
+          key={`body-${index}`}
+          style={{ fg: theme.muted, height: 1, wrapMode: 'none' }}
+        >
+          {line}
+        </text>
+      ))}
+      {panel.diagram ? (
+        <>
+          <box style={{ height: 1 }} />
+          <text style={{ fg: theme.muted, height: 1, wrapMode: 'none' }}>
+            {panel.diagram}
+          </text>
+        </>
+      ) : null}
+      {panel.bullets.length > 0 ? (
+        <>
+          <box style={{ height: 1 }} />
+          {panel.bullets.map((bullet, index) => (
+            <text
+              key={`bullet-${index}`}
+              style={{ fg: theme.muted, height: 1, wrapMode: 'none' }}
+            >
+              {`• ${bullet}`}
+            </text>
+          ))}
+        </>
+      ) : null}
+      <text style={{ fg: theme.muted, height: 1, wrapMode: 'none' }}>
+        {'─'.repeat(interiorWidth)}
+      </text>
+      <box style={{ height: 1 }} />
+      <box style={{ height: 3, flexDirection: 'row', overflow: 'hidden' }}>
+        <Button
+          onClick={() => {
+            if (!ad.clickUrl) return
+            onClick?.(ad, 'panel')
+            safeOpen(ad.clickUrl)
+          }}
+          onMouseOver={() => setIsCtaHovered(true)}
+          onMouseOut={() => setIsCtaHovered(false)}
+          style={{
+            height: 3,
+            borderStyle: 'single',
+            borderColor: theme.primary,
+            customBorderChars: BORDER_CHARS,
+            paddingLeft: 1,
+            paddingRight: 1,
+            flexShrink: 0,
+          }}
+        >
+          <text
+            style={{
+              fg: isCtaHovered ? INVERTED_CTA_FG : theme.primary,
+              bg: isCtaHovered ? theme.primary : undefined,
+              wrapMode: 'none',
+            }}
+            attributes={TextAttributes.BOLD}
+          >
+            {panel.ctaText + INLINE_AD_LINK_SUFFIX}
+          </text>
+        </Button>
+        <box style={{ flexGrow: 1 }} />
+        <box style={{ flexDirection: 'column', flexShrink: 0 }}>
+          <box style={{ height: 1 }} />
+          <Button
+            onClick={onClose}
+            onMouseOver={() => setIsCloseHovered(true)}
+            onMouseOut={() => setIsCloseHovered(false)}
+            style={{ height: 1 }}
+          >
+            <text
+              style={{
+                fg: isCloseHovered ? theme.foreground : theme.muted,
+                wrapMode: 'none',
+              }}
+            >
+              {DOCK_CLOSE_LABEL}
+            </text>
+          </Button>
+        </box>
+      </box>
+    </box>
+  )
+}
+
+/** The panel's own close control. Exported so the tmux capture can assert it. */
+export const DOCK_CLOSE_LABEL = '[ Close ]'
+
+/**
+ * Rows the composer and its surrounding chrome are never allowed to lose.
+ *
+ * The dock itself is {@link AD_CARD_HEIGHT}; the rest is the bordered input
+ * box plus the hint row beneath it. Deliberately generous: overestimating
+ * costs a bullet row, and underestimating covers the input box, which is the
+ * one outcome the spec forbids outright.
+ */
+export const DOCK_COMPOSER_RESERVED_ROWS = AD_CARD_HEIGHT + 6
+
+/**
+ * How many rows the panel may occupy above the dock at this terminal height.
+ *
+ * Pure and tested, for the same reason the degradation ladder is: "never
+ * covers the composer at 24 rows" cannot be seen in a snapshot of a tall
+ * terminal.
+ */
+export function dockPanelRowBudget(terminalHeight: number): number {
+  return Math.max(0, Math.floor(terminalHeight) - DOCK_COMPOSER_RESERVED_ROWS)
+}
+
+/**
  * The rotating ad pinned above the chat input box. Rerenders (and fires a new
  * impression) each time the hook rotates `ads[0]`.
+ *
+ * `arm` is the sticky CLI dock arm (COD-457). `control` renders the card
+ * exactly as it did before this issue — same component, same props, same five
+ * rows — so the control arm is byte-identical to today by construction rather
+ * than by a test that could drift.
  */
 export const SingleAdBanner: React.FC<{
   ad: AdResponse
   onClick?: (ad: AdResponse) => void
   onImpression?: (ad: AdResponse) => void
-}> = ({ ad, onClick, onImpression }) => {
+  arm?: CliDockArm
+  expanded?: boolean
+  chordHint?: string
+  /** Rows the panel may occupy above the dock without covering the composer. */
+  panelRows?: number
+  onToggle?: () => void
+  onDockClick?: (ad: AdResponse, from: DockClickOrigin) => void
+  onClose?: () => void
+}> = ({
+  ad,
+  onClick,
+  onImpression,
+  arm = 'control',
+  expanded = false,
+  chordHint,
+  panelRows = 0,
+  onToggle,
+  onDockClick,
+  onClose,
+}) => {
   const { terminalWidth } = useTerminalDimensions()
+  const width = terminalWidth - 2
+
+  if (arm !== 'expandable') {
+    return (
+      <box style={{ marginLeft: 1, marginRight: 1 }}>
+        <AdCard
+          ad={ad}
+          width={width}
+          onClick={onClick}
+          onImpression={onImpression}
+        />
+      </box>
+    )
+  }
 
   return (
-    <box style={{ marginLeft: 1, marginRight: 1 }}>
-      <AdCard
+    // `flexShrink: 0` is load-bearing, not decoration. Without it the panel is
+    // the only flexible thing between a transcript that will not shrink and a
+    // composer that must not, so a tall panel gets its bottom border clipped
+    // and paints over the dock's label row. Measured at 80x24.
+    <box
+      style={{
+        marginLeft: 1,
+        marginRight: 1,
+        flexDirection: 'column',
+        flexShrink: 0,
+      }}
+    >
+      {expanded ? (
+        // Anchored to the dock's right edge, per the mockup.
+        <box
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            flexShrink: 0,
+          }}
+        >
+          <DockDetailPanel
+            ad={ad}
+            width={Math.min(DOCK_PANEL_MAX_WIDTH, width)}
+            availableRows={panelRows}
+            onClose={() => onClose?.()}
+            onClick={onDockClick}
+          />
+        </box>
+      ) : null}
+      <DockAdCard
         ad={ad}
-        width={terminalWidth - 2}
-        onClick={onClick}
+        width={width}
+        expanded={expanded}
+        chordHint={chordHint}
+        onToggle={onToggle}
+        onClick={onDockClick}
         onImpression={onImpression}
       />
     </box>

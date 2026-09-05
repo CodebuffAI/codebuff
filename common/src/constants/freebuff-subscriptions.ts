@@ -1,8 +1,14 @@
-import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from './freebuff-model-ids'
 import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+} from './freebuff-model-ids'
+import {
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS,
+  FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS,
   getFreebuffWebModel,
 } from './freebuff-models'
 import {
@@ -32,14 +38,8 @@ import {
 // mode (FREEBUFF_PAUSED_FREE_MODEL_IDS). A subscribable model has to be a model
 // admission will actually open a session on, or the plan sells a row whose
 // first send fails; GLM 5.3 Flash takes its place in the same slot.
-export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze(
-  [
-    FREEBUFF_GLM_V53_FLASH_MODEL_ID,
-    FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    FREEBUFF_KIMI_K3_ECO_MODEL_ID,
-  ],
-)
+export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] =
+  FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS
 
 /**
  * The expensive half of the pool, sub-capped within each day.
@@ -64,6 +64,11 @@ export const FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS: readonly string[] =
     // list controls the plan's daily sub-cap, not free-tier entitlement.
     FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    // Gemini 3.8 Flash is the dearest row in the catalog per message, so it
+    // belongs in the sub-capped half for exactly the reason this list exists:
+    // without the cap, a subscriber spending every daily session here would
+    // have to be priced for, and the allowance would shrink for everyone.
+    FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   ])
 
 export function isFreebuffSubscriptionPremiumModelId(modelId: string): boolean {
@@ -324,25 +329,41 @@ export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 7
  * Distinct from `FREEBUFF_SUBSCRIPTION_MODEL_IDS`, which lists models a plan
  * meters. Those are available to everyone and the plan merely adds sessions;
  * these are available to subscribers ONLY, so a free account cannot start one
- * at all.
+ * at all. Every id here must ALSO be in that list, or the paywall sells a row
+ * the plan it sells cannot open.
  *
- * EMPTY AGAIN as of 2026-08-26, and back to the state this comment originally
- * described. V4 Pro was its one entry for a few hours (#2254) and has since
- * been withdrawn from free mode entirely on cost — a row nothing may admit
- * cannot be sold, so leaving it here would advertise a paid tier whose first
- * send fails for subscribers too.
+ * The rows are still LISTED to a free account, without a price, and selecting
+ * one opens the plans page. That is deliberate and is the same call
+ * `LIMITED_TIER_PLAN_LOCKED_MODELS` documents: a row the user cannot start is
+ * worth drawing when the only thing in the way is a plan we sell. The price is
+ * suppressed because a Freebucks figure beside a row Freebucks cannot buy
+ * reads as the way in, and sends the user to spend a balance that will not
+ * open it.
  *
- * GLM 5.3 Flash briefly carried a two-a-day measurement ceiling, which came off
- * on 2026-08-27 once its lane was measured. It is now an unmetered free model,
- * not a paid-only row. Moving it behind the paywall later would be an explicit
- * entry here or, without a deploy, in `FREEBUFF_PRO_ONLY_MODEL_IDS`.
+ * ## Why these two, as of 2026-09-04
  *
- * Everything else #2254 built stays live and simply has nothing to act on: the
- * service-account surface check, the off-peak closure, the DeepSeek-direct
- * route pin and the admission refusal are all still here and still tested.
+ * GPT-5.6 Luna and Gemini 3.8 Flash are the two dearest rows we serve, and
+ * both were already half-fenced. Luna has been plan-locked for the limited
+ * tier since 2026-09-04 (`LIMITED_TIER_PLAN_LOCKED_MODELS`) and is in the
+ * sub-capped premium half above; Gemini 3.8 Flash was withdrawn outright the
+ * day it shipped. Putting both behind the plan is the same decision applied to
+ * the whole audience rather than to one tier.
+ *
+ * ## Scope
+ *
+ * Enforced on FREEBUFF WEB ONLY — see FREEBUFF_PRO_ENFORCED_SURFACES. Desktop
+ * and the CLI keep serving Luna free, because a released binary holding the id
+ * must not have the model taken away by a server deploy it did not ask for.
+ * Widening is one edit to that constant, and should be made with a client
+ * release rather than ahead of one.
+ *
+ * Withdrawn history: V4 Pro was the one entry for a few hours (#2254) and left
+ * on 2026-08-26 with its withdrawal from free mode — a row nothing may admit
+ * cannot be sold. Nothing here is reachable without a deploy either way; the
+ * `FREEBUFF_PRO_ONLY_MODEL_IDS` env list adds ids without one.
  */
 export const FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS: readonly string[] =
-  Object.freeze([])
+  FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS
 
 /**
  * The Pro rows are enforced on **Freebuff Web only**, for now.
@@ -364,13 +385,48 @@ export const FREEBUFF_PRO_ENFORCED_SURFACES = ['freebuff-web'] as const
  * peak windows — which is exactly why the row is closed there rather than sold
  * at twice the cost. Distinct from the plan-level pause: this row is shut
  * outright on Web, for subscribers too.
+ *
+ * SCOPED TO THE DEEPSEEK ROW BY ID, not to "whatever is Pro-only". It tested
+ * the Pro list while that list held exactly one entry and that entry was this
+ * model, so the two readings coincided and the narrower one was never written
+ * down. They stopped coinciding on 2026-09-04, when Luna and Gemini 3.8 Flash
+ * became the Pro rows: both are served by lanes that have no peak window at
+ * all, and the old predicate would have shut them for fourteen hours a day
+ * with an explanation about DeepSeek's card that is not true of either.
+ *
+ * The closure belongs to the LANE, so it names the model whose lane it is. A
+ * future Pro row on DeepSeek direct joins the list below; one on any other
+ * provider must not.
  */
+const FREEBUFF_WEB_PEAK_CLOSED_PRO_MODEL_IDS: readonly string[] = Object.freeze([
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+])
+
 export function isFreebuffWebProClosedNow(
   id: string,
   now: Date = new Date(),
 ): boolean {
-  if (!FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS.includes(id)) return false
+  if (!isFreebuffWebPeakClosedProModelId(id)) return false
   return isDeepSeekExpensiveWindow(now)
+}
+
+/**
+ * Whether the peak closure applies to this row AT ALL, independent of the hour.
+ *
+ * Separate from `isFreebuffWebProClosedNow` because a PICKER asks a different
+ * question than an admission gate does. Admission asks "is it shut right now";
+ * the picker has to decide whether to draw an hours badge at every hour,
+ * including the hours the row is open — a badge that appeared only once the
+ * door was already shut would be useless for planning around.
+ *
+ * The picker used to derive that badge from `isFreebuffSubscriptionProModelId`,
+ * which was indistinguishable from this while V4 Pro was the only Pro row. It
+ * stopped being true on 2026-09-04, and the result was Luna and Gemini 3.8
+ * Flash both advertising `Open 3:00 AM - 5:00 PM PDT` — hours neither of them
+ * has, taken from a third model's provider.
+ */
+export function isFreebuffWebPeakClosedProModelId(id: string): boolean {
+  return FREEBUFF_WEB_PEAK_CLOSED_PRO_MODEL_IDS.includes(id)
 }
 
 /** "3:00 AM – 5:00 PM" — when the Web Pro row is open, in the reader's zone. */
