@@ -142,6 +142,8 @@ export const SPONSORED_STEP_STATE_LABEL: Record<
  */
 export type SponsoredProposalRow = {
   state: SponsoredProposalState
+  /** Conversation whose authenticated ad request produced this offer. */
+  conversationId?: string
   advertiser_name: string
   // Opaque handle for the advertiser logo. Minted per upload, so an old one is
   // dead by design — absent and stale render the same header.

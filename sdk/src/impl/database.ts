@@ -161,7 +161,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
     )
   } catch (error) {
     logger.error(
-      { error: getErrorObject(error), apiKey, fields },
+      { error: getErrorObject(error), fields },
       'getUserInfoFromApiKey network error',
     )
     // Network-level failure: DNS, connection refused, timeout, etc.
@@ -170,7 +170,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
 
   if (response.status === 401 || response.status === 403 || response.status === 404) {
     logger.error(
-      { apiKey, fields, status: response.status },
+      { fields, status: response.status },
       'getUserInfoFromApiKey authentication failed',
     )
     // Don't cache auth failures - allow retry with potentially updated credentials
@@ -182,7 +182,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
 
   if (response.status >= 500 && response.status <= 599) {
     logger.error(
-      { apiKey, fields, status: response.status },
+      { fields, status: response.status },
       'getUserInfoFromApiKey server error',
     )
     throw createServerError('Server error', response.status)
@@ -190,7 +190,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
 
   if (!response.ok) {
     logger.error(
-      { apiKey, fields, status: response.status },
+      { fields, status: response.status },
       'getUserInfoFromApiKey request failed',
     )
     throw createHttpError('Request failed', response.status)
@@ -206,7 +206,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
     }
   } catch (error) {
     logger.error(
-      { error: getErrorObject(error), apiKey, fields },
+      { error: getErrorObject(error), fields },
       'getUserInfoFromApiKey JSON parse error',
     )
     throw createHttpError('Failed to parse response', response.status)
@@ -223,7 +223,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
     )
   ) {
     logger.error(
-      { apiKey, fields },
+      { fields },
       'getUserInfoFromApiKey: response missing required fields',
     )
     throw createHttpError('Request failed', response.status)
