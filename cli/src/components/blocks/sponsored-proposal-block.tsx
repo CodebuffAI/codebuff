@@ -91,7 +91,9 @@ const MIN_INLINE_NAME_WIDTH = 12
 /** Clip to the available columns without wrapping — a terminal has no ellipsis box. */
 function clip(text: string, width: number): string {
   if (width <= 1) return ''
-  return text.length <= width ? text : `${text.slice(0, Math.max(0, width - 1))}…`
+  return text.length <= width
+    ? text
+    : `${text.slice(0, Math.max(0, width - 1))}…`
 }
 
 export const SponsoredProposalBlock: React.FC<{
@@ -111,18 +113,22 @@ export const SponsoredProposalBlock: React.FC<{
   // that refuses is worse than an Accept that is not there with a sentence
   // beside it saying why -- which is what `unavailable` renders instead.
   const canRun = sponsoredCliCanRun()
-  const acceptable = accept !== null && canRun && !answeredOrBusy(block)
+  const refreshUnavailable = block.refreshUnavailable === true
+  const acceptable =
+    accept !== null && canRun && !answeredOrBusy(block) && !refreshUnavailable
   const menu = sponsoredProposalMenu(view.advertiserName, {
     ...(acceptable && accept ? { acceptLabel: accept.label } : {}),
   })
   const openPullRequest = sponsoredProposalAction(view, 'open-pull-request')
   const answered = block.answered === true
   const busy = block.busy === true
-  const consent = block.consent ?? null
+  const consent = refreshUnavailable ? null : (block.consent ?? null)
   // Clamped exactly as the desktop bridge clamps it: the name is the only
   // advertiser-authored text left on a one-sentence consent, which makes it the
   // whole attack surface.
-  const consentName = consent ? sponsoredConsentName(consent.advertiserName) : ''
+  const consentName = consent
+    ? sponsoredConsentName(consent.advertiserName)
+    : ''
   const consentChoices: readonly string[] = consentName
     ? CONSENT_CHOICES
     : CONSENT_CHOICES_NO_NAME
@@ -158,9 +164,13 @@ export const SponsoredProposalBlock: React.FC<{
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
+        if (refreshUnavailable) return
         if (!block.menuOpen && !consent) return
         const preventDefault = () => {
-          if ('preventDefault' in key && typeof key.preventDefault === 'function') {
+          if (
+            'preventDefault' in key &&
+            typeof key.preventDefault === 'function'
+          ) {
             key.preventDefault()
           }
         }
@@ -183,7 +193,8 @@ export const SponsoredProposalBlock: React.FC<{
             preventDefault()
             // With no name there is one choice, so the caret has nowhere to go
             // -- the same property as the disabled Yes on the desktop dialog.
-            if (consentChoices.length > 1) setConsentIndex((index) => (index === 0 ? 1 : 0))
+            if (consentChoices.length > 1)
+              setConsentIndex((index) => (index === 0 ? 1 : 0))
             return
           }
           if (isPlainEnterKey(key)) {
@@ -243,6 +254,7 @@ export const SponsoredProposalBlock: React.FC<{
         menu,
         menuIndex,
         onMenuKey,
+        refreshUnavailable,
       ],
     ),
   )
@@ -297,7 +309,9 @@ export const SponsoredProposalBlock: React.FC<{
     >
       {stackHeader ? (
         <box style={{ width: '100%', flexDirection: 'column' }}>
-          <text style={{ fg: theme.muted, wrapMode: 'none' }}>{DISCLOSURE}</text>
+          <text style={{ fg: theme.muted, wrapMode: 'none' }}>
+            {DISCLOSURE}
+          </text>
           <text
             style={{ fg: theme.foreground, wrapMode: 'none' }}
             attributes={TextAttributes.BOLD}
@@ -338,10 +352,7 @@ export const SponsoredProposalBlock: React.FC<{
             {`${view.doneStepCount}/${view.steps.length}`}
           </text>
           {view.steps.map((step) => (
-            <text
-              key={step.text}
-              style={{ fg: theme.muted, wrapMode: 'none' }}
-            >
+            <text key={step.text} style={{ fg: theme.muted, wrapMode: 'none' }}>
               {clip(
                 `${SPONSORED_STEP_STATE_LABEL[step.state]}  ${step.text}`,
                 inner,
@@ -394,6 +405,12 @@ export const SponsoredProposalBlock: React.FC<{
       )}
 
       {unavailable && <text style={{ fg: theme.muted }}>{unavailable}</text>}
+      {refreshUnavailable && (
+        <text style={{ fg: theme.muted }}>
+          Could not refresh this proposal. Its controls will return when
+          Freebuff reconnects.
+        </text>
+      )}
 
       {block.whyOpen && <text style={{ fg: theme.muted }}>{view.whyThis}</text>}
 
@@ -422,7 +439,9 @@ export const SponsoredProposalBlock: React.FC<{
               {SPONSORED_CONSENT_SENTENCE}
             </text>
           ) : (
-            <text style={{ fg: theme.foreground }}>{SPONSORED_CONSENT_NO_NAME}</text>
+            <text style={{ fg: theme.foreground }}>
+              {SPONSORED_CONSENT_NO_NAME}
+            </text>
           )}
           {consentChoices.map((label, index) => (
             <text
@@ -438,7 +457,7 @@ export const SponsoredProposalBlock: React.FC<{
         </box>
       )}
 
-      {block.menuOpen && (
+      {block.menuOpen && !refreshUnavailable && (
         <box style={{ width: '100%', flexDirection: 'column' }}>
           {menu.map((item, index) => (
             <text
@@ -448,16 +467,13 @@ export const SponsoredProposalBlock: React.FC<{
                 wrapMode: 'none',
               }}
             >
-              {clip(
-                `${index === menuIndex ? '>' : ' '} ${item.label}`,
-                inner,
-              )}
+              {clip(`${index === menuIndex ? '>' : ' '} ${item.label}`, inner)}
             </text>
           ))}
         </box>
       )}
 
-      {!answered && (
+      {!answered && !refreshUnavailable && (
         <text style={{ fg: theme.muted, wrapMode: 'none' }}>
           {hintFor(hintMode(block, acceptable), inner)}
         </text>

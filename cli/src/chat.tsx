@@ -302,7 +302,10 @@ export const Chat = ({
       // `busy` is checked before the await, not after: the impatient double
       // press is synchronous, and a guard on the far side of a promise arrives
       // too late to stop the second call.
-      if (!block || block.busy || block.answered || !authToken) return
+      if (
+        !block || block.busy || block.answered ||
+        block.refreshUnavailable || !authToken
+      ) return
       patchProposalBlock(target, { busy: true, menuOpen: false })
       const proposalId = block.proposal._id
       const advertiserId = block.proposal.advertiser_id
@@ -358,7 +361,10 @@ export const Chat = ({
    */
   const handleSponsoredProposalAccept = useEvent((target: string) => {
     const block = findProposalBlock(target)
-    if (!block || block.busy || block.answered || block.consent) return
+    if (
+      !block || block.busy || block.answered ||
+      block.refreshUnavailable || block.consent
+    ) return
     void (async () => {
       const run = sponsoredRunFor(getProjectRoot())
       const consent = await run.consentFor(block.proposal)

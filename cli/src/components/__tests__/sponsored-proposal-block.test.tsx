@@ -25,7 +25,14 @@ import {
 } from '@codebuff/common/ads/__fixtures__/sponsored-proposal-rows'
 import { createTestRenderer } from '@opentui/core/testing'
 import { createRoot, flushSync } from '@opentui/react'
-import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  test,
+} from 'bun:test'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
@@ -91,7 +98,10 @@ describe('every state, at every width', () => {
   for (const width of WIDTHS) {
     test(`R-1 / R-19 the disclosure and the advertiser survive at ${width} columns`, async () => {
       for (const state of SPONSORED_FIXTURE_STATES) {
-        const frame = await render(blockFor(SPONSORED_ROW_FIXTURES[state]), width)
+        const frame = await render(
+          blockFor(SPONSORED_ROW_FIXTURES[state]),
+          width,
+        )
         // The two things that may never be dropped: that this is an ad, and
         // whose. At 20 columns everything else is negotiable.
         expect(frame, `${state} at ${width}`).toContain('SPONSORED')
@@ -124,7 +134,10 @@ describe('every state, at every width', () => {
     expect(refused).toContain('Windows')
 
     // And no state but `offered` offers one, on either machine.
-    for (const availability of ['available', 'unavailable:windows-no-containment'] as const) {
+    for (const availability of [
+      'available',
+      'unavailable:windows-no-containment',
+    ] as const) {
       setSponsoredCliAvailability(availability)
       for (const state of SPONSORED_FIXTURE_STATES) {
         if (state === 'offered') continue
@@ -133,11 +146,28 @@ describe('every state, at every width', () => {
             blockFor(SPONSORED_ROW_FIXTURES[state], { menuOpen: true }),
             width,
           )
-          expect(frame, `${state} at ${width}`).not.toContain('Start sponsored thread')
+          expect(frame, `${state} at ${width}`).not.toContain(
+            'Start sponsored thread',
+          )
         }
       }
     }
     setSponsoredCliAvailability('available')
+  })
+
+  test('a failed refresh is visible and exposes no stale controls', async () => {
+    const frame = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, {
+        refreshUnavailable: true,
+        menuOpen: true,
+        consent: CONSENT,
+      }),
+      60,
+    )
+    expect(frame).toContain('Could not refresh this proposal')
+    expect(frame).not.toContain('Start sponsored thread')
+    expect(frame).not.toContain('/ads:accept-proposal')
+    expect(frame).not.toContain('> No')
   })
 
   test('the run never starts from the Accept: it opens a consent that can refuse', async () => {
@@ -148,7 +178,8 @@ describe('every state, at every width', () => {
     setSponsoredCliAvailability('available')
     const calls: string[] = []
     useMessageBlockStore.getState().setCallbacks({
-      onSponsoredProposalAccept: (target: string) => calls.push(`accept:${target}`),
+      onSponsoredProposalAccept: (target: string) =>
+        calls.push(`accept:${target}`),
       onSponsoredProposalConsent: (target: string, approved: boolean) =>
         calls.push(`consent:${target}:${approved}`),
     } as never)
@@ -206,9 +237,9 @@ describe('every state, at every width', () => {
     // and `useKeyboard` is a global listener -- so that Esc reached the card at
     // the same time as whatever the user was actually cancelling.
     for (const state of SPONSORED_FIXTURE_STATES) {
-      expect(await render(blockFor(SPONSORED_ROW_FIXTURES[state]), 60)).toContain(
-        '/ads:dismiss-proposal',
-      )
+      expect(
+        await render(blockFor(SPONSORED_ROW_FIXTURES[state]), 60),
+      ).toContain('/ads:dismiss-proposal')
     }
   })
 })
@@ -260,7 +291,9 @@ describe('the two waivers, asserted', () => {
           60,
         )
         if (pr_url.length > 0) {
-          expect(frame, `${state}: ${pr_url}`).not.toContain(pr_url.slice(0, 12))
+          expect(frame, `${state}: ${pr_url}`).not.toContain(
+            pr_url.slice(0, 12),
+          )
         }
         // Losing the link costs a click; losing the card would withhold the
         // news that a sponsored thread reached the user's repository.
@@ -300,13 +333,20 @@ describe('the two waivers, asserted', () => {
  * fails here, which is the point.
  */
 describe('checked-in frames', () => {
-  const SNAPSHOT = join(import.meta.dir, '__snapshots__', 'sponsored-proposal-frames.txt')
+  const SNAPSHOT = join(
+    import.meta.dir,
+    '__snapshots__',
+    'sponsored-proposal-frames.txt',
+  )
 
   test('every state at 20, 48 and 60 columns', async () => {
     const sections: string[] = []
     for (const state of SPONSORED_FIXTURE_STATES) {
       for (const width of WIDTHS) {
-        const frame = await render(blockFor(SPONSORED_ROW_FIXTURES[state]), width)
+        const frame = await render(
+          blockFor(SPONSORED_ROW_FIXTURES[state]),
+          width,
+        )
         sections.push(
           `=== ${state} @ ${width} ===\n${frame.replace(/[ \t]+$/gm, '')}`,
         )
@@ -348,7 +388,10 @@ async function extraSections(): Promise<string[]> {
   setSponsoredCliAvailability('unavailable:windows-no-containment')
   try {
     for (const width of WIDTHS) {
-      const frame = await render(blockFor(SPONSORED_ROW_FIXTURES.offered), width)
+      const frame = await render(
+        blockFor(SPONSORED_ROW_FIXTURES.offered),
+        width,
+      )
       out.push(
         `=== offered-windows @ ${width} ===\n${frame.replace(/[ \t]+$/gm, '')}`,
       )
@@ -425,9 +468,7 @@ describe('the block itself', () => {
     const offered = blockFor(SPONSORED_ROW_FIXTURES.offered)
     expect(hintMode(offered, true)).toBe('acceptable')
     expect(hintMode(offered, false)).toBe('closed')
-    expect(
-      hintMode({ ...offered, consent: CONSENT }, true),
-    ).toBe('consent')
+    expect(hintMode({ ...offered, consent: CONSENT }, true)).toBe('consent')
     // An open consent outranks an open menu: opening it closes the menu, so
     // the two are never both live and one Enter never has two handlers.
     expect(

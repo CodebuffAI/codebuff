@@ -12,6 +12,8 @@
  * here are not about it.
  */
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { ensureCliTestEnv } from '../../__tests__/test-utils'
 
@@ -20,10 +22,7 @@ ensureCliTestEnv()
 const { SponsoredRun, diagnosticCause, noHooksEnv, sponsoredRunTitle } =
   await import('../sponsored-run')
 
-import type {
-  SponsoredRunDeps,
-  SponsoredTurnContext,
-} from '../sponsored-run'
+import type { SponsoredRunDeps, SponsoredTurnContext } from '../sponsored-run'
 import type { SponsoredProposal } from '../sponsored-proposal-api'
 
 const ROOT = '/repo'
@@ -46,7 +45,12 @@ const ACCEPT = {
   expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
 }
 
-type Reported = { state: string; failureReason?: string; prUrl?: string }
+type Reported = {
+  state: string
+  failureReason?: string
+  prUrl?: string
+  reportId?: string
+}
 
 function fakes(
   over: Partial<SponsoredRunDeps> = {},
@@ -56,6 +60,7 @@ function fakes(
   const accepts: string[] = []
   const turns: SponsoredTurnContext[] = []
   const delivered: string[][] = []
+  let terminalReports = '[]'
   // The branch tip, which is what decides `committed`. Tests move it.
   let head = 'base-sha'
 
@@ -107,6 +112,12 @@ function fakes(
         : { exitCode: 0, stdout: '', stderr: '' }
     },
     now: () => 0,
+    terminalReports: {
+      read: () => terminalReports,
+      write: (value) => {
+        terminalReports = value
+      },
+    },
     ...over,
   }
   return {
@@ -115,6 +126,10 @@ function fakes(
     accepts,
     turns,
     delivered,
+    terminalReports: () => terminalReports,
+    setTerminalReports: (value: string) => {
+      terminalReports = value
+    },
     moveHead: (sha: string) => {
       head = sha
     },
@@ -138,14 +153,19 @@ describe('availability decides whether anything can be offered at all', () => {
     expect(f.service.availability()).toBe('unavailable:windows-no-containment')
     const consent = await f.service.consentFor(PROPOSAL)
     expect(consent.ok).toBe(false)
-    expect(await f.service.accept(PROPOSAL, 'run-1')).toMatchObject({ ok: false })
+    expect(await f.service.accept(PROPOSAL, 'run-1')).toMatchObject({
+      ok: false,
+    })
     expect(f.accepts).toEqual([])
   })
 
   test('a folder that is not a repository is refused, and nothing is written', async () => {
     // The card should never have offered an Accept for it -- the proposal is
     // keyed to a GitHub remote -- but the command is reachable without a card.
-    const f = fakes({}, { '--is-inside-work-tree': { exitCode: 128, stdout: '' } })
+    const f = fakes(
+      {},
+      { '--is-inside-work-tree': { exitCode: 128, stdout: '' } },
+    )
     const consent = await f.service.consentFor(PROPOSAL)
     expect(consent).toMatchObject({ ok: false })
     expect(f.accepts).toEqual([])
@@ -293,6 +313,270 @@ describe('the verdict is decided by git, not by the run', () => {
     await settle()
     expect(f.reported[1]!.state).toBe('failed')
   })
+
+  test('an offline terminal verdict survives restart and keeps its report id', async () => {
+    let terminalAttempts = 0
+    const f = fakes({
+      reportState: async (_id, _token, update) => {
+        f.reported.push(update as Reported)
+        if (update.state === 'running') return { ok: true, status: 200 }
+        terminalAttempts += 1
+        return terminalAttempts === 1
+          ? { ok: false, status: 0, message: 'offline' }
+          : { ok: true, status: 200 }
+      },
+    })
+    const original = f.deps.runTurn
+    f.deps.runTurn = async (context) => {
+      f.moveHead('moved-sha')
+      return original(context)
+    }
+    await acceptThrough(f)
+    await settle()
+
+    const pending = JSON.parse(f.terminalReports()) as Array<{
+      update: { reportId: string }
+      nextDueAt: number
+    }>
+    expect(pending).toHaveLength(1)
+    pending[0]!.nextDueAt = 0
+    f.setTerminalReports(JSON.stringify(pending))
+
+    new SponsoredRun(ROOT, f.deps)
+    await settle()
+    expect(terminalAttempts).toBe(2)
+    expect(f.reported.at(-2)?.reportId).toBe(f.reported.at(-1)?.reportId)
+    expect(JSON.parse(f.terminalReports())).toEqual([])
+  })
+
+  test('a terminal 409 is retained as a permanent refusal and never auto-retried', async () => {
+    let terminalAttempts = 0
+    const f = fakes({
+      reportState: async (_id, _token, update) => {
+        f.reported.push(update as Reported)
+        if (update.state === 'running') return { ok: true, status: 200 }
+        terminalAttempts += 1
+        return { ok: false, status: 409, message: 'report_conflict' }
+      },
+    })
+    await acceptThrough(f)
+    await settle()
+    expect(JSON.parse(f.terminalReports())[0]).toMatchObject({
+      attempts: 1,
+      lastError: 'report_conflict',
+      disposition: 'permanent_refusal',
+    })
+
+    new SponsoredRun(ROOT, f.deps)
+    await settle()
+    expect(terminalAttempts).toBe(1)
+    expect(JSON.parse(f.terminalReports())).toHaveLength(1)
+  })
+
+  test('a terminal 401 retries with refreshed credentials', async () => {
+    let authToken = 'expired-session'
+    const terminalTokens: string[] = []
+    const f = fakes({
+      getToken: () => authToken,
+      reportState: async (_id, _token, update, token) => {
+        f.reported.push(update as Reported)
+        if (update.state === 'running') return { ok: true, status: 200 }
+        terminalTokens.push(token)
+        return token === 'expired-session'
+          ? { ok: false, status: 401, message: 'session expired' }
+          : { ok: true, status: 200 }
+      },
+    })
+    const original = f.deps.runTurn
+    f.deps.runTurn = async (context) => {
+      f.moveHead('moved-sha')
+      return original(context)
+    }
+    await acceptThrough(f)
+    await settle()
+
+    expect(JSON.parse(f.terminalReports())[0]).toMatchObject({
+      attempts: 1,
+      lastError: 'session expired',
+      disposition: 'pending',
+    })
+
+    authToken = 'refreshed-session'
+    const pending = JSON.parse(f.terminalReports())
+    pending[0].nextDueAt = 0
+    f.setTerminalReports(JSON.stringify(pending))
+    new SponsoredRun(ROOT, f.deps)
+    await settle()
+
+    expect(terminalTokens).toEqual(['expired-session', 'refreshed-session'])
+    expect(JSON.parse(f.terminalReports())).toEqual([])
+  })
+
+  test('a delayed flush cannot delete a concurrently enqueued report', async () => {
+    let releaseFirst!: () => void
+    let releaseBlocked!: () => void
+    let firstStarted!: () => void
+    const firstStartedPromise = new Promise<void>((resolve) => {
+      firstStarted = resolve
+    })
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    const blockedGate = new Promise<void>((resolve) => {
+      releaseBlocked = resolve
+    })
+    let oldAttempts = 0
+    const deliveredProposalIds: string[] = []
+    const f = fakes({
+      runTurn: () => new Promise(() => {}),
+      reportState: async (proposalId, _token, update) => {
+        f.reported.push(update as Reported)
+        if (update.state === 'running') return { ok: true, status: 200 }
+        if (update.reportId === 'old-report') {
+          oldAttempts += 1
+          if (oldAttempts === 1) {
+            firstStarted()
+            await firstGate
+          } else {
+            await blockedGate
+          }
+        } else {
+          await blockedGate
+        }
+        deliveredProposalIds.push(proposalId)
+        return { ok: true, status: 200 }
+      },
+    })
+    await settle()
+    f.setTerminalReports(
+      JSON.stringify([
+        {
+          proposalId: 'old-proposal',
+          runToken: 'old-token',
+          update: {
+            state: 'failed',
+            reportId: 'old-report',
+            runId: 'old-run',
+            failureReason: 'old failure',
+          },
+          attempts: 0,
+          nextDueAt: 0,
+          lastError: null,
+          disposition: 'pending',
+        },
+      ]),
+    )
+
+    const service = new SponsoredRun(ROOT, f.deps)
+    await firstStartedPromise
+    const consent = await service.consentFor(PROPOSAL)
+    if (!consent.ok) throw new Error('refused')
+    await service.accept(PROPOSAL, consent.runId)
+    const interrupted = service.interrupt('ctrl-c')
+
+    // Persist-before-HTTP: the second intent survives a crash even while the
+    // first request is still unresolved.
+    expect(JSON.parse(f.terminalReports())).toMatchObject([
+      { proposalId: 'old-proposal', update: { reportId: 'old-report' } },
+      { proposalId: 'proposal-1', disposition: 'pending' },
+    ])
+
+    releaseFirst()
+    await settle()
+    expect(JSON.parse(f.terminalReports())).toMatchObject([
+      { proposalId: 'proposal-1', disposition: 'pending' },
+    ])
+
+    releaseBlocked()
+    await interrupted
+    await settle()
+    expect(oldAttempts).toBe(1)
+    expect(deliveredProposalIds).toEqual(['old-proposal', 'proposal-1'])
+    expect(JSON.parse(f.terminalReports())).toEqual([])
+  })
+
+  test('a refused report does not block a later pending report', async () => {
+    let terminalAttempts = 0
+    const f = fakes({
+      reportState: async (_id, _token, update) => {
+        f.reported.push(update as Reported)
+        if (update.state === 'running') return { ok: true, status: 200 }
+        terminalAttempts += 1
+        return terminalAttempts === 1
+          ? { ok: false, status: 409, message: 'report_conflict' }
+          : { ok: true, status: 200 }
+      },
+    })
+    await acceptThrough(f)
+    await settle()
+    const reports = JSON.parse(f.terminalReports())
+    reports.push({
+      ...reports[0],
+      update: { ...reports[0].update, reportId: 'later-report' },
+      attempts: 0,
+      nextDueAt: 0,
+      lastError: null,
+      disposition: 'pending',
+    })
+    f.setTerminalReports(JSON.stringify(reports))
+
+    new SponsoredRun(ROOT, f.deps)
+    await settle()
+    expect(terminalAttempts).toBe(2)
+    expect(JSON.parse(f.terminalReports())).toMatchObject([
+      { disposition: 'permanent_refusal' },
+    ])
+  })
+
+  test('a transient report exhausts after eight attempts and remains recoverable', async () => {
+    let terminalAttempts = 0
+    const f = fakes({
+      reportState: async (_id, _token, update) => {
+        f.reported.push(update as Reported)
+        if (update.state === 'running') return { ok: true, status: 200 }
+        terminalAttempts += 1
+        return { ok: false, status: 0, message: 'offline' }
+      },
+    })
+    await acceptThrough(f)
+    await settle()
+    for (let retry = 1; retry < 8; retry += 1) {
+      const pending = JSON.parse(f.terminalReports())
+      pending[0].nextDueAt = 0
+      f.setTerminalReports(JSON.stringify(pending))
+      new SponsoredRun(ROOT, f.deps)
+      await settle()
+    }
+    expect(terminalAttempts).toBe(8)
+    expect(JSON.parse(f.terminalReports())[0]).toMatchObject({
+      attempts: 8,
+      lastError: 'offline',
+      disposition: 'exhausted',
+    })
+
+    new SponsoredRun(ROOT, f.deps)
+    await settle()
+    expect(terminalAttempts).toBe(8)
+    expect(JSON.parse(f.terminalReports())).toHaveLength(1)
+  })
+})
+
+test('the default terminal outbox uses private user state and exclusive temp creation', () => {
+  const source = readFileSync(
+    join(import.meta.dir, '..', 'sponsored-run.ts'),
+    'utf8',
+  )
+  const store = source.slice(
+    source.indexOf('function terminalReportStore'),
+    source.indexOf('export const defaultSponsoredRunDeps'),
+  )
+  expect(store).toContain(
+    "path.join(getConfigDir(), 'sponsored-terminal-reports')",
+  )
+  expect(store).toContain("createHash('sha256').update(canonicalRoot)")
+  expect(store).toContain("flag: 'wx'")
+  expect(store).toContain('mode: 0o600')
+  expect(store).not.toContain("path.join(projectRoot, '.freebuff')")
 })
 
 describe('interrupting', () => {
@@ -315,9 +599,10 @@ describe('interrupting', () => {
     // the card had flickered through a state it was never in.
     let finish: (() => void) | undefined
     const f = fakes({
-      runTurn: () => new Promise<null>((resolve) => {
-        finish = () => resolve(null)
-      }),
+      runTurn: () =>
+        new Promise<null>((resolve) => {
+          finish = () => resolve(null)
+        }),
     })
     await acceptThrough(f)
     await f.service.interrupt('ctrl-c')
@@ -368,7 +653,11 @@ describe('delivery', () => {
       if (key.includes('--git-common-dir')) {
         // The worktree creation asks once; the delivery check asks twice and
         // must get two DIFFERENT answers to see the move.
-        return { exitCode: 0, stdout: commonDirs[Math.min(asked++, 1)]!, stderr: '' }
+        return {
+          exitCode: 0,
+          stdout: commonDirs[Math.min(asked++, 1)]!,
+          stderr: '',
+        }
       }
       if (key.includes('rev-parse HEAD')) {
         // The first ask is the worktree's base; every later one is the tip
@@ -408,7 +697,10 @@ describe('delivery', () => {
     await f.service.accept(PROPOSAL, consent.runId)
     await settle()
     const outcome = await f.service.createPullRequest()
-    expect(outcome).toMatchObject({ ok: true, prUrl: 'https://github.com/x/y/pull/7' })
+    expect(outcome).toMatchObject({
+      ok: true,
+      prUrl: 'https://github.com/x/y/pull/7',
+    })
     // `gh pr create` pushes a missing branch on its own, INTERACTIVELY, which
     // in a TUI is a prompt nobody sees. So the push is explicit and first.
     expect(f.delivered[0]![0]).toBe('git')

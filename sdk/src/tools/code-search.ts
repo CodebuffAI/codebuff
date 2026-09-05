@@ -1,3 +1,4 @@
+import { getSystemProcessEnv } from '../env'
 import { spawn } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -7,6 +8,10 @@ import { getBundledRgPath } from '../native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 import { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  TerminalCommandBroker,
+  TerminalCommandProcess,
+} from './run-terminal-command'
 
 // Hidden directories to include in code search by default.
 // These are searched in addition to '.' to ensure important config/workflow files are discoverable.
@@ -19,6 +24,43 @@ const INCLUDED_HIDDEN_DIRS = [
   '.husky', // Git hooks
 ]
 
+/**
+ * Parse the user-facing flag string once so validation and process spawning see
+ * the same argv. Quotes group whitespace but are not passed to ripgrep because
+ * spawn() does not invoke a shell.
+ */
+export function parseCodeSearchFlags(flags: string | undefined): string[] | null {
+  if (!flags?.trim()) return []
+  const tokens: string[] = []
+  let token = ''
+  let quote: "'" | '"' | null = null
+  let tokenStarted = false
+  for (const character of flags) {
+    if (quote) {
+      if (character === quote) quote = null
+      else token += character
+      tokenStarted = true
+      continue
+    }
+    if (character === "'" || character === '"') {
+      quote = character
+      tokenStarted = true
+    } else if (/\s/.test(character)) {
+      if (tokenStarted) {
+        tokens.push(token)
+        token = ''
+        tokenStarted = false
+      }
+    } else {
+      token += character
+      tokenStarted = true
+    }
+  }
+  if (quote) return null
+  if (tokenStarted) tokens.push(token)
+  return tokens
+}
+
 export function codeSearch({
   projectPath,
   pattern,
@@ -30,6 +72,7 @@ export function codeSearch({
   timeoutSeconds = 10,
   logger,
   signal,
+  processBroker,
 }: {
   projectPath: string
   pattern: string
@@ -42,6 +85,8 @@ export function codeSearch({
   logger?: Logger
   /** External abort (e.g. user interrupt); kills the ripgrep process. */
   signal?: AbortSignal
+  /** Routes ripgrep through a host-provided process boundary. */
+  processBroker?: TerminalCommandBroker
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let isResolved = false
@@ -52,14 +97,17 @@ export function codeSearch({
     const projectRoot = path.resolve(projectPath)
     const searchCwd = cwd ? path.resolve(projectRoot, cwd) : projectRoot
 
-    // Parse flags - do NOT deduplicate to preserve flag-argument pairs like '-g *.ts'
-    // Deduplicating would break up these pairs and cause errors
-    // Strip surrounding quotes from each token since spawn() passes args directly
-    // without shell interpretation (e.g. "'foo.md'" → "foo.md")
-    const flagsArray = (flags || '')
-      .split(' ')
-      .filter(Boolean)
-      .map((token) => token.replace(/^['"]|['"]$/g, ''))
+    // Do not deduplicate: repeated flag-argument pairs such as `-g *.ts` are
+    // meaningful. The shared parser keeps quoted values as one argv entry.
+    const flagsArray = parseCodeSearchFlags(flags)
+    if (!flagsArray) {
+      return resolve([
+        {
+          type: 'json',
+          value: { errorMessage: 'Code search flags contain an unterminated quote.' },
+        },
+      ])
+    }
 
     // Use JSON output for robust parsing and early stopping
     // --no-config prevents user/system .ripgreprc from interfering
@@ -105,10 +153,43 @@ export function codeSearch({
         'code-search: Spawning ripgrep process',
       )
     }
-    const childProcess = spawn(rgPath, args, {
-      cwd: searchCwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    let childProcess: TerminalCommandProcess
+    try {
+      if (processBroker) {
+        childProcess = processBroker.start({
+          executable: rgPath,
+          args,
+          cwd: searchCwd,
+          env: getSystemProcessEnv(),
+        })
+      } else {
+        const child = spawn(rgPath, args, {
+          cwd: searchCwd,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        childProcess = {
+          pid: child.pid,
+          stdout: child.stdout,
+          stderr: child.stderr,
+          completion: new Promise<number | null>(
+            (resolveCompletion, reject) => {
+              child.once('error', reject)
+              child.once('close', resolveCompletion)
+            },
+          ),
+          kill: (signal) => child.kill(signal),
+          isAlive: () => child.exitCode === null && child.signalCode === null,
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return resolve([
+        {
+          type: 'json',
+          value: { errorMessage: `Failed to execute ripgrep: ${message}` },
+        },
+      ])
+    }
 
     let jsonRemainder = ''
     let stderrBuf = ''
@@ -131,7 +212,6 @@ export function codeSearch({
       // Clean up listeners immediately to prevent further events
       childProcess.stdout.removeAllListeners()
       childProcess.stderr.removeAllListeners()
-      childProcess.removeAllListeners()
       signal?.removeEventListener('abort', onAbort)
 
       // Clear both the main timeout and the kill timeout to prevent late callbacks
@@ -152,11 +232,7 @@ export function codeSearch({
       killTimeoutId = setTimeout(() => {
         try {
           childProcess.kill('SIGKILL')
-        } catch {
-          try {
-            childProcess.kill()
-          } catch {}
-        }
+        } catch {}
         killTimeoutId = null
       }, 1000)
     }
@@ -323,124 +399,125 @@ export function codeSearch({
       }
     })
 
-    childProcess.once('close', (code) => {
-      if (isResolved) return
+    childProcess.completion
+      .then((code) => {
+        if (isResolved) return
 
-      // Flush any remaining JSON - handle multiple complete lines
-      try {
-        if (jsonRemainder) {
-          // Ensure we have a trailing newline for split to work correctly
-          const maybeMany = jsonRemainder.endsWith('\n')
-            ? jsonRemainder
-            : jsonRemainder + '\n'
-          for (const ln of maybeMany.split('\n')) {
-            if (!ln) continue
-            try {
-              const evt = JSON.parse(ln)
-              if (evt?.type === 'match' || evt?.type === 'context') {
-                const filePath =
-                  evt.data.path?.text ?? evt.data.path?.bytes ?? ''
-                const lineNumber = evt.data.line_number ?? 0
-                const rawText = evt.data.lines?.text ?? ''
-                const lineText = rawText.replace(/\r?\n$/, '')
-                const formattedLine = `${filePath}:${lineNumber}:${lineText}`
+        // Flush any remaining JSON - handle multiple complete lines
+        try {
+          if (jsonRemainder) {
+            // Ensure we have a trailing newline for split to work correctly
+            const maybeMany = jsonRemainder.endsWith('\n')
+              ? jsonRemainder
+              : jsonRemainder + '\n'
+            for (const ln of maybeMany.split('\n')) {
+              if (!ln) continue
+              try {
+                const evt = JSON.parse(ln)
+                if (evt?.type === 'match' || evt?.type === 'context') {
+                  const filePath =
+                    evt.data.path?.text ?? evt.data.path?.bytes ?? ''
+                  const lineNumber = evt.data.line_number ?? 0
+                  const rawText = evt.data.lines?.text ?? ''
+                  const lineText = rawText.replace(/\r?\n$/, '')
+                  const formattedLine = `${filePath}:${lineNumber}:${lineText}`
 
-                if (!fileGroups.has(filePath)) {
-                  fileGroups.set(filePath, [])
-                  fileMatchCounts.set(filePath, 0)
-                }
-                const fileLines = fileGroups.get(filePath)!
-                const fileMatchCount = fileMatchCounts.get(filePath)!
-                const isMatch = evt.type === 'match'
+                  if (!fileGroups.has(filePath)) {
+                    fileGroups.set(filePath, [])
+                    fileMatchCounts.set(filePath, 0)
+                  }
+                  const fileLines = fileGroups.get(filePath)!
+                  const fileMatchCount = fileMatchCounts.get(filePath)!
+                  const isMatch = evt.type === 'match'
 
-                // Check if we should include this line
-                const shouldInclude =
-                  !isMatch ||
-                  (fileMatchCount < maxResults &&
-                    matchesGlobal < globalMaxResults)
-                if (
-                  isMatch &&
-                  fileMatchCount >= maxResults &&
-                  matchesGlobal < globalMaxResults
-                ) {
-                  filesLimitedByMaxResults.add(filePath)
-                }
+                  // Check if we should include this line
+                  const shouldInclude =
+                    !isMatch ||
+                    (fileMatchCount < maxResults &&
+                      matchesGlobal < globalMaxResults)
+                  if (
+                    isMatch &&
+                    fileMatchCount >= maxResults &&
+                    matchesGlobal < globalMaxResults
+                  ) {
+                    filesLimitedByMaxResults.add(filePath)
+                  }
 
-                if (shouldInclude) {
-                  fileLines.push(formattedLine)
+                  if (shouldInclude) {
+                    fileLines.push(formattedLine)
 
-                  // Only increment match counter for actual matches
-                  if (isMatch) {
-                    fileMatchCounts.set(filePath, fileMatchCount + 1)
-                    matchesGlobal++
+                    // Only increment match counter for actual matches
+                    if (isMatch) {
+                      fileMatchCounts.set(filePath, fileMatchCount + 1)
+                      matchesGlobal++
+                    }
                   }
                 }
-              }
-            } catch {}
+              } catch {}
+            }
+          }
+        } catch {}
+
+        // Build final output from collected matches
+        const limitedLines: string[] = []
+        const truncatedFiles: string[] = []
+
+        for (const [filename, fileLines] of fileGroups) {
+          limitedLines.push(...fileLines)
+          if (filesLimitedByMaxResults.has(filename)) {
+            truncatedFiles.push(
+              `${filename}: limited to ${maxResults} results per file`,
+            )
           }
         }
-      } catch {}
 
-      // Build final output from collected matches
-      const limitedLines: string[] = []
-      const truncatedFiles: string[] = []
+        let rawOutput = limitedLines.join('\n')
 
-      for (const [filename, fileLines] of fileGroups) {
-        limitedLines.push(...fileLines)
-        if (filesLimitedByMaxResults.has(filename)) {
-          truncatedFiles.push(
-            `${filename}: limited to ${maxResults} results per file`,
+        // Add truncation messages
+        const truncationMessages: string[] = []
+        if (truncatedFiles.length > 0) {
+          truncationMessages.push(
+            `Results limited to ${maxResults} per file. Truncated files:\n${truncatedFiles.join('\n')}`,
           )
         }
-      }
+        if (killedForLimit) {
+          truncationMessages.push(
+            `Global limit of ${globalMaxResults} results reached.`,
+          )
+        }
 
-      let rawOutput = limitedLines.join('\n')
+        if (truncationMessages.length > 0) {
+          rawOutput += `\n\n[${truncationMessages.join('\n\n')}]`
+        }
 
-      // Add truncation messages
-      const truncationMessages: string[] = []
-      if (truncatedFiles.length > 0) {
-        truncationMessages.push(
-          `Results limited to ${maxResults} per file. Truncated files:\n${truncatedFiles.join('\n')}`,
+        // Truncate output to prevent memory issues
+        const truncatedStdout = truncateOutput(
+          formatCollectedOutput(rawOutput),
+          maxOutputStringLength,
         )
-      }
-      if (killedForLimit) {
-        truncationMessages.push(
-          `Global limit of ${globalMaxResults} results reached.`,
-        )
-      }
 
-      if (truncationMessages.length > 0) {
-        rawOutput += `\n\n[${truncationMessages.join('\n\n')}]`
-      }
+        const truncatedStderr = stderrBuf
+          ? stderrBuf +
+            (stderrBuf.length >= Math.floor(maxOutputStringLength / 5)
+              ? '\n\n[Error output truncated]'
+              : '')
+          : ''
 
-      // Truncate output to prevent memory issues
-      const truncatedStdout = truncateOutput(
-        formatCollectedOutput(rawOutput),
-        maxOutputStringLength,
-      )
-
-      const truncatedStderr = stderrBuf
-        ? stderrBuf +
-          (stderrBuf.length >= Math.floor(maxOutputStringLength / 5)
-            ? '\n\n[Error output truncated]'
-            : '')
-        : ''
-
-      settle({
-        stdout: truncatedStdout,
-        ...(truncatedStderr && { stderr: truncatedStderr }),
-        message:
-          code !== null
-            ? `Exit code: ${code}${killedForLimit ? ' (early stop)' : ''}`
-            : '',
+        settle({
+          stdout: truncatedStdout,
+          ...(truncatedStderr && { stderr: truncatedStderr }),
+          message:
+            code !== null
+              ? `Exit code: ${code}${killedForLimit ? ' (early stop)' : ''}`
+              : '',
+        })
       })
-    })
-
-    childProcess.once('error', (error) => {
-      if (isResolved) return
-      settle({
-        errorMessage: `Failed to execute ripgrep: ${error.message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
+      .catch((error: unknown) => {
+        if (isResolved) return
+        const message = error instanceof Error ? error.message : String(error)
+        settle({
+          errorMessage: `Failed to execute ripgrep: ${message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
+        })
       })
-    })
   })
 }

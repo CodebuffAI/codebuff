@@ -24,7 +24,10 @@ const {
 } = await import('../use-sponsored-proposal')
 
 import type { SponsoredProposal } from '../../utils/sponsored-proposal-api'
-import type { ChatMessage, SponsoredProposalContentBlock } from '../../types/chat'
+import type {
+  ChatMessage,
+  SponsoredProposalContentBlock,
+} from '../../types/chat'
 
 const TARGET = 'acme/deploys'
 
@@ -39,6 +42,13 @@ const proposal = (
   body: 'A sponsored agent can wire Acme Deploys into your repo.',
   ...over,
 })
+
+const present = (row = proposal()) => ({
+  status: 'present' as const,
+  proposal: row,
+})
+const absent = { status: 'absent' as const }
+const unavailable = { status: 'unavailable' as const }
 
 const withBlock = (
   over: Partial<SponsoredProposalContentBlock> = {},
@@ -80,7 +90,9 @@ describe('the cadence', () => {
     // the moment watching starts to matter. `runStarted` is what closes it, and
     // the decision itself is the shared `sponsoredProposalAwaitsVerdict`.
     const justAccepted = findProposalBlock(withBlock({ runStarted: true }))!
-    expect(proposalPollIntervalMs(justAccepted)).toBe(PROPOSAL_RUN_POLL_INTERVAL_MS)
+    expect(proposalPollIntervalMs(justAccepted)).toBe(
+      PROPOSAL_RUN_POLL_INTERVAL_MS,
+    )
   })
 
   test('a terminal row stops being watched', () => {
@@ -88,39 +100,45 @@ describe('the cadence', () => {
       const block = findProposalBlock(
         withBlock({ proposal: proposal({ state }), runStarted: true }),
       )!
-      expect(proposalPollIntervalMs(block), state).toBe(PROPOSAL_POLL_INTERVAL_MS)
+      expect(proposalPollIntervalMs(block), state).toBe(
+        PROPOSAL_POLL_INTERVAL_MS,
+      )
     }
   })
 })
 
 describe('folding a polled row into the transcript', () => {
   test('a first offer becomes a card', () => {
-    const next = applyPolledProposal([], TARGET, proposal())
+    const next = applyPolledProposal([], TARGET, present())
     expect(findProposalBlock(next)?.target).toBe(TARGET)
   })
 
   test('a repository gets ONE card, not one per poll', () => {
-    const first = applyPolledProposal([], TARGET, proposal())
-    const second = applyPolledProposal(first, TARGET, proposal())
+    const first = applyPolledProposal([], TARGET, present())
+    const second = applyPolledProposal(first, TARGET, present())
     expect(second).toBe(first)
     expect(
-      second.flatMap((m) => m.blocks ?? []).filter((b) => b.type === 'sponsored-proposal'),
+      second
+        .flatMap((m) => m.blocks ?? [])
+        .filter((b) => b.type === 'sponsored-proposal'),
     ).toHaveLength(1)
   })
 
   test('a state change folds into the card the user is already looking at', () => {
     // `committed` and `failed` must land on the existing card rather than
     // below it: a second card would leave the transcript claiming two offers.
-    const first = applyPolledProposal([], TARGET, proposal())
+    const first = applyPolledProposal([], TARGET, present())
     const next = applyPolledProposal(
       first,
       TARGET,
-      proposal({ state: 'committed', branch: 'freebuff/x' }),
+      present(proposal({ state: 'committed', branch: 'freebuff/x' })),
     )
     expect(next).not.toBe(first)
     expect(findProposalBlock(next)?.proposal.state).toBe('committed')
     expect(
-      next.flatMap((m) => m.blocks ?? []).filter((b) => b.type === 'sponsored-proposal'),
+      next
+        .flatMap((m) => m.blocks ?? [])
+        .filter((b) => b.type === 'sponsored-proposal'),
     ).toHaveLength(1)
   })
 
@@ -129,25 +147,72 @@ describe('folding a polled row into the transcript', () => {
     // dismissed, so a poll that still sees something is seeing a rotation the
     // user has not been offered yet.
     const answered = withBlock({ answered: true })
-    expect(applyPolledProposal(answered, TARGET, proposal())).toBe(answered)
+    expect(applyPolledProposal(answered, TARGET, present())).toBe(answered)
   })
 
-  test('no offer leaves the transcript exactly as it was', () => {
+  test('authoritative absence removes a stale actionable card', () => {
     const before = withBlock()
-    expect(applyPolledProposal(before, TARGET, null)).toBe(before)
-    expect(applyPolledProposal([], TARGET, null)).toEqual([])
+    expect(applyPolledProposal(before, TARGET, absent)).toEqual([])
+    expect(applyPolledProposal([], TARGET, absent)).toEqual([])
+  })
+
+  test('authoritative absence preserves answered history', () => {
+    const answered = withBlock({ answered: true })
+    expect(applyPolledProposal(answered, TARGET, absent)).toBe(answered)
+  })
+
+  test('an unavailable refresh keeps context but pauses stale controls', () => {
+    const before = withBlock({ menuOpen: true })
+    const next = applyPolledProposal(before, TARGET, unavailable)
+    const block = findProposalBlock(next)!
+    expect(next).not.toBe(before)
+    expect(block.proposal).toEqual(proposal())
+    expect(block.refreshUnavailable).toBe(true)
+    expect(block.menuOpen).toBe(false)
+  })
+
+  test('a successful refresh restores controls after an unavailable poll', () => {
+    const before = withBlock({ refreshUnavailable: true })
+    const next = applyPolledProposal(before, TARGET, present())
+    expect(findProposalBlock(next)?.refreshUnavailable).toBeUndefined()
+  })
+
+  test('same-state payload updates replace every rendered field', () => {
+    const before = withBlock({
+      proposal: proposal({
+        state: 'running',
+        steps: [{ text: 'Old step', state: 'active' }],
+        thread_ref: 'thread-old',
+      }),
+    })
+    const updated = proposal({
+      state: 'running',
+      advertiser_name: 'Updated advertiser',
+      headline: 'Updated headline',
+      body: 'Updated body',
+      why_this: 'Updated reason',
+      steps: [{ text: 'New step', state: 'done' }],
+      thread_ref: 'thread-new',
+      branch: 'freebuff/new',
+      failure_reason: 'Updated failure',
+    })
+    const next = applyPolledProposal(before, TARGET, present(updated))
+    expect(findProposalBlock(next)?.proposal).toEqual(updated)
   })
 
   test('a row that is already over never ARRIVES as news', () => {
     // Inserting a fresh card at `committed` for a run this process never
     // started would be a report about somewhere else, landing here as an offer.
     for (const state of ['committed', 'failed', 'landed', 'merged'] as const) {
-      expect(applyPolledProposal([], TARGET, proposal({ state })), state).toEqual([])
+      expect(
+        applyPolledProposal([], TARGET, present(proposal({ state }))),
+        state,
+      ).toEqual([])
     }
   })
 
   test('a poll for a different repository does not overwrite this one', () => {
     const before = withBlock()
-    expect(applyPolledProposal(before, 'other/repo', proposal())).toBe(before)
+    expect(applyPolledProposal(before, 'other/repo', present())).toBe(before)
   })
 })

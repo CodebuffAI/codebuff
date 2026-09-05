@@ -42,7 +42,11 @@ export { getUserInfoFromApiKey } from './impl/database'
 export * from './credentials'
 export { loadLocalAgents } from './agents/load-agents'
 export { loadMCPConfig, loadMCPConfigSync } from './agents/load-mcp-config'
-export { loadSkills, loadSkillsSync, parseSkillFileContent } from './skills/load-skills'
+export {
+  loadSkills,
+  loadSkillsSync,
+  parseSkillFileContent,
+} from './skills/load-skills'
 export { formatAvailableSkillsXml } from '@codebuff/common/util/skills'
 export type { LoadSkillsOptions } from './skills/load-skills'
 export type { SkillDefinition, SkillsMap } from '@codebuff/common/types/skill'
@@ -52,10 +56,7 @@ export type {
   LoadLocalAgentsResult,
   AgentValidationError,
 } from './agents/load-agents'
-export type {
-  MCPFileConfig,
-  LoadedMCPConfig,
-} from './agents/load-mcp-config'
+export type { MCPFileConfig, LoadedMCPConfig } from './agents/load-mcp-config'
 
 export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
@@ -122,13 +123,17 @@ export type {
 // wrong about.
 export {
   assertSponsoredCommandCwd,
+  assertSponsoredReadPath,
   assertSponsoredWritePath,
+  createSponsoredCodeSearchBroker,
   createSponsoredTerminalBroker,
   findBubblewrap,
+  sponsoredCodeSearchFlagsRefusal,
   sponsoredContainment,
   sponsoredMacProfile,
 } from './tools/sponsored-sandbox'
 export type { SponsoredSandboxOptions } from './tools/sponsored-sandbox'
+export { createSponsoredRootedFileSystem } from './tools/sponsored-rooted-filesystem'
 export {
   promptAiSdk,
   promptAiSdkStream,

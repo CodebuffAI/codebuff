@@ -12,7 +12,10 @@ import {
 import { setSponsoredCliAvailability } from '../../utils/sponsored-availability'
 import { useMessageBlockStore } from '../../state/message-block-store'
 
-import type { ChatMessage, SponsoredProposalContentBlock } from '../../types/chat'
+import type {
+  ChatMessage,
+  SponsoredProposalContentBlock,
+} from '../../types/chat'
 
 /**
  * The slash commands that replaced the card's bare keys (COD-376).
@@ -54,7 +57,8 @@ function recordCalls() {
   const calls: [string, ...unknown[]][] = []
   useMessageBlockStore.getState().setCallbacks({
     ...useMessageBlockStore.getState().callbacks,
-    onSponsoredProposalMenu: (target, open) => calls.push(['menu', target, open]),
+    onSponsoredProposalMenu: (target, open) =>
+      calls.push(['menu', target, open]),
     onSponsoredProposalControl: (target, control) =>
       calls.push(['control', target, control]),
   })
@@ -80,9 +84,19 @@ describe('/ads:proposal', () => {
     // A spent card is still in the transcript by design — it is never removed —
     // so "the last proposal block" is the wrong question to ask.
     const calls = recordCalls()
-    expect(handleProposalMenu(withBlocks(proposalBlock({ answered: true })))).toBe(
-      'No sponsored proposal on screen.',
-    )
+    expect(
+      handleProposalMenu(withBlocks(proposalBlock({ answered: true }))),
+    ).toBe('No sponsored proposal on screen.')
+    expect(calls).toEqual([])
+  })
+
+  test('an unavailable refresh does not open stale controls', () => {
+    const calls = recordCalls()
+    expect(
+      handleProposalMenu(
+        withBlocks(proposalBlock({ refreshUnavailable: true })),
+      ),
+    ).toContain('Could not refresh')
     expect(calls).toEqual([])
   })
 
@@ -161,7 +175,9 @@ describe('the Phase 2 commands', () => {
         advertiser_id: 'adv_acme',
       },
     })
-    expect(handleProposalAccept(withBlocks(answered))).toContain('already been answered')
+    expect(handleProposalAccept(withBlocks(answered))).toContain(
+      'already been answered',
+    )
     expect(calls).toEqual([])
     setSponsoredCliAvailability(null)
   })
@@ -174,11 +190,27 @@ describe('the Phase 2 commands', () => {
     setSponsoredCliAvailability(null)
   })
 
+  test('accept is paused while the current proposal is unavailable', () => {
+    setSponsoredCliAvailability('available')
+    const calls = recordAcceptCalls()
+    expect(
+      handleProposalAccept(
+        withBlocks(proposalBlock({ refreshUnavailable: true })),
+      ),
+    ).toContain('Could not refresh')
+    expect(calls).toEqual([])
+    setSponsoredCliAvailability(null)
+  })
+
   test('the delivery commands are honest when no run has happened', async () => {
     // Reachable by typing, at any time, with no card and no run. Neither may
     // throw, and neither may imply something is in flight.
-    expect(await handleProposalPullRequest()).toContain('No sponsored task has run')
-    expect(await handleProposalRemoveWorktree()).toContain('No sponsored task has run')
+    expect(await handleProposalPullRequest()).toContain(
+      'No sponsored task has run',
+    )
+    expect(await handleProposalRemoveWorktree()).toContain(
+      'No sponsored task has run',
+    )
   })
 })
 

@@ -17,11 +17,12 @@ import type { SponsoredProposalRow } from '@codebuff/common/ads/sponsored-propos
  * Convex functions live on freebuff.com and the two web apps share one Postgres,
  * so the session token the CLI already holds signs in on either.
  *
- * ACCEPT AND STATE REPORTING ARRIVED WITH COD-396, and they are the two calls
- * here that do NOT swallow their reason. The reads and the channel controls can
- * answer `null` for everything, because the user's response to each failure is
- * the same. Accept is the user pressing a thing and being owed an answer, and a
- * state report is the only writer that can move a locally-executed row off
+ * ACCEPT AND STATE REPORTING ARRIVED WITH COD-396, and they are the two writes
+ * here that do NOT swallow their reason. Proposal reads also preserve whether
+ * the server authoritatively returned no row or could not answer, because only
+ * the former may remove a card. Channel-control writes keep their boolean
+ * contract. Accept is the user pressing a thing and being owed an answer, and
+ * a state report is the only writer that can move a locally-executed row off
  * `accepted` — so both carry the upstream status and message.
  */
 
@@ -29,6 +30,17 @@ export type SponsoredProposal = SponsoredProposalRow & {
   _id: string
   advertiser_id: string
 }
+
+/**
+ * A proposal read has three outcomes, and only one of them authoritatively
+ * says there is no offer. Keeping transport failure separate prevents a
+ * dropped request from being interpreted as a dismissal while still letting
+ * a successful `{ proposal: null }` remove stale controls.
+ */
+export type SponsoredProposalFetchResult =
+  | { status: 'present'; proposal: SponsoredProposal }
+  | { status: 'absent' }
+  | { status: 'unavailable' }
 
 /**
  * What `POST .../accept` hands back: the reviewed procedure and the token every
@@ -53,6 +65,9 @@ export type SponsoredAccept = {
 /** One transition, exactly as the state route takes it (COD-396). */
 export type SponsoredStateUpdate = {
   state: 'running' | 'committed' | 'failed' | 'landed'
+  reportId?: string
+  runId?: string
+  head?: string
   steps?: { text: string; state: 'pending' | 'active' | 'done' }[]
   branch?: string
   prUrl?: string
@@ -108,7 +123,9 @@ async function call<T>(
       method,
       headers: {
         authorization: `Bearer ${authToken}`,
-        ...(payload === undefined ? {} : { 'content-type': 'application/json' }),
+        ...(payload === undefined
+          ? {}
+          : { 'content-type': 'application/json' }),
       },
       ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -125,24 +142,79 @@ async function call<T>(
 }
 
 /**
- * The live proposal for a repository, or null.
+ * The authoritative proposal state for a repository.
  *
- * Null covers "no offer", "not signed in", "channel closed" and "the request
- * failed" alike. The caller's response to every one of them is to show no card,
- * so distinguishing them here would buy a branch nobody takes.
+ * Only a successful `{ proposal: null }` is absence. HTTP failures, network
+ * failures and malformed successful bodies are unavailable, so the poller can
+ * stand stale controls down without pretending the server removed the offer.
  */
 export async function fetchSponsoredProposal(
   repoFullName: string,
   authToken: string,
-): Promise<SponsoredProposal | null> {
+): Promise<SponsoredProposalFetchResult> {
   const repo = normalizeRepoFullName(repoFullName)
-  if (!repo) return null
-  const result = await call<{ proposal: SponsoredProposal | null }>(
-    'GET',
-    `/api/v1/ads/proposal?repo=${encodeURIComponent(repo)}`,
-    authToken,
+  if (!repo) return { status: 'unavailable' }
+
+  const path = `/api/v1/ads/proposal?repo=${encodeURIComponent(repo)}`
+  try {
+    const response = await fetch(`${baseUrl()}${path}`, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${authToken}` },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+    if (!response.ok) return { status: 'unavailable' }
+    const result = (await response.json()) as { proposal?: unknown }
+    if (result?.proposal === null) return { status: 'absent' }
+    if (!isSponsoredProposal(result?.proposal)) {
+      return { status: 'unavailable' }
+    }
+    return { status: 'present', proposal: result.proposal }
+  } catch (error) {
+    logger.debug({ error, path }, '[sponsored-proposal] request failed')
+    return { status: 'unavailable' }
+  }
+}
+
+function isSponsoredProposal(value: unknown): value is SponsoredProposal {
+  if (!value || typeof value !== 'object') return false
+  const row = value as Partial<SponsoredProposal>
+  return (
+    typeof row._id === 'string' &&
+    typeof row.advertiser_id === 'string' &&
+    typeof row.advertiser_name === 'string' &&
+    typeof row.headline === 'string' &&
+    typeof row.body === 'string' &&
+    SPONSORED_PROPOSAL_STATES.has(row.state ?? '') &&
+    optionalString(row.advertiser_logo_token) &&
+    optionalString(row.why_this) &&
+    optionalString(row.thread_ref) &&
+    optionalString(row.branch) &&
+    optionalString(row.pr_url) &&
+    optionalString(row.failure_reason) &&
+    (row.steps === undefined ||
+      (Array.isArray(row.steps) &&
+        row.steps.every(
+          (step) =>
+            typeof step?.text === 'string' &&
+            (step.state === 'pending' ||
+              step.state === 'active' ||
+              step.state === 'done'),
+        )))
   )
-  return result?.proposal ?? null
+}
+
+const SPONSORED_PROPOSAL_STATES = new Set([
+  'offered',
+  'accepted',
+  'running',
+  'committed',
+  'landed',
+  'failed',
+  'merged',
+])
+
+function optionalString(value: unknown): boolean {
+  return value === undefined || typeof value === 'string'
 }
 
 export async function dismissSponsoredProposal(
@@ -193,7 +265,8 @@ async function callDetailed<T>(
   authToken: string,
   payload: unknown,
 ): Promise<
-  { ok: true; status: number; value: T } | { ok: false; status: number; message: string }
+  | { ok: true; status: number; value: T }
+  | { ok: false; status: number; message: string }
 > {
   let response: Response
   try {
@@ -220,7 +293,11 @@ async function callDetailed<T>(
     }
   }
   try {
-    return { ok: true, status: response.status, value: (await response.json()) as T }
+    return {
+      ok: true,
+      status: response.status,
+      value: (await response.json()) as T,
+    }
   } catch {
     // A 2xx whose body is not JSON is still a write that landed. Only the
     // accept needs the body, and it checks its own fields below.
@@ -237,7 +314,10 @@ async function callDetailed<T>(
  */
 async function upstreamMessage(response: Response): Promise<string> {
   try {
-    const body = (await response.json()) as { error?: unknown; message?: unknown }
+    const body = (await response.json()) as {
+      error?: unknown
+      message?: unknown
+    }
     const text = body?.error ?? body?.message
     if (typeof text === 'string' && text.trim() !== '') return text.trim()
   } catch {
@@ -279,7 +359,8 @@ export async function acceptSponsoredProposal(
     return {
       ok: false,
       status: 502,
-      message: 'Freebuff accepted the proposal but did not return the task to run.',
+      message:
+        'Freebuff accepted the proposal but did not return the task to run.',
     }
   }
   return { ok: true, accept: attempt.value }

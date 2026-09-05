@@ -52,6 +52,9 @@ import {
   type SponsoredLocalContainment,
 } from '@codebuff/common/ads/sponsored-local-execution'
 
+import { getBundledRgPath } from '../native/ripgrep'
+import { parseCodeSearchFlags } from './code-search'
+
 import type {
   TerminalCommandBroker,
   TerminalCommandProcess,
@@ -218,7 +221,7 @@ export function containSponsoredPath(
       `A sponsored run may only ${verb} inside its own worktree, and \`~\` is not a path inside it.`,
     )
   }
-  const root = realpathOrSelf(path.resolve(workspaceRoot))
+  const root = realpathForContainment(path.resolve(workspaceRoot), verb)
   const requestedAbs = path.resolve(root, requested)
 
   // Split into the deepest EXISTING ancestor plus the tail that does not
@@ -233,14 +236,14 @@ export function containSponsoredPath(
   // exist yet.
   const tail: string[] = []
   let existing = requestedAbs
-  while (existing !== root && !fs.existsSync(existing)) {
+  while (existing !== root && !pathEntryExists(existing, verb)) {
     const parent = path.dirname(existing)
     if (parent === existing) break
     tail.unshift(path.basename(existing))
     existing = parent
   }
   const resolved = path.join(
-    existing === root ? root : realpathOrSelf(existing),
+    existing === root ? root : realpathForContainment(existing, verb),
     ...tail,
   )
 
@@ -254,6 +257,45 @@ export function containSponsoredPath(
     )
   }
   return resolved
+}
+
+function pathEntryExists(
+  target: string,
+  verb: 'read files' | 'write' | 'run commands',
+): boolean {
+  try {
+    // lstat sees a dangling symlink. existsSync does not, which used to let a
+    // write validate the link as a missing destination and then follow it.
+    fs.lstatSync(target)
+    return true
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error.code === 'ENOENT' || error.code === 'ENOTDIR')
+    ) {
+      return false
+    }
+    throw new Error(
+      `A sponsored run could not safely resolve a path before it tried to ${verb}.`,
+    )
+  }
+}
+
+function realpathForContainment(
+  target: string,
+  verb: 'read files' | 'write' | 'run commands',
+): string {
+  try {
+    return fs.realpathSync(target)
+  } catch {
+    // A dangling link and an unreadable/resolution-loop path are both an
+    // unknown physical destination. Unknown is a refusal at this boundary.
+    throw new Error(
+      `A sponsored run could not safely resolve a path before it tried to ${verb}.`,
+    )
+  }
 }
 
 function escapesRoot(root: string, target: string): boolean {
@@ -321,6 +363,123 @@ export function assertSponsoredReadPath(
   return containSponsoredPath(workspaceRoot, requestedPath, 'read files')
 }
 
+const SPONSORED_SEARCH_BOOLEAN_FLAGS = new Set([
+  '-i',
+  '--ignore-case',
+  '-s',
+  '--case-sensitive',
+  '-S',
+  '--smart-case',
+  '-F',
+  '--fixed-strings',
+  '-w',
+  '--word-regexp',
+  '-x',
+  '--line-regexp',
+  '-U',
+  '--multiline',
+  '--multiline-dotall',
+])
+const SPONSORED_SEARCH_TEXT_FLAGS = new Set([
+  '-g',
+  '--glob',
+  '-t',
+  '--type',
+  '-T',
+  '--type-not',
+])
+const SPONSORED_SEARCH_NUMBER_FLAGS = new Set([
+  '-A',
+  '--after-context',
+  '-B',
+  '--before-context',
+  '-C',
+  '--context',
+  '-m',
+  '--max-count',
+])
+
+/**
+ * Sponsored search accepts only formatting and match-selection options.
+ * Ripgrep options that load another file, follow links, read configuration or
+ * execute a preprocessor are absent by construction rather than blocklisted.
+ */
+export function sponsoredCodeSearchFlagsRefusal(
+  flags: string | undefined,
+): string | null {
+  if (!flags?.trim()) return null
+  const tokens = parseCodeSearchFlags(flags)
+  if (!tokens)
+    return 'Sponsored code search flags contain an unterminated quote.'
+  for (let index = 0; index < tokens.length; index++) {
+    const flag = tokens[index]!
+    if (SPONSORED_SEARCH_BOOLEAN_FLAGS.has(flag)) continue
+    const value = tokens[++index]
+    if (!value || value.startsWith('-')) {
+      return `Sponsored code search flag ${flag} is unsupported.`
+    }
+    if (SPONSORED_SEARCH_TEXT_FLAGS.has(flag)) {
+      if (
+        flag === '-t' ||
+        flag === '--type' ||
+        flag === '-T' ||
+        flag === '--type-not'
+      ) {
+        if (!/^[A-Za-z0-9_+.-]+$/.test(value)) {
+          return `Sponsored code search flag ${flag} has an invalid type name.`
+        }
+      }
+      continue
+    }
+    if (SPONSORED_SEARCH_NUMBER_FLAGS.has(flag) && /^\d+$/.test(value)) continue
+    return `Sponsored code search flag ${flag} is unsupported.`
+  }
+  return null
+}
+
+/** The same scrubbed OS process boundary used by sponsored shell commands. */
+export function createSponsoredCodeSearchBroker(
+  options: SponsoredSandboxOptions,
+): TerminalCommandBroker {
+  const rgPath = getBundledRgPath(import.meta.url)
+  const broker = createSponsoredTerminalBroker(options)
+  const requestedRuntimeDir = path.resolve(options.runtimeDir)
+  fs.mkdirSync(requestedRuntimeDir, { recursive: true })
+  const runtimeStat = fs.lstatSync(requestedRuntimeDir)
+  if (runtimeStat.isSymbolicLink() || !runtimeStat.isDirectory()) {
+    throw new Error(
+      'A sponsored run requires a private runtime directory that is not a symlink.',
+    )
+  }
+  const runtimeDir = fs.realpathSync(requestedRuntimeDir)
+  // Stage once while the broker is being assembled, before advertiser-authored
+  // code can modify the runtime tree. Performing mkdir/copy in start() would
+  // let an earlier tool call replace `tools` with a symlink and turn this host
+  // copy into an out-of-bound write before the process sandbox existed.
+  const stagedDir = fs.mkdtempSync(path.join(runtimeDir, 'rg-'))
+  const stagedRg = path.join(stagedDir, 'rg')
+  fs.copyFileSync(rgPath, stagedRg)
+  fs.chmodSync(stagedRg, 0o755)
+  return {
+    start(request) {
+      if (path.resolve(request.executable) !== path.resolve(rgPath)) {
+        return broker.start(request)
+      }
+      // Keep the helper inside an existing broker root. Granting the SDK's
+      // installation directory would unnecessarily expose sibling package
+      // contents, and nested Seatbelt profiles can reject such added roots.
+      // Seatbelt applies the profile to its immediate child. Use the system
+      // shell as that stable launcher, then exec the staged helper without
+      // interpolation; each argument remains a distinct argv entry.
+      return broker.start({
+        ...request,
+        executable: '/bin/sh',
+        args: ['-c', 'exec "$@"', 'sponsored-rg', stagedRg, ...request.args],
+      })
+    },
+  }
+}
+
 const KILL_ESCALATION_MS = 2_000
 
 function groupAlive(child: ReturnType<typeof spawn>): boolean {
@@ -374,7 +533,9 @@ async function waitForGroupExit(
  * The reap is attached to `completion` rather than to `kill`, because the case
  * that matters is the command SUCCEEDING and leaving something behind.
  */
-function processHandle(child: ReturnType<typeof spawn>): TerminalCommandProcess {
+function processHandle(
+  child: ReturnType<typeof spawn>,
+): TerminalCommandProcess {
   const closed = new Promise<number | null>((resolve, reject) => {
     child.once('error', reject)
     child.once('close', (code) => resolve(code))
@@ -649,7 +810,9 @@ const SPONSORED_SHELL_SELECT_READ_LITERALS: readonly string[] = [
  * `docs/freebuff-sponsored-local-execution.md` §9 along with why they cost
  * more than they save.
  */
-export function sponsoredLinkedWorktreeGrants(linked: SponsoredLinkedWorktree): {
+export function sponsoredLinkedWorktreeGrants(
+  linked: SponsoredLinkedWorktree,
+): {
   readSubpaths: string[]
   writeSubpaths: string[]
   writeLiterals: string[]
@@ -904,7 +1067,15 @@ function spawnLinux(
   // divergence is deliberate: on Linux the choice is between blocking
   // loopback and keeping a capability nothing uses.
   const args = ['--die-with-parent', '--unshare-all', '--new-session']
-  for (const dir of ['/usr', '/bin', '/sbin', '/lib', '/lib64', '/etc', '/opt']) {
+  for (const dir of [
+    '/usr',
+    '/bin',
+    '/sbin',
+    '/lib',
+    '/lib64',
+    '/etc',
+    '/opt',
+  ]) {
     if (fs.existsSync(dir)) args.push('--ro-bind', dir, dir)
   }
   for (const dir of additionalReadRoots) {
