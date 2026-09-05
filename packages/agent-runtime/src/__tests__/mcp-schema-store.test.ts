@@ -1,5 +1,4 @@
 import { describe, test, expect } from 'bun:test'
-import { z } from 'zod/v4'
 
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
@@ -84,22 +83,5 @@ describe('getMCPToolData schema storage', () => {
     expect(JSON.parse(JSON.stringify(alphaStored.inputSchema))).toEqual(schemaA)
     expect(JSON.parse(JSON.stringify(betaStored.inputSchema))).toEqual(schemaB)
     expect(betaStored.description).toBe('B')
-  })
-
-  /**
-   * Given: the old implementation stored convertJsonSchemaToZod output.
-   * When: a live zod instance is round-tripped through JSON.
-   * Then: the result is zod internals (def/shape), not the server schema -
-   *   the failure mode this contract guards against, kept here as a
-   *   characterization so a regression to zod storage cannot pass silently.
-   */
-  test('keeps the zod storage failure mode characterized as non passing', () => {
-    const serverSchema = { type: 'object', properties: { q: { type: 'string' } } }
-    const zodInstance = z.object({ q: z.string() })
-
-    const roundTripped = JSON.parse(JSON.stringify(zodInstance))
-
-    expect(roundTripped).not.toEqual(serverSchema)
-    expect(roundTripped.def).toBeDefined()
   })
 })

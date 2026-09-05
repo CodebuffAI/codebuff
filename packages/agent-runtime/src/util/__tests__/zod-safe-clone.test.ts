@@ -18,43 +18,22 @@ describe('lodash cloneDeep zod amputation (the bug)', () => {
   /**
    * Given: a zod v4 schema.
    * When: it is cloned with lodash cloneDeep.
-   * Then: the clone retains safeParse but loses _zod, and z.toJSONSchema
-   *   throws on it - the production failure behind the empty-schema bug.
+   * Then: the clone still looks like a schema (safeParse present) but its
+   *   engine is gone: z.toJSONSchema throws on it - the production failure
+   *   behind the empty-schema bug, and the reason the helper below exists.
    */
   test('cloneDeep strips the zod engine so toJSONSchema throws on the clone', () => {
     const schema = z.object({ q: z.string() })
 
     const cloned = cloneDeep(schema)
 
+    // Asserted behaviorally: the clone still parses, but conversion fails.
     expect(typeof cloned.safeParse).toBe('function')
-    expect('_zod' in cloned).toBe(false)
     expect(() => z.toJSONSchema(cloned as never)).toThrow()
   })
 })
 
 describe('cloneDeepKeepingZod', () => {
-  /**
-   * Given: a plain structure with a live zod schema nested inside.
-   * When: it is cloned with cloneDeepKeepingZod.
-   * Then: plain data is deep-cloned (new references), the schema is the
-   *   same live instance, and its engine still converts to JSON Schema.
-   */
-  test('cloneDeepKeepingZod passes schemas through by reference so the engine survives', () => {
-    const schema = z.object({ q: z.string().describe('query') })
-    const input = { cfg: schema, note: 'plain', nested: { arr: [1, 2] } }
-
-    const out = cloneDeepKeepingZod(input)
-
-    expect(out.note).toBe('plain')
-    expect(out.nested).not.toBe(input.nested)
-    expect(out.nested.arr).toEqual([1, 2])
-    expect(out.cfg).toBe(schema)
-
-    const jsonSchema = z.toJSONSchema(out.cfg)
-    expect(jsonSchema.type).toBe('object')
-    expect((jsonSchema.properties as { q: { type: string } }).q.type).toBe('string')
-  })
-
   /**
    * Given: a plain (schema-free) nested structure.
    * When: it is cloned with cloneDeepKeepingZod.

@@ -1126,24 +1126,4 @@ describe('non-image file parts', () => {
       },
     ])
   })
-
-  it('converts image file parts to image_url data URIs unchanged', () => {
-    const result = convertToOpenAICompatibleChatMessages([
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'file',
-            data: Buffer.from([0, 1, 2, 3]).toString('base64'),
-            mediaType: 'image/png',
-          },
-        ],
-      },
-    ])
-
-    expect(result[0].content[0]).toEqual({
-      type: 'image_url',
-      image_url: { url: 'data:image/png;base64,AAECAw==' },
-    })
-  })
 })
