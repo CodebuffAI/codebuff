@@ -16,9 +16,16 @@ import {
   PLACEMENTS_CONSOLE_ENABLED,
   PLACEMENT_METRIC_LABELS,
   PLACEMENT_PREVIEW_WIDTHS,
+  PLACEMENT_FORMATS,
   PLACEMENT_SLOTS,
+  SPONSOR_BREAK_CREATIVE_LIMITS,
+  SPONSOR_BREAK_FORMATS,
+  SPONSOR_BREAK_HERO_SPEC,
   TRACKED_LINK_PLACEMENT_ID,
+  isSponsorBreakPlacement,
+  placementFormat,
   placementSlotLabel,
+  placementSurface,
   PLACEMENT_STATUS_LABELS,
   PRIMARY_METRICS,
   UNDERSPEND_COPY,
@@ -221,10 +228,76 @@ describe('copy and configuration', () => {
     // eight `CLI-Chat-Inline-N` ids:
     // no shipping client requests those, so selling them would be selling a
     // decaying legacy path.
-    expect(bySurface('cli_chat')).toBe(4)
+    // Plus the three sponsor breaks, which are deliberately the same surface:
+    // a break is a different RENDERER on Desktop chat, not a new surface, and
+    // adding one costs a house creative and a pinned rollup row.
+    expect(bySurface('cli_chat')).toBe(7)
     expect(bySurface('waiting_room')).toBe(4)
     expect(bySurface('freebuff_web_chat')).toBe(2)
     expect(bySurface('chat_assistant')).toBe(1)
+  })
+
+  it('gives every slot a format, so no slot renders by guesswork', () => {
+    // The whole point of the column: a renderer asks the catalog how to draw
+    // a slot rather than pattern-matching its id. A slot with no format would
+    // fall through `placementFormat`'s conservative default and silently
+    // render inline, which for a break is a blank-looking card.
+    for (const slot of PLACEMENT_SLOTS) {
+      expect([slot.id, PLACEMENT_FORMATS.includes(slot.format)]).toEqual([
+        slot.id,
+        true,
+      ])
+    }
+  })
+
+  it('names the three sponsor breaks and leaves every other slot inline', () => {
+    const breaks = PLACEMENT_SLOTS.filter((slot) =>
+      isSponsorBreakPlacement(slot.id),
+    ).map((slot) => slot.id)
+    expect(breaks).toEqual([
+      'Desktop-Spotlight',
+      'Desktop-Showcase',
+      'Desktop-Intermission',
+    ])
+    expect(placementFormat('Desktop-Spotlight')).toBe('spotlight')
+    expect(placementFormat('Desktop-Showcase')).toBe('showcase')
+    expect(placementFormat('Desktop-Intermission')).toBe('intermission')
+    // Resolvable as slots, exactly like every other sellable id.
+    for (const id of breaks) expect(placementSurface(id)).toBe('cli_chat')
+    expect(SPONSOR_BREAK_FORMATS).toEqual([
+      'showcase',
+      'spotlight',
+      'intermission',
+    ])
+  })
+
+  it('answers inline for an id it does not know, never undefined', () => {
+    // The conservative direction. An unknown id guessed as a break would turn
+    // one typo into a full-screen interruption; guessed as inline it renders
+    // as the ordinary card it almost certainly is.
+    expect(placementFormat('CLI-Chat-Inline-3')).toBe('inline')
+    expect(placementFormat('some-future-grain')).toBe('inline')
+    expect(isSponsorBreakPlacement('some-future-grain')).toBe(false)
+  })
+
+  it('bounds break copy far below the inline lengths', () => {
+    // A break title renders at display size; inline-length copy does not
+    // shrink to fit, it overflows or truncates mid-word.
+    expect(SPONSOR_BREAK_CREATIVE_LIMITS).toEqual({
+      titleMaxLength: 28,
+      bodyMaxLength: 60,
+      ctaMaxLength: 18,
+    })
+    expect(SPONSOR_BREAK_HERO_SPEC.minWidth).toBe(1024)
+    expect(SPONSOR_BREAK_HERO_SPEC.minHeight).toBe(640)
+    // The floor is itself on-ratio, so the minimum acceptable image passes
+    // both gates rather than being rejected by the one it defines.
+    expect(
+      Math.abs(
+        SPONSOR_BREAK_HERO_SPEC.minWidth / SPONSOR_BREAK_HERO_SPEC.minHeight -
+          SPONSOR_BREAK_HERO_SPEC.aspectRatio,
+      ),
+    ).toBeLessThan(1e-9)
   })
 
   it('gives every not-serving and underspend reason copy', () => {

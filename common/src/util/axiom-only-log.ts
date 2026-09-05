@@ -1,4 +1,9 @@
 import { AnalyticsEvent } from '../constants/analytics-events'
+import {
+  ADS_BREAK_CLICKED_EVENT,
+  ADS_BREAK_CLOSED_EVENT,
+  ADS_BREAK_SHOWN_EVENT,
+} from '../ads/sponsor-break-events'
 import { PLACEMENT_SLOTS } from '../constants/freebuff-placements'
 import {
   FIRST_PARTY_VIEW_ACK_CLIENT_FAMILIES,
@@ -15,6 +20,13 @@ export {
   type FirstPartyViewAckClientFamily,
   type FirstPartyViewAckOutcome,
 }
+export {
+  ADS_BREAK_CLICKED_EVENT,
+  ADS_BREAK_CLOSED_EVENT,
+  ADS_BREAK_SHOWN_EVENT,
+}
+
+import type { SponsorBreakEvent } from '../ads/sponsor-break-events'
 
 /**
  * Operational events that belong in Axiom but not in product analytics.
@@ -351,6 +363,44 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    * discontinuity in a per-user aggregate built from the warehouse.
    */
   user_key_version: 'string',
+  /**
+   * COD-453. The sticky sponsor-break arm this request's viewer is in
+   * (`control` | `reduced` | `reduced_spotlight` | `reduced_intermission`),
+   * and the separate showcase-cadence arm beside it.
+   *
+   * Present on EVERY completion event, including the overwhelming majority
+   * that carry no break placement at all -- because the arm is a property of
+   * the PERSON, and the inline delivery a `reduced` user gets is exactly what
+   * the arm has to be compared on. Reporting it only on break requests would
+   * leave the cadence half of the hypothesis unmeasurable.
+   *
+   * While `FREEBUFF_SPONSOR_BREAK_EXPERIMENT` is `off` this reads `control`
+   * for everyone, which is the same value it carried before the field
+   * existed -- so the knob's `off` state remains a true no-op.
+   */
+  sponsor_break_arm: 'string',
+  showcase_arm: 'string',
+  /**
+   * The daily-cap verdict, present only on a request that RESOLVED a break
+   * placement: `allowed`, `capped`, `too_early` or `unavailable`.
+   *
+   * The three refusals collapse to one census code (`break_capped`) because
+   * the census is a closed histogram; they stay separate HERE because they are
+   * three different incidents. A rise in `unavailable` is Redis, a rise in
+   * `too_early` is the minimum-session floor binding harder than intended, and
+   * only `capped` is the feature working.
+   */
+  sponsor_break_cap_status: 'string',
+  /**
+   * Why a no-fill was a no-fill, when the rails know a reason ahead of the
+   * provider chain. `break_capped` is the only value today.
+   *
+   * Deliberately NOT folded into `outcome`: every dashboard built on this
+   * stream partitions on `outcome`, and adding a fifth value to it would
+   * silently drop capped requests out of every no-fill count that already
+   * exists.
+   */
+  no_fill_reason: 'string',
 } as const satisfies AxiomOnlyFieldSchema
 
 /**
@@ -536,6 +586,14 @@ const ADS_FIRST_PARTY_TRACKING_FIELDS = {
   creative_version: 'number',
   client_family: 'string',
   sample_rate: 'number',
+  /**
+   * COD-453. On a first-party CLICK only, and only from a sponsor break: how
+   * long the break had been on screen. Absent means the client measured none,
+   * which is every inline click. Here as well as on `ads.break_clicked` so the
+   * SETTLED click -- the one the ledger actually billed -- carries its own
+   * dwell, without a join to a client event that may have been lost.
+   */
+  dwell_ms: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
 /**
@@ -724,6 +782,48 @@ const ADS_REQUEST_REJECTED_FIELDS = {
   would_limit: 'boolean',
 } as const satisfies AxiomOnlyFieldSchema
 
+/**
+ * The three SPONSOR-BREAK client events (COD-453). One allowlist for all
+ * three: they share a subject -- one break, on one placement, for one person
+ * in one arm -- and splitting them into three near-identical tables is how the
+ * shown/closed pair drifts until a close cannot be matched to its show.
+ *
+ * Every field is a scalar and none of them identifies anybody:
+ * `campaign_label` is the opaque allocation label the census already uses, and
+ * no campaign id, advertiser id, creative text, url or user id may enter here.
+ */
+const ADS_SPONSOR_BREAK_FIELDS = {
+  placement_id: 'string',
+  surface: 'string',
+  /** `spotlight` | `showcase` | `intermission`. */
+  format: 'string',
+  sponsor_break_arm: 'string',
+  campaign_label: 'string',
+  creative_version: 'number',
+  opportunity_id: 'string',
+  /** `ads.break_shown` only. `turn_completed` today. */
+  trigger: 'string',
+  /** `ads.break_closed` only; the closed method vocabulary. */
+  method: 'string',
+  /**
+   * How long the break held the screen, clamped to an hour. Absent means
+   * UNKNOWN and is never reconstructed from timestamps -- the same rule
+   * `render_delay_ms` follows.
+   */
+  dwell_ms: 'number',
+  /** Intermission's countdown, and whether it ran out before they acted. */
+  timer_ms: 'number',
+  timer_completed: 'boolean',
+  // COD-365 hygiene, required on every client ads event by the CI guard.
+  client_event_id: 'string',
+  client_family: 'string',
+  sample_rate: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+export const ADS_SPONSOR_BREAK_FIELD_NAMES: readonly string[] = Object.keys(
+  ADS_SPONSOR_BREAK_FIELDS,
+)
+
 export type AxiomOnlyLogEvent = {
   event:
     | typeof CONTEXT_PRUNING_COMPLETED_EVENT
@@ -739,6 +839,7 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_ADVERTISER_REPORTING_READ_EVENT
     | typeof ADS_IMPREZIA_FETCH_COMPLETED_EVENT
     | typeof ADS_REQUEST_REJECTED_EVENT
+    | SponsorBreakEvent
   data: Record<string, string | number | boolean>
 }
 
@@ -841,6 +942,16 @@ export function getAxiomOnlyLogEvent(
     return {
       event: eventName,
       data: sanitizeAllowlistedFields(record, ADS_REQUEST_REJECTED_FIELDS),
+    }
+  }
+  if (
+    eventName === ADS_BREAK_SHOWN_EVENT ||
+    eventName === ADS_BREAK_CLOSED_EVENT ||
+    eventName === ADS_BREAK_CLICKED_EVENT
+  ) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, ADS_SPONSOR_BREAK_FIELDS),
     }
   }
   if (eventName === ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT) {

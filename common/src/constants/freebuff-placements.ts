@@ -85,6 +85,42 @@ export const ACTIVATION_ATTRIBUTION_WINDOW_DAYS = 30
 export const ATTRIBUTION_WINDOW_COPY = `Activation counts within ${ACTIVATION_ATTRIBUTION_WINDOW_DAYS} days of the click`
 
 /**
+ * How a placement RENDERS, which is a different question from where it lives.
+ *
+ * `inline` is every slot that shipped before sponsor breaks: a card in the
+ * flow of a transcript or a waiting room, text-first, with an optional small
+ * logo. The other three are the SPONSOR BREAK family -- an image-led unit that
+ * interrupts rather than accompanies, and that a text-only creative cannot
+ * fill at all.
+ *
+ * WHY THIS IS NOT A SURFACE. A surface is what the request came from, and
+ * every consumer of it is a total map: adding one costs a house creative, a
+ * pinned row in the opportunity rollup and an entry in every
+ * `Record<AdSurface, ...>`. A break is the same Desktop chat surface as the
+ * inline slot beside it, asking for a different renderer -- so the format is
+ * a property of the SLOT, and the three break ids keep `surface: 'cli_chat'`.
+ *
+ * The serving consequences live in `packages/internal/src/ad-serving`: a
+ * creative with no hero image never fills a non-inline placement, and the
+ * text-only house floor is never served into one.
+ */
+export const PLACEMENT_FORMATS = [
+  'inline',
+  'showcase',
+  'spotlight',
+  'intermission',
+] as const
+export type PlacementFormat = (typeof PLACEMENT_FORMATS)[number]
+
+/** The formats that are a sponsor break -- everything except `inline`. */
+export const SPONSOR_BREAK_FORMATS: readonly PlacementFormat[] =
+  PLACEMENT_FORMATS.filter((format) => format !== 'inline')
+
+export function isSponsorBreakFormat(format: PlacementFormat): boolean {
+  return format !== 'inline'
+}
+
+/**
  * Placements an advertiser can buy.
  *
  * EVERY ID HERE IS AN ID A SHIPPING CLIENT ACTUALLY SENDS. Verified against
@@ -119,30 +155,94 @@ export const ATTRIBUTION_WINDOW_COPY = `Activation counts within ${ACTIVATION_AT
  * rendered surface.
  */
 export const PLACEMENT_SLOTS = [
-  { id: 'waiting-room-1', surface: 'waiting_room', available: true },
-  { id: 'waiting-room-2', surface: 'waiting_room', available: true },
-  { id: 'waiting-room-3', surface: 'waiting_room', available: true },
-  { id: 'waiting-room-4', surface: 'waiting_room', available: true },
+  {
+    id: 'waiting-room-1',
+    surface: 'waiting_room',
+    available: true,
+    format: 'inline',
+  },
+  {
+    id: 'waiting-room-2',
+    surface: 'waiting_room',
+    available: true,
+    format: 'inline',
+  },
+  {
+    id: 'waiting-room-3',
+    surface: 'waiting_room',
+    available: true,
+    format: 'inline',
+  },
+  {
+    id: 'waiting-room-4',
+    surface: 'waiting_room',
+    available: true,
+    format: 'inline',
+  },
   // The CLI transcript's inline slot. One id, re-auctioned per eligible slot.
-  { id: 'CLI-Chat-Inline', surface: 'cli_chat', available: true },
+  {
+    id: 'CLI-Chat-Inline',
+    surface: 'cli_chat',
+    available: true,
+    format: 'inline',
+  },
   // Desktop's inline slot -- the largest single placement by fill volume.
-  { id: 'Desktop-Inline-Chat', surface: 'cli_chat', available: true },
-  { id: 'Desktop-Below-Chat', surface: 'cli_chat', available: true },
-  { id: 'Single-Ad-Unit-1', surface: 'cli_chat', available: true },
+  {
+    id: 'Desktop-Inline-Chat',
+    surface: 'cli_chat',
+    available: true,
+    format: 'inline',
+  },
+  {
+    id: 'Desktop-Below-Chat',
+    surface: 'cli_chat',
+    available: true,
+    format: 'inline',
+  },
+  {
+    id: 'Single-Ad-Unit-1',
+    surface: 'cli_chat',
+    available: true,
+    format: 'inline',
+  },
+  // The three sponsor breaks. Same surface as the inline Desktop slots on
+  // purpose -- see {@link PLACEMENT_FORMATS} for why the format and not the
+  // surface is what distinguishes them.
+  {
+    id: 'Desktop-Spotlight',
+    surface: 'cli_chat',
+    available: true,
+    format: 'spotlight',
+  },
+  {
+    id: 'Desktop-Showcase',
+    surface: 'cli_chat',
+    available: true,
+    format: 'showcase',
+  },
+  {
+    id: 'Desktop-Intermission',
+    surface: 'cli_chat',
+    available: true,
+    format: 'intermission',
+  },
   {
     id: 'Web-Chat-After-User-Message',
     surface: 'freebuff_web_chat',
     available: true,
+    format: 'inline',
   },
   {
     id: 'Web-Chat-After-Assistant-Message',
     surface: 'freebuff_web_chat',
     available: true,
+    format: 'inline',
   },
   {
     id: 'Chat-Assistant-Above-Input',
     surface: 'chat_assistant',
     available: true,
+    format: 'inline',
   },
 ] as const
 
@@ -171,6 +271,77 @@ export function placementSurface(
   if (/^CLI-Chat-Inline-\d+$/.test(placementId)) return 'cli_chat'
   return undefined
 }
+
+/**
+ * The format a placement id renders in. TOTAL, and `inline` for anything the
+ * static registry does not describe.
+ *
+ * Unlike {@link placementSurface} this never answers `undefined`, and the
+ * asymmetry is deliberate. A missing surface is inert -- an impression stored
+ * with `surface = null` cannot be billed and is caught downstream. A missing
+ * FORMAT would have to be guessed by every caller, and the two guesses point
+ * opposite ways: guess `inline` and an unknown id renders as the ordinary card
+ * it almost certainly is; guess a break and one typo turns a transcript slot
+ * into a full-screen interruption. So the fallback is named once, here, and it
+ * is the conservative one. The three break ids are in the registry, and only
+ * an id in the registry can BE a break.
+ *
+ * Both serving rails call this after placement resolution. The operator
+ * catalog in Convex may override a seeded placement's format; the loader in
+ * `freebuff/web/src/server/ad-serving/placement-catalog.ts` carries that value
+ * through, and this function is the static fallback it degrades to.
+ */
+export function placementFormat(placementId: string): PlacementFormat {
+  const slot = PLACEMENT_SLOTS.find((entry) => entry.id === placementId)
+  return slot?.format ?? 'inline'
+}
+
+/** Whether this placement id renders as a sponsor break rather than inline. */
+export function isSponsorBreakPlacement(placementId: string): boolean {
+  return isSponsorBreakFormat(placementFormat(placementId))
+}
+
+/**
+ * What a creative must look like to fill a SPONSOR BREAK.
+ *
+ * Much tighter than the inline limits (120 / 500 / 80), and not because break
+ * copy is less important -- because it is drawn much larger. A break title
+ * renders at display size and a break body sits under it as one or two short
+ * lines, so inline-length copy does not shrink to fit, it overflows the card
+ * or truncates mid-word in front of the person the break just interrupted.
+ *
+ * These are CONSOLE limits, validated on write, exactly like the inline
+ * lengths: no CHECK constraint, because the same row may be perfectly valid
+ * copy for an inline slot and the console is where a placement choice and its
+ * copy are seen together.
+ */
+export const SPONSOR_BREAK_CREATIVE_LIMITS = {
+  titleMaxLength: 28,
+  bodyMaxLength: 60,
+  ctaMaxLength: 18,
+} as const
+
+/**
+ * What a hero image must be. The hero is the break's subject, not a logo:
+ * the existing `image_*` columns are the 40px mark served as `favicon` and
+ * are never reused here.
+ *
+ * 16:10 with a 10% tolerance rather than an exact ratio -- an advertiser
+ * exporting at 1600x1000 and one exporting at 1920x1080 should both be
+ * accepted, and the renderer crops the difference. The floor is the smallest
+ * size that still looks deliberate on a high-density display at break width.
+ */
+export const SPONSOR_BREAK_HERO_SPEC = {
+  aspectRatio: 16 / 10,
+  aspectRatioTolerance: 0.1,
+  minWidth: 1024,
+  minHeight: 640,
+  maxBytes: 1024 * 1024,
+  mediaTypes: ['image/png', 'image/jpeg', 'image/webp'] as const,
+} as const
+
+export type SponsorBreakHeroMediaType =
+  (typeof SPONSOR_BREAK_HERO_SPEC.mediaTypes)[number]
 
 /**
  * The reporting grain a TRACKED LINK click lands on.
