@@ -1,5 +1,6 @@
 import type { FreebuffAccessTier } from '../constants/freebuff-models'
 import type { FreebuffStandingInfo } from '../constants/freebuff-standing'
+import { applyFreebucksPriceChanges } from '../util/freebuff-price-changes'
 
 /**
  * Wire-level shapes returned by `/api/v1/freebuff/session`. Source of truth
@@ -256,6 +257,17 @@ export interface FreebuffFreebucksInfo {
   planId: string | null
   /** Session price per model id. Only models on the meter appear here. */
   prices: Record<string, number>
+  /** Copy resolved with the price, overriding the static model tagline. */
+  priceNotices?: Record<string, string>
+  /** Scheduled changes announced by the server; do not reprice admitted sessions. */
+  priceChanges?: readonly FreebuffPriceChange[]
+}
+
+export interface FreebuffPriceChange {
+  at: string
+  modelId: string
+  price: number
+  tagline: string
 }
 
 export interface FreebuffSubscriptionInfo {
@@ -504,10 +516,12 @@ export const getRateLimitsByModel = (
 /** The caller's Freebucks block, wherever it rides the response. */
 export const getFreebucksInfo = (
   session: { status: string } | null | undefined,
-): FreebuffFreebucksInfo | undefined =>
-  session && 'freebucks' in session
+): FreebuffFreebucksInfo | undefined => {
+  const info = session && 'freebucks' in session
     ? (session as { freebucks?: FreebuffFreebucksInfo }).freebucks
     : undefined
+  return info ? applyFreebucksPriceChanges(info) : undefined
+}
 
 /**
  * The access tier the SERVER decided, wherever it rides the response.

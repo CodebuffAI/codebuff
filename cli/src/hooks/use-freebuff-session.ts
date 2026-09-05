@@ -1,3 +1,4 @@
+import { nextFreebucksPriceChange } from '@codebuff/common/util/freebuff-price-changes'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
   freebuffWithdrawnModelMessage,
@@ -695,8 +696,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           schedule(0)
           return
         }
-        const delay = nextDelayMs(next)
-        if (delay !== null) schedule(delay)
+        const priceDelay = nextFreebucksPriceChange(getFreebucksInfo(next)) - Date.now()
+        const delay = Math.min(nextDelayMs(next) ?? Infinity, Math.max(0, priceDelay))
+        if (Number.isFinite(delay)) schedule(delay)
       } catch (err) {
         if (
           cancelled ||

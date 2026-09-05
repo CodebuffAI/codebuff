@@ -1,3 +1,4 @@
+import { watchFreebucksPriceChanges } from '@codebuff/common/util/freebuff-price-changes'
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
 import React, {
@@ -321,7 +322,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // the queue for, so re-picking is always meaningful.
   const committedModelId: string | null = null
   const rateLimitsByModel = getRateLimitsByModel(session)
-  // `freebucks` — the same block — is read once, above, for every use here.
+  const [, refreshPrices] = useState(0)
+  useEffect(
+    () => watchFreebucksPriceChanges(freebucks, () => refreshPrices((n) => n + 1)),
+    [freebucks],
+  )
+  const taglineFor = useCallback(
+    (model: FreebuffModelOption) => freebucks?.priceNotices?.[model.id] ?? model.tagline,
+    [freebucks?.priceNotices],
+  )
   const referral = getReferralInfo(session)
   const meterFor = useCallback(
     (model: string) =>
@@ -831,7 +840,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         2 /* indicator + space */ +
         maxNameLen +
         NAME_GAP +
-        m.tagline.length +
+        taglineFor(m).length +
         reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
         (m.isNew ? newSuffixLen : 0) +
@@ -840,7 +849,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         2 +
         m.displayName.length +
         3 /* " · " */ +
-        m.tagline.length +
+        taglineFor(m).length +
         reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
         (m.isNew ? newSuffixLen : 0) +
@@ -892,6 +901,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       offerModels,
       contentMaxWidth,
       reasoningSuffixFor,
+      taglineFor,
       rowDetailsText,
       supersededNoticeFor,
       askLineFor,
@@ -1219,11 +1229,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           </span>
           {compactNames ? (
             <span fg={mutedColor}>
-              {' · ' + model.tagline + reasoningSuffix + imagesSuffix}
+              {' · ' + taglineFor(model) + reasoningSuffix + imagesSuffix}
             </span>
           ) : (
             <span fg={mutedColor}>
-              {namePadding + model.tagline + reasoningSuffix + imagesSuffix}
+              {namePadding + taglineFor(model) + reasoningSuffix + imagesSuffix}
             </span>
           )}
           {model.isNew && (

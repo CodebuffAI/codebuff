@@ -1,3 +1,4 @@
+import { applyFreebucksPriceChanges } from './freebuff-price-changes'
 /**
  * Splitting a picker section's quota rows into "the pool this section is about"
  * and "the rows that answer to something stricter".
@@ -109,6 +110,7 @@ export function getFreebuffModelMeter({
   quota?: FreebuffSessionRateLimit
   legacyRemaining?: number
 }) {
+  if (freebucks) freebucks = applyFreebucksPriceChanges(freebucks)
   const price = model ? freebucks?.prices[model] : undefined
   if (price !== undefined && freebucks) {
     return {

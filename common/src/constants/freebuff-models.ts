@@ -13,6 +13,7 @@ import {
   isDeepSeekExpensiveWindow,
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
+import { SOLAR_REGULAR_OFFER } from './freebuff-solar-promo'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
@@ -1517,7 +1518,7 @@ const GPT_5_6_LUNA_MODEL = {
 const SOLAR_PRO_4_MODEL = {
   id: FREEBUFF_SOLAR_PRO_4_MODEL_ID,
   displayName: 'Solar Pro 4',
-  tagline: 'Limited-time trial',
+  tagline: SOLAR_REGULAR_OFFER.tagline,
   availability: 'always',
   // `upstage/zdr` — zero data retention, so no training notice and no trace
   // storage (FREEBUFF_TRACED_MODEL_IDS keys off this field).

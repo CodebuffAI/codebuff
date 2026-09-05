@@ -1,10 +1,11 @@
+import { SOLAR_PRICE_CHANGES, solarOfferAt } from '@codebuff/common/constants/freebuff-solar-promo'
 import {
   toLandingSession,
   resolveFreebuffModelPickForSession,
 } from '../../hooks/use-freebuff-session'
 import { freebucksFixture } from '@codebuff/common/testing/freebuff'
 import { FREEBUFF_EARN_PROMPT_SHORT } from '@codebuff/common/constants/freebuff-levels'
-import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
+import { afterEach, beforeAll, describe, expect, test, spyOn } from 'bun:test'
 import { createTestRenderer } from '@opentui/core/testing'
 import { createRoot, flushSync } from '@opentui/react'
 import React from 'react'
@@ -986,4 +987,70 @@ test('a funded Luna row does not show its exhausted legacy quota in the section 
   expect(setup.captureCharFrame()).toContain('20/hr')
   expect(setup.captureCharFrame()).not.toContain('1 of 1 used')
   expect(getSelectedFreebuffModel()).toBe(id)
+})
+
+test('an open Solar CLI picker leaves the holiday price at the cutoff and submits at 5', async () => {
+  const cutoff = Date.parse('2026-09-08T07:00:00Z')
+  const clock = spyOn(Date, 'now').mockReturnValue(cutoff - 137)
+  const realTimeout = globalThis.setTimeout
+  let wake: (() => void) | undefined
+  const timerSpy = spyOn(globalThis, 'setTimeout').mockImplementation(((
+    fn: () => void,
+    ms: number,
+    ...args: unknown[]
+  ) => {
+    if (ms === 137) wake = fn
+    return realTimeout(fn, ms, ...args)
+  }) as typeof setTimeout)
+  const requested: string[] = []
+  try {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      freebucks: {
+        ...freebucksFixture(5, {
+          [DEFAULT_FREEBUFF_MODEL_ID]: 15,
+          [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 5,
+          [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 0,
+        }),
+        priceNotices: { [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: solarOfferAt(cutoff - 137).tagline },
+        priceChanges: SOLAR_PRICE_CHANGES.filter((change) => Date.parse(change.at) >= cutoff),
+      },
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_SOLAR_PRO_4_MODEL_ID)
+    const setup = await renderSelector(40, async (model) => {
+      requested.push(model)
+    })
+    expect(setup.captureCharFrame()).toContain('Labor Day weekend')
+    expect(setup.captureCharFrame()).toContain('0 Freebucks')
+    expect(wake).toBeDefined()
+    // Keep the whole catalog open: the collapsed recommendation can change
+    // when another model becomes the cheapest affordable choice.
+    await setup.mockInput.pressArrow('down')
+    await setup.renderOnce()
+    await new Promise((resolve) => realTimeout(resolve, 20))
+    await setup.mockInput.pressEnter()
+    await setup.renderOnce()
+    await new Promise((resolve) => realTimeout(resolve, 20))
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toContain('Show fewer')
+    flushSync(() => {
+      clock.mockReturnValue(cutoff)
+      wake!()
+    })
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).not.toContain('Labor Day weekend')
+    expect(setup.captureCharFrame()).toContain('Solar Pro 4')
+    expect(setup.captureCharFrame()).toMatch(/Solar Pro 4[^\n]*\n[^\n]*5\/hr/)
+    await setup.mockInput.pressEnter()
+    await setup.renderOnce()
+    expect(requested).toEqual([FREEBUFF_SOLAR_PRO_4_MODEL_ID])
+  } finally {
+    cleanupRenderer?.()
+    cleanupRenderer = undefined
+    timerSpy.mockRestore()
+    clock.mockRestore()
+  }
 })
