@@ -52,6 +52,9 @@ function referralLink(code: string, referrerName: string | null): string {
  */
 const EARN_URL = `${LOGIN_WEBSITE_URL}${FREEBUFF_EARN_PATH}`
 const DASHBOARD_LABEL = `${FREEBUFF_EARN_PROMPT_SHORT} ↵`
+/** On the meter Trust buys nothing a metered account is short of, so the
+ *  link just names the page. */
+const METERED_DASHBOARD_LABEL = 'Open Earn ↵'
 // Two columns of leading space separate the label from the copy control beside
 // it (the row itself has no gap), and they stay put in every state so keyboard
 // navigation never shifts the rest of the action row.
@@ -82,10 +85,12 @@ function DashboardButton({
   theme,
   focused,
   onOpen,
+  label = DASHBOARD_LABEL,
 }: {
   theme: ReturnType<typeof useTheme>
   focused: boolean
   onOpen: () => void
+  label?: string
 }) {
   // Focus is shown by the accent color alone, like the inline copy control it
   // sits next to. A leading marker would have to eat the gutter that keeps the
@@ -99,7 +104,7 @@ function DashboardButton({
           attributes={focused ? TextAttributes.BOLD : TextAttributes.NONE}
         >
           {DASHBOARD_GUTTER}
-          {DASHBOARD_LABEL}
+          {label}
         </span>
       </text>
     </Button>
@@ -291,6 +296,9 @@ interface FreebuffReferralBannerProps {
   /** A live GLM promo, or undefined. Undefined is the ordinary state. */
   glmPromo?: FreebuffGlmPromo
   accessTier: FreebuffAccessTier
+  /** The account is on the Freebucks meter: referrals pay Freebucks, and
+   *  nothing here may count sessions. */
+  metered?: boolean
   focusedId: string
   onFocusTargetsChange: (targets: FreebuffReferralFocusTarget[]) => void
 }
@@ -300,6 +308,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   referral,
   glmPromo,
   accessTier,
+  metered = false,
   focusedId,
   onFocusTargetsChange,
 }) => {
@@ -332,7 +341,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   // The unlocked card is LIMITED-TIER ONLY since 2026-08-31 — at full access
   // the reward is an extra premium session rather than a model to launch — so
   // it is keyed on the balance AND the tier.
-  const isLocked = (referral.weeklySessionsRemaining ?? 0) <= 0
+  const isLocked = metered || (referral.weeklySessionsRemaining ?? 0) <= 0
   const openDashboard = useCallback(() => {
     void safeOpen(EARN_URL)
   }, [])
@@ -350,13 +359,20 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
         isCopied={isCopied}
         focused={copyFocused}
         onCopy={copy}
-        availableWidth={Math.max(0, width - DASHBOARD_BUTTON_WIDTH)}
+        availableWidth={Math.max(
+          0,
+          width -
+            (metered
+              ? METERED_DASHBOARD_LABEL.length + DASHBOARD_GUTTER.length
+              : DASHBOARD_BUTTON_WIDTH),
+        )}
         variant="inline"
       />
       <DashboardButton
         theme={theme}
         focused={dashboardFocused}
         onOpen={openDashboard}
+        label={metered ? METERED_DASHBOARD_LABEL : undefined}
       />
     </box>
   )
@@ -385,6 +401,21 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   // bonus sessions/day already earned.
   // ...unless they hold bounty-earned GLM sessions, which fall through to the
   // shared unlocked card below.
+  // ON THE METER: one quiet line. Referrals pay Freebucks (claimed on the
+  // Earn page), and every other variant here counts sessions per day, which
+  // is a meter this account is no longer on.
+  if (metered) {
+    return (
+      <box style={{ flexDirection: 'column', width, marginTop: 1, flexShrink: 0 }}>
+        <text style={{ wrapMode: 'word' }}>
+          <span fg={theme.muted}>✦ Refer friends → </span>
+          <span fg={theme.foreground}>earn Freebucks</span>
+          <span fg={theme.muted}>:</span>
+        </text>
+        {lockedReferralActions}
+      </box>
+    )
+  }
   if (accessTier === 'limited' && isLocked) {
     const atCap = qualifiedCount >= REFERRAL_CLI_DAILY_SESSION_BONUS_CAP
     return (

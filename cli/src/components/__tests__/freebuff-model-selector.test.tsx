@@ -794,7 +794,7 @@ describe('GLM selection uses the applicable meter', () => {
       )
       if (balance >= 5)
         // The price reads `5/hr`; the balance lives in the header line.
-        expect(setup.captureCharFrame()).toContain('5/hr')
+        expect(setup.captureCharFrame()).toContain('5 Freebucks/hr')
     },
   )
 
@@ -1005,7 +1005,7 @@ test('a funded Luna row does not show its exhausted legacy quota in the section 
   useFreebuffModelStore.getState().setSelectedModel(id)
   const setup = await renderSelector()
   await setup.renderOnce()
-  expect(setup.captureCharFrame()).toContain('20/hr')
+  expect(setup.captureCharFrame()).toContain('20 Freebucks/hr')
   expect(setup.captureCharFrame()).not.toContain('1 of 1 used')
   expect(getSelectedFreebuffModel()).toBe(id)
 })
@@ -1048,14 +1048,21 @@ test('an open Solar CLI picker leaves the holiday price at the cutoff and submit
     expect(setup.captureCharFrame()).toContain('0 Freebucks')
     expect(wake).toBeDefined()
     // Keep the whole catalog open: the collapsed recommendation can change
-    // when another model becomes the cheapest affordable choice.
-    await setup.mockInput.pressArrow('down')
-    await setup.renderOnce()
-    await new Promise((resolve) => realTimeout(resolve, 20))
-    await setup.mockInput.pressEnter()
-    await setup.renderOnce()
-    await new Promise((resolve) => realTimeout(resolve, 20))
-    await setup.renderOnce()
+    // when another model becomes the cheapest affordable choice. Whether it
+    // OPENS collapsed depends on the hero: a default the balance cannot cover
+    // (DeepSeek at 15) fell back to Solar, the selection, so it collapsed;
+    // an affordable default (GLM at 5, since 2026-09-05) is not the selection,
+    // so it opens expanded with the cursor already on Solar. Only reach for
+    // the toggle when there is one, or Down walks the cursor onto GLM.
+    if (!setup.captureCharFrame().includes('Show fewer')) {
+      await setup.mockInput.pressArrow('down')
+      await setup.renderOnce()
+      await new Promise((resolve) => realTimeout(resolve, 20))
+      await setup.mockInput.pressEnter()
+      await setup.renderOnce()
+      await new Promise((resolve) => realTimeout(resolve, 20))
+      await setup.renderOnce()
+    }
     expect(setup.captureCharFrame()).toContain('Show fewer')
     flushSync(() => {
       clock.mockReturnValue(cutoff)
@@ -1064,7 +1071,7 @@ test('an open Solar CLI picker leaves the holiday price at the cutoff and submit
     await setup.renderOnce()
     expect(setup.captureCharFrame()).not.toContain('Labor Day weekend')
     expect(setup.captureCharFrame()).toContain('Solar Pro 4')
-    expect(setup.captureCharFrame()).toMatch(/Solar Pro 4[^\n]*\n[^\n]*5\/hr/)
+    expect(setup.captureCharFrame()).toMatch(/Solar Pro 4[^\n]*\n[^\n]*5 Freebucks\/hr/)
     await setup.mockInput.pressEnter()
     await setup.renderOnce()
     expect(requested).toEqual([FREEBUFF_SOLAR_PRO_4_MODEL_ID])

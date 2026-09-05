@@ -1489,6 +1489,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             referral={referral}
             glmPromo={glmPromo}
             accessTier={accessTier}
+            metered={freebucks !== undefined}
             focusedId={focusedId}
             onFocusTargetsChange={setExtraTargets}
           />

@@ -17,6 +17,8 @@ import {
 import * as auth from '../auth'
 import {
   getSettingsPath,
+  hasSeenFreebucksIntro,
+  markFreebucksIntroSeen,
   loadFreebuffModelPreference,
   saveFreebuffModelPreference,
 } from '../settings'
@@ -135,5 +137,25 @@ describe('one-time default migration', () => {
     expect(loadFreebuffModelPreference()).toBe(
       PREVIOUS_DEFAULT_FREEBUFF_MODEL_ID,
     )
+  })
+})
+
+describe('the one-time Freebucks introduction mark', () => {
+  // The loader is an allowlist, so a key it does not copy is dropped on every
+  // load and rewritten on the next save — which showed the intro on every
+  // launch until this was pinned.
+  test('survives a round trip through the settings file', () => {
+    testConfigDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'freebuff-settings-test-'),
+    )
+    getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
+
+    expect(hasSeenFreebucksIntro()).toBe(false)
+    markFreebucksIntroSeen()
+    expect(hasSeenFreebucksIntro()).toBe(true)
+    const raw = JSON.parse(
+      fs.readFileSync(path.join(testConfigDir, 'settings.json'), 'utf8'),
+    ) as { freebucksIntroSeenAt?: string }
+    expect(typeof raw.freebucksIntroSeenAt).toBe('string')
   })
 })

@@ -192,21 +192,21 @@ describe('ordering', () => {
 
 describe('the header line', () => {
   test('reads daily over limit, wallet, and the dollar allowance', () => {
-    expect(freebucksHeaderLine(metered())).toBe('30/75 daily · 20 wallet · $20 left')
+    expect(freebucksHeaderLine(metered())).toBe('30/75 Freebucks daily · 20 in wallet · $20 monthly usage left')
   })
 
   test('omits the allowance a server did not send, rather than showing $0', () => {
     // "$0 left" to somebody with a full allowance is worse than saying nothing.
     const { monthly: _drop, ...rest } = metered()
     expect(freebucksHeaderLine(rest as FreebuffFreebucksInfo)).toBe(
-      '30/75 daily · 20 wallet',
+      '30/75 Freebucks daily · 20 in wallet',
     )
   })
 
   test('hides an empty wallet, as Web and Desktop do', () => {
     expect(
       freebucksHeaderLine(metered({ wallet: { balance: 0, monthlyBonus: 0 } })),
-    ).toBe('30/75 daily · $20 left')
+    ).toBe('30/75 Freebucks daily · $20 monthly usage left')
   })
 
   test('small allowances keep their cents', () => {
@@ -216,7 +216,7 @@ describe('the header line', () => {
           monthly: { limitUsd: 25, spentUsd: 24.6, remainingUsd: 0.4, resetAt: 'x' },
         }),
       ),
-    ).toContain('$0.40 left')
+    ).toContain('$0.40 monthly usage left')
   })
 })
 
@@ -224,7 +224,7 @@ describe('the price label', () => {
   test('says what a Freebuck buys — an HOUR', () => {
     // A bare "15" reads as a per-message rate, the most expensive
     // misunderstanding this menu can create.
-    expect(freebucksPriceLabel(15)).toBe('15/hr')
+    expect(freebucksPriceLabel(15)).toBe('15 Freebucks/hr')
   })
 })
 

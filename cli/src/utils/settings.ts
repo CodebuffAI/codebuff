@@ -190,6 +190,13 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.hasSubmittedFirstPrompt = obj.hasSubmittedFirstPrompt
   }
 
+  // The loader is an ALLOWLIST — a key not copied here is dropped on every
+  // load and silently rewritten on the next save. That is how the intro's
+  // "shown once" mark lasted exactly one launch (2026-09-05).
+  if (typeof obj.freebucksIntroSeenAt === 'string') {
+    settings.freebucksIntroSeenAt = obj.freebucksIntroSeenAt
+  }
+
   return settings
 }
 

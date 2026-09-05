@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   FREEBUCKS_LABEL,
+  FREEBUCKS_PICKER_NOTICE,
+  formatAllowanceUsd,
   formatFreebucks,
   freebucksOf,
   freebucksPriceLabel,
@@ -437,15 +439,22 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   //
   // Hidden in compact terminals either way: nice-to-have context, and below 22
   // rows every line competes with the picker itself.
+  // On the meter the tier notices describe pools that no longer gate ("your
+  // shared premium allowance"), so the line says how sessions are priced
+  // instead.
   const belowPickerNotices = compact
     ? []
-    : accessTier === 'limited'
-      ? [getLimitedModeNotice(session)]
-      : [FREEBUFF_TIER_CHANGE_NOTICE]
+    : freebucksOf(session)
+      ? [FREEBUCKS_PICKER_NOTICE]
+      : accessTier === 'limited'
+        ? [getLimitedModeNotice(session)]
+        : [FREEBUFF_TIER_CHANGE_NOTICE]
   // 'none' = user hasn't started a session yet. We're in the pre-chat landing
   // state: show the picker with a prompt. Picking a model triggers
   // startFreebuffSession, which POSTs and transitions straight to 'active' (chat).
   const isLanding = session?.status === 'none'
+  // On the meter, nothing below counts sessions.
+  const metered = freebucksOf(session) !== undefined
   const streakQuery = useFreebuffStreakQuery({
     enabled: FREEBUFF_ENABLE_STREAK_IN_UI && isLanding,
   })
@@ -500,7 +509,7 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
   // collapsed picker. When the collapsed recommended hero is a premium model
   // (getRecommendedFreebuffModelId, while the pool has sessions left) the count
   // is exactly what Enter is about to spend.
-  const showSessionCounter = sharedSessionUsed > 0
+  const showSessionCounter = sharedSessionUsed > 0 && !metered
   const showBelowPickerCounter =
     showSessionCounter && (accessTier === 'limited' || !selectorExpanded)
   // Prefer the server-sent limit (base + streak/referral bonuses) so the
@@ -814,7 +823,9 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
                 {session.freebucksShortfall
                   ? `⚠ Not enough ${FREEBUCKS_LABEL}`
-                  : '⚠ Session limit reached'}
+                  : metered && session.period === 'pacific_month'
+                    ? '⚠ Monthly usage limit reached'
+                    : '⚠ Session limit reached'}
               </text>
               {/* THE METER'S REFUSAL, when the server sent one.
                   
@@ -846,6 +857,22 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                   </span>
                   , or pick a cheaper model. Press Ctrl+C to exit.
                 </text>
+              ) : metered && session.period === 'pacific_month' ? (
+                // The monthly dollar allowance, sent in CENTS in the pool's
+                // shape (`limit`/`recentCount`) so older clients still count
+                // it — rendered here as the dollars it is.
+                <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                  You've used{' '}
+                  <span fg={theme.foreground}>
+                    {formatAllowanceUsd(session.recentCount / 100)} of{' '}
+                    {formatAllowanceUsd(session.limit / 100)}
+                  </span>{' '}
+                  monthly usage. It resets in{' '}
+                  <span fg={theme.foreground}>
+                    {formatRetryAfter(session.retryAfterMs)}
+                  </span>
+                  . Press Ctrl+C to exit.
+                </text>
               ) : (
                 <text style={{ fg: theme.muted, wrapMode: 'word' }}>
                   You've used{' '}
@@ -871,7 +898,9 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
               <text style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}>
                 {'upgrade' in session && session.upgrade
                   ? `${session.upgrade.message} ${session.upgrade.url}`
-                  : 'Get more sessions with a plan: https://freebuff.com/plans'}
+                  : metered
+                    ? 'Get more Freebucks with a plan: https://freebuff.com/plans'
+                    : 'Get more sessions with a plan: https://freebuff.com/plans'}
               </text>
             </>
           )}
@@ -895,7 +924,9 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
               <text style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}>
                 {'upgrade' in session && session.upgrade
                   ? `${session.upgrade.message} ${session.upgrade.url}`
-                  : 'Get more sessions with a plan: https://freebuff.com/plans'}
+                  : metered
+                    ? 'Get more Freebucks with a plan: https://freebuff.com/plans'
+                    : 'Get more sessions with a plan: https://freebuff.com/plans'}
               </text>
             </>
           )}

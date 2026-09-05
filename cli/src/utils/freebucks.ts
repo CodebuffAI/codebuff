@@ -137,7 +137,8 @@ export function sortModelsByPrice<T extends { id: string; displayName: string }>
 }
 
 /**
- * The one-line header for a metered account: `75/75 daily · 20 wallet · $25 left`
+ * The one-line header for a metered account:
+ * `100/100 Freebucks daily · 20 in wallet · $25 monthly usage left`
  * (the wallet only when there is something in it).
  *
  * The same four figures, in the same order, as the Web and Desktop pickers.
@@ -156,15 +157,17 @@ export function freebucksHeaderLine(
   const parts = [
     `${formatFreebucks(freebucks.daily.remaining)}/${formatFreebucks(
       freebucks.daily.limit,
-    )} daily`,
+    )} ${FREEBUCKS_LABEL} daily`,
   ]
   // An empty wallet is the ordinary case for a free account, and "0 wallet"
   // reads as something to worry about. Web and Desktop hide it too.
   if (freebucks.wallet.balance > 0) {
-    parts.push(`${formatFreebucks(freebucks.wallet.balance)} wallet`)
+    parts.push(`${formatFreebucks(freebucks.wallet.balance)} in wallet`)
   }
   if (freebucks.monthly) {
-    parts.push(`${formatAllowanceUsd(freebucks.monthly.remainingUsd)} left`)
+    parts.push(
+      `${formatAllowanceUsd(freebucks.monthly.remainingUsd)} monthly usage left`,
+    )
   }
   return parts.join(' · ')
 }
@@ -187,7 +190,9 @@ export function formatAllowanceUsd(usd: number): string {
  *  per-message rate, which is the most expensive misreading this menu can
  *  create. */
 export function freebucksPriceLabel(price: number): string {
-  return `${formatFreebucks(price)}/hr`
+  // Named, not just numbered: a bare `20/hr` reads as dollars to anyone who
+  // has not met the currency yet (reported from the first prod screenshot).
+  return `${formatFreebucks(price)} ${FREEBUCKS_LABEL}/hr`
 }
 
 /**
@@ -205,3 +210,7 @@ export const FREEBUCKS_INTRO = {
   ],
   dismiss: 'Shown once. Press any key to continue.',
 } as const
+
+/** Under the picker on a metered account, in place of the tier notices. */
+export const FREEBUCKS_PICKER_NOTICE =
+  'Each model is priced in Freebucks per hour of session, charged once when the session starts. Your daily Freebucks refill at midnight Pacific; the wallet keeps what you buy or earn.'
