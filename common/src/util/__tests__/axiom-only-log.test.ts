@@ -7,6 +7,7 @@ import {
   ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT,
   ADS_FIRST_PARTY_SETTLEMENT_EVENT,
   ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+  ADS_EXTERNAL_CONVERSION_CLICK_ID_SHAPES,
   ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
   ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT,
   ADS_ADVERTISER_REPORTING_READ_EVENT,
@@ -726,6 +727,38 @@ describe('getAxiomOnlyLogEvent', () => {
         duration_ms: 8,
       },
     })
+  })
+
+  test('keeps only closed click-id shape labels on the postback census', () => {
+    const base = {
+      axiomEvent: ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT,
+      channel: 's2s',
+      outcome: 'rejected',
+      rejection_reason: 'invalid_click_id',
+      event_type: 'unknown',
+      traffic_class: 'unknown',
+      primary_allocation_cohort: 'none',
+      settlement_status: 'unknown',
+      charged_cents: 0,
+      duration_ms: 8,
+    }
+    for (const clickIdShape of ADS_EXTERNAL_CONVERSION_CLICK_ID_SHAPES) {
+      expect(
+        getAxiomOnlyLogEvent({
+          ...base,
+          click_id_shape: clickIdShape,
+        })?.data,
+      ).toMatchObject({ click_id_shape: clickIdShape })
+    }
+
+    const result = getAxiomOnlyLogEvent({
+      ...base,
+      click_id_shape: 'bfc_1.private-raw-click-value',
+      advertiser_id: 'advertiser-private',
+      api_key: 'fbadv_private',
+    })
+    expect(result?.data).not.toHaveProperty('click_id_shape')
+    expect(JSON.stringify(result)).not.toContain('private')
   })
 
   test('drops a non-string channel from the postback census', () => {

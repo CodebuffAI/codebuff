@@ -51,6 +51,20 @@ export const ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT =
 export const ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT =
   'ads.external_conversion_postback' as const
 /**
+ * Why an authenticated S2S postback failed the click-id shape guard before
+ * body validation. Values describe only the failed predicate; the presented
+ * value, API key, advertiser, campaign, IP and request body stay out of Axiom.
+ */
+export const ADS_EXTERNAL_CONVERSION_CLICK_ID_SHAPES = [
+  'missing',
+  'wrong_type',
+  'empty',
+  'oversized',
+  'control_char',
+] as const
+export type AdsExternalConversionClickIdShape =
+  (typeof ADS_EXTERNAL_CONVERSION_CLICK_ID_SHAPES)[number]
+/**
  * Durable campaign-health evidence. Unlike the content-free postback census,
  * this stream intentionally carries opaque advertiser/campaign identifiers so
  * the health reader can distinguish independent ingress binding from a join
@@ -643,6 +657,7 @@ const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
   channel: 'string',
   outcome: 'string',
   rejection_reason: 'string',
+  click_id_shape: 'string',
   event_type: 'string',
   traffic_class: 'string',
   primary_allocation_cohort: 'string',
@@ -655,6 +670,24 @@ const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
   // Bounded by construction; never a digest, never a user.
   match_outcome: 'string',
 } as const satisfies AxiomOnlyFieldSchema
+
+function sanitizeExternalConversionPostbackFields(
+  record: Record<string, unknown>,
+): AxiomOnlyLogEvent['data'] {
+  const data = sanitizeAllowlistedFields(
+    record,
+    ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS,
+  )
+  if (
+    typeof data.click_id_shape === 'string' &&
+    !(ADS_EXTERNAL_CONVERSION_CLICK_ID_SHAPES as readonly string[]).includes(
+      data.click_id_shape,
+    )
+  ) {
+    delete data.click_id_shape
+  }
+  return data
+}
 
 const ADS_CAMPAIGN_INGRESS_EVIDENCE_FIELDS = {
   evidence_version: 'string',
@@ -813,10 +846,7 @@ export function getAxiomOnlyLogEvent(
   if (eventName === ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT) {
     return {
       event: eventName,
-      data: sanitizeAllowlistedFields(
-        record,
-        ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS,
-      ),
+      data: sanitizeExternalConversionPostbackFields(record),
     }
   }
   if (eventName === ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT) {
