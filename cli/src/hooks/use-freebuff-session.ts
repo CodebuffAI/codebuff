@@ -10,6 +10,7 @@ import {
   getRateLimitsByModel,
   getReferralInfo,
   getSubscriptionInfo,
+  getFreebucksInfo,
 } from '@codebuff/common/types/freebuff-session'
 import { useEffect } from 'react'
 
@@ -148,7 +149,7 @@ export function getFreebuffInstanceId(): string | undefined {
  *  server rejects the request — so the message queue gates on this before
  *  firing queued work. Same predicate gates DELETE on exit: outside these
  *  states there is no server row to release. */
-function toLandingSession(
+export function toLandingSession(
   current: FreebuffSessionResponse | null,
 ): Extract<FreebuffSessionResponse, { status: 'none' }> {
   const accessTier =
@@ -175,6 +176,7 @@ function toLandingSession(
   // Same carry as rateLimitsByModel: the plan panel must not blink out
   // between dropping to the picker and the refreshing GET.
   const subscription = getSubscriptionInfo(current)
+  const freebucks = getFreebucksInfo(current)
 
   return {
     status: 'none',
@@ -182,6 +184,7 @@ function toLandingSession(
     ...(rateLimitsByModel ? { rateLimitsByModel } : {}),
     ...(referral ? { referral } : {}),
     ...(subscription ? { subscription } : {}),
+    ...(freebucks ? { freebucks } : {}),
     ...(limitedModelOffers.length > 0 ? { limitedModelOffers } : {}),
     ...(countryCode ? { countryCode } : {}),
     ...(countryBlockReason ? { countryBlockReason } : {}),
@@ -366,6 +369,7 @@ export function markFreebuffSessionEnded(): void {
       current && 'accessTier' in current ? current.accessTier : undefined,
     rateLimitsByModel,
     subscription: getSubscriptionInfo(current),
+    freebucks: getFreebucksInfo(current),
   })
 }
 
@@ -664,6 +668,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
             rateLimitsByModel,
             subscription:
               getSubscriptionInfo(next) ?? getSubscriptionInfo(current),
+            freebucks: getFreebucksInfo(next),
           })
           return
         }
@@ -796,6 +801,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
                   // state. Do not retain the cached landing value when the
                   // server omits it (program disabled / identity removed).
                   referral: response.referral,
+                  freebucks: getFreebucksInfo(response),
                 })
               }
             })

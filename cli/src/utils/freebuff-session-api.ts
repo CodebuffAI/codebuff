@@ -211,6 +211,7 @@ export function mergeCompactActiveSession(
     // Compact polls omit the subscription block along with the rate limits;
     // dropping it here would blank the plan panel until the next full poll.
     subscription: next.subscription ?? current.subscription,
+    freebucks: next.freebucks ?? current.freebucks,
   }
 }
 

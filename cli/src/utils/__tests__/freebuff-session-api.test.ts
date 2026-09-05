@@ -1,3 +1,4 @@
+import { freebucksFixture } from '@codebuff/common/testing/freebuff'
 import { afterEach, expect, spyOn, test } from 'bun:test'
 import {
   FREEBUFF_REWARD_MODEL_ID,
@@ -52,7 +53,8 @@ test('compact GET sends the compact-session header', async () => {
   expect(new Headers(init?.headers).get('x-freebuff-compact-session')).toBe('1')
 })
 
-test('compact active state retains the admission quota snapshot', () => {
+test('compact active state retains the admission quota and Freebucks snapshots', () => {
+  const freebucks = freebucksFixture(5)
   const rateLimit = {
     model: 'model',
     limit: 5,
@@ -73,6 +75,7 @@ test('compact active state retains the admission quota snapshot', () => {
       expiresAt: '2026-08-05T13:00:00.000Z',
       remainingMs: 1_000,
       rateLimit,
+      freebucks,
     },
     {
       status: 'active',
@@ -85,7 +88,7 @@ test('compact active state retains the admission quota snapshot', () => {
     },
   )
 
-  expect(merged).toMatchObject({ remainingMs: 500, rateLimit })
+  expect(merged).toMatchObject({ remainingMs: 500, rateLimit, freebucks })
 })
 
 test('compact state requests a full refresh instead of carrying quota across models', () => {

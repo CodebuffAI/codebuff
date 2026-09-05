@@ -387,7 +387,7 @@ describe('freebuff model availability', () => {
     ).toBe(true)
   })
 
-  test('GLM 5.3 Flash: unmetered for FULL access, free on WEB at limited', () => {
+  test('GLM 5.3 Flash: unmetered for FULL access, selectable at limited on every surface', () => {
     // The four properties this change had to deliver, asserted together
     // because they are separately true and separately breakable.
     const id = FREEBUFF_GLM_V53_FLASH_MODEL_ID
@@ -406,28 +406,11 @@ describe('freebuff model availability', () => {
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     )
 
-    // 3. GIVEN TO THE LIMITED TIER ON WEB, DELIBERATELY, AND ONLY THERE.
-    //    Unmetering works through the `premium` flag; limited access works
-    //    through explicit allowlists. They are still INDEPENDENT — which is
-    //    the property this assertion exists to protect — and the proof is
-    //    that the CLI/Desktop limited catalog did NOT move when the Web one
-    //    did. A row arriving at limited access as a side effect of being
-    //    unmetered would have changed both.
-    //
-    //    Widened 2026-09-04: limited regions are metered by Freebucks now
-    //    (25 a day under a hard $0.50 ceiling), so catalog is no longer the
-    //    control it was, and barring the tier from the CHEAPEST row we serve
-    //    only made their allowance go less far.
-    expect(LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).not.toContain(id)
+    // 3. Explicitly available in both limited catalogs. Freebucks admission
+    //    charges the same model price regardless of the picker surface.
+    expect(LIMITED_FREEBUFF_MODEL_IDS as readonly string[]).toContain(id)
     expect(FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS as readonly string[]).toContain(id)
     expect(FREEBUFF_WEB_LIMITED_MODEL_IDS as readonly string[]).toContain(id)
-    //    What DID change on 2026-08-31: this row became the earned REWARD, so
-    //    a limited-tier caller may NAME it — that is how a bounty grant is
-    //    redeemed from any region. It is not in any free limited catalog above,
-    //    so nothing is handed out; the reward POOL reports 0 for anyone with no
-    //    grant and the session is refused as `rate_limited`. Naming it is
-    //    deliberately allowed so that refusal is legible instead of arriving as
-    //    `session_model_mismatch`.
     expect(isFreebuffWebModelAllowedForLimitedTier(id, false)).toBe(true)
     expect(isRewardModelRedeemableAtLimitedTier(id)).toBe(true)
 
@@ -1287,13 +1270,14 @@ describe('freebuff model availability', () => {
     expect(completion).toBeLessThan(6.0)
   })
 
-  test('limited access exposes DeepSeek V4 Flash, MiMo 2.5, and Solar Pro 4', () => {
+  test('limited access exposes Flash, MiMo, GLM 5.3 Flash, and Solar Pro 4', () => {
     // The limited default is the same model as the full default, hero first.
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(DEFAULT_FREEBUFF_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       FREEBUFF_MIMO_V25_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
       FREEBUFF_SOLAR_PRO_4_MODEL_ID,
     ])
     expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toEqual(
@@ -1348,7 +1332,7 @@ describe('freebuff model availability', () => {
       ),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_MISMATCH_MESSAGE).toBe(
-      'Limited free access is only available with DeepSeek V4 Flash 07/31 or MiMo 2.5 or Solar Pro 4.',
+      'Limited free access is only available with DeepSeek V4 Flash 07/31 or MiMo 2.5 or GLM 5.3 Flash or Solar Pro 4.',
     )
     // No row in the tier supersedes another, so no picker may offer a switch
     // that admission would coerce straight back.

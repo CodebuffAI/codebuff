@@ -233,11 +233,16 @@ export interface FreebuffFreebucksMonthlyAllowance {
  * granted budget that buys sessions, Trust is earned standing that buys
  * Levels.
  *
+ * For models in `prices`, this balance takes precedence over legacy
+ * `rateLimitsByModel` and referral balances when starting a new session.
+ *
  * Two balances and one ceiling — deliberately nothing else. The 2026-08-31
  * shape carried day/week/month windows beside the session pools' own rings;
  * this one is the whole indicator set for an account on the meter.
  */
 export interface FreebuffFreebucksInfo {
+  /** Server-authorized quota exemption: new sessions remain usable at zero balance. */
+  quotaExempt?: boolean
   /** Spendable right now: `daily.remaining + wallet.balance`. */
   balance: number
   daily: FreebuffFreebucksWindow

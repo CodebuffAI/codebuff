@@ -1,3 +1,8 @@
+import {
+  toLandingSession,
+  resolveFreebuffModelPickForSession,
+} from '../../hooks/use-freebuff-session'
+import { freebucksFixture } from '@codebuff/common/testing/freebuff'
 import { FREEBUFF_EARN_PROMPT_SHORT } from '@codebuff/common/constants/freebuff-levels'
 import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import { createTestRenderer } from '@opentui/core/testing'
@@ -62,7 +67,10 @@ afterEach(() => {
   useFreebuffModelStore.getState().setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
 })
 
-const renderSelector = async (maxHeight = 40) => {
+const renderSelector = async (
+  maxHeight = 40,
+  startSession?: (model: string) => Promise<void>,
+) => {
   // Tear down any selector this test already rendered. Only the LAST one was
   // reachable from afterEach, so a test that renders twice used to leave the
   // earlier root mounted — and a mounted selector keeps running its landing
@@ -78,7 +86,11 @@ const renderSelector = async (maxHeight = 40) => {
   }
   flushSync(() =>
     root.render(
-      <FreebuffModelSelector maxHeight={maxHeight} nowMs={FIXED_NOW_MS} />,
+      <FreebuffModelSelector
+        maxHeight={maxHeight}
+        nowMs={FIXED_NOW_MS}
+        startSession={startSession}
+      />,
     ),
   )
   await setup.renderOnce()
@@ -122,12 +134,12 @@ describe('FreebuffModelSelector referral selection', () => {
 
   test('still repairs a locked reward selection to a visible grid model', async () => {
     await renderSelectorWithGlmRemaining(0)
-    expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
+    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
   })
 
   test('treats an omitted reward balance as locked', async () => {
     await renderSelectorWithGlmRemaining()
-    expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
+    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
   })
 })
 
@@ -671,9 +683,7 @@ describe('FreebuffModelSelector plan line', () => {
         dayPremiumUsed: 1,
         dayPremiumLimit: 2,
         dayResetAt: new Date(FIXED_NOW_MS + 3 * 3600_000).toISOString(),
-        periodEndsAt: new Date(
-          FIXED_NOW_MS + 20 * 24 * 3600_000,
-        ).toISOString(),
+        periodEndsAt: new Date(FIXED_NOW_MS + 20 * 24 * 3600_000).toISOString(),
         monthSpendUsd: 3.21,
         monthSpendLimitUsd: 40,
       },
@@ -719,7 +729,9 @@ describe('FreebuffModelSelector plan line', () => {
       },
     } as never)
     const frame = (await renderSelector()).captureCharFrame()
-    expect(frame).toContain('FREE · today 1 of 4 · week 3 of 14 · month 9 of 40')
+    expect(frame).toContain(
+      'FREE · today 1 of 4 · week 3 of 14 · month 9 of 40',
+    )
   })
 
   test('no plan means no plan line', async () => {
@@ -729,4 +741,248 @@ describe('FreebuffModelSelector plan line', () => {
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).not.toContain('PLAN ·')
   })
+})
+
+describe('GLM selection uses the applicable meter', () => {
+  test.each([0, 4, 5, 25])(
+    'Freebucks balance %s wins over a contradictory earned quota',
+    async (balance) => {
+      useFreebuffSessionStore.getState().setSession({
+        status: 'none',
+        accessTier: 'limited',
+        freebucks: freebucksFixture(balance),
+        rateLimitsByModel: {
+          [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: {
+            model: FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+            limit: balance >= 5 ? 0 : 1,
+            recentCount: 0,
+            period: 'pacific_day',
+            resetTimeZone: 'America/Los_Angeles',
+            resetAt: '2026-09-06T07:00:00.000Z',
+            windowHours: 24,
+          },
+        },
+      })
+      useFreebuffModelStore
+        .getState()
+        .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+      const setup = await renderSelector()
+      await setup.renderOnce()
+      expect(getSelectedFreebuffModel()).toBe(
+        balance >= 5
+          ? FREEBUFF_GLM_V53_FLASH_MODEL_ID
+          : DEFAULT_FREEBUFF_MODEL_ID,
+      )
+      if (balance >= 5)
+        expect(setup.captureCharFrame()).toContain('5 Freebucks')
+    },
+  )
+
+  test('fresh balances and leaving the audience update selection without remounting', async () => {
+    const setBalance = (balance?: number) =>
+      useFreebuffSessionStore.getState().setSession({
+        status: 'none',
+        accessTier: 'limited',
+        ...(balance === undefined
+          ? {}
+          : { freebucks: freebucksFixture(balance) }),
+      })
+    setBalance(25)
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    const setup = await renderSelector()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    setBalance(4)
+    await setup.renderOnce()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    setBalance(5)
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    await setup.renderOnce()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    setBalance()
+    await setup.renderOnce()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+  })
+})
+
+test('GLM Enter submits the exact selected model once while admission is pending', async () => {
+  const session = {
+    status: 'none' as const,
+    accessTier: 'limited' as const,
+    freebucks: freebucksFixture(5),
+  }
+  useFreebuffSessionStore.getState().setSession(session)
+  useFreebuffModelStore
+    .getState()
+    .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+  const requested: string[] = []
+  let finish!: () => void
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  const setup = await renderSelector(40, async (model) => {
+    requested.push(
+      resolveFreebuffModelPickForSession(
+        model,
+        useFreebuffSessionStore.getState().session,
+      ),
+    )
+    await pending
+  })
+  try {
+    await setup.mockInput.pressEnter()
+    await setup.renderOnce()
+    await setup.mockInput.pressEnter()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(requested).toEqual([FREEBUFF_GLM_V53_FLASH_MODEL_ID])
+  } finally {
+    finish()
+    await pending
+  }
+})
+
+test('returning to the landing picker keeps the currency until the fresh probe', () => {
+  const freebucks = freebucksFixture(5)
+  const landing = toLandingSession({
+    status: 'ended',
+    accessTier: 'limited',
+    freebucks,
+  })
+  expect(landing.freebucks).toEqual(freebucks)
+  expect(
+    resolveFreebuffModelPickForSession(
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+      landing,
+    ),
+  ).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+})
+
+test.each([
+  ['legacy', undefined],
+  ['Freebucks', 4],
+] as const)(
+  'clicking unfunded GLM makes no admission request (%s)',
+  async (_label, balance) => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'limited',
+      ...(balance === undefined
+        ? {}
+        : { freebucks: freebucksFixture(balance) }),
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_MIMO_V25_MODEL_ID)
+    const requested: string[] = []
+    const setup = await renderSelector(40, async (model) => {
+      requested.push(model)
+    })
+    const y = setup
+      .captureCharFrame()
+      .split('\n')
+      .findIndex((line) => line.includes('GLM 5.3 Flash'))
+    expect(y).toBeGreaterThanOrEqual(0)
+    await setup.mockMouse.click(15, y)
+    await setup.renderOnce()
+    expect(requested).toEqual([])
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+  },
+)
+
+test.each([false, true])(
+  'Freebucks does not change Luna plan access (paid=%s)',
+  async (paid) => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'limited',
+      freebucks: freebucksFixture(25, { [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 20 }),
+      ...(paid ? { subscription: { tierId: 'starter', tiers: [] } } : {}),
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    const setup = await renderSelector()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(
+      paid ? FREEBUFF_GPT_5_6_LUNA_MODEL_ID : DEFAULT_FREEBUFF_MODEL_ID,
+    )
+    if (paid) expect(setup.captureCharFrame()).toContain('GPT-5.6 Luna')
+    else expect(setup.captureCharFrame()).not.toContain('GPT-5.6 Luna')
+  },
+)
+
+test('quota-exempt Luna remains selected at zero Freebucks', async () => {
+  useFreebuffSessionStore.getState().setSession({
+    status: 'none',
+    accessTier: 'full',
+    freebucks: {
+      ...freebucksFixture(0, { [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 20 }),
+      quotaExempt: true,
+    },
+  })
+  useFreebuffModelStore
+    .getState()
+    .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+  const setup = await renderSelector()
+  await setup.renderOnce()
+  expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+})
+
+test('the collapsed picker recommends affordable GLM when the default costs too much', async () => {
+  useFreebuffSessionStore.getState().setSession({
+    status: 'none',
+    accessTier: 'limited',
+    freebucks: freebucksFixture(5, {
+      [DEFAULT_FREEBUFF_MODEL_ID]: 15,
+      [FREEBUFF_MIMO_V25_MODEL_ID]: 10,
+      [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 5,
+      [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 5,
+    }),
+  })
+  useFreebuffModelStore.getState().setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
+  const requested: string[] = []
+  const setup = await renderSelector(40, async (model) => {
+    requested.push(model)
+  })
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain('GLM 5.3 Flash')
+  expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+  await setup.mockInput.pressEnter()
+  await setup.renderOnce()
+  expect(requested).toEqual([FREEBUFF_GLM_V53_FLASH_MODEL_ID])
+})
+
+test('a funded Luna row does not show its exhausted legacy quota in the section header', async () => {
+  const id = FREEBUFF_GPT_5_6_LUNA_MODEL_ID
+  useFreebuffSessionStore.getState().setSession({
+    status: 'none',
+    accessTier: 'full',
+    freebucks: freebucksFixture(25, { [id]: 20 }),
+    rateLimitsByModel: {
+      [id]: {
+        model: id,
+        limit: 1,
+        recentCount: 1,
+        pool: 'premium',
+        period: 'pacific_day',
+        resetTimeZone: 'America/Los_Angeles',
+        resetAt: '2026-09-06T07:00:00.000Z',
+        windowHours: 24,
+      },
+    },
+  })
+  useFreebuffModelStore.getState().setSelectedModel(id)
+  const setup = await renderSelector()
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain('20 Freebucks')
+  expect(setup.captureCharFrame()).not.toContain('1 of 1 used')
+  expect(getSelectedFreebuffModel()).toBe(id)
 })

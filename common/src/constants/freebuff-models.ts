@@ -2757,6 +2757,7 @@ export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
 export const LIMITED_FREEBUFF_MODEL_IDS = [
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   ...(FREEBUFF_SOLAR_PRO_4_ENTITLEMENT.limitedAccess
     ? [FREEBUFF_SOLAR_PRO_4_ENTITLEMENT.modelId]
     : []),
@@ -2875,8 +2876,8 @@ export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
  * row is an offer instead of an absence.
  *
  * Its own name, and NOT `LIMITED_FREEBUFF_MODEL_IDS`, because this is a
- * BROWSER-ONLY widening: the CLI/Desktop limited catalog is unchanged and
- * those pickers still offer three rows. Note the consequence, since it is not
+ * broader browser catalog: CLI/Desktop also offer GLM 5.3 Flash, while
+ * the other additions remain browser-only. Note the consequence, since it is not
  * obvious — `isFreebuffSessionModelAllowedForAccessTier` takes the UNION of
  * both limited lists for every surface, so a hand-edited CLI config naming one
  * of these now passes admission where it used to be refused. That is the
@@ -3057,30 +3058,9 @@ export function getRecommendedFreebuffWebModelId(
   return DEFAULT_FREEBUFF_WEB_MODEL_ID
 }
 
-/**
- * The reward model is reachable from limited access, but only against an earned
- * grant.
- *
- * The tier gate used to live here, in the model allowlist: a limited-tier
- * (VPN / unsupported-country) user could not name the reward model at all.
- * Bounties pay a session that is meant to be worth the same in every region, so
- * the gate moved DOWN into the quota pool — at limited tier the reward pool
- * counts only grants minted `redeemable_at_limited_tier` (bounty payouts), and
- * nothing else. Referral entitlement still counts for nothing there, which is
- * the anti-farming stance docs/referrals.md describes.
- *
- * SINCE 2026-08-31 THIS IS ALSO WHAT MAKES THE REWARD MEAN ANYTHING. The reward
- * model is GLM 5.3 Flash, which every FULL-access account already runs
- * unmetered; limited tier is the only tier where unlocking it is a thing you can
- * unlock. (Full access earns an extra premium session instead — see
- * FREEBUFF_REWARD_MODEL_IDS.) So this predicate is no longer a narrow carve-out
- * on the side of the reward; at limited tier it IS the reward.
- *
- * The practical effect of allowing it here is that a limited user with no grant
- * gets `rate_limited` (limit 0) instead of `session_model_mismatch`. Clients
- * only surface the row to them once the server reports a balance, so that path
- * is not a normal one to hit.
- */
+/** Reward ids stay nameable at limited access. Legacy accounts fund them from
+ * bounty grants; Freebucks audience accounts use their currency balance.
+ * Picker membership and paid-plan access are separate from this quota rule. */
 export function isRewardModelRedeemableAtLimitedTier(
   model: string | null | undefined,
 ): boolean {

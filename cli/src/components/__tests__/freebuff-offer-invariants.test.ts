@@ -123,9 +123,8 @@ describe('freebuff rows the CLI offers', () => {
     expect(freebuffCliOfferedModelIds('limited')).toContain(
       FREEBUFF_REWARD_MODEL_ID,
     )
-    // A free limited user still reaches it only through the banner: the limited
-    // GRID is MiMo alone.
-    expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).not.toContain(
+    // GLM 5.3 Flash is directly selectable in the limited grid as well.
+    expect(getFreebuffModelsForAccessTier('limited').map((m) => m.id)).toContain(
       FREEBUFF_REWARD_MODEL_ID,
     )
   })

@@ -20,7 +20,10 @@
  * the same payload.
  */
 
-import type { FreebuffSessionRateLimit } from '../types/freebuff-session'
+import type {
+  FreebuffFreebucksInfo,
+  FreebuffSessionRateLimit,
+} from '../types/freebuff-session'
 
 export interface FreebuffSectionQuotas {
   /** The quota the section HEADER should show, or undefined when the section
@@ -90,4 +93,33 @@ export function formatFreebuffRowQuota(
   const used = Math.min(quota.recentCount, quota.limit)
   const count = `${used} of ${quota.limit} ${quota.countsAdmissions ? 'starts' : 'used'}`
   return quota.poolLabel ? `${quota.poolLabel}: ${count}` : count
+}
+
+/** A projection of the server snapshot, not admission authority. Only the
+ * applicable meter is returned, so labels and disabled state cannot disagree.
+ * Legacy adapters may supply a remaining balance for snapshots without quotas. */
+export function getFreebuffModelMeter({
+  model,
+  freebucks,
+  quota,
+  legacyRemaining,
+}: {
+  model: string | undefined
+  freebucks?: FreebuffFreebucksInfo | null
+  quota?: FreebuffSessionRateLimit
+  legacyRemaining?: number
+}) {
+  const price = model ? freebucks?.prices[model] : undefined
+  if (price !== undefined && freebucks) {
+    return {
+      budget: { price, balance: freebucks.balance },
+      canStart: freebucks.quotaExempt === true || freebucks.balance >= price,
+    }
+  }
+  return {
+    quota,
+    canStart: quota
+      ? quota.recentCount < quota.limit
+      : legacyRemaining === undefined || legacyRemaining > 0,
+  }
 }

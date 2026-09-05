@@ -27,6 +27,7 @@ import {
 import {
   formatFreebuffRowQuota,
   getFreebuffSectionQuotas,
+  getFreebuffModelMeter,
 } from '@codebuff/common/util/freebuff-session-pools'
 import {
   getLimitedModelOffers,
@@ -35,6 +36,7 @@ import {
   getReferralInfo,
   getFreeWindowsInfo,
   getSubscriptionInfo,
+  getFreebucksInfo,
 } from '@codebuff/common/types/freebuff-session'
 
 import {
@@ -142,6 +144,8 @@ const DETAIL_SEPARATOR = ' · '
  * keeps the focused control scrolled into view.
  */
 interface FreebuffModelSelectorProps {
+  /** Session admission boundary; defaults to the CLI session controller. */
+  startSession?: (model: string) => Promise<void>
   /** Max vertical rows the picker may occupy. When the rendered rows exceed
    *  this, the list scrolls (scrollbar shown, focused row kept in view);
    *  otherwise the scrollbox shrinks to fit and no scrollbar appears. */
@@ -165,30 +169,6 @@ interface FreebuffModelSelectorProps {
   nowMs?: number
 }
 
-/** The rows the grid shows a tier.
- *
- *  NO LONGER FILTERED against the reward model (2026-08-31). That filter was
- *  written when the reward was GLM 5.2, which no tier's catalog listed anyway;
- *  the reward is now GLM 5.3 Flash, an ordinary full-access row and the CLI's
- *  own default, so filtering it here would delete the default pick from the
- *  grid — and would hide it from a limited-tier SUBSCRIBER, whose plan pays for
- *  exactly that row.
- *
- *  Nothing is lost at limited tier: `getFreebuffModelsForAccessTier` returns
- *  LIMITED_FREEBUFF_MODELS there, which does not contain the reward model, so a
- *  free limited user still reaches it only through FreebuffReferralBanner. */
-function gridModels(
-  accessTier: FreebuffAccessTier,
-  /** Live paid plan. A plan reaches limited regions, so a subscriber there is
-   *  offered the rows their plan meters instead of MiMo alone — the server
-   *  admits them (see `hasPaidSubscription` on
-   *  isFreebuffSessionModelAllowedForAccessTier), and a picker that hid them
-   *  would sell a plan whose models never appear. */
-  hasPaidSubscription = false,
-): readonly FreebuffModelOption[] {
-  return getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription)
-}
-
 /** Every model id this screen can offer a tier: the grid, plus the banner's
  *  earned-reward action. Exported so the offer→gate invariant test reads the
  *  real set rather than a copy of it.
@@ -204,11 +184,13 @@ function gridModels(
  *  the server reports sessions left — and the tier never was. */
 export function freebuffCliOfferedModelIds(
   accessTier: FreebuffAccessTier,
-  /** See gridModels. */
+  /** Whether the account holds an entitling paid plan. */
   hasPaidSubscription = false,
 ): readonly string[] {
   return [
-    ...gridModels(accessTier, hasPaidSubscription).map((m) => m.id),
+    ...getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription).map(
+      (m) => m.id,
+    ),
     FREEBUFF_REWARD_MODEL_ID,
   ]
 }
@@ -218,6 +200,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   onExpandedChange,
   belowToggle,
   nowMs,
+  startSession = startFreebuffSession,
 }) => {
   const theme = useTheme()
   // contentMaxWidth (not terminalWidth) is the real budget — the parent
@@ -247,6 +230,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     [now],
   )
   const [pending, setPending] = useState<string | null>(null)
+  const admissionPending = useRef(false)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   // `subscription.tierId` is non-null exactly when the server resolved an
@@ -264,7 +248,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // limited access, quota-exempt accounts and older servers.
   const freeWindows = freebuffFreeWindowsSummary(getFreeWindowsInfo(session))
   const availableModels = useMemo(
-    () => gridModels(accessTier, hasPaidSubscription),
+    () => getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription),
     [accessTier, hasPaidSubscription],
   )
   // Capacity-limited models the SERVER decided to offer on this response. The
@@ -296,35 +280,47 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // the queue for, so re-picking is always meaningful.
   const committedModelId: string | null = null
   const rateLimitsByModel = getRateLimitsByModel(session)
+  const freebucks = getFreebucksInfo(session)
   const referral = getReferralInfo(session)
+  const meterFor = useCallback(
+    (model: string) =>
+      getFreebuffModelMeter({
+        model,
+        freebucks,
+        quota: rateLimitsByModel?.[model],
+        // Older CLI snapshots omit earned quotas; full access and plans do not
+        // need that compatibility fallback.
+        legacyRemaining:
+          accessTier === 'limited' &&
+          !hasPaidSubscription &&
+          isFreebuffRewardModelId(model)
+            ? (referral?.weeklySessionsRemaining ?? 0)
+            : undefined,
+      }),
+    [
+      freebucks,
+      rateLimitsByModel,
+      accessTier,
+      hasPaidSubscription,
+      referral?.weeklySessionsRemaining,
+    ],
+  )
   // Present only while a promo runs; absent renders the banner exactly as it
   // rendered before promos existed.
   const glmPromo = getGlmPromo(session)
 
-  // Premium-session quota, surfaced on the PREMIUM header itself: "N of M used
-  // · resets in …". All premium models share one pool; the server replicates
-  // the same snapshot under every model id, so any entry has the right count.
-  // The count shows from the start — even at "0 of M" — so full-access users
-  // can see the daily pool and reset cadence before they spend anything.
-  // Exhaustion is also the moment the recommended hero flips to the unlimited
-  // fallback (when the recommendation is premium) — the hero must always be
-  // joinable. (The PREMIUM section only renders for the full-access tier, so
-  // this is scoped to it.)
-  //
-  // The PREMIUM section's own pool, and the rows inside it that answer to a
-  // stricter one. Taking `Object.values(...)[0]` was correct only while every
-  // row in the section shared a pool; DeepSeek's one-a-day ceiling (2026-08-19)
-  // put two pools in this section, and the old shortcut would label the header
-  // from whichever happened to be first in the payload.
-  //
-  // getFreebuffSectionQuotas decides by counting rows, so nothing here knows
-  // WHICH model is the odd one — the next per-model ceiling is a server change
-  // that this build renders without being rebuilt.
+  // Only applicable legacy quotas belong in section headings. Currency-priced
+  // rows describe their price and balance instead of a pool they do not use.
   const premiumSectionQuotas = getFreebuffSectionQuotas(
     availableModels
       .filter((m) => isFreebuffPremiumModelId(m.id))
       .map((m) => m.id),
-    rateLimitsByModel,
+    Object.fromEntries(
+      availableModels.flatMap((model) => {
+        const { quota } = meterFor(model.id)
+        return quota ? [[model.id, quota]] : []
+      }),
+    ),
   )
   const sharedRateLimit = premiumSectionQuotas.header
   const premiumUsed = sharedRateLimit?.recentCount ?? 0
@@ -374,16 +370,24 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // their one Luna session otherwise reads "1 of 4 used" beside a greyed
       // row and is told nothing about why it is greyed. Server-labelled, so a
       // pool added later needs no CLI release.
+      const { budget, canStart } = meterFor(model.id)
+      if (budget) {
+        details.push({
+          text: `${budget.price} Freebucks · ${budget.balance} available`,
+          warn: !canStart,
+        })
+        return details
+      }
       const ownQuota = premiumSectionQuotas.perModel[model.id]
       if (ownQuota) {
         details.push({
           text: formatFreebuffRowQuota(ownQuota),
-          warn: ownQuota.recentCount >= ownQuota.limit,
+          warn: !canStart,
         })
       }
       return details
     },
-    [deploymentAvailabilityLabel, now, premiumSectionQuotas],
+    [deploymentAvailabilityLabel, now, premiumSectionQuotas, meterFor],
   )
   const rowDetailsText = useCallback(
     (model: FreebuffModelOption): string =>
@@ -393,10 +397,29 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     [rowDetails],
   )
 
+  const isJoinable = useCallback(
+    (modelId: string) => {
+      if (!isFreebuffModelAvailable(modelId, new Date(now))) return false
+      // An offer row is on screen only while the shared pool has capacity, so
+      // what's left to check is the caller's own daily ceiling. It travels on
+      // the offer payload rather than in `rateLimitsByModel`, which the server
+      // deliberately keeps free of these models so the 30s poll doesn't pay for
+      // a quota nobody is using.
+      const offer = offerByModelId.get(modelId)
+      if (offer) return offer.userRemaining > 0
+      return meterFor(modelId).canStart
+    },
+    [now, offerByModelId, meterFor],
+  )
+
   const recommendedModel = useMemo(() => {
     const id = getRecommendedFreebuffModelId(accessTier, { premiumExhausted })
-    return availableModels.find((m) => m.id === id) ?? availableModels[0]!
-  }, [accessTier, availableModels, premiumExhausted])
+    const preferred =
+      availableModels.find((m) => m.id === id) ?? availableModels[0]!
+    return isJoinable(preferred.id)
+      ? preferred
+      : (availableModels.find((model) => isJoinable(model.id)) ?? preferred)
+  }, [accessTier, availableModels, premiumExhausted, isJoinable])
 
   // "A better model exists" footnote for a row. The CLI has no in-row button to
   // switch with, so it shows the notice only — the replacement is always
@@ -425,22 +448,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // single "other" model (limited tier) we just show both — a "see 1 more
   // model" toggle is noise.
   const canCollapse = otherModels.length >= 2
-
-  const isJoinable = useCallback(
-    (modelId: string) => {
-      if (!isFreebuffModelAvailable(modelId, new Date(now))) return false
-      // An offer row is on screen only while the shared pool has capacity, so
-      // what's left to check is the caller's own daily ceiling. It travels on
-      // the offer payload rather than in `rateLimitsByModel`, which the server
-      // deliberately keeps free of these models so the 30s poll doesn't pay for
-      // a quota nobody is using.
-      const offer = offerByModelId.get(modelId)
-      if (offer) return offer.userRemaining > 0
-      const rateLimit = rateLimitsByModel?.[modelId]
-      return !rateLimit || rateLimit.recentCount < rateLimit.limit
-    },
-    [now, offerByModelId, rateLimitsByModel],
-  )
 
   // Default collapsed only on the landing screen and only when the saved/active
   // selection IS the recommended model — a returning user whose preference is a
@@ -593,32 +600,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   }, [navIds, recommendedModel.id, selectedModel])
 
   useEffect(() => {
-    // Landing-screen safety net: the selection has to be one the user can
-    // actually start, or Enter POSTs a model the server rejects — or, worse,
-    // `pick` refuses it here and Enter does nothing at all. Two rules, because
-    // GLM is not an ordinary row:
-    //
-    //  - GLM 5.2 is judged by its referral BALANCE and nothing else. It is
-    //    selectable from the banner but is not in FREEBUFF_MODELS, so it never
-    //    reaches `renderedModelIds`, and its quota is not in this surface's
-    //    snapshot, so `isJoinable` cannot see it either. With
-    //    `accessTier === 'full'` in here instead, a limited-tier user who
-    //    pressed "Use GLM 5.2" had their pick judged invalid one render later
-    //    and silently swapped for the recommendation — the bounty session they
-    //    had earned was spendable on the server and unreachable from this
-    //    screen.
-    //  - every other model must be on screen AND startable. Rendered is not
-    //    enough: a spent premium row stays on screen, greyed, and `pick`
-    //    refuses it. That was unreachable while the default was unlimited;
-    //    since it became premium (2026-08-12) it is the ordinary state of a
-    //    returning user who has spent their pool. isJoinable runs the
-    //    deployment-hours check too, so closing hours are covered here.
-    //
-    // In-memory only — `setSelectedModel` doesn't persist, so the user's saved
-    // preference survives for their next launch.
-    const selectionIsStartable = isFreebuffRewardModelId(selectedModel)
-      ? (referral?.weeklySessionsRemaining ?? 0) > 0
-      : renderedModelIds.includes(selectedModel) && isJoinable(selectedModel)
+    // A model in the grid uses the same meter for focus repair and picking.
+    // Keep an earned banner pick too when an older catalog omits that row.
+    const selectionIsStartable =
+      (renderedModelIds.includes(selectedModel) ||
+        isFreebuffRewardModelId(selectedModel)) &&
+      isJoinable(selectedModel)
     if (isLanding && !selectionIsStartable) {
       setSelectedModel(recommendedModel.id)
       // The cursor moves too: the focus effect above only rescues an
@@ -626,7 +613,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       setFocusedId(recommendedModel.id)
     }
   }, [
-    referral?.weeklySessionsRemaining,
     renderedModelIds,
     isLanding,
     isJoinable,
@@ -705,11 +691,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         reasoningSuffixFor(m).length
       // Same treatment for the " · NEW" badge (6 chars).
       const newSuffixLen = 6
-// Ox Alpha reached the CLI on 2026-08-24 as an experimental row. The badge is
-// the only promise we can keep about a model an anonymous host can reprice,
-// rename or withdraw without notice, so it has to survive the width maths the
-// same way NEW does -- an unaccounted suffix truncates the row it labels.
-const testSuffixLen = ' · TEST'.length
+      // Ox Alpha reached the CLI on 2026-08-24 as an experimental row. The badge is
+      // the only promise we can keep about a model an anonymous host can reprice,
+      // rename or withdraw without notice, so it has to survive the width maths the
+      // same way NEW does -- an unaccounted suffix truncates the row it labels.
+      const testSuffixLen = ' · TEST'.length
 
       // Line 1, in each mode.
       const columnLabelLen = (m: FreebuffModelOption) =>
@@ -872,13 +858,18 @@ const testSuffixLen = ' · TEST'.length
 
   const pick = useCallback(
     (modelId: string) => {
-      if (pending) return
+      if (admissionPending.current) return
       if (modelId === committedModelId) return
       if (!isJoinable(modelId)) return
+      // Two Enter events can arrive before React commits the pending state.
+      admissionPending.current = true
       setPending(modelId)
-      startFreebuffSession(modelId).finally(() => setPending(null))
+      startSession(modelId).finally(() => {
+        admissionPending.current = false
+        setPending(null)
+      })
     },
-    [pending, committedModelId, isJoinable],
+    [committedModelId, isJoinable, startSession],
   )
 
   const toggleExpanded = useCallback(() => {
@@ -1252,14 +1243,22 @@ const testSuffixLen = ' · TEST'.length
         {sectionsContent}
         {freeWindows && !planSummary && (
           <text
-            style={{ fg: theme.muted, wrapMode: 'none', marginTop: SECTION_GAP }}
+            style={{
+              fg: theme.muted,
+              wrapMode: 'none',
+              marginTop: SECTION_GAP,
+            }}
           >
             FREE · {formatPlanWindows(freeWindows as never)}
           </text>
         )}
         {planSummary && (
           <text
-            style={{ fg: theme.muted, wrapMode: 'none', marginTop: SECTION_GAP }}
+            style={{
+              fg: theme.muted,
+              wrapMode: 'none',
+              marginTop: SECTION_GAP,
+            }}
           >
             {planSummary.tierName.toUpperCase()} PLAN ·{' '}
             {formatPlanWindows(planSummary)}
