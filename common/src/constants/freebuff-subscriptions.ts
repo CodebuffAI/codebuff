@@ -406,8 +406,27 @@ export function isFreebuffWebProClosedNow(
   id: string,
   now: Date = new Date(),
 ): boolean {
-  if (!FREEBUFF_WEB_PEAK_CLOSED_PRO_MODEL_IDS.includes(id)) return false
+  if (!isFreebuffWebPeakClosedProModelId(id)) return false
   return isDeepSeekExpensiveWindow(now)
+}
+
+/**
+ * Whether the peak closure applies to this row AT ALL, independent of the hour.
+ *
+ * Separate from `isFreebuffWebProClosedNow` because a PICKER asks a different
+ * question than an admission gate does. Admission asks "is it shut right now";
+ * the picker has to decide whether to draw an hours badge at every hour,
+ * including the hours the row is open — a badge that appeared only once the
+ * door was already shut would be useless for planning around.
+ *
+ * The picker used to derive that badge from `isFreebuffSubscriptionProModelId`,
+ * which was indistinguishable from this while V4 Pro was the only Pro row. It
+ * stopped being true on 2026-09-04, and the result was Luna and Gemini 3.8
+ * Flash both advertising `Open 3:00 AM - 5:00 PM PDT` — hours neither of them
+ * has, taken from a third model's provider.
+ */
+export function isFreebuffWebPeakClosedProModelId(id: string): boolean {
+  return FREEBUFF_WEB_PEAK_CLOSED_PRO_MODEL_IDS.includes(id)
 }
 
 /** "3:00 AM – 5:00 PM" — when the Web Pro row is open, in the reader's zone. */

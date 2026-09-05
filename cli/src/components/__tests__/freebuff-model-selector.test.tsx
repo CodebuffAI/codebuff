@@ -27,6 +27,7 @@ import {
   getFreebuffModelSupersededBy,
   isFreebuffModelId,
   LIMITED_FREEBUFF_MODELS,
+  LIMITED_FREEBUFF_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
 import { initializeThemeStore } from '../../hooks/use-theme'
@@ -135,12 +136,15 @@ describe('FreebuffModelSelector referral selection', () => {
 
   test('still repairs a locked reward selection to a visible grid model', async () => {
     await renderSelectorWithGlmRemaining(0)
-    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    // The LIMITED hero, which is no longer the full-access default: GLM 5.3
+    // Flash became that on 2026-09-05 and is earned-metered at this tier, so
+    // repairing onto it would move the user from one locked row to another.
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
   })
 
   test('treats an omitted reward balance as locked', async () => {
     await renderSelectorWithGlmRemaining()
-    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
   })
 })
 
@@ -358,7 +362,7 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
     const frame = setup.captureCharFrame()
     // `›` is the cursor: it has to be on the row Enter now commits.
-    expect(frame).toContain('› DeepSeek V4 Flash 07/31')
+    expect(frame).toContain('› GLM 5.3 Flash')
     // …and that row is the whole screen, exactly as for a user who is already
     // on the recommendation. The spent rows live behind the toggle.
     expect(frame).toContain('See all')
@@ -393,7 +397,7 @@ describe('FreebuffModelSelector tier layout', () => {
     // premium; an unmetered default is always joinable, so an invalid selection
     // now lands on the row the picker leads with.
     expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
-    expect(setup.captureCharFrame()).toContain('› DeepSeek V4 Flash 07/31')
+    expect(setup.captureCharFrame()).toContain('› GLM 5.3 Flash')
   })
 
   test('shows every limited-tier model when the access tier arrives after mount', async () => {
@@ -401,9 +405,17 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
     })
+    // The pick must DIFFER from the recommendation, or the picker mounts
+    // collapsed and this test asserts nothing about the list. `expanded` is
+    // computed once, in a useState initializer, so the state at MOUNT is what
+    // decides it — the later tier change cannot reopen it.
+    //
+    // This was GLM 5.3 Flash until 2026-09-05, when GLM became the default and
+    // the pick silently became the recommendation. Any joinable non-default row
+    // in both catalogs restores the intent.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     const setup = await renderSelector()
 
     flushSync(() => {
@@ -485,10 +497,13 @@ describe('FreebuffModelSelector tier layout', () => {
     })
     // A row that isn't the hero, so the picker opens expanded and the PREMIUM
     // header is actually drawn. The assertion is the ABSENCE of numbers on
-    // that header, so which unmetered row is selected changes nothing here.
+    // that header, so which unmetered row is selected changes nothing here —
+    // only that it is not the recommendation. It was GLM 5.3 Flash until
+    // 2026-09-05, when GLM became the default and this quietly started
+    // asserting against a COLLAPSED picker that draws no section at all.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
     const frame = (await renderSelector()).captureCharFrame()
     // The section still groups the rows; only the invented numbers are gone.
@@ -769,10 +784,13 @@ describe('GLM selection uses the applicable meter', () => {
         .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
       const setup = await renderSelector()
       await setup.renderOnce()
+      // The LIMITED hero when the balance cannot cover GLM. It stopped being
+      // the full-access default on 2026-09-05: GLM became that, and repairing
+      // an unaffordable GLM onto GLM would be a no-op.
       expect(getSelectedFreebuffModel()).toBe(
         balance >= 5
           ? FREEBUFF_GLM_V53_FLASH_MODEL_ID
-          : DEFAULT_FREEBUFF_MODEL_ID,
+          : LIMITED_FREEBUFF_MODEL_ID,
       )
       if (balance >= 5)
         // The price reads `5/hr`; the balance lives in the header line.
@@ -799,7 +817,8 @@ describe('GLM selection uses the applicable meter', () => {
     setBalance(4)
     await setup.renderOnce()
     await setup.renderOnce()
-    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    // The LIMITED hero — see the note in the case above.
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
     setBalance(5)
     useFreebuffModelStore
       .getState()
@@ -810,7 +829,7 @@ describe('GLM selection uses the applicable meter', () => {
     setBalance()
     await setup.renderOnce()
     await setup.renderOnce()
-    expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
   })
 })
 
@@ -913,8 +932,10 @@ test.each([false, true])(
       .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
     const setup = await renderSelector()
     await setup.renderOnce()
+    // Unpaid at limited access repairs onto the LIMITED hero, which since
+    // 2026-09-05 is not the full-access default.
     expect(getSelectedFreebuffModel()).toBe(
-      paid ? FREEBUFF_GPT_5_6_LUNA_MODEL_ID : DEFAULT_FREEBUFF_MODEL_ID,
+      paid ? FREEBUFF_GPT_5_6_LUNA_MODEL_ID : LIMITED_FREEBUFF_MODEL_ID,
     )
     if (paid) expect(setup.captureCharFrame()).toContain('GPT-5.6 Luna')
     else expect(setup.captureCharFrame()).not.toContain('GPT-5.6 Luna')

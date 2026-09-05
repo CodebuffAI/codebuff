@@ -1971,8 +1971,12 @@ export const FREEBUFF_MODELS = [
   // every load (see migrateSupersededFreebuffModelPreference). Leading the list
   // IS the recommendation; a returning user who chose another row keeps it.
   // A test pins the first row to DEFAULT_FREEBUFF_MODEL_ID.
-  DEEPSEEK_V4_FLASH_MODEL,
+  //
+  // GLM 5.3 FLASH LEADS AGAIN as of 2026-09-05, retaking the position it held
+  // from 08-30 to 09-02. This moved because the DEFAULT moved, which is the
+  // only reason this line ever moves.
   GLM_V53_FLASH_MODEL,
+  DEEPSEEK_V4_FLASH_MODEL,
   GPT_5_6_LUNA_MODEL,
   ...(FREEBUFF_ENABLE_MIMO_MODELS_IN_UI ? [MIMO_V25_MODEL] : []),
   // OX ALPHA LEFT THIS LIST on 2026-08-27, when its anonymous host ended the
@@ -2614,16 +2618,16 @@ export type FreebuffWebModelId = (typeof FREEBUFF_WEB_ALL_MODELS)[number]['id']
  *  user sees changes — pickers still render `warning`, there is simply no
  *  longer one to render on the default row. */
 export const DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID
 
 /** The default this one replaced, and the stamp of the one-time move of saved
  *  picks off it (util/freebuff-default-model-migration.ts). Every surface
  *  persists the model a session ran on, so a saved old default is usually
  *  inherited, not chosen. Bump both together at the next flip. */
 export const PREVIOUS_DEFAULT_FREEBUFF_MODEL_ID: FreebuffModelId =
-  FREEBUFF_GLM_V53_FLASH_MODEL_ID
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 export const FREEBUFF_DEFAULT_MODEL_MIGRATION_ID =
-  'deepseek-v4-flash-2026-09-02'
+  'glm-5.3-flash-2026-09-05'
 
 /** What new Freebuff Web/Cloud users see selected in the browser pickers, and
  *  the model a new Cloud thread starts on. DeepSeek V4 Flash 07/31 as of
@@ -2655,7 +2659,7 @@ export const FREEBUFF_DEFAULT_MODEL_MIGRATION_ID =
  *  browser surfaces can steer independently. They name the same model today and
  *  diverged as recently as 2026-08-04 -> 2026-08-12. */
 export const DEFAULT_FREEBUFF_WEB_MODEL_ID: FreebuffWebModelId =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  FREEBUFF_GLM_V53_FLASH_MODEL_ID
 
 /** Premium models the Web/Cloud picker renders small and muted: they are
  *  materially more expensive per token than the recommended default without
@@ -2730,6 +2734,18 @@ export const FALLBACK_FREEBUFF_MODEL_ID: FreebuffModelId =
 
 /** The limited tier's hero, and the model an out-of-tier or stale pick is
  *  coerced to. The same row as the full-access default since 2026-09-02. */
+// NOT the full-access default, and the divergence is deliberate as of
+// 2026-09-05. GLM 5.3 Flash became the default on every surface that day, and
+// this tier is the one place it cannot follow: at limited access without a paid
+// plan the CLI meters GLM by the EARNED reward balance
+// (`referral.weeklySessionsRemaining`), so a limited user who has earned
+// nothing has it locked. A hero is the row Enter lands on, so a locked hero is
+// a first keypress that fails — the exact invariant
+// `getRecommendedFreebuffModelId` exists to hold.
+//
+// DeepSeek V4 Flash stays because it is unmetered and always joinable here. Fold
+// this back into the default only once GLM is reachable at limited access
+// WITHOUT a grant.
 export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
 /**
@@ -2756,6 +2772,9 @@ export const LIMITED_FREEBUFF_MODEL_ID: FreebuffModelId =
 // Solar Pro 4 joined on 2026-09-03. Limited access is still metered by the
 // regional pool, so this widens the catalog without making that tier unmetered.
 export const LIMITED_FREEBUFF_MODEL_IDS = [
+  // Hero first — and it stayed here on 2026-09-05 when the full-access default
+  // moved to GLM 5.3 Flash. See LIMITED_FREEBUFF_MODEL_ID for why this tier
+  // cannot follow: GLM is earned-metered at limited access.
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,

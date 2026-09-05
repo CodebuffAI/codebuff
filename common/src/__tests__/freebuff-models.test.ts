@@ -115,7 +115,7 @@ describe('freebuff model availability', () => {
     // The two constants answer different questions: the default is the STARTING
     // pick (leading FREEBUFF_MODELS is the only steer — nothing is badged), the
     // fallback is what is always joinable when the premium pool is spent.
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
 
     //
@@ -285,23 +285,22 @@ describe('freebuff model availability', () => {
     expect(fallback.availability).toBe('always')
   })
 
-  test('DeepSeek V4 Flash LEADS the catalog, and still nothing is badged', () => {
-    // One default at every tier and on every surface as of 2026-09-02.
+  test('GLM 5.3 Flash LEADS the catalog, and still nothing is badged', () => {
+    // One default at every tier and on every surface as of 2026-09-05, when it
+    // retook the lead it held from 08-30 to 09-02.
     const all = FREEBUFF_MODELS.map((model) => model.id)
-    expect(all[0]).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
+    expect(all[0]).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
 
     // The properties that make it admissible as a default, asserted rather than
     // trusted — each one is a way the first Enter press could fail.
-    expect(isFreebuffPremiumModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toBe(
+    expect(isFreebuffPremiumModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(
       false,
     )
-    expect(
-      isFreebuffPausedFreeModelId(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID),
-    ).toBe(false)
+    expect(isFreebuffPausedFreeModelId(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toBe(
+      false,
+    )
     // STILL NOTHING IS BADGED. Leading the list is the whole recommendation:
     // no ' RECOMMENDED ' badge and no supersedes notice, because a
     // `supersededBy` would rewrite SAVED picks on every load
@@ -1149,7 +1148,7 @@ describe('freebuff model availability', () => {
     // model is still named TO a user: the pick is gone, so pointing somewhere
     // is the alternative to a dead end.
     expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
-      'DeepSeek V4 Flash',
+      'GLM 5.3 Flash',
     )
 
     // The AGENT door stays open, and that is not an oversight. Withdrawal is
@@ -1273,7 +1272,11 @@ describe('freebuff model availability', () => {
   test('limited access exposes Flash, MiMo, GLM 5.3 Flash, and Solar Pro 4', () => {
     // The limited default is the same model as the full default, hero first.
     expect(LIMITED_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    expect(LIMITED_FREEBUFF_MODEL_ID).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    // DIVERGED from the full-access default on 2026-09-05, deliberately. GLM
+    // 5.3 Flash became the default everywhere else; at limited access without a
+    // plan it is metered by the EARNED reward balance, so a user who has earned
+    // nothing has it locked — and a locked hero is a first keypress that fails.
+    expect(LIMITED_FREEBUFF_MODEL_ID).not.toBe(DEFAULT_FREEBUFF_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_IDS).toEqual([
       FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       FREEBUFF_MIMO_V25_MODEL_ID,
@@ -1349,10 +1352,10 @@ describe('freebuff model availability', () => {
     // assertions are what keep the first Enter press joinable at every point
     // in a user's day.
     expect(getRecommendedFreebuffModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     // THE STEP-DOWN NO LONGER FIRES FOR FULL ACCESS, and that is the point of
     // an unmetered default rather than an oversight. `premiumExhausted` says
@@ -1364,7 +1367,7 @@ describe('freebuff model availability', () => {
     // reverts to a real step-down automatically if a premium default returns.
     expect(
       getRecommendedFreebuffModelId('full', { premiumExhausted: true }),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    ).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     // What actually has to hold either way: whatever the hero is with the pool
     // spent, it must be joinable on an empty wallet.
     expect(
@@ -1390,17 +1393,15 @@ describe('freebuff model availability', () => {
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   })
 
-  test('every surface starts on DeepSeek V4 Flash, on two separate constants', () => {
+  test('every surface starts on GLM 5.3 Flash, on two separate constants', () => {
     // They stay TWO constants because they have diverged before and may again.
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    )
-    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_MODEL_ID).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     expect(getRecommendedFreebuffWebModelId('full')).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     expect(getRecommendedFreebuffWebModelId(undefined)).toBe(
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     )
     // Neither default may be a paused model — that is the pairing that would
     // put every new user on a row the server refuses.
@@ -1431,7 +1432,7 @@ describe('freebuff model availability', () => {
     // premium default does.
     expect(
       getRecommendedFreebuffWebModelId('full', { premiumExhausted: true }),
-    ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    ).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
     // The property that must hold whatever the hero is: joinable on an empty
     // wallet.
     expect(
@@ -1446,17 +1447,34 @@ describe('freebuff model availability', () => {
     ).toBe(false)
     // The web default must be a real, selectable web model.
     expect(isFreebuffWebModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID)).toBe(true)
-    // The default IS a limited-tier row — an ordinary free one, not the reward
-    // carve-out the GLM default before it relied on.
+    // The default IS a limited-tier row, from the ORDINARY catalog — which is
+    // the property that matters and is asserted directly, rather than through
+    // the reward list.
     expect(
       (FREEBUFF_WEB_LIMITED_MODEL_IDS as readonly string[]).includes(
         DEFAULT_FREEBUFF_WEB_MODEL_ID,
       ),
     ).toBe(true)
-    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).toBe(LIMITED_FREEBUFF_MODEL_ID)
+    expect(DEFAULT_FREEBUFF_WEB_MODEL_ID).not.toBe(LIMITED_FREEBUFF_MODEL_ID)
+    // A limited user must reach it with NO grant and NO plan. This is the real
+    // invariant: the hero is the row Enter lands on, so if the only door to it
+    // were an earned one, every limited user without a grant would fail their
+    // first send.
     expect(
-      isRewardModelRedeemableAtLimitedTier(DEFAULT_FREEBUFF_WEB_MODEL_ID),
-    ).toBe(false)
+      isFreebuffSessionModelAllowedForAccessTier(
+        DEFAULT_FREEBUFF_WEB_MODEL_ID,
+        'limited',
+      ),
+    ).toBe(true)
+    // It used to assert the default was NOT reward-redeemable. That was a
+    // COINCIDENCE of the two lists, not a requirement, and it stopped holding
+    // on 2026-09-05 when GLM 5.3 Flash — which has been the reward row since
+    // 2026-08-31 — became the default again. Being on the reward list is a
+    // widening: it adds a door for accounts holding a grant. It takes nothing
+    // away, and it cannot, because this row is unmetered and already in the
+    // ordinary limited catalog above. What WOULD be a real fault is the default
+    // drawing on a pool that can run dry, so that is asserted instead.
+    expect(isFreebuffPremiumModelId(DEFAULT_FREEBUFF_WEB_MODEL_ID)).toBe(false)
   })
 
   test('de-emphasizes nothing, and never the default', () => {
