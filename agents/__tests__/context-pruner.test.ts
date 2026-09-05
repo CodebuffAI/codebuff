@@ -2642,3 +2642,58 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('Working on feature B')
   })
 })
+
+describe('context-pruner cacheExpiryMinTokens floor', () => {
+  const MINUTE = 60 * 1000
+  /** Resumes 16 minutes after the last answer; the trailing pair is the
+   *  pruner's own spawn artifacts, which its STEP 0 strips. */
+  const resumed: Message[] = [
+    {
+      role: 'assistant',
+      content: [{ type: 'text', text: 'done for now' }],
+      sentAt: 1_000_000,
+    },
+    {
+      role: 'user',
+      content: [{ type: 'text', text: 'back' }],
+      tags: ['USER_PROMPT'],
+      sentAt: 1_000_000 + 16 * MINUTE,
+    },
+    {
+      role: 'user',
+      content: [{ type: 'text', text: '<user_message>{}</user_message>' }],
+      tags: ['USER_PROMPT'],
+      sentAt: 1,
+    },
+    {
+      role: 'user',
+      content: [{ type: 'text', text: 'PRUNER INSTRUCTIONS' }],
+      tags: ['INSTRUCTIONS_PROMPT'],
+      sentAt: 1,
+    },
+  ]
+  const prunes = (contextTokenCount: number) => {
+    const generator = contextPruner.handleSteps!({
+      agentState: createMockAgentState(resumed, contextTokenCount),
+      params: {
+        maxContextLength: 400_000,
+        cacheExpiryMs: 15 * MINUTE,
+        cacheExpiryMinTokens: 40_000,
+      },
+      logger: { debug() {}, info() {}, warn() {}, error() {} },
+    } as any)
+    let messages: Message[] = []
+    for (let r = generator.next(); !r.done; r = generator.next() as any) {
+      if ((r.value as any)?.toolName === 'set_messages')
+        messages = (r.value as any).input.messages
+    }
+    return JSON.stringify(messages[0].content).includes(
+      '<conversation_summary>',
+    )
+  }
+
+  test('prunes on a cold cache only once the context clears the floor', () => {
+    expect(prunes(60_000)).toBe(true)
+    expect(prunes(20_000)).toBe(false)
+  })
+})

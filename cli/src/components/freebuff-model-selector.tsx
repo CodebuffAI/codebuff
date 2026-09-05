@@ -1,3 +1,4 @@
+import { watchFreebucksPriceChanges } from '@codebuff/common/util/freebuff-price-changes'
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
 import React, {
@@ -10,16 +11,32 @@ import React, {
 } from 'react'
 
 import { Button } from './button'
+import {
+  FREEBUCKS_LABEL,
+  formatFreebucks,
+  freebucksHeaderLine,
+  freebucksOf,
+  freebucksPriceFor,
+  freebucksPriceLabel,
+  freebucksRowIntent,
+  sortModelsByPrice,
+} from '../utils/freebucks'
+import { safeOpen } from '../utils/open-url'
+
+/** Where a wall sends the reader — the same destination as the landing
+ *  screen's upgrade line, so the two cannot point at different pages. */
+const FREEBUCKS_PLANS_URL = 'https://freebuff.com/plans'
+
 import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
-  FREEBUFF_GLM_V52_MODEL_ID,
+  FREEBUFF_REWARD_MODEL_ID,
   getFreebuffDeploymentAvailabilityLabel,
   getFreebuffModelUnavailableLabel,
   getFreebuffModel,
   getFreebuffModelSupersededBy,
   getFreebuffModelsForAccessTier,
   getRecommendedFreebuffModelId,
-  isFreebuffGlmV52ModelId,
+  isFreebuffRewardModelId,
   isFreebuffModelAvailable,
   isFreebuffPremiumModelId,
   isSupportedFreebuffModelId,
@@ -27,17 +44,20 @@ import {
 import {
   formatFreebuffRowQuota,
   getFreebuffSectionQuotas,
+  getFreebuffModelMeter,
 } from '@codebuff/common/util/freebuff-session-pools'
 import {
   getLimitedModelOffers,
   getRateLimitsByModel,
   getGlmPromo,
   getReferralInfo,
+  getFreeWindowsInfo,
   getSubscriptionInfo,
 } from '@codebuff/common/types/freebuff-session'
 
 import {
   formatPlanWindows,
+  freebuffFreeWindowsSummary,
   freebuffPlanSummary,
 } from '@codebuff/common/util/freebuff-plan-summary'
 
@@ -89,7 +109,7 @@ import type {
 // once that empties — the hero must always be joinable. Pro is also the only
 // premium row open at every hour, which is why it holds this slot: V4 Flash now
 // closes for the ten-hour peak window. The limited tier's hero is MiMo 2.5,
-// which is that tier's entire catalog. UNLIMITED needs no
+// with DeepSeek V4 Flash as its one other row. UNLIMITED needs no
 // annotation. Empty sections are filtered so a model set with no premium (or no
 // unlimited) entries doesn't render an orphan header.
 //
@@ -97,7 +117,7 @@ import type {
 // so the "LIMITED" header would just leak the internal tier name without
 // organizing anything. Renderer treats an empty label as "no header row".
 type Section = {
-  key: 'premium' | 'unlimited' | 'limited' | 'offer'
+  key: 'premium' | 'unlimited' | 'limited' | 'offer' | 'metered'
   label: string
   models: readonly FreebuffModelOption[]
 }
@@ -140,6 +160,8 @@ const DETAIL_SEPARATOR = ' · '
  * keeps the focused control scrolled into view.
  */
 interface FreebuffModelSelectorProps {
+  /** Session admission boundary; defaults to the CLI session controller. */
+  startSession?: (model: string) => Promise<void>
   /** Max vertical rows the picker may occupy. When the rendered rows exceed
    *  this, the list scrolls (scrollbar shown, focused row kept in view);
    *  otherwise the scrollbox shrinks to fit and no scrollbar appears. */
@@ -163,39 +185,29 @@ interface FreebuffModelSelectorProps {
   nowMs?: number
 }
 
-/** The rows the grid shows a tier. GLM 5.2 is a referral reward, not a freely-pickable
- *  model, so it reaches the user through FreebuffReferralBanner instead. */
-function gridModels(
-  accessTier: FreebuffAccessTier,
-  /** Live paid plan. A plan reaches limited regions, so a subscriber there is
-   *  offered the rows their plan meters instead of MiMo alone — the server
-   *  admits them (see `hasPaidSubscription` on
-   *  isFreebuffSessionModelAllowedForAccessTier), and a picker that hid them
-   *  would sell a plan whose models never appear. */
-  hasPaidSubscription = false,
-): readonly FreebuffModelOption[] {
-  return getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription).filter(
-    (m) => !isFreebuffGlmV52ModelId(m.id),
-  )
-}
-
-/** Every model id this screen can offer a tier: the grid, plus the banner's earned GLM
- *  action. Exported so the offer→gate invariant test reads the real set rather than a
- *  copy of it.
+/** Every model id this screen can offer a tier: the grid, plus the banner's
+ *  earned-reward action. Exported so the offer→gate invariant test reads the
+ *  real set rather than a copy of it.
  *
- *  GLM is offered on BOTH tiers. It used to be full-access only, which was correct while
- *  GLM was a referral reward and referrals paid limited users in something else. Bounties
- *  changed that: a bounty grant is minted redeemable at limited access so the reward is
- *  worth the same in every region. The balance is what gates the row — the banner only
- *  renders the action when the server reports sessions left — and the tier never was. */
+ *  The banner's row is offered on BOTH tiers, and it means a different thing on
+ *  each since 2026-08-31: at limited access it unlocks the reward model, and at
+ *  full access it is an extra PREMIUM session rather than a model at all. The
+ *  id below is what the limited half offers; at full access it is already in
+ *  the grid, so listing it twice is harmless and listing it at all keeps this
+ *  set honest about what the banner can start.
+ *
+ *  The balance is what gates the row — the banner only renders the action when
+ *  the server reports sessions left — and the tier never was. */
 export function freebuffCliOfferedModelIds(
   accessTier: FreebuffAccessTier,
-  /** See gridModels. */
+  /** Whether the account holds an entitling paid plan. */
   hasPaidSubscription = false,
 ): readonly string[] {
   return [
-    ...gridModels(accessTier, hasPaidSubscription).map((m) => m.id),
-    FREEBUFF_GLM_V52_MODEL_ID,
+    ...getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription).map(
+      (m) => m.id,
+    ),
+    FREEBUFF_REWARD_MODEL_ID,
   ]
 }
 
@@ -204,6 +216,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   onExpandedChange,
   belowToggle,
   nowMs,
+  startSession = startFreebuffSession,
 }) => {
   const theme = useTheme()
   // contentMaxWidth (not terminalWidth) is the real budget — the parent
@@ -233,7 +246,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     [now],
   )
   const [pending, setPending] = useState<string | null>(null)
+  const admissionPending = useRef(false)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  /** The row currently asking a Freebucks question, if any. Cleared whenever
+   *  focus leaves it — an unanswered question is about the moment it was
+   *  raised in, and one left standing on a row the user has moved off would be
+   *  answered by an Enter meant for something else. */
+  const [pendingAsk, setPendingAsk] = useState<string | null>(null)
 
   // `subscription.tierId` is non-null exactly when the server resolved an
   // ENTITLING plan row, so the picker widens on the server's own verdict rather
@@ -245,9 +264,34 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // shared summary drives Desktop and the web usage page, so all three name
   // the same binding limit and the same reset.
   const planSummary = freebuffPlanSummary(subscriptionInfo)
+  // The free tier's own three windows (2026-09-01), in the same shape as the
+  // plan line so a free user and a subscriber read the same layout. Absent on
+  // limited access, quota-exempt accounts and older servers.
+  const freeWindows = freebuffFreeWindowsSummary(getFreeWindowsInfo(session))
+  // The Freebucks meter, when this account is on it. The BLOCK'S PRESENCE IS
+  // THE GATE, exactly as on Web and Desktop: the server sends it to the
+  // accounts it meters, so there is no client-side role check here that could
+  // drift from what is actually charged.
+  const freebucks = freebucksOf(session)
+  // The plan the daily pool was sized from. `planId` is the server's own
+  // verdict, so the name cannot disagree with the number beside it.
+  const planName = freebucks?.planId
+    ? freebucks.planId.charAt(0).toUpperCase() + freebucks.planId.slice(1)
+    : 'Free'
+  // The live session's model, for the switch question. `activeModel` is only
+  // set while a session is running, so an idle picker never asks.
+  const activeSessionModel =
+    session?.status === 'active' ? session.model : undefined
   const availableModels = useMemo(
-    () => gridModels(accessTier, hasPaidSubscription),
-    [accessTier, hasPaidSubscription],
+    // CHEAPEST FIRST once metered — the same order Web and Desktop use. Off
+    // the meter this returns the catalog untouched, so the recommended-first
+    // ordering everyone currently sees is unchanged.
+    () =>
+      sortModelsByPrice(
+        getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription),
+        freebucks,
+      ),
+    [accessTier, hasPaidSubscription, freebucks],
   )
   // Capacity-limited models the SERVER decided to offer on this response. The
   // client has no catalog of its own for these on purpose: when the wave's pool
@@ -278,35 +322,55 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // the queue for, so re-picking is always meaningful.
   const committedModelId: string | null = null
   const rateLimitsByModel = getRateLimitsByModel(session)
+  const [, refreshPrices] = useState(0)
+  useEffect(
+    () => watchFreebucksPriceChanges(freebucks, () => refreshPrices((n) => n + 1)),
+    [freebucks],
+  )
+  const taglineFor = useCallback(
+    (model: FreebuffModelOption) => freebucks?.priceNotices?.[model.id] ?? model.tagline,
+    [freebucks?.priceNotices],
+  )
   const referral = getReferralInfo(session)
+  const meterFor = useCallback(
+    (model: string) =>
+      getFreebuffModelMeter({
+        model,
+        freebucks,
+        quota: rateLimitsByModel?.[model],
+        // Older CLI snapshots omit earned quotas; full access and plans do not
+        // need that compatibility fallback.
+        legacyRemaining:
+          accessTier === 'limited' &&
+          !hasPaidSubscription &&
+          isFreebuffRewardModelId(model)
+            ? (referral?.weeklySessionsRemaining ?? 0)
+            : undefined,
+      }),
+    [
+      freebucks,
+      rateLimitsByModel,
+      accessTier,
+      hasPaidSubscription,
+      referral?.weeklySessionsRemaining,
+    ],
+  )
   // Present only while a promo runs; absent renders the banner exactly as it
   // rendered before promos existed.
   const glmPromo = getGlmPromo(session)
 
-  // Premium-session quota, surfaced on the PREMIUM header itself: "N of M used
-  // · resets in …". All premium models share one pool; the server replicates
-  // the same snapshot under every model id, so any entry has the right count.
-  // The count shows from the start — even at "0 of M" — so full-access users
-  // can see the daily pool and reset cadence before they spend anything.
-  // Exhaustion is also the moment the recommended hero flips to the unlimited
-  // fallback (when the recommendation is premium) — the hero must always be
-  // joinable. (The PREMIUM section only renders for the full-access tier, so
-  // this is scoped to it.)
-  //
-  // The PREMIUM section's own pool, and the rows inside it that answer to a
-  // stricter one. Taking `Object.values(...)[0]` was correct only while every
-  // row in the section shared a pool; DeepSeek's one-a-day ceiling (2026-08-19)
-  // put two pools in this section, and the old shortcut would label the header
-  // from whichever happened to be first in the payload.
-  //
-  // getFreebuffSectionQuotas decides by counting rows, so nothing here knows
-  // WHICH model is the odd one — the next per-model ceiling is a server change
-  // that this build renders without being rebuilt.
+  // Only applicable legacy quotas belong in section headings. Currency-priced
+  // rows describe their price and balance instead of a pool they do not use.
   const premiumSectionQuotas = getFreebuffSectionQuotas(
     availableModels
       .filter((m) => isFreebuffPremiumModelId(m.id))
       .map((m) => m.id),
-    rateLimitsByModel,
+    Object.fromEntries(
+      availableModels.flatMap((model) => {
+        const { quota } = meterFor(model.id)
+        return quota ? [[model.id, quota]] : []
+      }),
+    ),
   )
   const sharedRateLimit = premiumSectionQuotas.header
   const premiumUsed = sharedRateLimit?.recentCount ?? 0
@@ -342,6 +406,26 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const rowDetails = useCallback(
     (model: FreebuffModelOption): { text: string; warn: boolean }[] => {
       const details: { text: string; warn: boolean }[] = []
+      // THE PRICE LEADS LINE 2, and on the meter it is often the only thing
+      // on it.
+      //
+      // NOT a right-edge column, unlike Web and Desktop: this line is centred
+      // (`detailsPad`), which is the CLI's existing idiom for row detail and
+      // is not worth breaking for one chip. Leading the line is what makes the
+      // price findable instead — it is the first thing on the row's second
+      // line, in the same place on every row.
+      //
+      // `N/hr`, never a bare number: a bare "5" reads as a per-message rate,
+      // the most expensive misunderstanding this menu can create. Warned when
+      // the balance cannot cover it — the same signal the dimmed price carries
+      // on the other two surfaces.
+      const rowPrice = freebucksPriceFor(freebucks, model.id)
+      if (rowPrice !== undefined) {
+        details.push({
+          text: freebucksPriceLabel(rowPrice),
+          warn: (freebucks?.balance ?? 0) < rowPrice,
+        })
+      }
       if (model.warning) details.push({ text: model.warning, warn: true })
       if (model.availability === 'deployment_hours') {
         // Carries both the in-hours and out-of-hours signal, so a row with
@@ -356,16 +440,26 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // their one Luna session otherwise reads "1 of 4 used" beside a greyed
       // row and is told nothing about why it is greyed. Server-labelled, so a
       // pool added later needs no CLI release.
+      // A priced row already carries its price (`15/hr`, above) and the
+      // balance lives in the header line under the list, so the older
+      // "15 Freebucks · 100 available" detail is not added a second time; a
+      // priced row also skips the pool count below, which nothing charges.
+      const { budget, canStart } = meterFor(model.id)
+      if (budget) return details
       const ownQuota = premiumSectionQuotas.perModel[model.id]
-      if (ownQuota) {
+      // On the meter the POOL COUNT is a lie by omission — a priced row is not
+      // charged to that pool any more — so the price replaces it rather than
+      // sitting beside it. Off the meter this branch never runs and the count
+      // is rendered exactly as before.
+      if (ownQuota && freebucksPriceFor(freebucks, model.id) === undefined) {
         details.push({
           text: formatFreebuffRowQuota(ownQuota),
-          warn: ownQuota.recentCount >= ownQuota.limit,
+          warn: !canStart,
         })
       }
       return details
     },
-    [deploymentAvailabilityLabel, now, premiumSectionQuotas],
+    [deploymentAvailabilityLabel, now, premiumSectionQuotas, meterFor, freebucks],
   )
   const rowDetailsText = useCallback(
     (model: FreebuffModelOption): string =>
@@ -375,16 +469,82 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     [rowDetails],
   )
 
+  const isJoinable = useCallback(
+    (modelId: string) => {
+      if (!isFreebuffModelAvailable(modelId, new Date(now))) return false
+      // An offer row is on screen only while the shared pool has capacity, so
+      // what's left to check is the caller's own daily ceiling. It travels on
+      // the offer payload rather than in `rateLimitsByModel`, which the server
+      // deliberately keeps free of these models so the 30s poll doesn't pay for
+      // a quota nobody is using.
+      const offer = offerByModelId.get(modelId)
+      if (offer) return offer.userRemaining > 0
+      return meterFor(modelId).canStart
+    },
+    [now, offerByModelId, meterFor],
+  )
+
   const recommendedModel = useMemo(() => {
     const id = getRecommendedFreebuffModelId(accessTier, { premiumExhausted })
-    return availableModels.find((m) => m.id === id) ?? availableModels[0]!
-  }, [accessTier, availableModels, premiumExhausted])
+    const preferred =
+      availableModels.find((m) => m.id === id) ?? availableModels[0]!
+    return isJoinable(preferred.id)
+      ? preferred
+      : (availableModels.find((model) => isJoinable(model.id)) ?? preferred)
+  }, [accessTier, availableModels, premiumExhausted, isJoinable])
 
   // "A better model exists" footnote for a row. The CLI has no in-row button to
   // switch with, so it shows the notice only — the replacement is always
   // reachable as a row in this same picker (and is usually the RECOMMENDED hero
   // one Enter away), which is what getFreebuffModelSupersededBy guarantees by
   // resolving against the models actually on screen.
+  /**
+   * The meter's one decision for this row — paywall, confirm, or allow.
+   * Shared with Desktop and Web in shape and in wording; see
+   * `freebucksRowIntent`.
+   */
+  const rowIntent = useCallback(
+    (modelId: string) =>
+      freebucksRowIntent(freebucks, modelId, activeSessionModel),
+    [freebucks, activeSessionModel],
+  )
+
+  /**
+   * The question a row is currently asking, if any.
+   *
+   * Drawn as an extra line UNDER the row, the same slot the superseded notice
+   * uses — which is what keeps it inside the width math and the height budget
+   * below. A modal would be the wrong shape here for the same reason it is on
+   * the other two surfaces: it takes every other price off screen, and the
+   * comparison between prices is the thing the reader is in the middle of.
+   */
+  const askLineFor = useCallback(
+    (model: FreebuffModelOption): string | undefined => {
+      if (pendingAsk !== model.id) return undefined
+      const intent = rowIntent(model.id)
+      if (intent.kind === 'paywall') {
+        return `Not enough ${FREEBUCKS_LABEL} — ${freebucksPriceLabel(
+          intent.price,
+        )} against ${formatFreebucks(freebucks?.balance ?? 0)} left. Enter opens plans.`
+      }
+      if (intent.kind === 'confirm') {
+        // ONE question. When a switch would also dip into the wallet the
+        // wallet is the fact that matters — the daily pool refills, the wallet
+        // does not — so the overage wording wins outright and the session
+        // ending is a clause inside it, never a second prompt.
+        return intent.walletSpend > 0
+          ? `Today's ${FREEBUCKS_LABEL} are spent. Enter uses ${formatFreebucks(
+              intent.walletSpend,
+            )} from your wallet${activeSessionModel ? ' and ends this session' : ''}.`
+          : `Ends this session and starts a new one for ${freebucksPriceLabel(
+              intent.price,
+            )}. Enter to confirm.`
+      }
+      return undefined
+    },
+    [pendingAsk, rowIntent, freebucks, activeSessionModel],
+  )
+
   const supersededNoticeFor = useCallback(
     (model: FreebuffModelOption): string | undefined =>
       // Only on the row the user is actually on — the nudge is about THEIR
@@ -407,22 +567,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // single "other" model (limited tier) we just show both — a "see 1 more
   // model" toggle is noise.
   const canCollapse = otherModels.length >= 2
-
-  const isJoinable = useCallback(
-    (modelId: string) => {
-      if (!isFreebuffModelAvailable(modelId, new Date(now))) return false
-      // An offer row is on screen only while the shared pool has capacity, so
-      // what's left to check is the caller's own daily ceiling. It travels on
-      // the offer payload rather than in `rateLimitsByModel`, which the server
-      // deliberately keeps free of these models so the 30s poll doesn't pay for
-      // a quota nobody is using.
-      const offer = offerByModelId.get(modelId)
-      if (offer) return offer.userRemaining > 0
-      const rateLimit = rateLimitsByModel?.[modelId]
-      return !rateLimit || rateLimit.recentCount < rateLimit.limit
-    },
-    [now, offerByModelId, rateLimitsByModel],
-  )
 
   // Default collapsed only on the landing screen and only when the saved/active
   // selection IS the recommended model — a returning user whose preference is a
@@ -495,6 +639,19 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         { key: 'limited', label: '', models: otherModels },
       ] satisfies readonly Section[]
     }
+    // ONE FLAT LIST on the meter, like Web and Desktop.
+    //
+    // PREMIUM / UNLIMITED name which POOL metered a row, and on Freebucks
+    // there is one meter and every row carries a price. Keeping the split puts
+    // a "0 of 4 used" pool header above rows that are charged to something
+    // else entirely — two meters for one account, which is the arrangement
+    // that lies outright. Ordering is by price now, so the list is already
+    // sorted by the only thing those headers were standing in for.
+    if (freebucks) {
+      return [
+        { key: 'metered', label: '', models: availableModels },
+      ] satisfies readonly Section[]
+    }
     return (
       [
         {
@@ -511,7 +668,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         },
       ] satisfies readonly Section[]
     ).filter((section) => section.models.length > 0)
-  }, [expanded, accessTier, availableModels, otherModels])
+  }, [expanded, accessTier, availableModels, otherModels, freebucks])
 
   // Every section that gets drawn, in draw order. THE single source for the
   // render, the navigation order and the height estimate — those three must
@@ -575,32 +732,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   }, [navIds, recommendedModel.id, selectedModel])
 
   useEffect(() => {
-    // Landing-screen safety net: the selection has to be one the user can
-    // actually start, or Enter POSTs a model the server rejects — or, worse,
-    // `pick` refuses it here and Enter does nothing at all. Two rules, because
-    // GLM is not an ordinary row:
-    //
-    //  - GLM 5.2 is judged by its referral BALANCE and nothing else. It is
-    //    selectable from the banner but is not in FREEBUFF_MODELS, so it never
-    //    reaches `renderedModelIds`, and its quota is not in this surface's
-    //    snapshot, so `isJoinable` cannot see it either. With
-    //    `accessTier === 'full'` in here instead, a limited-tier user who
-    //    pressed "Use GLM 5.2" had their pick judged invalid one render later
-    //    and silently swapped for the recommendation — the bounty session they
-    //    had earned was spendable on the server and unreachable from this
-    //    screen.
-    //  - every other model must be on screen AND startable. Rendered is not
-    //    enough: a spent premium row stays on screen, greyed, and `pick`
-    //    refuses it. That was unreachable while the default was unlimited;
-    //    since it became premium (2026-08-12) it is the ordinary state of a
-    //    returning user who has spent their pool. isJoinable runs the
-    //    deployment-hours check too, so closing hours are covered here.
-    //
-    // In-memory only — `setSelectedModel` doesn't persist, so the user's saved
-    // preference survives for their next launch.
-    const selectionIsStartable = isFreebuffGlmV52ModelId(selectedModel)
-      ? (referral?.weeklySessionsRemaining ?? 0) > 0
-      : renderedModelIds.includes(selectedModel) && isJoinable(selectedModel)
+    // A model in the grid uses the same meter for focus repair and picking.
+    // Keep an earned banner pick too when an older catalog omits that row.
+    const selectionIsStartable =
+      (renderedModelIds.includes(selectedModel) ||
+        isFreebuffRewardModelId(selectedModel)) &&
+      isJoinable(selectedModel)
     if (isLanding && !selectionIsStartable) {
       setSelectedModel(recommendedModel.id)
       // The cursor moves too: the focus effect above only rescues an
@@ -608,7 +745,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       setFocusedId(recommendedModel.id)
     }
   }, [
-    referral?.weeklySessionsRemaining,
     renderedModelIds,
     isLanding,
     isJoinable,
@@ -673,7 +809,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // sentence, so appending it to line 2 would stretch the card past any
       // reasonable terminal width.
       const noticeLineLen = (m: FreebuffModelOption) =>
-        supersededNoticeFor(m)?.length ?? 0
+        // The meter's question shares this slot and is a full sentence too, so
+        // it has to be measured here or the card is sized for the shorter of
+        // the two and clips whichever is actually drawn.
+        Math.max(
+          supersededNoticeFor(m)?.length ?? 0,
+          askLineFor(m)?.length ?? 0,
+        )
 
       // Compact image indicator (" · Images", 9 chars) appended to the tagline on
       // line 1 so it never occupies its own line. Only NATIVELY multimodal models
@@ -687,18 +829,18 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         reasoningSuffixFor(m).length
       // Same treatment for the " · NEW" badge (6 chars).
       const newSuffixLen = 6
-// Ox Alpha reached the CLI on 2026-08-24 as an experimental row. The badge is
-// the only promise we can keep about a model an anonymous host can reprice,
-// rename or withdraw without notice, so it has to survive the width maths the
-// same way NEW does -- an unaccounted suffix truncates the row it labels.
-const testSuffixLen = ' · TEST'.length
+      // Ox Alpha reached the CLI on 2026-08-24 as an experimental row. The badge is
+      // the only promise we can keep about a model an anonymous host can reprice,
+      // rename or withdraw without notice, so it has to survive the width maths the
+      // same way NEW does -- an unaccounted suffix truncates the row it labels.
+      const testSuffixLen = ' · TEST'.length
 
       // Line 1, in each mode.
       const columnLabelLen = (m: FreebuffModelOption) =>
         2 /* indicator + space */ +
         maxNameLen +
         NAME_GAP +
-        m.tagline.length +
+        taglineFor(m).length +
         reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
         (m.isNew ? newSuffixLen : 0) +
@@ -707,7 +849,7 @@ const testSuffixLen = ' · TEST'.length
         2 +
         m.displayName.length +
         3 /* " · " */ +
-        m.tagline.length +
+        taglineFor(m).length +
         reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
         (m.isNew ? newSuffixLen : 0) +
@@ -759,8 +901,10 @@ const testSuffixLen = ' · TEST'.length
       offerModels,
       contentMaxWidth,
       reasoningSuffixFor,
+      taglineFor,
       rowDetailsText,
       supersededNoticeFor,
+      askLineFor,
     ])
 
   // A row spends a second line whenever it has details to put there — no longer
@@ -780,7 +924,13 @@ const testSuffixLen = ' · TEST'.length
   const estimatedModelHeight = useMemo(() => {
     let y = 0
     const rowHeight = (m: FreebuffModelOption) =>
-      2 + (rowHasDetailsLine(m) ? 2 : 1) + (supersededNoticeFor(m) ? 1 : 0)
+      2 +
+      (rowHasDetailsLine(m) ? 2 : 1) +
+      (supersededNoticeFor(m) ? 1 : 0) +
+      // The meter's question occupies a real row too. Left out, the first
+      // frame after an Enter is one row short and the toggle is clipped —
+      // the same failure the plan line caused before it was counted.
+      (askLineFor(m) ? 1 : 0)
     if (showStandaloneRecommended) {
       y += rowHeight(recommendedModel)
     }
@@ -796,9 +946,15 @@ const testSuffixLen = ' · TEST'.length
     // short per line — the plan line steals the toggle's row and the blocked
     // row is clipped outright, which is precisely the row a blocked user
     // needs.
-    if (planSummary) {
+    if (freebucks) {
+      // One line, and it stands in for both branches below rather than adding
+      // to them — the meter replaces the windows, it does not join them.
+      y += SECTION_GAP + 1
+    } else if (planSummary) {
       y += SECTION_GAP + 1
       if (planSummary.blocked) y += 1
+    } else if (freeWindows) {
+      y += SECTION_GAP + 1
     }
     if (canCollapse) {
       y += TOGGLE_MARGIN
@@ -813,6 +969,9 @@ const testSuffixLen = ' · TEST'.length
     showStandaloneRecommended,
     supersededNoticeFor,
     planSummary,
+    freeWindows,
+    freebucks,
+    askLineFor,
   ])
 
   // When a referral exists, start at the parent's full allowance until the
@@ -851,13 +1010,36 @@ const testSuffixLen = ' · TEST'.length
 
   const pick = useCallback(
     (modelId: string) => {
-      if (pending) return
+      if (admissionPending.current) return
       if (modelId === committedModelId) return
       if (!isJoinable(modelId)) return
+      // The meter's gates. The first Enter on a row that costs something
+      // irreversible ASKS; the second commits. Re-pressing on the row already
+      // asking is the confirmation, which is why this compares against
+      // `pendingAsk` rather than clearing it unconditionally.
+      const intent = rowIntent(modelId)
+      if (intent.kind !== 'allow' && pendingAsk !== modelId) {
+        setPendingAsk(modelId)
+        return
+      }
+      if (intent.kind === 'paywall') {
+        // A wall has no second press that starts a session: the balance
+        // cannot cover it and the server would refuse. Enter opens the plans
+        // page instead, which is the only action that changes the answer.
+        setPendingAsk(null)
+        void safeOpen(FREEBUCKS_PLANS_URL)
+        return
+      }
+      setPendingAsk(null)
+      // Two Enter events can arrive before React commits the pending state.
+      admissionPending.current = true
       setPending(modelId)
-      startFreebuffSession(modelId).finally(() => setPending(null))
+      startSession(modelId).finally(() => {
+        admissionPending.current = false
+        setPending(null)
+      })
     },
-    [pending, committedModelId, isJoinable],
+    [committedModelId, isJoinable, startSession, rowIntent, pendingAsk],
   )
 
   const toggleExpanded = useCallback(() => {
@@ -971,9 +1153,20 @@ const testSuffixLen = ' · TEST'.length
     // buttonInnerWidth is capped by contentMaxWidth and the line may be wider
     // than the card.
     const details = rowDetails(model)
+    const askLine = askLineFor(model)
     const detailsPad = Math.max(
       0,
       Math.floor((buttonInnerWidth - rowDetailsText(model).length) / 2),
+    )
+
+    // The ask line gets its OWN centring, from its OWN length. Reusing
+    // `detailsPad` centred a 60-character sentence as if it were the 5
+    // characters of "20/hr", which started it two-thirds of the way across the
+    // card and ran it off the right edge — and `wrapMode: 'none'` clips
+    // silently, so the question the row was waiting on simply vanished.
+    const askPad = Math.max(
+      0,
+      Math.floor((buttonInnerWidth - (askLine?.length ?? 0)) / 2),
     )
 
     const supersededNotice = supersededNoticeFor(model)
@@ -1036,11 +1229,11 @@ const testSuffixLen = ' · TEST'.length
           </span>
           {compactNames ? (
             <span fg={mutedColor}>
-              {' · ' + model.tagline + reasoningSuffix + imagesSuffix}
+              {' · ' + taglineFor(model) + reasoningSuffix + imagesSuffix}
             </span>
           ) : (
             <span fg={mutedColor}>
-              {namePadding + model.tagline + reasoningSuffix + imagesSuffix}
+              {namePadding + taglineFor(model) + reasoningSuffix + imagesSuffix}
             </span>
           )}
           {model.isNew && (
@@ -1068,6 +1261,15 @@ const testSuffixLen = ' · TEST'.length
                 </span>
               </React.Fragment>
             ))}
+          </text>
+        )}
+        {/* The meter's question, BELOW the price it is about, so the row reads
+            name -> price -> question. Secondary colour: it is the only line in
+            the menu waiting on the reader. */}
+        {askLine !== undefined && (
+          <text style={{ wrapMode: 'none' }}>
+            <span>{' '.repeat(askPad)}</span>
+            <span fg={theme.secondary}>{askLine}</span>
           </text>
         )}
         {supersededNotice && (
@@ -1229,9 +1431,35 @@ const testSuffixLen = ' · TEST'.length
         {showStandaloneRecommended &&
           renderModelButton(recommendedModel, { recommended: true })}
         {sectionsContent}
-        {planSummary && (
+        {/* On the meter this line REPLACES the session windows below it. Two
+            meters for one account is the arrangement that lies outright: the
+            windows count sessions that nothing charges any more, while the
+            balance quietly drains beside them. */}
+        {freebucks && (
           <text
             style={{ fg: theme.muted, wrapMode: 'none', marginTop: SECTION_GAP }}
+          >
+            {planName.toUpperCase()} · {freebucksHeaderLine(freebucks)}
+          </text>
+        )}
+        {!freebucks && freeWindows && !planSummary && (
+          <text
+            style={{
+              fg: theme.muted,
+              wrapMode: 'none',
+              marginTop: SECTION_GAP,
+            }}
+          >
+            FREE · {formatPlanWindows(freeWindows as never)}
+          </text>
+        )}
+        {!freebucks && planSummary && (
+          <text
+            style={{
+              fg: theme.muted,
+              wrapMode: 'none',
+              marginTop: SECTION_GAP,
+            }}
           >
             {planSummary.tierName.toUpperCase()} PLAN ·{' '}
             {formatPlanWindows(planSummary)}
@@ -1241,7 +1469,7 @@ const testSuffixLen = ' · TEST'.length
             overruns the card width, and wrapMode 'none' clips it silently — the
             one part of the summary a blocked user actually needs was the part
             that vanished. */}
-        {planSummary?.blocked && (
+        {!freebucks && planSummary?.blocked && (
           <text style={{ fg: theme.secondary, wrapMode: 'none' }}>
             {planSummary.blocked.label}
             {planSummary.blocked.resetsAt
@@ -1261,6 +1489,7 @@ const testSuffixLen = ' · TEST'.length
             referral={referral}
             glmPromo={glmPromo}
             accessTier={accessTier}
+            metered={freebucks !== undefined}
             focusedId={focusedId}
             onFocusTargetsChange={setExtraTargets}
           />

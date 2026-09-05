@@ -34,19 +34,20 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 
 | Model                       | Access                  | Best for                                                          |
 | --------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| **GLM 5.3 Flash**           | Full access             | The default in full mode; deepest reasoning, unmetered            |
+| **GLM 5.3 Flash**           | Full and limited access | The default everywhere; deepest reasoning, unmetered              |
+| **DeepSeek V4 Flash 07/31** | Full and limited access | Fast coding and tool use, unmetered                               |
 | **GPT-5.6 Luna**            | Full access             | Strong all-around with native images                              |
-| **DeepSeek V4 Flash 07/31** | Full access             | Fast coding and tool use; pauses during peak hours                |
-| **MiMo 2.5**                | Full and limited access | The limited-mode default; balanced performance with image support |
-| **Solar Pro 4**             | Full access             | Limited-time trial; 524K context, text only                       |
+| **MiMo 2.5**                | Full and limited access | Balanced performance with image support                           |
+| **Solar Pro 4**             | Full and limited access | Limited-time trial; 524K context, text only; unmetered at full access |
+| **Muse Spark 1.3**          | Full access             | Meta's agentic coding model; 1M context. Rate limited and shared by every user, so it queues when busy and answers on DeepSeek V4 Flash rather than making you wait |
 
-Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash and MiMo 2.5 are unmetered and cost no session at all. Models may still serve from a quantized (Q8_0) build.
+Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash, DeepSeek V4 Flash 07/31, MiMo 2.5 and Solar Pro 4 are unmetered at full access and cost no session at all. Models may still serve from a quantized (Q8_0) build.
 
 DeepSeek V4 Pro was retired from the catalog; GLM 5.3 Flash replaces it as the deep-reasoning pick.
 
 Beyond the regular picker:
 
-- **GLM 5.2** is available through earned sessions rather than as an always-unlocked model.
+- **Referrals and bounties** earn extra sessions on top of the free daily allowance.
 - **Gemini 3.1 Flash Lite** powers specialist tasks such as file finding and research rather than appearing in the main picker.
 
 Availability and limits depend on your access tier, product, and current capacity. Freebuff Desktop can also run locally installed Claude Code and Codex agents using your existing provider account; those connected models are separate from Freebuff's included catalog.
@@ -63,7 +64,7 @@ Freebuff uses specialized agents instead of sending every task through one model
 
 ## Free access
 
-Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access, currently MiMo 2.5 with three one-hour sessions per day, earnable up to seven.
+Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access to DeepSeek V4 Flash 07/31, GLM 5.3 Flash, MiMo 2.5, and Solar Pro 4. Accounts on Freebucks use the displayed model price and balance. On the legacy session system, limited access includes six one-hour sessions per day, earnable up to seven; GLM uses earned reward sessions instead.
 
 Text ads support the included models. Freebuff shows the applicable session limits and any model-specific data-use notice before you start.
 
@@ -71,7 +72,7 @@ Text ads support the included models. Freebuff shows the applicable session limi
 
 **Is my data used to train AI?** Only when a model or feature says data may be used for AI training. Freebuff or the provider may then keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products.
 
-**How is my data used and stored?** We use prompts, messages, code, files, and repository data to provide the service. We may analyze prompts and messages—including pasted content—to personalize ads, using Freebuff systems and service providers acting on our behalf. Separate uploads and connected repositories are not provided to advertising providers. Where required by law, we provide advertising choices and honor recognized opt-out signals; elsewhere, this processing may be required to use the free service. See the Privacy Policy for retention and details.
+**How is my data used and stored?** We use prompts, messages, agent traces, code, files, and repository data to provide Freebuff. We may analyze prompts and messages to personalize ads. We do not give separately uploaded files or connected repositories to advertising providers. Restricted partners may evaluate connected Cloud repositories or code used with models labeled “May use data for AI training,” but cannot otherwise use, broadly share, or train on it. See the Privacy Policy for retention, eligibility, and advertising choices.
 
 See the [Privacy Policy](https://freebuff.com/privacy-policy) for complete details.
 

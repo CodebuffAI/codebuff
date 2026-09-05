@@ -134,6 +134,7 @@ export type AgentTemplate<
   includeMessageHistory: boolean
   inheritParentSystemPrompt: boolean
   windowedFileReads?: boolean
+  suppressCommitAttribution?: boolean
   compactContext?:
     | boolean
     | { cacheExpiryMs?: number | null; cacheExpiryMinTokens?: number | null }
@@ -209,6 +210,13 @@ export type StepHandler<
    * keep compiling. Treat `undefined` as "unknown model".
    */
   model?: string
+  /** Context-pruning thresholds for `model`, resolved by the runtime; read by
+   *  generators that spawn `context-pruner`. */
+  contextPruning?: {
+    maxContextLength: number
+    cacheExpiryMs: number
+    cacheExpiryMinTokens: number
+  }
   logger: Logger
 }) => StepGenerator
 

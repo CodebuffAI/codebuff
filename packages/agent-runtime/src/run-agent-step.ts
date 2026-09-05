@@ -835,6 +835,16 @@ export async function loopAgentSteps(
     ancestorRunIds: initialAgentState.ancestorRunIds,
   })
   if (!runId) {
+    // registration ends on the run's signal; an abort landing there is a cancel, not a failure
+    if (signal.aborted) {
+      return {
+        agentState: initialAgentState,
+        output: {
+          type: 'error',
+          message: 'Run cancelled by user',
+        },
+      }
+    }
     throw new Error('Failed to start agent run')
   }
   initialAgentState.runId = runId
@@ -900,6 +910,8 @@ export async function loopAgentSteps(
     : await getToolSet({
         toolNames: agentTemplate.toolNames,
         windowedFileReads: agentTemplate.windowedFileReads === true,
+        suppressCommitAttribution:
+          agentTemplate.suppressCommitAttribution === true,
         additionalToolDefinitions: async () => {
           if (!cachedAdditionalToolDefinitions) {
             cachedAdditionalToolDefinitions = await additionalToolDefinitions({

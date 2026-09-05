@@ -347,6 +347,24 @@ export async function fetchImpreziaChatAd(params: {
       requestId,
       impressionUuid: ad.impression.impressionUuid,
       brandName: ad.creative.brandName,
+      // Whether the demand attached third-party measurement, and in which
+      // channel. Without this we cannot tell "the partner sent no trackers"
+      // from "we dropped them", which is exactly the question that gets asked
+      // when an advertiser reports missing impressions.
+      trackerChannels: ad.trackers
+        ? [
+            ad.trackers.impressionFrameUrl
+              ? 'impression:frame'
+              : ad.trackers.impression?.length
+                ? 'impression:pixels'
+                : null,
+            ad.trackers.viewabilityFrameUrl
+              ? 'mrc50:frame'
+              : ad.trackers.mrc50?.length
+                ? 'mrc50:pixels'
+                : null,
+          ].filter(Boolean)
+        : [],
     },
     '[ads:imprezia] Ad filled',
   )

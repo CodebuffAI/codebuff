@@ -22,6 +22,7 @@
  * same histories and fails when they drift.
  */
 
+import { DEFAULT_COMPACTION_POLICY } from '@codebuff/common/constants/compaction-policy'
 import type {
   FilePart,
   ImagePart,
@@ -71,46 +72,11 @@ const SUMMARY_DISCLAIMER =
 const CONTINUATION_TEXT =
   'Continue the existing assistant turn from the historical memory above. The original user request and completed assistant/tool work are recorded there. Do not restart completed work; resume with the next necessary real tool call or final response.'
 
-/**
- * Idle gap after which the prompt cache is assumed cold, so compacting is free.
- *
- * One hour, matching the base3 roots' explicit setting (agents/base3.ts, where
- * the full rationale lives). The threshold is a product knob rather than a TTL
- * tracker — per-lane cache TTLs range from ~60s (Merge) to hours (DeepSeek),
- * and compaction never prevents the cold prefill after an idle gap, it only
- * shrinks it at the price of dropped tool results and truncated prose. Under
- * an hour is coffee-break territory, where that trade reads as "the model
- * forgot everything" (a top user complaint). This default only binds agents
- * that declare `compactContext: true` without tuning; keeping it aligned with
- * base3 stops the next such agent silently reinheriting the 30-minute trigger
- * that was deliberately removed.
- */
-export const DEFAULT_CACHE_EXPIRY_MS = 60 * 60 * 1000
-
-/**
- * Smallest context the opportunistic (cache-expiry) pass will touch.
- *
- * Compaction is free in tokens but never free in information: it drops tool
- * results outright and truncates assistant prose to 1,300 tokens a message. On
- * a big history that trade is obviously worth it. On a small one it is not, and
- * below one summary ceiling it can be a strict loss — the budget walk evicts
- * nothing (everything already fits), so the only change is the per-message
- * transformations, and a history that is mostly user prose comes back the same
- * size plus the envelope.
- *
- * Two ceilings is one full ceiling of guaranteed eviction headroom plus margin.
- * The margin matters because the two sides are measured with different rulers:
- * the budgets count `chars / 3` while `contextTokenCount` is a gpt-4o BPE count
- * times 1.35. Measured against each other those land at 0.90x for prose, 0.94x
- * for source and 1.32x for dense JSON, so a 70k-token summary can weigh up to
- * ~92k on the scale this floor is compared against. At 140k the pass still
- * removes a third in that worst case and far more in the normal one.
- *
- * The context-limit trigger ignores this floor: when the history genuinely no
- * longer fits, a poor trade beats a failed request.
- */
+/** Thresholds for agents that declare `compactContext: true` without tuning;
+ *  owned, with the rationale, by common/src/constants/compaction-policy.ts. */
+export const DEFAULT_CACHE_EXPIRY_MS = DEFAULT_COMPACTION_POLICY.cacheExpiryMs
 export const DEFAULT_CACHE_EXPIRY_MIN_TOKENS =
-  2 * (DEFAULT_ASSISTANT_TOOL_BUDGET + DEFAULT_USER_BUDGET)
+  DEFAULT_COMPACTION_POLICY.cacheExpiryMinTokens
 
 /** Separator between entries inside the rendered historical memory. */
 const ENTRY_SEPARATOR = '\n\n---\n\n'

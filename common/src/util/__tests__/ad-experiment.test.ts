@@ -7,8 +7,12 @@ import {
   adExperimentArmForUser,
   firstPartyAdRouteForUser,
   firstPartyAdRouteForGeoRequest,
+  firstPartyArmKey,
+  FIRST_PARTY_ARM_SALT,
+  fnv1a,
   firstPartyPrimaryBucket,
   firstPartyPrimaryBasisPoints,
+  houseLegOpen,
   isImpreziaAudienceEmail,
 } from '../ad-experiment'
 
@@ -199,7 +203,11 @@ describe('first-party request routing', () => {
           geoRouting: true,
           tier2BonusPercent: 100,
         },
-        { geoTier: 'tier1', terminalPaidFallback: false },
+        {
+          geoTier: 'tier1',
+          terminalPaidFallback: false,
+          impreziaFirstRefusal: false,
+        },
         'sample',
       ),
     ).toBe('first_party_primary')
@@ -216,7 +224,11 @@ describe('first-party request routing', () => {
       firstPartyAdRouteForGeoRequest(
         'user',
         config,
-        { geoTier: 'tier2', terminalPaidFallback: false },
+        {
+          geoTier: 'tier2',
+          terminalPaidFallback: false,
+          impreziaFirstRefusal: false,
+        },
         'sample',
       ),
     ).toBe('paid_network_only')
@@ -224,7 +236,11 @@ describe('first-party request routing', () => {
       firstPartyAdRouteForGeoRequest(
         'user',
         config,
-        { geoTier: 'tier2', terminalPaidFallback: true },
+        {
+          geoTier: 'tier2',
+          terminalPaidFallback: true,
+          impreziaFirstRefusal: false,
+        },
         'sample',
       ),
     ).toBe('paid_networks_then_first_party_bonus')
@@ -232,7 +248,11 @@ describe('first-party request routing', () => {
       firstPartyAdRouteForGeoRequest(
         'user',
         config,
-        { geoTier: 'unknown', terminalPaidFallback: true },
+        {
+          geoTier: 'unknown',
+          terminalPaidFallback: true,
+          impreziaFirstRefusal: false,
+        },
         'sample',
       ),
     ).toBe('paid_network_only')
@@ -248,9 +268,231 @@ describe('first-party request routing', () => {
           geoRouting: false,
           tier2BonusPercent: 100,
         },
-        { geoTier: 'unknown', terminalPaidFallback: false },
+        {
+          geoTier: 'unknown',
+          terminalPaidFallback: false,
+          impreziaFirstRefusal: false,
+        },
         'sample',
       ),
     ).toBe('gravity_then_first_party')
+  })
+})
+
+describe('first-party ahead of Imprezia (COD-338)', () => {
+  const config = {
+    primaryPercent: 0,
+    backfill: false,
+    geoRouting: true,
+    tier2BonusPercent: 0,
+    impreziaArmPercent: 100,
+  }
+  const tier1 = { geoTier: 'tier1' as const, terminalPaidFallback: false }
+
+  test('routes ahead of Imprezia only where Imprezia holds first refusal', () => {
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        config,
+        { ...tier1, impreziaFirstRefusal: true },
+        'sample',
+      ),
+    ).toBe('first_party_before_imprezia')
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        config,
+        { ...tier1, impreziaFirstRefusal: false },
+        'sample',
+      ),
+    ).toBe('paid_network_only')
+  })
+
+  test('never fires outside Tier 1, with geo routing off, at 0, or unset', () => {
+    const refusal = { terminalPaidFallback: true, impreziaFirstRefusal: true }
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        config,
+        { geoTier: 'tier2', ...refusal },
+        'sample',
+      ),
+    ).toBe('paid_network_only')
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        config,
+        { geoTier: 'unknown', ...refusal },
+        'sample',
+      ),
+    ).toBe('paid_network_only')
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        { ...config, geoRouting: false },
+        { geoTier: 'tier1', ...refusal },
+        'sample',
+      ),
+    ).toBe('paid_network_only')
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        { ...config, impreziaArmPercent: 0 },
+        { geoTier: 'tier1', ...refusal },
+        'sample',
+      ),
+    ).toBe('paid_network_only')
+    expect(
+      firstPartyAdRouteForGeoRequest(
+        'user',
+        {
+          primaryPercent: 0,
+          backfill: false,
+          geoRouting: true,
+          tier2BonusPercent: 0,
+        },
+        { geoTier: 'tier1', ...refusal },
+        'sample',
+      ),
+    ).toBe('paid_network_only')
+  })
+
+  test('the primary window wins and the arm window stacks above it', () => {
+    const context = { ...tier1, impreziaFirstRefusal: true }
+    let primary = 0
+    let preempt = 0
+    let paidOnly = 0
+    for (let index = 0; index < 4_000; index++) {
+      const route = firstPartyAdRouteForGeoRequest(
+        'user',
+        { ...config, primaryPercent: 25, impreziaArmPercent: 50 },
+        context,
+        `sample-${index}`,
+      )
+      if (route === 'first_party_primary') primary++
+      else if (route === 'first_party_before_imprezia') preempt++
+      else if (route === 'paid_network_only') paidOnly++
+      else throw new Error(`unexpected route ${route}`)
+    }
+    expect(primary / 4_000).toBeGreaterThan(0.21)
+    expect(primary / 4_000).toBeLessThan(0.29)
+    expect(preempt / 4_000).toBeGreaterThan(0.46)
+    expect(preempt / 4_000).toBeLessThan(0.54)
+    expect(paidOnly / 4_000).toBeGreaterThan(0.21)
+    expect(paidOnly / 4_000).toBeLessThan(0.29)
+  })
+
+  test('a stack past 100% takes every remaining request and nothing more', () => {
+    const context = { ...tier1, impreziaFirstRefusal: true }
+    for (let index = 0; index < 1_000; index++) {
+      const route = firstPartyAdRouteForGeoRequest(
+        'user',
+        { ...config, primaryPercent: 60, impreziaArmPercent: 75 },
+        context,
+        `sample-${index}`,
+      )
+      expect(
+        route === 'first_party_primary' ||
+          route === 'first_party_before_imprezia',
+      ).toBe(true)
+    }
+  })
+
+  test('the primary window is identical with and without first refusal', () => {
+    for (let index = 0; index < 2_000; index++) {
+      const sampleId = `sample-${index}`
+      const withRefusal = firstPartyAdRouteForGeoRequest(
+        'user',
+        { ...config, primaryPercent: 30, backfill: true },
+        { ...tier1, impreziaFirstRefusal: true },
+        sampleId,
+      )
+      const without = firstPartyAdRouteForGeoRequest(
+        'user',
+        { ...config, primaryPercent: 30, backfill: true },
+        { ...tier1, impreziaFirstRefusal: false },
+        sampleId,
+      )
+      expect(withRefusal === 'first_party_primary').toBe(
+        without === 'first_party_primary',
+      )
+      if (withRefusal !== 'first_party_before_imprezia') {
+        expect(withRefusal).toBe(without)
+      }
+    }
+  })
+
+  test('backfill stays the route when the sample misses the arm window', () => {
+    let backfill = 0
+    for (let index = 0; index < 2_000; index++) {
+      if (
+        firstPartyAdRouteForGeoRequest(
+          'user',
+          { ...config, backfill: true, impreziaArmPercent: 50 },
+          { ...tier1, impreziaFirstRefusal: true },
+          `sample-${index}`,
+        ) === 'gravity_then_first_party'
+      ) {
+        backfill++
+      }
+    }
+    expect(backfill / 2_000).toBeGreaterThan(0.46)
+    expect(backfill / 2_000).toBeLessThan(0.54)
+  })
+})
+
+describe('the house leg (COD-358)', () => {
+  test('opens on Tier 1 and Tier 2, never on unknown geo, never signed out, never off', () => {
+    const on = { houseLeg: true, geoRouting: true }
+    expect(houseLegOpen('user', on, 'tier1')).toBe(true)
+    expect(houseLegOpen('user', on, 'tier2')).toBe(true)
+    expect(houseLegOpen('user', on, 'unknown')).toBe(false)
+    expect(houseLegOpen(null, on, 'tier1')).toBe(false)
+    expect(houseLegOpen('user', { ...on, houseLeg: false }, 'tier1')).toBe(
+      false,
+    )
+  })
+
+  test('with geo routing off there is no tier and the knob alone decides', () => {
+    const off = { houseLeg: true, geoRouting: false }
+    expect(houseLegOpen('user', off, 'unknown')).toBe(true)
+    expect(houseLegOpen('user', { ...off, houseLeg: false }, 'tier1')).toBe(
+      false,
+    )
+  })
+})
+
+/**
+ * COD-369. The arm is a LOGGED field today, not a routing input -- the route
+ * draw still reads a fresh per-request `randomUUID()`. These cover the key
+ * itself so that COD-362 can point routing at it later without re-deriving the
+ * properties it needs.
+ */
+describe('sticky first-party arm (logged, not routed on)', () => {
+  test('one user lands in one bucket, on every surface and every request', () => {
+    const first = firstPartyPrimaryBucket(firstPartyArmKey('user-a'))
+    for (let attempt = 0; attempt < 5; attempt++) {
+      expect(firstPartyPrimaryBucket(firstPartyArmKey('user-a'))).toBe(first)
+    }
+    expect(first).toBeGreaterThanOrEqual(0)
+    expect(first).toBeLessThan(10_000)
+  })
+
+  test('two users do not share a bucket by construction', () => {
+    const buckets = new Set(
+      Array.from({ length: 200 }, (_, index) =>
+        firstPartyPrimaryBucket(firstPartyArmKey(`user-${index}`)),
+      ),
+    )
+    // A hash into 10,000 buckets will collide a little; what would be wrong is
+    // every user landing together.
+    expect(buckets.size).toBeGreaterThan(150)
+  })
+
+  test('rotating the salt is the only thing that moves a bucket', () => {
+    const rotated = `fpa_${fnv1a(`${FIRST_PARTY_ARM_SALT}_rotated:user-a`).toString(36)}`
+    expect(firstPartyPrimaryBucket(rotated)).not.toBe(
+      firstPartyPrimaryBucket(firstPartyArmKey('user-a')),
+    )
   })
 })

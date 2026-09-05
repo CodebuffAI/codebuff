@@ -1,4 +1,6 @@
 import React from 'react'
+import { getFreebucksInfo } from '@codebuff/common/types/freebuff-session'
+import { getFreebuffModelMeter } from '@codebuff/common/util/freebuff-session-pools'
 
 import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
 import { useNow } from '../hooks/use-now'
@@ -18,11 +20,13 @@ export const FreebuffActiveSessionSummary: React.FC<
   const theme = useTheme()
   const now = useNow(60_000, session?.status === 'active')
   const progress = useFreebuffSessionProgress(session)
-  const quota = session?.status === 'active' ? session.rateLimit : undefined
+  if (session?.status !== 'active' || !progress) return null
 
-  if (session?.status !== 'active' || !progress) {
-    return null
-  }
+  const { quota } = getFreebuffModelMeter({
+    model: session.model,
+    freebucks: getFreebucksInfo(session),
+    quota: session.rateLimit,
+  })
 
   if (!quota) {
     return null
@@ -30,7 +34,7 @@ export const FreebuffActiveSessionSummary: React.FC<
 
   const resetCountdown = formatFreebuffPremiumResetCountdown(
     new Date(quota.resetAt),
-    now
+    now,
   )
   const label =
     'accessTier' in session && session.accessTier === 'limited'

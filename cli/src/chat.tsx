@@ -2,6 +2,11 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 import { setFreeModeCapacityDeferralListener } from '@codebuff/sdk'
 import { safeOpen } from './utils/open-url'
+import { getAuthToken } from './utils/auth'
+import { isSponsoredProposalBlock } from './types/chat'
+import { runSponsoredProposalControl } from './utils/sponsored-proposal-control'
+import { sponsoredRunFor } from './utils/sponsored-run'
+import { useSponsoredProposal } from './hooks/use-sponsored-proposal'
 import {
   useCallback,
   useEffect,
@@ -14,7 +19,14 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import { SingleAdBanner } from './components/ad-banner'
+import {
+  SingleAdBanner,
+  dockPanelRowBudget,
+} from './components/ad-banner'
+import {
+  DOCK_PANEL_MAX_WIDTH,
+  getDockPanelLayout,
+} from '@codebuff/common/ads/inline-ad-layout'
 import { ChatInputBar } from './components/chat-input-bar'
 import { ChatHeader } from './components/chat-header'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
@@ -47,6 +59,7 @@ import { useChatUI } from './hooks/use-chat-ui'
 import { useClipboard } from './hooks/use-clipboard'
 import { useEvent } from './hooks/use-event'
 import { useGravityAd } from './hooks/use-gravity-ad'
+import { DOCK_CHORD_HINT, useDockPanel } from './hooks/use-dock-panel'
 import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
@@ -104,6 +117,7 @@ import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { BoxRenderable, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
+import type { SponsoredProposalContentBlock } from './types/chat'
 import type { Dispatch, SetStateAction } from 'react'
 
 export const Chat = ({
@@ -207,7 +221,218 @@ export const Chat = ({
   // the latest recorder from the hook.
   const handleAdClick = useEvent(recordClick)
   const handleAdImpression = useEvent(recordImpression)
+
   const handleResponseAdsNeeded = useEvent(requestResponseAds)
+
+  // ------------------------------------------------- sponsored proposals
+
+  /**
+   * Patch the one sponsored-proposal block for a target, wherever it sits.
+   *
+   * BY TARGET rather than by message id: a repository has one live offer, and
+   * if it were ever rendered twice, declining it in one place must not leave it
+   * standing in the other.
+   */
+  // The transcript as of this render. A control has to find its own block
+  // synchronously -- `busy` is what makes a double press inert, and reading it
+  // out of a `setMessages` updater would be a check inside a state write.
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
+
+  const patchProposalBlock = useEvent(
+    (target: string, patch: Partial<SponsoredProposalContentBlock>) => {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.blocks?.some(
+            (block) =>
+              isSponsoredProposalBlock(block) && block.target === target,
+          )
+            ? {
+                ...message,
+                blocks: message.blocks.map((block) =>
+                  isSponsoredProposalBlock(block) && block.target === target
+                    ? { ...block, ...patch }
+                    : block,
+                ),
+              }
+            : message,
+        ),
+      )
+    },
+  )
+
+  const findProposalBlock = useEvent((target: string) => {
+    for (const message of messagesRef.current) {
+      for (const block of message.blocks ?? []) {
+        if (isSponsoredProposalBlock(block) && block.target === target) {
+          return block
+        }
+      }
+    }
+    return null
+  })
+
+  // Whether a card is currently holding the keyboard. Derived from the
+  // transcript rather than kept as its own flag: the menu is a property of a
+  // block, and a second source of truth would go stale the moment a block is
+  // answered or replaced while its menu is open.
+  //
+  // AN OPEN CONSENT COUNTS TOO (COD-339), and it matters more than the menu
+  // does: its Enter answers "run an advertiser's procedure on this machine",
+  // and an Enter that also reached the composer would send a prompt at the same
+  // time as it approved a run.
+  const sponsoredProposalMenuOpen = useMemo(
+    () =>
+      messages.some((message) =>
+        message.blocks?.some(
+          (block) =>
+            isSponsoredProposalBlock(block) &&
+            (block.menuOpen === true || block.consent !== undefined) &&
+            block.answered !== true,
+        ),
+      ),
+    [messages],
+  )
+
+  const handleSponsoredProposalMenu = useEvent((target: string, open: boolean) =>
+    patchProposalBlock(target, { menuOpen: open }),
+  )
+  const handleSponsoredProposalDisclose = useEvent(
+    (target: string, open: boolean) => patchProposalBlock(target, { whyOpen: open }),
+  )
+
+  const handleSponsoredProposalControl = useEvent(
+    (
+      target: string,
+      control: 'dismiss' | 'report' | 'never-advertiser' | 'opt-out',
+    ) => {
+      const block = findProposalBlock(target)
+      const authToken = getAuthToken()
+      // `busy` is checked before the await, not after: the impatient double
+      // press is synchronous, and a guard on the far side of a promise arrives
+      // too late to stop the second call.
+      if (
+        !block || block.busy || block.answered ||
+        block.refreshUnavailable || !authToken
+      ) return
+      patchProposalBlock(target, { busy: true, menuOpen: false })
+      const proposalId = block.proposal._id
+      const advertiserId = block.proposal.advertiser_id
+      void (async () => {
+        let succeeded = false
+        try {
+          // The ordering rules -- preference before dismiss, and the
+          // preference's RESULT deciding whether the dismiss happens at all --
+          // live in `runSponsoredProposalControl` so they can be tested
+          // without a network and without mounting chat.
+          succeeded = await runSponsoredProposalControl(
+            control,
+            { proposalId, advertiserId },
+            authToken,
+          )
+        } finally {
+          // ANSWERED ONLY WHEN IT WAS. `answered` stands the card's controls
+          // down permanently, so setting it in a `finally` marked a failed
+          // control as an answer the user gave: the card stayed on screen
+          // looking spent, with no way to retry and nothing saved.
+          //
+          // ANSWERED, not removed, when it did succeed. The card stays in the
+          // transcript with its controls stood down, because a block that
+          // vanishes reflows text the user is reading and leaves history
+          // claiming the offer never happened.
+          patchProposalBlock(
+            target,
+            succeeded ? { busy: false, answered: true } : { busy: false },
+          )
+          if (!succeeded) {
+            // Said out loud, unlike the transport's own debug log. Everything
+            // else in this channel is optional and stays quiet, but this is the
+            // one moment the user made a request of us and the card must not
+            // silently keep the answer.
+            setMessages((prev) => [
+              ...prev,
+              getSystemMessage("Couldn't save that — try again"),
+            ])
+          }
+        }
+      })()
+    },
+  )
+
+  /**
+   * Accept, in two halves (COD-339, COD-336 item 4).
+   *
+   * The first half OPENS the consent and writes nothing anywhere -- not
+   * upstream, not on disk. Everything the screen names is known before the
+   * accept, which is exactly what makes a refusal free: there is nothing to
+   * undo. The branch is minted here with the run id it will be created under,
+   * so the branch the screen names is the branch that is cut.
+   */
+  const handleSponsoredProposalAccept = useEvent((target: string) => {
+    const block = findProposalBlock(target)
+    if (
+      !block || block.busy || block.answered ||
+      block.refreshUnavailable || block.consent
+    ) return
+    void (async () => {
+      const run = sponsoredRunFor(getProjectRoot())
+      const consent = await run.consentFor(block.proposal)
+      if (!consent.ok) {
+        setMessages((prev) => [...prev, getSystemMessage(consent.message)])
+        return
+      }
+      patchProposalBlock(target, {
+        menuOpen: false,
+        consent: { ...consent.consent, runId: consent.runId },
+        consentIndex: 0,
+      })
+    })()
+  })
+
+  /**
+   * The consent's answer.
+   *
+   * A REFUSAL CLOSES THE SCREEN AND DOES NOTHING ELSE. Not a dismiss, not a
+   * decline recorded upstream -- the user said "not now" to running something,
+   * which is not the same as saying they never want to see it, and conflating
+   * the two would spend a control they did not press.
+   */
+  const handleSponsoredProposalConsent = useEvent(
+    (target: string, approved: boolean) => {
+      const block = findProposalBlock(target)
+      const consent = block?.consent
+      if (!block || !consent) return
+      patchProposalBlock(target, { consent: undefined, consentIndex: 0 })
+      if (!approved) return
+      patchProposalBlock(target, { busy: true })
+      void (async () => {
+        const run = sponsoredRunFor(getProjectRoot())
+        const outcome = await run.accept(block.proposal, consent.runId)
+        // `runStarted` is what makes the poller watch: the row upstream still
+        // reads `offered` until the first poll after the accept, and keying the
+        // cadence on the state alone would slow it down at exactly the moment
+        // watching starts to matter.
+        patchProposalBlock(target, {
+          busy: false,
+          ...(outcome.ok ? { runStarted: true } : {}),
+        })
+        setMessages((prev) => [
+          ...prev,
+          getSystemMessage(
+            outcome.ok
+              ? `Started ${consent.advertiserName}'s sponsored task on ${consent.branch}. Nothing will be pushed.`
+              : 'message' in outcome
+                ? outcome.message
+                : 'The sponsored task was not started.',
+          ),
+        ])
+      })()
+    },
+  )
+
+  // Mounted here rather than inside the card, because the card does not exist
+  // until this hook puts it there (COD-339: nothing polled before it).
+  useSponsoredProposal()
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -250,6 +475,31 @@ export const Chat = ({
     () => registerScrollToLatest(scrollToLatest),
     [registerScrollToLatest, scrollToLatest],
   )
+
+  // The sponsor dock's detail panel (COD-457). `enabled` is the surface gate,
+  // not the experiment: the arm itself comes from the policy route, and every
+  // failure there lands on control.
+  //
+  // `canExpand` is computed HERE rather than inside the hook because only this
+  // component knows the terminal height. Passing it in is what stops a toggle
+  // parking the dock in an open state that renders nothing on a short
+  // terminal: below roughly 22 rows the budget leaves fewer rows than the
+  // smallest panel needs, and accepting the toggle there hid the chord hint
+  // and required Escape to clear a state the user could not see.
+  const dockPanelFits = useMemo(() => {
+    const ad = ads?.[0]
+    if (!ad) return false
+    return getDockPanelLayout(ad, {
+      width: Math.min(DOCK_PANEL_MAX_WIDTH, terminalWidth - 2),
+      availableRows: dockPanelRowBudget(terminalHeight),
+    }).fits
+  }, [ads, terminalWidth, terminalHeight])
+
+  const dockPanel = useDockPanel({
+    ad: ads?.[0],
+    enabled: showInlineAds,
+    canExpand: dockPanelFits,
+  })
 
   const updateHeaderVisibility = useCallback(() => {
     const header = headerRef.current
@@ -997,13 +1247,15 @@ export const Chat = ({
   const handleSubmit = useCallback(async () => {
     // Report activity for ad rotation
     reportActivity()
+    // A new send collapses the panel: the user has moved on from the ad.
+    dockPanel.collapse('send')
     // Update terminal title with truncated user input
     if (inputValue.trim()) {
       setTerminalTitle(inputValue)
     }
     const result = await onSubmitPrompt(inputValue, agentMode)
     handleCommandResult(result)
-  }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult])
+  }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult, dockPanel])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
   const historyNavUpEnabled =
@@ -1045,6 +1297,8 @@ export const Chat = ({
       nextCtrlCWillExit,
       queuePaused,
       queuedCount,
+      dockExpandable: dockPanel.expandable,
+      dockPanelOpen: dockPanel.expanded,
     }),
     [
       inputMode,
@@ -1067,6 +1321,8 @@ export const Chat = ({
       nextCtrlCWillExit,
       queuePaused,
       queuedCount,
+      dockPanel.expandable,
+      dockPanel.expanded,
     ],
   )
 
@@ -1283,8 +1539,11 @@ export const Chat = ({
         // Otherwise open the buy credits page
         safeOpen(WEBSITE_URL + '/usage')
       },
+      onToggleDockPanel: () => dockPanel.toggle('key'),
+      onCloseDockPanel: () => dockPanel.collapse('esc'),
     }),
     [
+      dockPanel,
       setInputMode,
       handleCloseFeedback,
       setFeedbackText,
@@ -1324,7 +1583,18 @@ export const Chat = ({
   useChatKeyboard({
     state: chatKeyboardState,
     handlers: chatKeyboardHandlers,
-    disabled: askUserState !== null || reviewMode || queuePanelOpen,
+    // `sponsoredProposalMenuOpen` joins askUser for exactly the same reason
+    // askUser is here (COD-376): both take over the keyboard, and `useKeyboard`
+    // is a GLOBAL listener rather than a focus-scoped one -- so without this,
+    // the menu's arrows, Enter and Esc would reach the card AND the composer,
+    // and the user would move a selection while also navigating history. The
+    // card claims no keys at all outside this span; that is what makes turning
+    // chat's off for the span safe rather than a second overlap.
+    disabled:
+      askUserState !== null ||
+      reviewMode ||
+      queuePanelOpen ||
+      sponsoredProposalMenuOpen,
   })
 
   // Sync message block context to zustand store for child components
@@ -1371,6 +1641,11 @@ export const Chat = ({
       onAdClick: handleAdClick,
       onAdImpression: handleAdImpression,
       onResponseAdsNeeded: handleResponseAdsNeeded,
+      onSponsoredProposalMenu: handleSponsoredProposalMenu,
+      onSponsoredProposalDisclose: handleSponsoredProposalDisclose,
+      onSponsoredProposalAccept: handleSponsoredProposalAccept,
+      onSponsoredProposalConsent: handleSponsoredProposalConsent,
+      onSponsoredProposalControl: handleSponsoredProposalControl,
     })
   }, [
     handleCollapseToggle,
@@ -1487,6 +1762,21 @@ export const Chat = ({
     IS_FREEBUFF && freebuffSession?.status === 'active'
   const isFreebuffSessionOver =
     IS_FREEBUFF && freebuffSession?.status === 'ended'
+
+  // A takeover screen owns both the keyboard and the rows above the composer.
+  // Rather than teach the panel to arbitrate with four other Escape handlers,
+  // it simply closes for the duration -- and `collapse` is a no-op when it was
+  // already shut, so this fires exactly one `dock_collapsed`.
+  const dockTakeoverActive =
+    askUserState !== null ||
+    reviewMode ||
+    queuePanelOpen ||
+    sponsoredProposalMenuOpen ||
+    isFreebuffSessionOver
+  useEffect(() => {
+    if (dockTakeoverActive) dockPanel.collapse('outside')
+  }, [dockTakeoverActive, dockPanel])
+
   const shouldShowStatusLine =
     !feedbackMode &&
     (hasStatusIndicatorContent ||
@@ -1626,6 +1916,21 @@ export const Chat = ({
             ad={ads[0]}
             onClick={recordClick}
             onImpression={recordImpression}
+            arm={dockPanel.arm}
+            // A takeover screen owns the keyboard and the space above the
+            // composer, so the panel is force-closed for its duration rather
+            // than fighting it for Escape.
+            expanded={dockPanel.expanded && !dockTakeoverActive}
+            chordHint={DOCK_CHORD_HINT}
+            panelRows={dockPanelRowBudget(terminalHeight)}
+            onToggle={() => dockPanel.toggle('click')}
+            onClose={() => dockPanel.collapse('close')}
+            // One click, one event: the dock's metadata rides the click
+            // acknowledgement so the canonical server-side `ads.clicked`
+            // carries it, rather than a second client-side event beside it.
+            onDockClick={(clickedAd, from) =>
+              recordClick(clickedAd, dockPanel.clickContext(from))
+            }
           />
         )}
 

@@ -52,6 +52,14 @@ export const AD_TOP_UP_PRESET_CENTS = [
  * for.
  */
 export const AD_TOP_UP_PRODUCT_NAME = 'Freebuff placements balance'
+/**
+ * Suffix on every one-off Freebuff card charge (placements top-ups and the
+ * postpaid sweep). The Stripe account is Codebuff's, so a card line reads
+ * `CODEBUFF* <suffix>`; prefix + `* ` + suffix must fit Stripe's 22 characters
+ * and this fits exactly. Subscription Products carry `FREEBUFF.COM` on the
+ * Product itself instead.
+ */
+export const AD_STATEMENT_DESCRIPTOR_SUFFIX = 'FREEBUFF.COM'
 
 /** The only currency this rail accepts. Asserted at parse time, not assumed. */
 export const AD_TOP_UP_CURRENCY = 'usd'
@@ -155,6 +163,24 @@ export function effectivePlacementCpcFloorCents(
   return isValidPlacementCpcFloorOverride(overrideCents)
     ? overrideCents
     : AD_PLACEMENT_CPC_FLOOR_CENTS
+}
+
+/** Safe self-serve ceiling when an operator has not supplied a tighter one. */
+export const AD_PLACEMENT_CPC_SELF_SERVE_CEILING_CENTS = 1_000
+
+/** The advertiser's editable band; operator terms can only make it narrower. */
+export function advertiserPlacementCpcBand(params: {
+  floorOverrideCents: unknown
+  ceilingCents: unknown
+}): { floorCents: number; ceilingCents: number } {
+  return {
+    floorCents: effectivePlacementCpcFloorCents(params.floorOverrideCents),
+    ceilingCents:
+      Number.isInteger(params.ceilingCents) &&
+      (params.ceilingCents as number) >= 1
+        ? (params.ceilingCents as number)
+        : AD_PLACEMENT_CPC_SELF_SERVE_CEILING_CENTS,
+  }
 }
 
 /** A single automatic reprice may move at most 25% in either direction. */

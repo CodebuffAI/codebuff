@@ -1,3 +1,4 @@
+import { nextFreebucksPriceChange } from '@codebuff/common/util/freebuff-price-changes'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
   freebuffWithdrawnModelMessage,
@@ -9,6 +10,7 @@ import {
   getLimitedModelOffers,
   getRateLimitsByModel,
   getReferralInfo,
+  getFreebucksInfo,
   getSubscriptionInfo,
 } from '@codebuff/common/types/freebuff-session'
 import { useEffect } from 'react'
@@ -148,7 +150,7 @@ export function getFreebuffInstanceId(): string | undefined {
  *  server rejects the request — so the message queue gates on this before
  *  firing queued work. Same predicate gates DELETE on exit: outside these
  *  states there is no server row to release. */
-function toLandingSession(
+export function toLandingSession(
   current: FreebuffSessionResponse | null,
 ): Extract<FreebuffSessionResponse, { status: 'none' }> {
   const accessTier =
@@ -175,6 +177,11 @@ function toLandingSession(
   // Same carry as rateLimitsByModel: the plan panel must not blink out
   // between dropping to the picker and the refreshing GET.
   const subscription = getSubscriptionInfo(current)
+  // And the meter itself, for the same reason and with more at stake: without
+  // this the picker falls back to session rings for the frame between the
+  // synthesized state and the GET, which on a metered account is a different
+  // product flickering into view.
+  const freebucks = getFreebucksInfo(current)
 
   return {
     status: 'none',
@@ -182,6 +189,7 @@ function toLandingSession(
     ...(rateLimitsByModel ? { rateLimitsByModel } : {}),
     ...(referral ? { referral } : {}),
     ...(subscription ? { subscription } : {}),
+    ...(freebucks ? { freebucks } : {}),
     ...(limitedModelOffers.length > 0 ? { limitedModelOffers } : {}),
     ...(countryCode ? { countryCode } : {}),
     ...(countryBlockReason ? { countryBlockReason } : {}),
@@ -366,6 +374,8 @@ export function markFreebuffSessionEnded(): void {
       current && 'accessTier' in current ? current.accessTier : undefined,
     rateLimitsByModel,
     subscription: getSubscriptionInfo(current),
+    // The post-session banner and the picker behind it both read the meter.
+    freebucks: getFreebucksInfo(current),
   })
 }
 
@@ -444,7 +454,22 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       if (next.status === 'active') {
         recordFreebuffInstanceOwner(next.instanceId)
       }
-      setSession(next)
+      // A refusal carries no `freebucks` block of its own, and the landing
+      // decides its wording by that block: without the carry, the monthly
+      // wall read "You've used 2500 of 2500 sessions this month" — the
+      // dollar allowance in cents, in the pool's shape, with the meter
+      // forgotten. The block we hold is still the account's.
+      if (
+        (next.status === 'rate_limited' || next.status === 'spend_limited') &&
+        getFreebucksInfo(next) === undefined
+      ) {
+        const carried = getFreebucksInfo(
+          useFreebuffSessionStore.getState().session,
+        )
+        setSession(carried ? { ...next, freebucks: carried } : next)
+      } else {
+        setSession(next)
+      }
       setFailure(null)
       previousStatus = next.status
     }
@@ -664,6 +689,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
             rateLimitsByModel,
             subscription:
               getSubscriptionInfo(next) ?? getSubscriptionInfo(current),
+            // Prefer the fresh block: a session that just ended was CHARGED,
+            // so the server's balance is newer than the one we were holding.
+            freebucks: getFreebucksInfo(next) ?? getFreebucksInfo(current),
           })
           return
         }
@@ -683,8 +711,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
           schedule(0)
           return
         }
-        const delay = nextDelayMs(next)
-        if (delay !== null) schedule(delay)
+        const priceDelay = nextFreebucksPriceChange(getFreebucksInfo(next)) - Date.now()
+        const delay = Math.min(nextDelayMs(next) ?? Infinity, Math.max(0, priceDelay))
+        if (Number.isFinite(delay)) schedule(delay)
       } catch (err) {
         if (
           cancelled ||
@@ -796,6 +825,7 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
                   // state. Do not retain the cached landing value when the
                   // server omits it (program disabled / identity removed).
                   referral: response.referral,
+                  freebucks: getFreebucksInfo(response),
                 })
               }
             })

@@ -1,11 +1,18 @@
+import { SOLAR_PRICE_CHANGES, solarOfferAt } from '@codebuff/common/constants/freebuff-solar-promo'
+import {
+  toLandingSession,
+  resolveFreebuffModelPickForSession,
+} from '../../hooks/use-freebuff-session'
+import { freebucksFixture } from '@codebuff/common/testing/freebuff'
 import { FREEBUFF_EARN_PROMPT_SHORT } from '@codebuff/common/constants/freebuff-levels'
-import { afterEach, beforeAll, describe, expect, test } from 'bun:test'
+import { afterEach, beforeAll, describe, expect, test, spyOn } from 'bun:test'
 import { createTestRenderer } from '@opentui/core/testing'
 import { createRoot, flushSync } from '@opentui/react'
 import React from 'react'
 
 import { FreebuffModelSelector } from '../freebuff-model-selector'
 import {
+  FREEBUFF_REWARD_MODEL_ID,
   DEFAULT_FREEBUFF_MODEL_ID,
   FALLBACK_FREEBUFF_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -20,6 +27,7 @@ import {
   getFreebuffModelSupersededBy,
   isFreebuffModelId,
   LIMITED_FREEBUFF_MODELS,
+  LIMITED_FREEBUFF_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
 
 import { initializeThemeStore } from '../../hooks/use-theme'
@@ -61,7 +69,10 @@ afterEach(() => {
   useFreebuffModelStore.getState().setSelectedModel(FALLBACK_FREEBUFF_MODEL_ID)
 })
 
-const renderSelector = async (maxHeight = 40) => {
+const renderSelector = async (
+  maxHeight = 40,
+  startSession?: (model: string) => Promise<void>,
+) => {
   // Tear down any selector this test already rendered. Only the LAST one was
   // reachable from afterEach, so a test that renders twice used to leave the
   // earlier root mounted — and a mounted selector keeps running its landing
@@ -77,17 +88,27 @@ const renderSelector = async (maxHeight = 40) => {
   }
   flushSync(() =>
     root.render(
-      <FreebuffModelSelector maxHeight={maxHeight} nowMs={FIXED_NOW_MS} />,
+      <FreebuffModelSelector
+        maxHeight={maxHeight}
+        nowMs={FIXED_NOW_MS}
+        startSession={startSession}
+      />,
     ),
   )
   await setup.renderOnce()
   return setup
 }
 
+/**
+ * LIMITED tier, which since 2026-08-31 is the only tier where the reward is a
+ * MODEL you can select. At full access the reward is an extra premium session
+ * and the reward model is an ordinary unmetered grid row, so there is no
+ * earned selection there for the landing repair to keep or discard.
+ */
 const renderSelectorWithGlmRemaining = async (remaining?: number) => {
   useFreebuffSessionStore.getState().setSession({
     status: 'none',
-    accessTier: 'full',
+    accessTier: 'limited',
     referral: {
       code: 'test-referral',
       referrerName: null,
@@ -99,7 +120,7 @@ const renderSelectorWithGlmRemaining = async (remaining?: number) => {
       githubLinked: true,
     },
   })
-  useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_GLM_V52_MODEL_ID)
+  useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_REWARD_MODEL_ID)
 
   const nextSetup = await renderSelector(30)
   await nextSetup.renderOnce()
@@ -108,19 +129,22 @@ const renderSelectorWithGlmRemaining = async (remaining?: number) => {
 }
 
 describe('FreebuffModelSelector referral selection', () => {
-  test('keeps a fractional unlocked GLM session selected while its request is pending', async () => {
+  test('keeps a fractional unlocked reward session selected while its request is pending', async () => {
     await renderSelectorWithGlmRemaining(0.25)
-    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V52_MODEL_ID)
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_REWARD_MODEL_ID)
   })
 
-  test('still repairs a locked GLM selection to a visible grid model', async () => {
+  test('still repairs a locked reward selection to a visible grid model', async () => {
     await renderSelectorWithGlmRemaining(0)
-    expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
+    // The LIMITED hero, which is no longer the full-access default: GLM 5.3
+    // Flash became that on 2026-09-05 and is earned-metered at this tier, so
+    // repairing onto it would move the user from one locked row to another.
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
   })
 
-  test('treats an omitted GLM balance as locked', async () => {
+  test('treats an omitted reward balance as locked', async () => {
     await renderSelectorWithGlmRemaining()
-    expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
   })
 })
 
@@ -156,21 +180,14 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(frame).not.toContain('for small tasks')
   })
 
-  test('orders the premium rows above UNLIMITED, saved model focused', async () => {
+  test('orders the premium row above UNLIMITED, saved unlimited model focused', async () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
     })
-    // The saved pick has to be a PREMIUM row that is NOT the recommended hero:
-    // premium or the tier headers it is being ordered against don't apply to
-    // it, non-hero or the landing picker opens collapsed and there are no tier
-    // headers at all. The hero is GPT-5.6 Luna since 2026-08-24, which leaves
-    // exactly one other premium row — Solar Pro 4 today.
-    //
-    // The occupants keep leaving downward: V4 Flash left
-    // FREEBUFF_PREMIUM_MODEL_IDS on 2026-08-24, V4 Pro was withdrawn on 08-26,
-    // GLM 5.3 Flash was un-premiumed on 08-28 and moved into UNLIMITED — below
-    // the header this asserts it sits above. Read the list, not this comment.
+    // Solar Pro 4 moved into UNLIMITED on 2026-09-03. Keeping it as the saved
+    // pick exercises both section ordering and focus without relying on a
+    // second premium row that no longer exists.
     useFreebuffModelStore
       .getState()
       .setSelectedModel(FREEBUFF_SOLAR_PRO_4_MODEL_ID)
@@ -184,10 +201,8 @@ describe('FreebuffModelSelector tier layout', () => {
 
     expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
     expect(recommendedModelIndex).toBeGreaterThan(premiumHeaderIndex)
-    expect(selectedModelIndex).toBeGreaterThan(recommendedModelIndex)
-    // MiniMax M3 anchored the tail of this list until it was withdrawn on
-    // 2026-08-20 and left the picker entirely.
-    expect(unlimitedHeaderIndex).toBeGreaterThan(selectedModelIndex)
+    expect(unlimitedHeaderIndex).toBeGreaterThan(recommendedModelIndex)
+    expect(selectedModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
     // The cursor sits on the SAVED pick, not on the recommendation.
     expect(frame).toContain('› Solar Pro 4')
     expect(frame).not.toContain('› GPT-5.6 Luna')
@@ -390,9 +405,17 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
     })
+    // The pick must DIFFER from the recommendation, or the picker mounts
+    // collapsed and this test asserts nothing about the list. `expanded` is
+    // computed once, in a useState initializer, so the state at MOUNT is what
+    // decides it — the later tier change cannot reopen it.
+    //
+    // This was GLM 5.3 Flash until 2026-09-05, when GLM became the default and
+    // the pick silently became the recommendation. Any joinable non-default row
+    // in both catalogs restores the intent.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     const setup = await renderSelector()
 
     flushSync(() => {
@@ -412,8 +435,8 @@ describe('FreebuffModelSelector tier layout', () => {
       expect(frame).toContain(model.displayName)
     }
     // The pre-transition pick was a full-access model, so this is the path
-    // where a paused row would linger.
-    expect(frame).not.toContain('DeepSeek V4 Flash')
+    // where a full-access-only row would linger.
+    expect(frame).not.toContain('GPT-5.6 Luna')
     expect(frame).not.toContain('PREMIUM')
     expect(frame).not.toContain('UNLIMITED')
   })
@@ -464,106 +487,6 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(rowOf(frame, 'MiniMax M3')).not.toContain('Reasoning')
   })
 
-  test('sizes and centres a row around its per-row quota chip', async () => {
-    // The chip is drawn on a row that answers to a DIFFERENT pool than its
-    // section header, and it was missing from BOTH the centering math and the
-    // height estimate — visible only once a user had spent a Luna session,
-    // until the server began sending unused pool rows and it became every
-    // full-access picker.
-    //
-    // WHICH row wears it is arithmetic, not semantic: getFreebuffSectionQuotas
-    // gives the header to the pool MOST rows share and breaks ties toward the
-    // earlier row. The occupant has moved with every premium departure — Flash
-    // out on 2026-08-24, V4 Pro withdrawn 08-26, GLM 5.3 Flash un-premiumed
-    // 08-28. The invariant under test — a second line the width and height math
-    // must both know about — is unchanged; only the row it lands on moves, so
-    // this drives it from the CURRENT premium list rather than naming a row.
-    const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
-    const pool = (
-      model: string,
-      poolId: string,
-      poolLabel: string,
-      limit: number,
-    ) => ({
-      model,
-      pool: poolId,
-      poolLabel,
-      limit,
-      period: 'pacific_day' as const,
-      resetTimeZone: 'America/Los_Angeles',
-      resetAt,
-      windowHours: 24,
-      recentCount: 0,
-    })
-    useFreebuffSessionStore.getState().setSession({
-      status: 'none',
-      accessTier: 'full',
-      // Flash sends no pool row at all since 2026-08-24: it is unmetered.
-      rateLimitsByModel: {
-        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: pool(
-          FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-          'premium',
-          'Premium',
-          4,
-        ),
-        // A row answering to a pool the section header does NOT speak for, so
-        // it carries its own chip. SYNTHESISED rather than read from
-        // FREEBUFF_PER_MODEL_SESSION_CAPS, which is empty since 2026-08-28 —
-        // this test is about the width and height math around a second line,
-        // not about which model happens to be capped this week, and tying it to
-        // a real cap is what made it break every time one moved.
-        [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: pool(
-          FREEBUFF_SOLAR_PRO_4_MODEL_ID,
-          'solar_trial',
-          'Solar Pro 4',
-          2,
-        ),
-      },
-    })
-    useFreebuffModelStore
-      .getState()
-      // NOT the hero, so the picker opens expanded and the chip under test is
-      // drawn at all. Luna took the hero slot on 2026-08-24; selecting it here
-      // collapses the list to a single row and the chip disappears. V4 Flash
-      // also supplies the warning-ONLY second line asserted below, which the
-      // chip row cannot: every row carrying a pool row here also carries a
-      // chip.
-      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-
-    const frame = (await renderSelector()).captureCharFrame()
-    // Gutters inside the card borders, which is what "centred" means here and
-    // what a length the math didn't know about throws off. Asserted for the
-    // ordinary warning line too, so this pins the invariant rather than the
-    // one string that broke it.
-    const gutters = (line: string) => {
-      const inner = line.slice(line.indexOf('│') + 1, line.lastIndexOf('│'))
-      return [
-        inner.length - inner.trimStart().length,
-        inner.length - inner.trimEnd().length,
-      ]
-    }
-    const lines = frame.split('\n')
-    // The second line carrying a per-row chip. Anchored on the chip TEXT, so a
-    // chip that stops being drawn fails here rather than quietly re-measuring
-    // some warning-only line instead. A per-row label is longer than the shared
-    // one, which is the case the width math has to survive.
-    const chipLine = lines.find((l) => l.includes('Solar Pro 4: 0 of 2 used'))
-    // Flash carries the training warning with nothing after it — the shape the
-    // width math already handled, which is the "ordinary warning line" above.
-    const warningOnlyLine = lines.find(
-      (l) => l.includes('May use data for AI training') && !l.includes('used'),
-    )
-    expect(chipLine).toBeDefined()
-    expect(warningOnlyLine).toBeDefined()
-    for (const line of [chipLine!, warningOnlyLine!]) {
-      const [left, right] = gutters(line)
-      expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
-    }
-    // A row the height estimate does not know has a second line costs the list
-    // a row on the first frame, which cut the toggle off the bottom.
-    expect(frame).toContain('Show fewer')
-  })
-
   test('says nothing about a premium quota the account does not have', async () => {
     // Quota-exempt accounts (god/admin) draw on no free pool, so no snapshot
     // arrives. The header used to fall back to the static limit and render
@@ -573,10 +496,11 @@ describe('FreebuffModelSelector tier layout', () => {
       accessTier: 'full',
     })
     // A row that isn't the hero, so the picker opens expanded and the PREMIUM
-    // header is actually drawn. Flash since 2026-08-24 -- Luna took the hero
-    // slot, so selecting Luna here would collapse the list. The assertion is
-    // the ABSENCE of numbers on that header, so the fact that Flash itself
-    // stopped being premium that same day changes nothing here.
+    // header is actually drawn. The assertion is the ABSENCE of numbers on
+    // that header, so which unmetered row is selected changes nothing here —
+    // only that it is not the recommendation. It was GLM 5.3 Flash until
+    // 2026-09-05, when GLM became the default and this quietly started
+    // asserting against a COLLAPSED picker that draws no section at all.
     useFreebuffModelStore
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
@@ -775,9 +699,7 @@ describe('FreebuffModelSelector plan line', () => {
         dayPremiumUsed: 1,
         dayPremiumLimit: 2,
         dayResetAt: new Date(FIXED_NOW_MS + 3 * 3600_000).toISOString(),
-        periodEndsAt: new Date(
-          FIXED_NOW_MS + 20 * 24 * 3600_000,
-        ).toISOString(),
+        periodEndsAt: new Date(FIXED_NOW_MS + 20 * 24 * 3600_000).toISOString(),
         monthSpendUsd: 3.21,
         monthSpendLimitUsd: 40,
       },
@@ -789,7 +711,7 @@ describe('FreebuffModelSelector plan line', () => {
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).toContain('STARTER PLAN')
     expect(frame).toContain('today 1.3 of 2')
-    expect(frame).toContain('5-day 3 of 6')
+    expect(frame).toContain('week 3 of 6')
     expect(frame).toContain('month 11 of 50')
   })
 
@@ -807,6 +729,27 @@ describe('FreebuffModelSelector plan line', () => {
     expect(frame).toContain('resets in 3h')
   })
 
+  test('a free account sees its own three windows in the same shape', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      freeWindows: {
+        dayUsed: 1,
+        dayLimit: 4,
+        weekUsed: 3,
+        weekLimit: 14,
+        monthUsed: 9,
+        monthLimit: 40,
+        dayResetAt: new Date(FIXED_NOW_MS + 5 * 3600_000).toISOString(),
+        monthResetAt: new Date(FIXED_NOW_MS + 20 * 24 * 3600_000).toISOString(),
+      },
+    } as never)
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain(
+      'FREE · today 1 of 4 · week 3 of 14 · month 9 of 40',
+    )
+  })
+
   test('no plan means no plan line', async () => {
     useFreebuffSessionStore
       .getState()
@@ -814,4 +757,328 @@ describe('FreebuffModelSelector plan line', () => {
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).not.toContain('PLAN ·')
   })
+})
+
+describe('GLM selection uses the applicable meter', () => {
+  test.each([0, 4, 5, 25])(
+    'Freebucks balance %s wins over a contradictory earned quota',
+    async (balance) => {
+      useFreebuffSessionStore.getState().setSession({
+        status: 'none',
+        accessTier: 'limited',
+        freebucks: freebucksFixture(balance),
+        rateLimitsByModel: {
+          [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: {
+            model: FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+            limit: balance >= 5 ? 0 : 1,
+            recentCount: 0,
+            period: 'pacific_day',
+            resetTimeZone: 'America/Los_Angeles',
+            resetAt: '2026-09-06T07:00:00.000Z',
+            windowHours: 24,
+          },
+        },
+      })
+      useFreebuffModelStore
+        .getState()
+        .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+      const setup = await renderSelector()
+      await setup.renderOnce()
+      // The LIMITED hero when the balance cannot cover GLM. It stopped being
+      // the full-access default on 2026-09-05: GLM became that, and repairing
+      // an unaffordable GLM onto GLM would be a no-op.
+      expect(getSelectedFreebuffModel()).toBe(
+        balance >= 5
+          ? FREEBUFF_GLM_V53_FLASH_MODEL_ID
+          : LIMITED_FREEBUFF_MODEL_ID,
+      )
+      if (balance >= 5)
+        // The price reads `5/hr`; the balance lives in the header line.
+        expect(setup.captureCharFrame()).toContain('5 Freebucks/hr')
+    },
+  )
+
+  test('fresh balances and leaving the audience update selection without remounting', async () => {
+    const setBalance = (balance?: number) =>
+      useFreebuffSessionStore.getState().setSession({
+        status: 'none',
+        accessTier: 'limited',
+        ...(balance === undefined
+          ? {}
+          : { freebucks: freebucksFixture(balance) }),
+      })
+    setBalance(25)
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    const setup = await renderSelector()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    setBalance(4)
+    await setup.renderOnce()
+    await setup.renderOnce()
+    // The LIMITED hero — see the note in the case above.
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
+    setBalance(5)
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    await setup.renderOnce()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    setBalance()
+    await setup.renderOnce()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
+  })
+})
+
+test('GLM Enter submits the exact selected model once while admission is pending', async () => {
+  const session = {
+    status: 'none' as const,
+    accessTier: 'limited' as const,
+    freebucks: freebucksFixture(5),
+  }
+  useFreebuffSessionStore.getState().setSession(session)
+  useFreebuffModelStore
+    .getState()
+    .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+  const requested: string[] = []
+  let finish!: () => void
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  const setup = await renderSelector(40, async (model) => {
+    requested.push(
+      resolveFreebuffModelPickForSession(
+        model,
+        useFreebuffSessionStore.getState().session,
+      ),
+    )
+    await pending
+  })
+  try {
+    await setup.mockInput.pressEnter()
+    await setup.renderOnce()
+    await setup.mockInput.pressEnter()
+    await setup.renderOnce()
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+    expect(requested).toEqual([FREEBUFF_GLM_V53_FLASH_MODEL_ID])
+  } finally {
+    finish()
+    await pending
+  }
+})
+
+test('returning to the landing picker keeps the currency until the fresh probe', () => {
+  const freebucks = freebucksFixture(5)
+  const landing = toLandingSession({
+    status: 'ended',
+    accessTier: 'limited',
+    freebucks,
+  })
+  expect(landing.freebucks).toEqual(freebucks)
+  expect(
+    resolveFreebuffModelPickForSession(
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+      landing,
+    ),
+  ).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+})
+
+test.each([
+  ['legacy', undefined],
+  ['Freebucks', 4],
+] as const)(
+  'clicking unfunded GLM makes no admission request (%s)',
+  async (_label, balance) => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'limited',
+      ...(balance === undefined
+        ? {}
+        : { freebucks: freebucksFixture(balance) }),
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_MIMO_V25_MODEL_ID)
+    const requested: string[] = []
+    const setup = await renderSelector(40, async (model) => {
+      requested.push(model)
+    })
+    const y = setup
+      .captureCharFrame()
+      .split('\n')
+      .findIndex((line) => line.includes('GLM 5.3 Flash'))
+    expect(y).toBeGreaterThanOrEqual(0)
+    await setup.mockMouse.click(15, y)
+    await setup.renderOnce()
+    expect(requested).toEqual([])
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+  },
+)
+
+test.each([false, true])(
+  'Freebucks does not change Luna plan access (paid=%s)',
+  async (paid) => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'limited',
+      freebucks: freebucksFixture(25, { [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 20 }),
+      ...(paid ? { subscription: { tierId: 'starter', tiers: [] } } : {}),
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    const setup = await renderSelector()
+    await setup.renderOnce()
+    // Unpaid at limited access repairs onto the LIMITED hero, which since
+    // 2026-09-05 is not the full-access default.
+    expect(getSelectedFreebuffModel()).toBe(
+      paid ? FREEBUFF_GPT_5_6_LUNA_MODEL_ID : LIMITED_FREEBUFF_MODEL_ID,
+    )
+    if (paid) expect(setup.captureCharFrame()).toContain('GPT-5.6 Luna')
+    else expect(setup.captureCharFrame()).not.toContain('GPT-5.6 Luna')
+  },
+)
+
+test('quota-exempt Luna remains selected at zero Freebucks', async () => {
+  useFreebuffSessionStore.getState().setSession({
+    status: 'none',
+    accessTier: 'full',
+    freebucks: {
+      ...freebucksFixture(0, { [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 20 }),
+      quotaExempt: true,
+    },
+  })
+  useFreebuffModelStore
+    .getState()
+    .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+  const setup = await renderSelector()
+  await setup.renderOnce()
+  expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+})
+
+test('the collapsed picker recommends affordable GLM when the default costs too much', async () => {
+  useFreebuffSessionStore.getState().setSession({
+    status: 'none',
+    accessTier: 'limited',
+    freebucks: freebucksFixture(5, {
+      [DEFAULT_FREEBUFF_MODEL_ID]: 15,
+      [FREEBUFF_MIMO_V25_MODEL_ID]: 10,
+      [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 5,
+      [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 5,
+    }),
+  })
+  useFreebuffModelStore.getState().setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
+  const requested: string[] = []
+  const setup = await renderSelector(40, async (model) => {
+    requested.push(model)
+  })
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain('GLM 5.3 Flash')
+  expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+  await setup.mockInput.pressEnter()
+  await setup.renderOnce()
+  expect(requested).toEqual([FREEBUFF_GLM_V53_FLASH_MODEL_ID])
+})
+
+test('a funded Luna row does not show its exhausted legacy quota in the section header', async () => {
+  const id = FREEBUFF_GPT_5_6_LUNA_MODEL_ID
+  useFreebuffSessionStore.getState().setSession({
+    status: 'none',
+    accessTier: 'full',
+    freebucks: freebucksFixture(25, { [id]: 20 }),
+    rateLimitsByModel: {
+      [id]: {
+        model: id,
+        limit: 1,
+        recentCount: 1,
+        pool: 'premium',
+        period: 'pacific_day',
+        resetTimeZone: 'America/Los_Angeles',
+        resetAt: '2026-09-06T07:00:00.000Z',
+        windowHours: 24,
+      },
+    },
+  })
+  useFreebuffModelStore.getState().setSelectedModel(id)
+  const setup = await renderSelector()
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain('20 Freebucks/hr')
+  expect(setup.captureCharFrame()).not.toContain('1 of 1 used')
+  expect(getSelectedFreebuffModel()).toBe(id)
+})
+
+test('an open Solar CLI picker leaves the holiday price at the cutoff and submits at 5', async () => {
+  const cutoff = Date.parse('2026-09-08T07:00:00Z')
+  const clock = spyOn(Date, 'now').mockReturnValue(cutoff - 137)
+  const realTimeout = globalThis.setTimeout
+  let wake: (() => void) | undefined
+  const timerSpy = spyOn(globalThis, 'setTimeout').mockImplementation(((
+    fn: () => void,
+    ms: number,
+    ...args: unknown[]
+  ) => {
+    if (ms === 137) wake = fn
+    return realTimeout(fn, ms, ...args)
+  }) as typeof setTimeout)
+  const requested: string[] = []
+  try {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      freebucks: {
+        ...freebucksFixture(5, {
+          [DEFAULT_FREEBUFF_MODEL_ID]: 15,
+          [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 5,
+          [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 0,
+        }),
+        priceNotices: { [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: solarOfferAt(cutoff - 137).tagline },
+        priceChanges: SOLAR_PRICE_CHANGES.filter((change) => Date.parse(change.at) >= cutoff),
+      },
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_SOLAR_PRO_4_MODEL_ID)
+    const setup = await renderSelector(40, async (model) => {
+      requested.push(model)
+    })
+    expect(setup.captureCharFrame()).toContain('Labor Day weekend')
+    expect(setup.captureCharFrame()).toContain('0 Freebucks')
+    expect(wake).toBeDefined()
+    // Keep the whole catalog open: the collapsed recommendation can change
+    // when another model becomes the cheapest affordable choice. Whether it
+    // OPENS collapsed depends on the hero: a default the balance cannot cover
+    // (DeepSeek at 15) fell back to Solar, the selection, so it collapsed;
+    // an affordable default (GLM at 5, since 2026-09-05) is not the selection,
+    // so it opens expanded with the cursor already on Solar. Only reach for
+    // the toggle when there is one, or Down walks the cursor onto GLM.
+    if (!setup.captureCharFrame().includes('Show fewer')) {
+      await setup.mockInput.pressArrow('down')
+      await setup.renderOnce()
+      await new Promise((resolve) => realTimeout(resolve, 20))
+      await setup.mockInput.pressEnter()
+      await setup.renderOnce()
+      await new Promise((resolve) => realTimeout(resolve, 20))
+      await setup.renderOnce()
+    }
+    expect(setup.captureCharFrame()).toContain('Show fewer')
+    flushSync(() => {
+      clock.mockReturnValue(cutoff)
+      wake!()
+    })
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).not.toContain('Labor Day weekend')
+    expect(setup.captureCharFrame()).toContain('Solar Pro 4')
+    expect(setup.captureCharFrame()).toMatch(/Solar Pro 4[^\n]*\n[^\n]*5 Freebucks\/hr/)
+    await setup.mockInput.pressEnter()
+    await setup.renderOnce()
+    expect(requested).toEqual([FREEBUFF_SOLAR_PRO_4_MODEL_ID])
+  } finally {
+    cleanupRenderer?.()
+    cleanupRenderer = undefined
+    timerSpy.mockRestore()
+    clock.mockRestore()
+  }
 })

@@ -2,6 +2,7 @@ import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
 import { codeSearchDisplayVariants } from '@codebuff/common/tools/params/tool/code-search'
 import { readFilesDisplayVariants } from '@codebuff/common/tools/params/tool/read-files'
+import { runTerminalCommandNoAttributionDescription } from '@codebuff/common/tools/params/tool/run-terminal-command'
 import { AVAILABLE_SKILLS_PLACEHOLDER } from '@codebuff/common/tools/params/tool/skill'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
@@ -360,6 +361,11 @@ type DisplayVariant = { description: string; inputSchema: z.ZodType }
 export async function getToolSet(params: {
   toolNames: string[]
   windowedFileReads: boolean
+  /**
+   * Serve the `run_terminal_command` description that teaches NO commit
+   * trailer. Off by default, so an ordinary run is byte-identical.
+   */
+  suppressCommitAttribution?: boolean
   additionalToolDefinitions: () => Promise<CustomToolDefinitions>
   agentTools: ToolSet
   skills: SkillsMap
@@ -367,6 +373,7 @@ export async function getToolSet(params: {
   const {
     toolNames,
     windowedFileReads,
+    suppressCommitAttribution,
     additionalToolDefinitions,
     agentTools,
     skills,
@@ -386,7 +393,12 @@ export async function getToolSet(params: {
               ? displayVariants.windowed
               : displayVariants.legacy),
           }
-        : baseToolDef
+        : toolName === 'run_terminal_command' && suppressCommitAttribution
+          ? {
+              ...baseToolDef,
+              description: runTerminalCommandNoAttributionDescription,
+            }
+          : baseToolDef
 
       // For the skill tool, replace the placeholder with actual available skills
       if (toolName === 'skill' && availableSkillsXml) {

@@ -20,57 +20,11 @@ import type {
 } from '../types/freebuff-session'
 
 /**
- * Why DeepSeek V4 Flash 07/31 is missing from the reduced catalog, rendered
- * under the model list on all three pickers alongside the availability notice
- * below: that line explains the smaller catalog, this one explains a model that
- * used to be in it. Names the dated build, matching the display name of the row
- * that is now gone — unlike every other notice, its subject is not on screen.
- *
- * Kept to three clauses because it wraps under the picker, and delete it when
- * Flash returns to LIMITED_FREEBUFF_MODEL_IDS.
- */
-export const FREEBUFF_PAUSED_MODEL_NOTICE =
-  "DeepSeek V4 Flash 07/31 is paused here after a steep price increase — pausing it is what keeps these sessions free for everyone. We're working to bring it back."
-
-/**
- * The limits, in three clauses and a signature.
- *
- * SHORT ON PURPOSE. This replaced a version that listed every rule — per-model
- * caps, peak hours, quantization, which pool each row spends — and was four
- * lines deep in a dropdown. Users skim a picker; a paragraph there is read by
- * nobody, so the details it carried reached fewer people than the summary does.
- * The picker itself shows each row's own count, which is where a user looks
- * when they want the specifics.
- *
- * Keep it to: why, what the limit is, what is still free. Anything more belongs
- * on the rows.
- *
- * CUT AGAIN on 2026-08-21, to three facts: which row sleeps at peak, what to
- * use instead, and the one per-model cap. Everything it used to carry had
- * stopped being true — MiniMax M3 was withdrawn, and V4 Pro no longer pauses
- * (it is the peak-hours recommendation now) — which is the recurring hazard
- * with this string: it describes policy that moves, from a place no test reads.
- * Check it whenever a cap or an availability window changes.
- *
- * 2026-08-28: GLM 5.3 Flash is now UNMETERED, joining MiMo and DeepSeek V4
- * Flash. The 2-a-day cap came off on 08-27 when its measurement window closed;
- * a day of production spend then settled the cost question outright — it is
- * the cheapest row we serve per message, 4.6x under MiMo and 8.9x under V4
- * Flash, both of which already ran uncapped. Keeping a ceiling on the cheapest
- * model while the dearer ones had none inverted the reason ceilings exist.
- *
- * This string therefore names THREE unmetered rows and no per-model number.
- * The partial-time sentence describes the SHARED premium allowance and is
- * unrelated to any of them — it stays.
- *
- * The failure this comment keeps warning about, in both directions: for one
- * commit the cap was gone from the table while this string still promised
- * users "2 sessions a day". The test now checks BOTH — a capped model's number
- * must appear, and a per-model session count must not survive the cap that
- * justified it.
+ * A short release note shared by CLI and Desktop. Current policy belongs in
+ * the catalog; this is only the user-facing explanation of the change.
  */
 export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Every model runs on your normal daily sessions — no per-model caps; your shared premium allowance still charges partial time, rounded up to a tenth. MiMo, DeepSeek V4 Flash and GLM 5.3 Flash are unmetered. —❤️ Freebuff Team'
+  'Solar Pro 4 is now unmetered at full access and available with limited access. GPT-5.6 Luna still uses your shared premium allowance, charging partial time rounded up to a tenth. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {

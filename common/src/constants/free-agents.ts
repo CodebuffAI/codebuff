@@ -9,6 +9,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_FABLE_5_MODEL_ID,
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
@@ -20,6 +21,7 @@ import {
   FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+  FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_OX_ALPHA_MODEL_ID,
   FREEBUFF_SOLAR_PRO_4_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
@@ -129,9 +131,13 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'base3-free-glm-5-3-flash',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base3-free-kimi-k3-eco',
   [FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]: 'base3-free-luna-es',
+  // 1.2 is retired from the picker (2026-09-02) and this entry stays while
+  // its sessions drain; 1.3 is the live row. Both Web/Cloud only.
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark',
+  [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark-1-3',
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base3-free-ox-alpha',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'base3-free-solar-pro4',
+  [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'base3-free-gemini-3-8-flash',
 }
 
 /**
@@ -166,6 +172,11 @@ export const FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   // is the arrangement described in docs/freebuff-base3-harness.md.
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base3-free-ox-alpha',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'base3-free-solar-pro4',
+  // Gemini 3.8 Flash reached every surface on 2026-09-03, sharing its root id
+  // with the Web map above like every other model both surfaces offer.
+  [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'base3-free-gemini-3-8-flash',
+  // Muse Spark 1.3 did the same on 2026-09-04.
+  [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark-1-3',
 }
 
 /** Every base3 root id, whichever surface registered it. */
@@ -202,7 +213,11 @@ export const FREEBUFF_BASE3_AGENT_IDS: ReadonlySet<string> = new Set([
 export const CLOUD_PLANNER_AGENT_ID = 'base2-free-cloud-planner'
 export const CLOUD_PLANNER_MODEL_ID = FALLBACK_FREEBUFF_MODEL_ID
 export const CLOUD_PLANNER_LIMITED_AGENT_ID = 'base2-free-cloud-planner-limited'
-export const CLOUD_PLANNER_LIMITED_MODEL_ID = LIMITED_FREEBUFF_MODEL_ID
+/** The unlimited model, not LIMITED_FREEBUFF_MODEL_ID: the planner and build
+ *  are the token-heavy paths and want the cheapest row (see
+ *  CLOUD_BUILD_MODEL_ID). Must be in LIMITED_FREEBUFF_MODEL_IDS, or limited
+ *  planner turns fail admission — a test pins that. */
+export const CLOUD_PLANNER_LIMITED_MODEL_ID = FALLBACK_FREEBUFF_MODEL_ID
 
 /**
  * The model the build runs on after "Start building".
@@ -333,10 +348,14 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free-deepseek-pro-max',
   'base2-free-deepseek-flash-max',
   'base2-free-luna-max',
-  // Freebuff Web only (Meta Muse Spark 1.2 Contributor). Listed here like every
-  // other root so its subagents pass the hierarchy gate; the model, not this
-  // list, is what keeps it off the CLI and Desktop.
+  // Muse Spark roots, Web/Cloud only. 1.2's root stays while its Web
+  // sessions drain (the model is retired from the picker as of 2026-09-02);
+  // 1.3's is the live one. Listed here like every other root so their
+  // subagents pass the hierarchy gate; the model, not this list, is what keeps
+  // them off the CLI and Desktop.
   'base2-free-muse-spark',
+  'base2-free-muse-spark-1-3',
+  'base2-free-gemini-3-8-flash',
   // Ox Alpha's root. The model was WITHDRAWN on 2026-08-27 (see
   // FREEBUFF_PAUSED_FREE_MODEL_IDS) and this entry stays on purpose, exactly
   // like the Fable note below it: withdrawal is enforced at ADMISSION, so a
@@ -375,7 +394,9 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base3-free-kimi-k3-eco',
   'base3-free-luna-es',
   'base3-free-muse-spark',
+  'base3-free-muse-spark-1-3',
   'base3-free-ox-alpha',
+  'base3-free-gemini-3-8-flash',
   // Freebuff CLI base3 roots. Every other id it needs is already above,
   // shared with Web; Fable is the one model the CLI offers and Web does not.
   'base3-free-fable',
@@ -401,7 +422,9 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]: 'base2-free-luna-es',
   [FREEBUFF_FABLE_5_MODEL_ID]: 'base2-free-fable',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark',
+  [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark-1-3',
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base2-free-ox-alpha',
+  [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'base2-free-gemini-3-8-flash',
 }
 
 /**
@@ -432,6 +455,14 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   // a base2 session falls back to the DeepSeek Flash reviewer, which that
   // session's allowlist does not permit, so the subagent is rejected mid-run.
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'code-reviewer-ox-alpha',
+  // Required the moment Gemini 3.8 Flash became CLI-selectable: without its own
+  // entry a base2 session falls back to the DeepSeek Flash reviewer, which that
+  // session's allowlist does not permit, so the subagent is rejected mid-run.
+  [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'code-reviewer-gemini-3-8-flash',
+  // Required the moment Muse Spark became CLI-selectable, for the same reason.
+  // Both of its roots set `noReview`, so nothing spawns this today — it is what
+  // stops a base2 rollback falling through to the Flash reviewer and 403ing.
+  [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 'code-reviewer-muse-spark-1-3',
 }
 
 const FREEBUFF_DESKTOP_MODELS = new Set([
@@ -444,6 +475,8 @@ const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_OX_ALPHA_MODEL_ID,
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
 ])
 
 /**
@@ -576,6 +609,19 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-muse-spark': new Set([
     FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   ]),
+  // 1.3's root, pinned to its one model for the same reason. NOT a superset
+  // of 1.2's: the two draw on one rate-limit bucket but are different models,
+  // and a root allowed both would let a request on the retired id escape the
+  // retirement one turn at a time.
+  'base2-free-muse-spark-1-3': new Set([
+    FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  ]),
+  // Gemini 3.8 Flash's root, pinned to its one model like every other. The
+  // pinning matters more than usual here: `google/gemini-3.1-pro-preview` is a
+  // premium route bound to the gemini-thinker subagents, and a root that
+  // allowed both `google/` models would be a door onto Pro from an ordinary
+  // picker session.
+  'base2-free-gemini-3-8-flash': new Set([FREEBUFF_GEMINI_38_FLASH_MODEL_ID]),
   // Ox Alpha's root, pinned to its one model like every other. The pinning
   // matters even now that the model is withdrawn: an agent id is the handle a
   // hand-written caller reaches for, and a root allowed more than one model is
@@ -595,7 +641,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Freebuff Cloud custom-stack planner (freebuff_bundled_agents.ts). One
   // variant per model, each allowed exactly the model its definition pins.
   'base2-free-cloud-planner': new Set([CLOUD_PLANNER_MODEL_ID]),
-  'base2-free-cloud-planner-limited': new Set([LIMITED_FREEBUFF_MODEL_ID]),
+  'base2-free-cloud-planner-limited': new Set([CLOUD_PLANNER_LIMITED_MODEL_ID]),
 
   // base3 roots: exactly the one model each is pinned to, like every other
   // per-model root. Derived from the maps rather than written out, so a model
@@ -653,6 +699,12 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'code-reviewer-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   'code-reviewer-glm-5-3-flash': new Set([FREEBUFF_GLM_V53_FLASH_MODEL_ID]),
   'code-reviewer-fable': new Set([FREEBUFF_FABLE_5_MODEL_ID]),
+  'code-reviewer-gemini-3-8-flash': new Set([
+    FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  ]),
+  'code-reviewer-muse-spark-1-3': new Set([
+    FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  ]),
   // Wire compatibility only — NOT a freebuff agent. `code-reviewer-lite` now
   // belongs to Codebuff's paid lite mode and is spawned by no freebuff root and
   // shipped in no freebuff bundle. Released clients from before the
@@ -865,11 +917,11 @@ export function isFreeModeAllowedAgentModel(
  *
  * Cannot be an escalation, which is what the allowlist exists to prevent. Both
  * accepted targets are models the server picks for users it is stepping DOWN,
- * never up: the limited tier's only model, and the always-available fallback
- * every surface lands on when a premium pool is spent. They name the same model
- * today; they are checked separately because that is a coincidence of the
- * current catalog rather than a rule, and the day it stops being true this
- * must keep accepting both.
+ * never up: the limited tier's default (DeepSeek V4 Flash since 2026-09-02),
+ * and the always-available fallback every surface lands on when a premium pool
+ * is spent (MiMo 2.5). They named the same model from 2026-08-18 to 09-02 and
+ * are checked separately because that was a coincidence of the catalog rather
+ * than a rule; both are unmetered, so admitting either meters nothing.
  */
 export function isLimitedTierSubstitutedModel(
   fullAgentId: string,

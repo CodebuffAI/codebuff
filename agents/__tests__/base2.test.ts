@@ -7,6 +7,12 @@ import {
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
 } from '@codebuff/common/constants/freebuff-models'
+import {
+  compactionPolicyForModel,
+  DEEPSEEK_FLASH_COMPACTION_POLICY,
+  DEFAULT_COMPACTION_POLICY,
+} from '@codebuff/common/constants/compaction-policy'
+import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 
 import { createBase2 } from '../base2/base2'
 import { createBaseDeep } from '../base2/base-deep'
@@ -148,10 +154,82 @@ describe('production agent step prompts', () => {
     }
   })
 
-  test('plan-only keeps its no-edit constraint in the instructions', () => {
-    const agent = createBase2('default', { planOnly: true })
+  // A user picked plan mode and got the whole feature built and committed. The
+  // instruction paragraph saying not to was there the entire time; what it was
+  // losing to was the rest of the same prompt (a worked example ending in "you
+  // implement the changes using the editor agent") and a toolset that still
+  // held every capability a build turn has. So these assert the capability and
+  // the demonstration, not the paragraph.
+  describe('plan-only', () => {
+    const plan = createBase2('default', { planOnly: true })
 
-    expect(agent.instructionsPrompt).toContain('Do not make file changes')
+    test('holds no tool that writes a file', () => {
+      for (const tool of [
+        'str_replace',
+        'write_file',
+        'propose_str_replace',
+        'propose_write_file',
+      ]) {
+        expect(plan.toolNames).not.toContain(tool)
+      }
+    })
+
+    test('cannot spawn an agent that edits or runs commands', () => {
+      // basher is the shell: `git commit` reached the repository through it
+      for (const agent of [
+        'editor',
+        'editor-multi-prompt',
+        'basher',
+        'tmux-cli',
+      ]) {
+        expect(plan.spawnableAgents).not.toContain(agent)
+      }
+    })
+
+    test('still holds everything it needs to explore', () => {
+      for (const tool of [
+        'read_files',
+        'read_subtree',
+        'list_directory',
+        'glob',
+      ] as const) {
+        expect(plan.toolNames).toContain(tool)
+      }
+      for (const agent of ['file-picker', 'code-searcher', 'researcher-web']) {
+        expect(plan.spawnableAgents).toContain(agent)
+      }
+    })
+
+    test('never demonstrates building in its worked example', () => {
+      const systemPrompt = plan.systemPrompt!
+
+      for (const phrase of [
+        'You implement the changes',
+        'Spawn the editor agent to implement',
+        'Spawn bashers sequentially',
+        'All tests & typechecks pass',
+      ]) {
+        expect(systemPrompt).not.toContain(phrase)
+      }
+      expect(systemPrompt).toContain('You do NOT implement anything')
+    })
+
+    test("refuses to read the user's wording as permission to build", () => {
+      const instructions = plan.instructionsPrompt!
+
+      expect(instructions).toContain('is not permission to leave plan mode')
+      // the old prompt ended with "answer the user's questions or requests
+      // freely", which reads as exactly that permission
+      expect(instructions).not.toContain('requests freely')
+    })
+
+    test('leaves the build modes alone', () => {
+      const build = createBase2('default')
+
+      expect(build.toolNames).toContain('write_file')
+      expect(build.spawnableAgents).toContain('editor')
+      expect(build.spawnableAgents).toContain('basher')
+    })
   })
 })
 
@@ -329,13 +407,26 @@ describe('base2 optional tools', () => {
 })
 
 describe('base2 context pruning', () => {
+  /** What the runtime hands a serialized generator for `model`
+   *  (run-programmatic-step.ts): the model plus its pruner thresholds. */
+  const stepContextFor = (model: string) => ({
+    model,
+    contextPruning: {
+      maxContextLength: contextPrunerBudgetForModel(model as any),
+      ...compactionPolicyForModel(model),
+    },
+  })
+
   const getContextPrunerParams = (
     mode: Parameters<typeof createBase2>[0],
     options?: Parameters<typeof createBase2>[1],
     params?: Record<string, unknown>,
   ) => {
     const base2 = createBase2(mode, options)
-    const generator = base2.handleSteps!({ params } as any)
+    const generator = base2.handleSteps!({
+      params,
+      ...stepContextFor(base2.model),
+    } as any)
     const step = generator.next().value as any
     return step.input.params
   }
@@ -350,7 +441,10 @@ describe('base2 context pruning', () => {
     const isolatedHandleSteps = new Function(
       `return (${handleStepsString})`,
     )() as NonNullable<typeof base2.handleSteps>
-    const generator = isolatedHandleSteps({ params: undefined } as any)
+    const generator = isolatedHandleSteps({
+      params: undefined,
+      ...stepContextFor(base2.model),
+    } as any)
     const step = generator.next().value as any
     return step.input.params
   }
@@ -384,12 +478,37 @@ describe('base2 context pruning', () => {
   test('free non-MiniMax/Kimi models default context pruning to 400k tokens', () => {
     expect(
       getContextPrunerParams('free', {
-        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       }),
     ).toEqual({
       maxContextLength: 400_000,
       cacheExpiryMs: 30 * 60 * 1000,
     })
+  })
+
+  test('DeepSeek Flash prunes under the Flash policy; other models keep 30 minutes, no floor', () => {
+    // Flash's numbers arrive through the runtime's `contextPruning`; the model
+    // id is the one literal in the generator, so pin it to the constant.
+    expect(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID).toBe(
+      'deepseek/deepseek-v4-flash',
+    )
+    const flashParams = {
+      maxContextLength: 400_000,
+      ...DEEPSEEK_FLASH_COMPACTION_POLICY,
+    }
+    const flash = { model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID }
+    expect(getContextPrunerParams('free', flash)).toEqual(flashParams)
+    expect(getSerializedContextPrunerParams('default', flash)).toEqual(
+      flashParams,
+    )
+    // base2 is the kill-switch fallback, so it deliberately does NOT take the
+    // default policy's hour/140k for the rest.
+    expect(DEFAULT_COMPACTION_POLICY.cacheExpiryMs).toBe(60 * 60 * 1000)
+    expect(
+      getContextPrunerParams('free', {
+        model: FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+      }),
+    ).toEqual({ maxContextLength: 400_000, cacheExpiryMs: 30 * 60 * 1000 })
   })
 
   test('free mode preserves explicit context pruning params', () => {

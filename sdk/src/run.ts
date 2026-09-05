@@ -722,12 +722,22 @@ async function runOnce({
 
   const promptId = Math.random().toString(36).substring(2, 15)
 
-  // Send input
-  const userInfo = await getUserInfoFromApiKey({
-    ...agentRuntimeImpl,
-    apiKey,
-    fields: ['id'],
-  })
+  // Send input. The lookup rides the run's signal: a socket that never answers here held the run
+  // for the whole retry budget with the abort unable to reach it.
+  let userInfo: { id: string } | null
+  try {
+    userInfo = await getUserInfoFromApiKey({
+      ...agentRuntimeImpl,
+      apiKey,
+      fields: ['id'],
+      signal,
+    })
+  } catch (error) {
+    if (signal?.aborted) {
+      return getCancelledRunState('Run cancelled by user.')
+    }
+    throw error
+  }
   if (!userInfo) {
     return getCancelledRunState('Invalid API key or user not found')
   }

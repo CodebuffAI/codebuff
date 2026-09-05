@@ -119,12 +119,14 @@ export const FREEBUFF_RESTRICTED_COUNTRIES: readonly string[] = ['CN']
  * `flaggedEmailDomain` instead. Catching it there is what makes this tier
  * affordable.
  *
- * $5 and not $15: SG remains a top VPN and datacenter exit, so the tail this
- * bounds is real even with the farm named. Five dollars is the same figure a
- * limited-region account gets — enough for a full day's ordinary work, still a
- * bound — and deliberately not a number that has to be defended per-country.
+ * $1 as of 2026-08-31 (operator decision; was $5 from 2026-08-15): the tail
+ * kept growing and the farm-domain pricing did not shrink it enough. One
+ * dollar still buys a normal day of ordinary sessions, and unlike the
+ * restricted tier it now carries the live-session leeway multiplier below —
+ * at this size, letting an open session run to 1.25x and then cutting is the
+ * bound that matters, exactly the reasoning the restricted ceilings use.
  */
-export const FREEBUFF_ELEVATED_DAILY_SPEND_USD = 5
+export const FREEBUFF_ELEVATED_DAILY_SPEND_USD = 1
 
 /**
  * Countries held at the elevated ceiling.
@@ -228,6 +230,21 @@ export const FREEBUFF_BUDGET_NOTICE_REASONS: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * The refusal copy for the Freebucks catalog's per-tier hard ceiling.
+ *
+ * Its own sentence rather than `FREEBUFF_BUDGET_NOTICE`, which says "free
+ * usage": a Plus subscriber who hits their $5 day was not using free usage,
+ * and the catalog's ceilings are the one limit that IS published next to the
+ * plan (so there is no pacing instruction to withhold). Like its siblings it
+ * carries no reset time — every surface appends its own. Deliberately NOT in
+ * `FREEBUFF_BUDGET_NOTICE_REASONS`: that set is also what the plan's
+ * spend-ceiling BYPASS reads, and the plan must never bypass the one ceiling
+ * the plan itself sets.
+ */
+export const FREEBUFF_FREEBUCKS_CEILING_NOTICE =
+  'This account hit today’s hard usage cap. Freebucks pay for sessions, but the compute a day can draw is capped at three times what its Freebucks are worth, to protect the service from runaway usage.'
+
+/**
  * The refusal copy for a plain daily allowance.
  *
  * Deliberately says nothing about the account. It names the thing that ran out
@@ -249,7 +266,18 @@ export function freebuffSpendNoticeFor(reason: string): string {
     return FREEBUFF_RESTRICTED_NOTICE
   }
   if (FREEBUFF_BUDGET_NOTICE_REASONS.has(reason)) return FREEBUFF_BUDGET_NOTICE
+  if (reason === 'freebucks_plan') return FREEBUFF_FREEBUCKS_CEILING_NOTICE
   return FREEBUFF_CAPACITY_NOTICE
+}
+
+/** The refusal sentence when one session reaches a model-specific ceiling. */
+export function freebuffSessionSpendNotice(verdict: {
+  modelLabel: string
+  experimental: boolean
+}): string {
+  return verdict.experimental
+    ? `${verdict.modelLabel} is an experimental model we are trialling, so each session with it is much shorter than usual. Pick another model to keep going now, or start a new session to use it again.`
+    : `This session has used all of its ${verdict.modelLabel} usage. Pick another model to keep going now, or start a new session to use it again.`
 }
 
 /**
@@ -280,17 +308,68 @@ export function freebuffSpendNoticeFor(reason: string): string {
 export const FREEBUFF_SPEND_CEILING_HARD_MULTIPLIER = 2
 
 /**
+ * Daily-spend FLOORS for accounts holding a live paid plan (2026-08-31).
+ *
+ * The cohort ceilings above were sized for free usage, and until this floor a
+ * paying customer inherited them unchanged: measured over the 48h before it
+ * shipped, 11 live subscribers were spend-refused — six limited-region
+ * Starters at the $3 region ceiling they had paid to escape, three in a
+ * restricted country at thirty cents a day against an $8/month plan.
+ *
+ * A floor, not an exemption: the plan's own monthly spend cap remains the
+ * money bound, and a stolen card should still not buy unbounded daily burn.
+ * Composed as max() AFTER the cohort minimum, so it can only ever RAISE a
+ * paying account's ceiling, never lower one — a full-region paid account whose
+ * cohort maths already exceeds the floor keeps the higher number.
+ *
+ * Full access floors higher than everyone else ($7 vs $3) on the operator's
+ * explicit split: paid limited-region and paid suspicious-cohort accounts go
+ * to $3. `third_party_client` is deliberately NOT floored — an account
+ * observed sending a foreign toolset while paying is the reseller pattern
+ * (see freebuff2api), and the one cohort where a card is evidence of a
+ * business model rather than a person.
+ */
+export const FREEBUFF_PAID_DAILY_SPEND_FLOOR_USD: Record<
+  FreebuffAccessTier,
+  number
+> = {
+  full: 7,
+  limited: 3,
+}
+
+/** The reasons a paid floor may override. Everything except the reseller
+ *  cohort — see FREEBUFF_PAID_DAILY_SPEND_FLOOR_USD. */
+const PAID_FLOOR_REASONS: ReadonlySet<string> = new Set([
+  'region',
+  'elevated_country',
+  'restricted_country',
+  'privacy_egress',
+  'flagged_email_domain',
+  'unverified_egress',
+  'trust_level',
+])
+
+/**
  * Reasons whose ceiling is small enough that the hard multiplier applies.
  *
- * `region`, `elevated_country` and `trust_level` are excluded: all three are
- * whole-population limits where the fresh-admission gate is proportionate, and
- * applying a hard cut there would interrupt ordinary paying-in-attention users
- * mid-thought. `elevated_country` sits at the same $5 as a limited-region
- * account precisely so it can be reasoned about as a region ceiling rather
- * than as a suspicion, and cutting it live would undo that.
+ * `region` and `trust_level` are excluded: whole-population limits where the
+ * fresh-admission gate is proportionate, and applying a hard cut there would
+ * interrupt ordinary paying-in-attention users mid-thought.
+ *
+ * `elevated_country` JOINED this set on 2026-08-31 when its ceiling dropped
+ * $5 → $1: at one dollar, overshoot is no longer proportionally small, and
+ * the multiplier is what grants an open session leeway to finish before the
+ * hard cut — the same trade the restricted ceilings make.
  */
 const HARD_CAPPED_REASONS: ReadonlySet<string> = new Set([
+  // The Freebucks ceilings are small ($0.50–$8) and sized to catch only the
+  // sessions that ran far past their price, so the same trade the restricted
+  // ceilings make applies: admit under the line, let the open session finish
+  // up to the multiplier, then cut. That multiplier IS the "leeway" the
+  // catalog promises next to each dollar figure.
+  'freebucks_plan',
   'restricted_country',
+  'elevated_country',
   'privacy_egress',
   'flagged_email_domain',
   'third_party_client',
@@ -306,6 +385,8 @@ export type FreebuffSpendCeilingReason =
   | 'third_party_client'
   | 'unverified_egress'
   | 'trust_level'
+  /** The Freebucks catalog's per-tier hard daily ceiling (2026-09-02). */
+  | 'freebucks_plan'
 
 export interface FreebuffSpendCeiling {
   usd: number
@@ -361,13 +442,32 @@ export interface FreebuffSpendCeilingInput {
   unverifiedEgress?: boolean
   /** The trust matrix's ceiling, when that rollout is enforcing. */
   trustLevelCeilingUsd?: number | null
+  /**
+   * The Freebucks catalog's hard daily ceiling for this account's plan and
+   * access tier (`freebucksPlan(...).dailySpendLimitUsd`), when the account is
+   * on the Freebucks meter. Null/absent otherwise. REPLACES the region entry
+   * rather than composing with it (see the resolver), still composes by
+   * minimum with the restricted cohorts, and is deliberately NOT eligible for
+   * the paid floor below — the catalog already priced the paid tiers, so a
+   * floor that lifted a Starter's $3 to $7 would undo the one number the tier
+   * sets.
+   */
+  freebucksPlanUsd?: number | null
   /** Overrides, all optional so a missing env var changes nothing. */
+  /**
+   * True when the account holds a live paid plan (Postgres-entitling row —
+   * never a mirror; see the coercion rule in triggerGates). Resolved LAZILY
+   * by the caller, only when the cohort ceiling would refuse: the ordinary
+   * request must not pay a subscription read to learn a ceiling it is under.
+   */
+  hasPaidSubscription?: boolean
   overrides?: {
     regionUsd?: Partial<Record<FreebuffAccessTier, number>>
     restrictedUsd?: number
     restrictedCountries?: readonly string[]
     elevatedUsd?: number
     elevatedCountries?: readonly string[]
+    paidFloorUsd?: Partial<Record<FreebuffAccessTier, number>>
   }
 }
 
@@ -389,13 +489,24 @@ export function resolveFreebuffSpendCeiling(
   const elevatedCountries =
     input.overrides?.elevatedCountries ?? FREEBUFF_ELEVATED_COUNTRIES
 
+  // The base entry: the region ceiling — or, for an account on the Freebucks
+  // meter, the catalog's per-tier ceiling IN ITS PLACE. Both are whole-
+  // population budgets sized for the same job, and the catalog one is the
+  // published number a user planned against, so the two must not compose
+  // (a $5 limited-region ceiling would silently undercut a limited Pro's
+  // advertised $7). The restricted cohorts below still compose by minimum.
+  const onFreebucksMeter =
+    typeof input.freebucksPlanUsd === 'number' &&
+    Number.isFinite(input.freebucksPlanUsd)
   const applied: { reason: FreebuffSpendCeilingReason; usd: number }[] = [
-    {
-      reason: 'region',
-      usd:
-        input.overrides?.regionUsd?.[input.accessTier] ??
-        FREEBUFF_REGION_DAILY_SPEND_USD[input.accessTier],
-    },
+    onFreebucksMeter
+      ? { reason: 'freebucks_plan', usd: input.freebucksPlanUsd as number }
+      : {
+          reason: 'region',
+          usd:
+            input.overrides?.regionUsd?.[input.accessTier] ??
+            FREEBUFF_REGION_DAILY_SPEND_USD[input.accessTier],
+        },
   ]
 
   const country = input.countryCode?.toUpperCase() ?? null
@@ -431,6 +542,18 @@ export function resolveFreebuffSpendCeiling(
   let winner = applied[0]!
   for (const candidate of applied.slice(1)) {
     if (candidate.usd < winner.usd) winner = candidate
+  }
+
+  // The paid floor, AFTER the minimum: it may only raise. The reason keeps
+  // naming the cohort that was floored — a support question about a paid
+  // account still deserves the one-word answer for why it isn't higher.
+  if (input.hasPaidSubscription && PAID_FLOOR_REASONS.has(winner.reason)) {
+    const floor =
+      input.overrides?.paidFloorUsd?.[input.accessTier] ??
+      FREEBUFF_PAID_DAILY_SPEND_FLOOR_USD[input.accessTier]
+    if (typeof floor === 'number' && floor > winner.usd) {
+      return { usd: floor, reason: winner.reason, applied }
+    }
   }
 
   return { usd: winner.usd, reason: winner.reason, applied }

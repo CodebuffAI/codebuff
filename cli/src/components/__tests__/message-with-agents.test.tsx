@@ -91,6 +91,11 @@ const defaultCallbacks = {
   onAdClick: () => {},
   onAdImpression: () => {},
   onResponseAdsNeeded: () => {},
+  onSponsoredProposalMenu: () => {},
+  onSponsoredProposalDisclose: () => {},
+  onSponsoredProposalAccept: () => {},
+  onSponsoredProposalConsent: () => {},
+  onSponsoredProposalControl: () => {},
 }
 
 const initializeStore = (overrides: {
@@ -208,6 +213,11 @@ describe('MessageBlockStore', () => {
         onAdClick: () => {},
         onAdImpression: () => {},
         onResponseAdsNeeded: () => {},
+  onSponsoredProposalMenu: () => {},
+  onSponsoredProposalDisclose: () => {},
+  onSponsoredProposalAccept: () => {},
+  onSponsoredProposalConsent: () => {},
+  onSponsoredProposalControl: () => {},
       })
 
       const state = useMessageBlockStore.getState()
@@ -263,6 +273,11 @@ describe('MessageBlockStore', () => {
         onAdClick: mockFn,
         onAdImpression: mockFn,
         onResponseAdsNeeded: mockFn,
+        onSponsoredProposalMenu: mockFn,
+        onSponsoredProposalDisclose: mockFn,
+        onSponsoredProposalAccept: mockFn,
+        onSponsoredProposalConsent: mockFn,
+        onSponsoredProposalControl: mockFn,
       })
 
       useMessageBlockStore.getState().reset()

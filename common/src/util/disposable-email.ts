@@ -277,6 +277,12 @@ function matchesSet(domain: string, set: ReadonlySet<string>): boolean {
 
 /** The flag category for `email`'s domain, or null for an ordinary domain
  *  (or an unparseable email). */
+/** The curated disposable / farm-provider list, for seeding a server-side
+ *  blacklist. Read-only copy; the classification helpers stay authoritative. */
+export function listDisposableEmailDomains(): readonly string[] {
+  return [...DISPOSABLE_EMAIL_DOMAINS]
+}
+
 export function classifyEmailDomain(
   email: string | null | undefined,
 ): FlaggedEmailDomainKind | null {

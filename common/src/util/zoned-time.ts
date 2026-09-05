@@ -112,6 +112,29 @@ export function getZonedDayBounds(
 }
 
 /**
+ * Bounds of the calendar MONTH containing `now` in `timeZone`: `startsAt` is
+ * midnight on the 1st, `resetsAt` midnight on the 1st of the next month. Pure
+ * calendar math like the day/week helpers, so DST and year boundaries fall out
+ * of `getUtcForZonedTime`. Used for the free tier's monthly window, which has
+ * no billing period to align to.
+ */
+export function getZonedMonthBounds(
+  now: Date,
+  timeZone: string,
+): { startsAt: Date; resetsAt: Date } {
+  const nowParts = getZonedParts(now, timeZone)
+  const first = { year: nowParts.year, month: nowParts.month, day: 1 }
+  const nextFirst =
+    nowParts.month === 12
+      ? { year: nowParts.year + 1, month: 1, day: 1 }
+      : { year: nowParts.year, month: nowParts.month + 1, day: 1 }
+  return {
+    startsAt: getUtcForZonedTime(first, timeZone, 0, 0),
+    resetsAt: getUtcForZonedTime(nextFirst, timeZone, 0, 0),
+  }
+}
+
+/**
  * Bounds of the calendar week containing `now` in `timeZone`. `startsAt` is
  * midnight at the start of the week, `resetsAt` is midnight 7 days later (the
  * next reset). `weekStartsOn` is 0=Sunday … 6=Saturday; defaults to Monday (1).

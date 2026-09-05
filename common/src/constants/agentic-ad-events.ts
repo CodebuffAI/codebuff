@@ -50,9 +50,57 @@ export const AGENTIC_FUNNEL_EVENT_TYPES = [
    * advertiser may report it many times with distinct event ids.
    */
   'tool_used',
+  // APPEND-ONLY BELOW THIS LINE. The Postgres enum
+  // `ad_agentic_funnel_event_type` mirrors this array in ORDER, and the only
+  // migration Postgres can apply cheaply is `ALTER TYPE ... ADD VALUE`, which
+  // appends. Inserting a member in the middle asks drizzle-kit to drop and
+  // recreate a type an append-only ledger already depends on, so a new stage
+  // goes at the END no matter where it sits in the funnel's story.
+  /**
+   * The user declined the proposal card. The other half of `proposal_offered`:
+   * without it an offer that was neither accepted nor dismissed is
+   * indistinguishable from one the user simply never saw, and the drop-off the
+   * next campaign is priced from cannot be measured.
+   */
+  'dismissed',
+  /**
+   * The sponsored run ended without committable work. Telemetry, and pointedly
+   * not a refund signal — the money already moved at Accept, and COD-92 owns
+   * whether a failed run is refunded.
+   */
+  'run_failed',
+  /**
+   * The run committed its work to its own branch and stopped there. The stage
+   * the advertiser actually buys under COD-279 ("the agent should implement
+   * with commits along the way, user can PR if they think its good") — a PR
+   * that is never opened does not mean the work was not done.
+   */
+  'run_committed',
 ] as const
 
 export type AgenticFunnelEventType = (typeof AGENTIC_FUNNEL_EVENT_TYPES)[number]
+
+/**
+ * The `accepted` event's idempotency key, derived from the PROPOSAL id.
+ *
+ * Funnel recording dedupes on `(campaignId, eventId)`, so the key is what
+ * makes "Accept twice records one row" true rather than hoped for. The
+ * proposal id is the only identifier that is stable across a retried
+ * settlement, a redelivered scheduler run and a second Accept attempt — an
+ * impression token would be equally stable but is absent on a seeded row, and
+ * a fresh uuid per attempt would record the same accept twice.
+ *
+ * Prefixed rather than used bare so a future funnel event derived from the
+ * same proposal (a `dismissed` census, say) cannot collide with this one.
+ *
+ * Lives HERE, in the dependency-free vocabulary, because the producer (the
+ * Next settle route) and the consumer of the guarantee (Convex, which may
+ * never import `@codebuff/internal`) must agree on it without either one
+ * importing the other.
+ */
+export function agenticAcceptEventId(proposalId: string): string {
+  return `accept_${proposalId}`
+}
 
 /**
  * The only funnel stage that may ever bill, and it bills as a click. Kept as

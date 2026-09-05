@@ -218,9 +218,9 @@ export function supportsAssistantPrefill(model: Model): boolean {
  * 524,288, not the 1,048,576 OpenRouter advertises (Fireworks rejects with
  * "model maximum context length: 524287"), but 400k is still under it.
  *
- * The return type is the two budgets rather than `number` on purpose — base2
- * pre-serializes one handleSteps variant per budget, so a third value has to be
- * a compile error there rather than silently falling through to 400k.
+ * The return type names the two tiers rather than `number` so a third tier is
+ * a deliberate addition here. Serialized generators receive the result as
+ * `AgentStepContext.contextPruning.maxContextLength`.
  */
 const SMALL_CONTEXT_MODELS: ReadonlySet<string> = new Set([
   moonshotModels.kimiK27Code,

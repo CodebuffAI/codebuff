@@ -22,6 +22,8 @@ describe('createExitCliCleanly', () => {
       endFreebuffSession: async () => {
         events.push('end-session')
       },
+      settleSponsoredRun: async () => null,
+      writeNotice: () => {},
       waitForRemoteCleanup: async (tasks) => {
         events.push('wait-start')
         await Promise.allSettled(tasks)
@@ -59,6 +61,8 @@ describe('createExitCliCleanly', () => {
       endFreebuffSession: async () => {
         events.push('end-session')
       },
+      settleSponsoredRun: async () => null,
+      writeNotice: () => {},
       waitForRemoteCleanup: async (tasks) => {
         await Promise.allSettled(tasks)
       },
@@ -87,6 +91,8 @@ describe('createExitCliCleanly', () => {
       flushAnalytics: async () => {},
       drainClientLogs: async () => {},
       endFreebuffSession: async () => {},
+      settleSponsoredRun: async () => null,
+      writeNotice: () => {},
       waitForRemoteCleanup: () =>
         new Promise<void>((resolve) => {
           finishRemoteCleanup = resolve

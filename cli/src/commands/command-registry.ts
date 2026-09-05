@@ -1,6 +1,17 @@
 import { safeOpen } from '../utils/open-url'
 
-import { handleAdsEnable, handleAdsDisable } from './ads'
+import {
+  handleAdsEnable,
+  handleAdsDisable,
+  handleProposalAccept,
+  handleProposalDismiss,
+  handleProposalMenu,
+  handleProposalPullRequest,
+  handleProposalRemoveWorktree,
+  handleProposalNeverAdvertiser,
+  handleProposalReport,
+  handleProposalsOff,
+} from './ads'
 import { handleCopyConversationCommand } from './copy-conversation'
 import { handleExportConversationCommand } from './export-conversation'
 import { handleHelpCommand } from './help'
@@ -210,6 +221,94 @@ const ALL_COMMANDS: CommandDefinition[] = [
     handler: (params) => {
       const { postUserMessage } = handleAdsDisable()
       params.setMessages((prev) => postUserMessage(prev))
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  // The sponsored-proposal channel's controls (COD-376). Separate from
+  // ads:disable, which is the display rail: one switch for both would turn off
+  // something the user did not ask about.
+  //
+  // THE CARD ITSELF BINDS NO BARE KEYS while its menu is closed, so these are
+  // not merely a convenience for when no card is on screen -- `/ads:proposal`
+  // and `/ads:dismiss-proposal` are the ONLY way to reach the menu and the
+  // decline. `useKeyboard` is global and the composer's handler is too, so the
+  // `m` and `esc` these replaced fired alongside whatever the user was
+  // actually typing.
+  defineCommand({
+    name: 'ads:proposal',
+    handler: (params) => {
+      const message = handleProposalMenu(useChatStore.getState().messages)
+      // Null means it opened the menu, which is visible on its own; a system
+      // line would only push the card it refers to further up the transcript.
+      if (message) params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'ads:dismiss-proposal',
+    handler: (params) => {
+      const message = handleProposalDismiss(useChatStore.getState().messages)
+      if (message) params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  // Phase 2 (COD-339): accept, and the two commands that only mean anything
+  // once a run has left a branch behind. `accept-proposal` opens the CONSENT
+  // and starts nothing -- the screen is the decision, and it is refusable.
+  defineCommand({
+    name: 'ads:accept-proposal',
+    handler: (params) => {
+      const message = handleProposalAccept(useChatStore.getState().messages)
+      // Null means the consent screen is up, which is visible on its own.
+      if (message) params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'ads:pull-request',
+    handler: async (params) => {
+      const message = await handleProposalPullRequest()
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'ads:remove-worktree',
+    handler: async (params) => {
+      const message = await handleProposalRemoveWorktree()
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'ads:report-proposal',
+    handler: async (params) => {
+      const message = await handleProposalReport(useChatStore.getState().messages)
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'ads:never-advertiser',
+    handler: async (params) => {
+      const message = await handleProposalNeverAdvertiser(useChatStore.getState().messages)
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'ads:proposals-off',
+    handler: async (params) => {
+      const message = await handleProposalsOff()
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

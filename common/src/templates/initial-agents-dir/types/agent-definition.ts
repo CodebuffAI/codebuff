@@ -196,6 +196,13 @@ export interface AgentDefinition {
    */
   windowedFileReads?: boolean
 
+  /** Drop the agent-attribution trailer from the run_terminal_command commit
+   * guidance, so a commit this agent makes carries no `Co-Authored-By` or
+   * "Generated with" line. For a run that commits into somebody else's
+   * repository on their behalf. Defaults to false, which keeps the trailer.
+   */
+  suppressCommitAttribution?: boolean
+
   /** Opt in to mechanical context compaction: the runtime rewrites old history
    * into a condensed summary before the next step. Defaults to false.
    *
@@ -345,6 +352,16 @@ export interface AgentStepContext {
    * `undefined` as "unknown model" and pick a safe default.
    */
   model?: string
+  /**
+   * Context-pruning thresholds for `model` (budget, idle gap, token floor),
+   * resolved by the runtime. A serialized generator that spawns
+   * `context-pruner` reads them here; optional for the same reason as `model`.
+   */
+  contextPruning?: {
+    maxContextLength: number
+    cacheExpiryMs: number
+    cacheExpiryMinTokens: number
+  }
   logger: Logger
 }
 

@@ -42,7 +42,11 @@ export { getUserInfoFromApiKey } from './impl/database'
 export * from './credentials'
 export { loadLocalAgents } from './agents/load-agents'
 export { loadMCPConfig, loadMCPConfigSync } from './agents/load-mcp-config'
-export { loadSkills, loadSkillsSync, parseSkillFileContent } from './skills/load-skills'
+export {
+  loadSkills,
+  loadSkillsSync,
+  parseSkillFileContent,
+} from './skills/load-skills'
 export { formatAvailableSkillsXml } from '@codebuff/common/util/skills'
 export type { LoadSkillsOptions } from './skills/load-skills'
 export type { SkillDefinition, SkillsMap } from '@codebuff/common/types/skill'
@@ -52,10 +56,7 @@ export type {
   LoadLocalAgentsResult,
   AgentValidationError,
 } from './agents/load-agents'
-export type {
-  MCPFileConfig,
-  LoadedMCPConfig,
-} from './agents/load-mcp-config'
+export type { MCPFileConfig, LoadedMCPConfig } from './agents/load-mcp-config'
 
 export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
@@ -116,6 +117,23 @@ export type {
   TerminalCommandProcess,
   TerminalCommandSpawnRequest,
 } from './tools/run-terminal-command'
+// Containment for a sponsored run on the user's own machine (COD-336). Exported
+// from the SDK rather than kept in Desktop because the CLI needs the same
+// boundary, and a second copy of a seatbelt profile is a second thing to be
+// wrong about.
+export {
+  assertSponsoredCommandCwd,
+  assertSponsoredReadPath,
+  assertSponsoredWritePath,
+  createSponsoredCodeSearchBroker,
+  createSponsoredTerminalBroker,
+  findBubblewrap,
+  sponsoredCodeSearchFlagsRefusal,
+  sponsoredContainment,
+  sponsoredMacProfile,
+} from './tools/sponsored-sandbox'
+export type { SponsoredSandboxOptions } from './tools/sponsored-sandbox'
+export { createSponsoredRootedFileSystem } from './tools/sponsored-rooted-filesystem'
 export {
   promptAiSdk,
   promptAiSdkStream,

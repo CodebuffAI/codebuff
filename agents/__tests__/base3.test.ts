@@ -2,6 +2,7 @@ import {
   FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL,
   hasFreebuffRootSystemPromptOpening,
 } from '@codebuff/common/constants/free-agents'
+import { compactionPolicyForModel } from '@codebuff/common/constants/compaction-policy'
 import { SUPPORTED_FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
 import { describe, test, expect } from 'bun:test'
 
@@ -16,7 +17,9 @@ import base3FreeGlmV53Flash from '../base3-free-glm-5-3-flash'
 import base3FreeLuna from '../base3-free-luna'
 import base3FreeMimo from '../base3-free-mimo'
 import base3FreeMinimaxM3 from '../base3-free-minimax-m3'
+import base3FreeMuseSpark13 from '../base3-free-muse-spark-1-3'
 import base3FreeOxAlpha from '../base3-free-ox-alpha'
+import base3FreeGemini38Flash from '../base3-free-gemini-3-8-flash'
 import base3FreeSolarPro4 from '../base3-free-solar-pro4'
 import base3Lite from '../base3-lite'
 
@@ -52,22 +55,25 @@ const CLI_ROOTS = [
   base3FreeFable,
   base3FreeOxAlpha,
   base3FreeSolarPro4,
+  base3FreeGemini38Flash,
+  base3FreeMuseSpark13,
 ]
 
 describe('base3 CLI roots', () => {
   test('keeps the efficiency flags the runtime reads', () => {
-    // 14 since Solar Pro 4 reached the CLI. The count is asserted so a root
+    // 16 since Muse Spark 1.3 reached the CLI. The count is asserted so a root
     // added without the flags below cannot slip in unnoticed.
-    expect(CLI_ROOTS.length).toBe(14)
+    expect(CLI_ROOTS.length).toBe(16)
     for (const agent of CLI_ROOTS) {
       // Windowed reads + the 100-entry glob cap + search-first tool wording.
       expect(agent.windowedFileReads).toBe(true)
       // Mechanical compaction in-process, instead of spawning context-pruner —
-      // with the 30-min idle trigger pushed out to an hour, so a coffee break
-      // never rewrites the history (see base3.ts for the cost trade).
-      expect(agent.compactContext).toEqual({
-        cacheExpiryMs: 60 * 60 * 1000,
-      })
+      // with the idle trigger sized per model: an hour for most, so a coffee
+      // break never rewrites the history, and 15 minutes for DeepSeek Flash,
+      // whose Luminal lane forgets the prefix by then anyway (see base3.ts).
+      expect(agent.compactContext).toEqual(
+        compactionPolicyForModel(agent.model),
+      )
       // Single loop: no subagents at all, which is what the harness IS.
       expect(agent.spawnableAgents ?? []).toEqual([])
       expect(agent.toolNames ?? []).not.toContain('spawn_agents')
@@ -75,6 +81,19 @@ describe('base3 CLI roots', () => {
       // message breaks the prompt cache the harness is built to keep warm.
       expect(agent.instructionsPrompt).toBeUndefined()
     }
+  })
+
+  test('DeepSeek Flash roots get 15 minutes / 40k, the rest the hour / 140k', () => {
+    // Literal values, so a refactor of the policy table cannot move both
+    // sides of the loop above at once (common/src/constants/compaction-policy.ts).
+    expect(base3FreeDeepseekFlash.compactContext).toEqual({
+      cacheExpiryMs: 15 * 60 * 1000,
+      cacheExpiryMinTokens: 40_000,
+    })
+    expect(base3FreeDeepseek.compactContext).toEqual({
+      cacheExpiryMs: 60 * 60 * 1000,
+      cacheExpiryMinTokens: 140_000,
+    })
   })
 
   test('declares no reasoning, leaving the catalog the single authority', () => {

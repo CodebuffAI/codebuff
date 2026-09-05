@@ -6,10 +6,13 @@
  * reset instant applies are product facts — three copies of that logic is how
  * two surfaces end up naming different resets for the same refusal.
  */
-import type { FreebuffSubscriptionInfo } from '../types/freebuff-session'
+import type {
+  FreebuffFreeWindowsInfo,
+  FreebuffSubscriptionInfo,
+} from '../types/freebuff-session'
 
 export interface FreebuffPlanWindow {
-  /** 'today' | '5-day' | 'month' — short, surface-agnostic label. */
+  /** 'today' | 'week' | 'month' — short, surface-agnostic label. */
   label: string
   used: number
   limit: number
@@ -18,7 +21,7 @@ export interface FreebuffPlanWindow {
 export interface FreebuffPlanSummary {
   /** The tier's display name ("Starter"), falling back to the raw id. */
   tierName: string
-  /** Day, 5-day and month windows, in that order. */
+  /** Day, week and month windows, in that order. */
   windows: FreebuffPlanWindow[]
   /**
    * Set when a limit is currently blocking, with the human name of THAT limit
@@ -41,7 +44,7 @@ export function formatPlanUnits(units: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
 }
 
-/** "today 1 of 2 · 5-day 3 of 6 · month 11 of 50" — the compact one-liner. */
+/** "today 1 of 2 · week 3 of 10 · month 11 of 30" — the compact one-liner. */
 export function formatPlanWindows(summary: FreebuffPlanSummary): string {
   return summary.windows
     .map((w) => `${w.label} ${formatPlanUnits(w.used)} of ${w.limit}`)
@@ -53,7 +56,7 @@ const BLOCKED_LABELS: Record<
   string
 > = {
   daily: "today's plan sessions are used",
-  five_day: '5-day limit reached',
+  five_day: 'weekly limit reached',
   monthly: "this period's sessions are used",
   premium_daily: "today's premium sessions are used",
   monthly_spend: "this period's compute cap is reached",
@@ -77,7 +80,7 @@ export function freebuffPlanSummary(
   const blocked = info.blockedBy
     ? {
         label: BLOCKED_LABELS[info.blockedBy],
-        // The rolling 5-day window frees capacity continuously, so naming one
+        // The rolling weekly window frees capacity continuously, so naming one
         // instant would be wrong for it; everything else has a real boundary.
         ...(info.blockedBy === 'daily' || info.blockedBy === 'premium_daily'
           ? { resetsAt: usage.dayResetAt }
@@ -91,7 +94,8 @@ export function freebuffPlanSummary(
     tierName,
     windows: [
       { label: 'today', used: usage.dayUsed, limit: usage.dayLimit },
-      { label: '5-day', used: usage.fiveDayUsed, limit: usage.fiveDayLimit },
+      // The wire field keeps its historical name; the WINDOW is 7 days.
+      { label: 'week', used: usage.fiveDayUsed, limit: usage.fiveDayLimit },
       { label: 'month', used: usage.monthUsed, limit: usage.monthLimit },
     ],
     ...(blocked ? { blocked } : {}),
@@ -101,5 +105,25 @@ export function freebuffPlanSummary(
       usedUsd: usage.monthSpendUsd,
       limitUsd: usage.monthSpendLimitUsd,
     },
+  }
+}
+
+/**
+ * The free tier's three windows in the same shape as a plan's, so a free
+ * user's line/rings and a subscriber's are the one layout with different
+ * numbers. Undefined when the server sent no block (quota-exempt, limited
+ * access, or an older server) — callers fall back to the daily ring alone.
+ */
+export function freebuffFreeWindowsSummary(
+  info: FreebuffFreeWindowsInfo | null | undefined,
+): Pick<FreebuffPlanSummary, 'windows' | 'dayResetAt'> | undefined {
+  if (!info) return undefined
+  return {
+    windows: [
+      { label: 'today', used: info.dayUsed, limit: info.dayLimit },
+      { label: 'week', used: info.weekUsed, limit: info.weekLimit },
+      { label: 'month', used: info.monthUsed, limit: info.monthLimit },
+    ],
+    dayResetAt: info.dayResetAt,
   }
 }

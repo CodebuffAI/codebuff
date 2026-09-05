@@ -1,6 +1,7 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getAdUserAgent } from '@codebuff/common/util/ad-user-agent'
+import { FREEBUFF_EVENT_ID_HEADER } from '@codebuff/common/ads/ad-event-hygiene'
 import {
   acknowledgeFirstPartyView,
   type FirstPartyViewAckRequest,
@@ -8,6 +9,7 @@ import {
 import { createFirstPartyViewAckTelemetry } from '@codebuff/common/util/axiom-only-log'
 import { useEffect, useRef, useState } from 'react'
 
+import { getSessionDockArm } from './use-dock-panel'
 import { useTerminalLayout } from './use-terminal-layout'
 import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
@@ -27,6 +29,7 @@ import {
 
 import type { Message } from '@codebuff/sdk'
 import type { ChatMessage } from '../types/chat'
+import type { DockClickContext } from './use-dock-panel'
 
 const AD_ROTATION_INTERVAL_MS = 60 * 1000 // 60 seconds per ad
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then pause fetching new ads
@@ -47,6 +50,36 @@ export type AdResponse = {
   provider?: AdProvider
   impressionIds?: string[]
   credits?: number // Set after impression is recorded (in cents)
+  /**
+   * `Date.now()` when the auction RESPONSE was received (COD-365). The origin
+   * of `renderDelayMs` on the impression ack: receipt to card mount, so our
+   * own server latency (already on `ads.fetch_completed.duration_ms`) stays
+   * out of a client metric. Absent on ads that predate the stamp; the ack
+   * then simply omits the delay and the server stores unknown.
+   */
+  receivedAtMs?: number
+  /**
+   * Optional expanded creative for the dock's detail panel (COD-457). Only
+   * first-party creatives carry these; a Gravity, Carbon or house ad arrives
+   * without them and the panel falls back to `adText`, no bullets, no diagram.
+   */
+  expandedBody?: string
+  bullets?: string[]
+  diagram?: string
+}
+
+/**
+ * Milliseconds from auction-response receipt to now, or undefined when the ad
+ * carries no receipt time. Never negative: a clock that moved backwards is a
+ * zero, not a rejection, mirroring the server's clamp.
+ */
+export function renderDelaySinceReceipt(
+  ad: Pick<AdResponse, 'receivedAtMs'>,
+  now: number = Date.now(),
+): number | undefined {
+  if (typeof ad.receivedAtMs !== 'number' || !Number.isFinite(ad.receivedAtMs))
+    return undefined
+  return Math.max(0, Math.round(now - ad.receivedAtMs))
 }
 
 /**
@@ -70,7 +103,7 @@ export type GravityAdState = {
   /** Lazily fill the response's bounded ad pool as slots become eligible. */
   requestResponseAds: (messageId: string, count: number) => void
   isLoading: boolean
-  recordClick: (ad: AdResponse) => void
+  recordClick: (ad: AdResponse, dock?: DockClickContext) => void
   recordImpression: (ad: AdResponse) => void
 }
 
@@ -261,6 +294,10 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
 
       // Include mode in request - Freebuff should not grant credits (no balance concept).
       const agentMode = useChatStore.getState().agentMode
+      // Measured HERE, at the moment the card is shown, against the receipt
+      // stamp `fetchAd` put on the ad (COD-365). The first-party transport
+      // sends it as a header; the third-party body carries it too.
+      const renderDelayMs = renderDelaySinceReceipt(ad)
 
       const dispatchedFirstPartyAck = dispatchFirstPartyViewAcknowledgement(
         ad.provider,
@@ -284,6 +321,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
           surface: surface ?? 'cli_chat',
           placementId: ad.placementId ?? slotPlacementId ?? 'unknown',
           clientFamily: 'cli',
+          ...(renderDelayMs !== undefined ? { renderDelayMs } : {}),
         },
         (observation) => {
           const telemetry = createFirstPartyViewAckTelemetry(observation)
@@ -301,12 +339,16 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         return
       }
 
+      // One id per logical event (COD-365). This path has no retry, so one
+      // mint per call is one per event; the header is what the server reads.
+      const clientEventId = crypto.randomUUID()
       const res = await fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
           'User-Agent': getCliAdRequestUserAgent(),
+          [FREEBUFF_EVENT_ID_HEADER]: clientEventId,
         },
         body: JSON.stringify({
           impUrl,
@@ -318,6 +360,8 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
           // field Gravity uses for bot filtering.
           userAgent: getAdUserAgent(),
           os: getDeviceInfo().os,
+          clientEventId,
+          ...(renderDelayMs !== undefined ? { renderDelayMs } : {}),
         }),
       })
 
@@ -378,23 +422,38 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
     })
   }
 
-  const recordClick = (ad: AdResponse): void => {
+  const recordClick = (ad: AdResponse, dock?: DockClickContext): void => {
     const authToken = getAuthToken()
     if (!authToken) {
       logger.warn('[ads] No auth token, skipping ad click recording')
       return
     }
 
+    // One id per logical click (COD-365); a repeat POST of the same ad is a
+    // new gesture and a new id, and the server answers `alreadyRecorded`.
+    const clientEventId = crypto.randomUUID()
     void fetch(`${WEBSITE_URL}/api/v1/ads/click`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authToken}`,
         'User-Agent': getCliAdRequestUserAgent(),
+        [FREEBUFF_EVENT_ID_HEADER]: clientEventId,
       },
       body: JSON.stringify({
         impUrl: ad.impUrl,
+        clientEventId,
         ...(surface ? { surface } : {}),
+        // The dock's own fields ride the ACK (COD-457), so the canonical
+        // server-side `ads.clicked` carries them and one click stays one
+        // event. Emitting a second client-side click here double-counted.
+        ...(dock
+          ? {
+              dockFrom: dock.from,
+              dockDwellMs: dock.dwellMs,
+              dockAccidentalClick: dock.accidental,
+            }
+          : {}),
       }),
     })
       .then((res) => {
@@ -478,6 +537,10 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
           // Native runtime UAs look bot-like to ad networks. Send the shared
           // browser-like UA so every provider sees a usable targeting signal.
           userAgent: getAdUserAgent(),
+          // The dock arm THIS session cached (COD-457). Omitted until the
+          // policy resolves, so the server falls back to its own assignment
+          // rather than being handed a guess.
+          ...(getSessionDockArm() ? { cliDockArm: getSessionDockArm() } : {}),
         }),
       })
 
@@ -501,10 +564,14 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
       const data = await response.json()
 
       if (Array.isArray(data.ads) && data.ads.length > 0) {
+        // Receipt stamp for `renderDelayMs` (COD-365): the response is in
+        // hand, the card is not yet on screen.
+        const receivedAtMs = Date.now()
         return {
           ads: (data.ads as AdResponse[]).map((ad) => ({
             ...ad,
             provider: data.provider ?? provider,
+            receivedAtMs,
           })),
         }
       }

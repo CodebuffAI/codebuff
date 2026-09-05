@@ -12,6 +12,8 @@ CLI hook testing note: React 19 + Bun + RTL `renderHook()` is unreliable; prefer
 
 Every package must therefore have a `bunfig.toml` preloading `sdk/test/setup-env.ts` — the one shared fixture, which supplies placeholder values for every var the schemas require. This is not just a local-dev nicety: CI runs `cd <package> && bun test`, i.e. exactly the package-local mode. Placeholders only — tests must never need real credentials, so `bun test` means the same thing in a fresh worktree and in a provisioned checkout.
 
+The unit-test matrix therefore never loads Infisical. This is a correctness boundary, not merely a secrets optimization: production rollout switches are mutable operational state, so importing them makes unrelated commits fail as soon as an operator changes a flag. Tests for non-default modes must set the specific variable in the test or inject the mode explicitly. Secret-bearing integration jobs remain separate.
+
 The same rule covers generated inputs. `cli/src/agents/bundled-agents.generated.ts` is gitignored, and importing it at module scope wiped 17 files (~371 tests) in a fresh worktree; `cli/test/setup-agents-artifact.ts` now builds it on demand instead of relying on everyone knowing to run `bun run prebuild:agents`.
 
 Tests that need a **service** rather than a variable should skip cleanly and say why, but never in CI. `@codebuff/internal/testing/test-db` probes Postgres once, skips the DB suites locally with the docker command to fix it, and throws when `CODEBUFF_GITHUB_ACTIONS=true` — otherwise a broken CI service container would read as a pass. Gate on **reachability**, never on `!process.env.DATABASE_URL`: the fixtures supply a placeholder URL, so presence stopped meaning availability.

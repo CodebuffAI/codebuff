@@ -16,6 +16,8 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
+  FALLBACK_FREEBUFF_MODEL_ID,
+  DEFAULT_FREEBUFF_MODEL_ID,
 } from '../constants/freebuff-models'
 import { minimaxModels } from '../constants/model-config'
 import { FREEBUFF_GEMINI_THINKER_AGENT_ID } from '../constants/freebuff-gemini-thinker'
@@ -530,13 +532,12 @@ describe('isLimitedTierSubstitutedModel', () => {
   // The free-session gate substitutes the limited tier's model for a pick that
   // tier no longer offers, so the request lands on a root pinned to the model
   // the user picked. Billing has to admit it too, or the turn silently meters.
-  const FLASH_PINNED_ROOTS = [
-    'base3-free-deepseek-flash',
-    'base2-free-deepseek-flash',
-  ]
+  // Roots pinned to a full-access-only row; a Flash-pinned root would admit
+  // the limited model on its own allowlist and exercise nothing.
+  const OUT_OF_TIER_PINNED_ROOTS = ['base3-free-luna', 'base2-free-luna']
 
   test('admits the limited model on roots pinned to something else', () => {
-    for (const agentId of FLASH_PINNED_ROOTS) {
+    for (const agentId of OUT_OF_TIER_PINNED_ROOTS) {
       // The premise: without this, billing would call the substituted turn metered.
       expect(isFreeModeAllowedAgentModel(agentId, LIMITED_FREEBUFF_MODEL_ID)).toBe(
         false,
@@ -554,15 +555,30 @@ describe('isLimitedTierSubstitutedModel', () => {
     }
   })
 
-  test('is only ever the limited tier’s own model', () => {
+  test('is only ever the limited tier’s own model or the fallback', () => {
     for (const model of [
-      FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
       FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
       FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
       FREEBUFF_GLM_V52_MODEL_ID,
     ]) {
       expect(isLimitedTierSubstitutedModel('base2-free', model)).toBe(false)
     }
+    // Named through the constants rather than by id: the substitution is
+    // defined as "the limited tier's own model, or the fallback", so a literal
+    // here only records which model that was on the day it was written. Both
+    // doors are asserted, since the predicate opens exactly two.
+    expect(
+      isLimitedTierSubstitutedModel('base2-free', LIMITED_FREEBUFF_MODEL_ID),
+    ).toBe(true)
+    expect(
+      isLimitedTierSubstitutedModel('base2-free', FALLBACK_FREEBUFF_MODEL_ID),
+    ).toBe(true)
+    // The FULL-ACCESS default is not a door. It diverged from the limited hero
+    // on 2026-09-05, and this is what keeps the substitution from quietly
+    // widening to whatever the default happens to be.
+    expect(
+      isLimitedTierSubstitutedModel('base2-free', DEFAULT_FREEBUFF_MODEL_ID),
+    ).toBe(false)
   })
 
   // The substitution widens free mode, so it must not widen who can claim it:
@@ -698,8 +714,12 @@ describe('every freebuff root agent declares a prompt opening', () => {
     'base2-free-deepseek-pro-max': BASE2,
     'base2-free-deepseek-flash-max': BASE2,
     'base2-free-luna-max': BASE2,
-    // Web-only Muse Spark root; createBase2('free', …) like its siblings.
+    // Muse Spark roots (1.2 draining, 1.3 live); createBase2('free', …) like
+    // their siblings.
     'base2-free-muse-spark': BASE2,
+    'base2-free-muse-spark-1-3': BASE2,
+    // Gemini 3.8 Flash's root; createBase2('free', …) like its siblings.
+    'base2-free-gemini-3-8-flash': BASE2,
     // Web/Cloud-only Ox Alpha root; createBase2('free', …) like its siblings.
     'base2-free-ox-alpha': BASE2,
     'base2-free-cloud-planner': CLOUD_PLANNER,

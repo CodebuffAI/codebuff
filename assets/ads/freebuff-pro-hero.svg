@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <!--
+    The Freebuff Pro sponsor-break HERO (COD-486).
+
+    Authored, not sourced: a break's hero is the thing the card is built
+    around, and a stock photograph would say nothing about what the plan buys.
+    Dark ground (#0a0a0b, the product's own), one accent (#7CFF3F, the mark's
+    green), and the benefit stated in the plan's own numbers.
+
+    THE NUMBERS ARE THE CATALOG'S. `3` and `$8/mo` are `dailySessions` and
+    `priceUsd` of `FREEBUFF_SUBSCRIPTION_TIERS[0]`, which have been resized
+    before (2026-08-27). A picture cannot interpolate them, so
+    `scripts/__tests__/house-hero-asset.test.ts` asserts this file still agrees
+    with that catalog — a reprice fails there instead of shipping a hero that
+    quotes a price checkout would refuse.
+
+    Rendered to `freebuff-pro-hero-1600x1000.png` at 1600x1000 (16:10, the
+    ratio `SPONSOR_BREAK_HERO_SPEC` asks for). The PNG is what ships; this is
+    its source.
+  -->
+  <defs>
+    <radialGradient id="glow" cx="0.78" cy="0.28" r="0.75">
+      <stop offset="0%" stop-color="#7CFF3F" stop-opacity="0.20"/>
+      <stop offset="55%" stop-color="#7CFF3F" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#7CFF3F" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7CFF3F" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#7CFF3F" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="1000" fill="#0a0a0b"/>
+  <rect width="1600" height="1000" fill="url(#glow)"/>
+
+  <!-- The mark, from freebuff/web/public/freebuff-logo.svg, unmodified. -->
+  <g transform="translate(120,104) scale(0.62)">
+    <path d="M84 71.3367L110 91.5L90.5 66L60 27L84 71.3367Z" fill="#FFFFFF"/>
+    <path d="M25 34.5C25 34.5 73.0241 66.7839 100.5 86C104.406 88.732 106.691 90.634 110.5 93.5C114.309 96.366 117.834 99.1793 120.5 104.5C121.801 107.095 122.154 108.618 122.5 111.5C122.686 113.051 125 122 125 122C125 122 118.037 111.646 113 108.5C107.396 105 103.072 101.185 96.5 100.5H85.5L50 86L81 90L25 34.5Z" fill="#FFFFFF"/>
+    <path d="M111.5 99.5C113.889 100.593 114.945 100.883 116.5 103C117.792 104.76 119.5 111 119.5 111C119.5 111 114.744 104.577 113 103C110.233 100.498 104 96.5 104 96.5C104 96.5 110.036 98.8299 111.5 99.5Z" fill="#7CFF3F"/>
+  </g>
+  <text x="222" y="182" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="46" font-weight="700" letter-spacing="1" fill="#FFFFFF">Freebuff <tspan fill="#7CFF3F">Pro</tspan></text>
+
+  <rect x="120" y="266" width="620" height="4" fill="url(#rule)"/>
+
+  <text x="120" y="430" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="132" font-weight="700" fill="#FFFFFF">3 more</text>
+  <text x="120" y="566" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="132" font-weight="700" fill="#7CFF3F">sessions</text>
+  <text x="120" y="702" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="132" font-weight="700" fill="#FFFFFF">a day</text>
+
+  <text x="126" y="800" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="44" font-weight="400" fill="#B9BDC0">On top of the free ones. Every model.</text>
+  <text x="126" y="866" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="44" font-weight="700" fill="#FFFFFF">From $8/mo</text>
+
+  <!--
+    The right third: the session pool as it grows. Four dim units are the free
+    pool a reader already has; three lit ones are what the plan adds. It is the
+    same claim as the headline, drawn — and it is why the copy says "more".
+  -->
+  <g transform="translate(1010,300)">
+    <g fill="#FFFFFF" fill-opacity="0.10">
+      <rect x="0" y="0" width="200" height="86" rx="18"/>
+      <rect x="228" y="0" width="200" height="86" rx="18"/>
+      <rect x="0" y="112" width="200" height="86" rx="18"/>
+      <rect x="228" y="112" width="200" height="86" rx="18"/>
+    </g>
+    <g fill="#7CFF3F" fill-opacity="0.16" stroke="#7CFF3F" stroke-opacity="0.85" stroke-width="3">
+      <rect x="0" y="224" width="200" height="86" rx="18"/>
+      <rect x="228" y="224" width="200" height="86" rx="18"/>
+      <rect x="0" y="336" width="200" height="86" rx="18"/>
+    </g>
+    <text x="0" y="500" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+          font-size="34" font-weight="400" fill="#7CFF3F" letter-spacing="3">+3 A DAY, ON PRO</text>
+  </g>
+</svg>

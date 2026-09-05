@@ -1,8 +1,14 @@
-import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from './freebuff-model-ids'
 import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+} from './freebuff-model-ids'
+import {
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+  FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS,
+  FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS,
   getFreebuffWebModel,
 } from './freebuff-models'
 import {
@@ -32,14 +38,8 @@ import {
 // mode (FREEBUFF_PAUSED_FREE_MODEL_IDS). A subscribable model has to be a model
 // admission will actually open a session on, or the plan sells a row whose
 // first send fails; GLM 5.3 Flash takes its place in the same slot.
-export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze(
-  [
-    FREEBUFF_GLM_V53_FLASH_MODEL_ID,
-    FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
-    FREEBUFF_KIMI_K3_ECO_MODEL_ID,
-  ],
-)
+export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] =
+  FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS
 
 /**
  * The expensive half of the pool, sub-capped within each day.
@@ -59,16 +59,16 @@ export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] = Object.freeze(
  */
 export const FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS: readonly string[] =
   Object.freeze([
-    // GLM 5.3 Flash is here in V4 Pro's place, and NOT on Pro's argument. It is
-    // cheaper per token than every other model in the pool, so the 4-5x
-    // measurement above does not describe it. It is here because it is the free
-    // catalog's capped row (FREEBUFF_PER_MODEL_SESSION_CAPS) while its cost at
-    // fleet scale is still being measured, and a plan that let a subscriber
-    // spend an entire day's allowance on the one row we have not finished
-    // pricing would be the only way to reach that scale by surprise. Revisit
-    // together with the free cap — they answer the same open question.
+    // GLM 5.3 Flash is cheap enough to be unmetered for ordinary full-access
+    // users. It remains in this subscription-only classification because that
+    // list controls the plan's daily sub-cap, not free-tier entitlement.
     FREEBUFF_GLM_V53_FLASH_MODEL_ID,
     FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    // Gemini 3.8 Flash is the dearest row in the catalog per message, so it
+    // belongs in the sub-capped half for exactly the reason this list exists:
+    // without the cap, a subscriber spending every daily session here would
+    // have to be priced for, and the allowance would shrink for everyone.
+    FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   ])
 
 export function isFreebuffSubscriptionPremiumModelId(modelId: string): boolean {
@@ -115,9 +115,9 @@ export function isFreebuffSubscriptionModelId(modelId: string): boolean {
 export const FREEBUFF_SUBSCRIPTION_TIER_IDS = [
   'starter',
   'plus',
-  // 'pro' ($60) is withheld for now. Its Stripe price still exists but is
-  // unreachable, because checkout validates the requested tier against THIS
-  // catalog — so restoring it is an edit here, not another live-Stripe write.
+  // Restored 2026-08-31 with the marketed-totals retune. Its Stripe price
+  // already existed from the withheld launch, so restoring it was this edit.
+  'pro',
 ] as const
 export type FreebuffSubscriptionTierId =
   (typeof FREEBUFF_SUBSCRIPTION_TIER_IDS)[number]
@@ -130,10 +130,20 @@ export interface FreebuffSubscriptionTier {
   /**
    * First billing period, in USD.
    *
-   * A flat **$3 off the first month** on every tier — a nudge, not a deep
-   * promotional price. The earlier $2.50/$12 intros discounted most of the
-   * entry price, which anchored the product at the discount rather than at
-   * $8/mo; $3 off reads as a welcome, and the recurring price stays the story.
+   * **Proportional, not flat, since 2026-09-03**: $3 / $6 / $15 off, so the
+   * discount grows with the tier instead of vanishing into it. A flat $3 was
+   * 38% off Starter and 5% off Pro — the tier with the most to prove got the
+   * least reason to try. The earlier $2.50/$12 intros went the other way and
+   * discounted most of the entry price, which anchored the product at the
+   * discount rather than at $8/mo.
+   *
+   * **This number is DISPLAY ONLY — the charge is a Stripe coupon**
+   * (`FREEBUFF_SUBSCRIPTION_INTRO_COUPON_IDS`, resolved in
+   * `web/src/server/model-subscriptions/pricing.ts`). Nothing in code can
+   * reconcile the two, so changing a figure here without minting the matching
+   * coupon advertises a price we do not charge. The coupon ids encode their
+   * own amount in cents (`freebuff_intro_pro_1500c`) precisely so the
+   * mismatch is visible in the env var.
    *
    * Charged at most once per ACCOUNT. Whichever tier a user starts on consumes
    * it, so upgrading later pays full price — which is why `intro_used` lives
@@ -175,24 +185,41 @@ export interface FreebuffSubscriptionTier {
    */
 }
 
+/**
+ * The FREE tier's marketed allowance (2026-08-31) — the baseline every plan
+ * card's TOTALS are built on, and the numbers the free-tier windows enforce.
+ *
+ * One definition on purpose: the plans page renders `free + plan` totals from
+ * this, and the admission windows meter against it, so the advertised number
+ * and the enforced number cannot drift. Limited-access accounts have no free
+ * premium allowance — their surfaces show plan-only figures and their MiMo
+ * pool is metered (and displayed) separately.
+ */
+export const FREEBUFF_FREE_TIER_ALLOWANCE = Object.freeze({
+  dailySessions: 4,
+  weeklySessions: 14,
+  monthlySessions: 40,
+  monthlySpendLimitUsd: 20,
+})
+
 export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
   Object.freeze([
+    // Retuned 2026-08-31 to the MARKETED-TOTALS model. The numbers users see
+    // are per-tier TOTALS (free allowance + plan): Free 4/14/40/$20, Starter
+    // 7/24/70/$35, Plus 11/40/140/$70, Pro 15/80/250/$200. Each plan window
+    // here is total − free, because free pools burn first and the plan only
+    // meters what they did not absorb. The weekly figures ride the (renamed)
+    // rolling window, which widened 5 → 7 days in the same retune — the wire
+    // field keeps its `fiveDay` name so released clients keep parsing.
     {
       id: 'starter',
       displayName: 'Starter',
       priceUsd: 8,
       introPriceUsd: 5,
-      // Resized 2026-08-27, before the public rollout. The pre-rollout
-      // figures were sized against god-only testing and priced most of a
-      // month of premium use into $8 — at Luna's measured per-session cost,
-      // 4/day was an order of magnitude more compute than the price
-      // (figures in the internal cost notes). The 5-DAY window is what actually bounds a
-      // heavy week (3/day would allow 15 in five days; 10 is the real cap),
-      // which is why the two numbers are not simply proportional.
       dailySessions: 3,
       fiveDaySessions: 10,
-      monthlySessions: 50,
-      monthlySpendLimitUsd: 40,
+      monthlySessions: 30,
+      monthlySpendLimitUsd: 15,
       // Equal to dailySessions: the Luna/Pro sub-cap was LIFTED (2026-08-26).
       // Kept as a field rather than deleted so the wire shape and the
       // enforcement stay in place — set it lower again to reinstate the cap
@@ -203,17 +230,25 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       id: 'plus',
       displayName: 'Plus',
       priceUsd: 25,
-      introPriceUsd: 22,
-      // Roughly 2.3x Starter on the day and 2x on the 5-day, against 3.1x the
-      // price — deliberately sub-linear. The old 12/day was triple the old
-      // 4/day for triple the price, which made the larger plan a pure linear
-      // buy with no reason to prefer it over three Starters.
+      introPriceUsd: 19,
       dailySessions: 7,
-      fiveDaySessions: 20,
-      monthlySessions: 125,
-      monthlySpendLimitUsd: 100,
+      fiveDaySessions: 26,
+      monthlySessions: 100,
+      monthlySpendLimitUsd: 50,
       // Equal to dailySessions — sub-cap lifted; see the starter tier note.
       dailyPremiumSessions: 7,
+    },
+    {
+      id: 'pro',
+      displayName: 'Pro',
+      priceUsd: 60,
+      introPriceUsd: 45,
+      dailySessions: 11,
+      fiveDaySessions: 66,
+      monthlySessions: 210,
+      monthlySpendLimitUsd: 180,
+      // Sub-cap lifted, like the others.
+      dailyPremiumSessions: 11,
     },
   ] satisfies FreebuffSubscriptionTier[])
 
@@ -260,7 +295,11 @@ export function freebuffSubscriptionTierDisclaimers(
           `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or GLM 5.3 Flash; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
         ]
       : []),
-    'The 5-day limit is a rolling window — it frees up as your oldest sessions age out, rather than resetting on a fixed day',
+    // Says "weekly" and takes the length from the constant: the window widened
+    // 5 -> 7 days on 2026-08-31 and only the `fiveDay*` WIRE fields were meant
+    // to keep the old name, but this sentence and two account-page labels were
+    // left describing a five-day rule that no longer exists.
+    `The weekly limit is a rolling ${FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS}-day window — it frees up as your oldest sessions age out, rather than resetting on a fixed day`,
     'Daily hours reset at midnight Pacific; unused ones do not carry over',
     'Adds to your free sessions rather than replacing them',
   ]
@@ -279,7 +318,10 @@ export function freebuffSubscriptionTierDisclaimers(
 export const FREEBUFF_SUBSCRIPTION_RESET_TIMEZONE = 'America/Los_Angeles'
 
 /** Length of the rolling mid-window, in days. */
-export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 5
+// 7 since 2026-08-31 (was 5): the marketed windows are per WEEK. The name and
+// every `fiveDay*` wire field survive so released clients keep parsing; only
+// the labels changed.
+export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 7
 
 /**
  * Models that ONLY a paid session may open — the "Pro" rows.
@@ -287,29 +329,41 @@ export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 5
  * Distinct from `FREEBUFF_SUBSCRIPTION_MODEL_IDS`, which lists models a plan
  * meters. Those are available to everyone and the plan merely adds sessions;
  * these are available to subscribers ONLY, so a free account cannot start one
- * at all.
+ * at all. Every id here must ALSO be in that list, or the paywall sells a row
+ * the plan it sells cannot open.
  *
- * EMPTY AGAIN as of 2026-08-26, and back to the state this comment originally
- * described. V4 Pro was its one entry for a few hours (#2254) and has since
- * been withdrawn from free mode entirely on cost — a row nothing may admit
- * cannot be sold, so leaving it here would advertise a paid tier whose first
- * send fails for subscribers too.
+ * The rows are still LISTED to a free account, without a price, and selecting
+ * one opens the plans page. That is deliberate and is the same call
+ * `LIMITED_TIER_PLAN_LOCKED_MODELS` documents: a row the user cannot start is
+ * worth drawing when the only thing in the way is a plan we sell. The price is
+ * suppressed because a Freebucks figure beside a row Freebucks cannot buy
+ * reads as the way in, and sends the user to spend a balance that will not
+ * open it.
  *
- * GLM 5.3 Flash, which that comment named as the row this was built for, ships
- * as a FREE premium row rather than a paid one. It briefly carried a 2-a-day
- * ceiling (FREEBUFF_PER_MODEL_SESSION_CAPS) as a measurement window; that came
- * off on 2026-08-27 once its lane was measured, so it now draws on the ordinary
- * premium allowance like every other row. Still a product decision and still a
- * deliberately reversible one: the machinery below is untouched, so moving it
- * behind the paywall later is one entry here — or, without a deploy at all, one
- * id in `FREEBUFF_PRO_ONLY_MODEL_IDS`.
+ * ## Why these two, as of 2026-09-04
  *
- * Everything else #2254 built stays live and simply has nothing to act on: the
- * service-account surface check, the off-peak closure, the DeepSeek-direct
- * route pin and the admission refusal are all still here and still tested.
+ * GPT-5.6 Luna and Gemini 3.8 Flash are the two dearest rows we serve, and
+ * both were already half-fenced. Luna has been plan-locked for the limited
+ * tier since 2026-09-04 (`LIMITED_TIER_PLAN_LOCKED_MODELS`) and is in the
+ * sub-capped premium half above; Gemini 3.8 Flash was withdrawn outright the
+ * day it shipped. Putting both behind the plan is the same decision applied to
+ * the whole audience rather than to one tier.
+ *
+ * ## Scope
+ *
+ * Enforced on FREEBUFF WEB ONLY — see FREEBUFF_PRO_ENFORCED_SURFACES. Desktop
+ * and the CLI keep serving Luna free, because a released binary holding the id
+ * must not have the model taken away by a server deploy it did not ask for.
+ * Widening is one edit to that constant, and should be made with a client
+ * release rather than ahead of one.
+ *
+ * Withdrawn history: V4 Pro was the one entry for a few hours (#2254) and left
+ * on 2026-08-26 with its withdrawal from free mode — a row nothing may admit
+ * cannot be sold. Nothing here is reachable without a deploy either way; the
+ * `FREEBUFF_PRO_ONLY_MODEL_IDS` env list adds ids without one.
  */
 export const FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS: readonly string[] =
-  Object.freeze([])
+  FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS
 
 /**
  * The Pro rows are enforced on **Freebuff Web only**, for now.
@@ -331,13 +385,48 @@ export const FREEBUFF_PRO_ENFORCED_SURFACES = ['freebuff-web'] as const
  * peak windows — which is exactly why the row is closed there rather than sold
  * at twice the cost. Distinct from the plan-level pause: this row is shut
  * outright on Web, for subscribers too.
+ *
+ * SCOPED TO THE DEEPSEEK ROW BY ID, not to "whatever is Pro-only". It tested
+ * the Pro list while that list held exactly one entry and that entry was this
+ * model, so the two readings coincided and the narrower one was never written
+ * down. They stopped coinciding on 2026-09-04, when Luna and Gemini 3.8 Flash
+ * became the Pro rows: both are served by lanes that have no peak window at
+ * all, and the old predicate would have shut them for fourteen hours a day
+ * with an explanation about DeepSeek's card that is not true of either.
+ *
+ * The closure belongs to the LANE, so it names the model whose lane it is. A
+ * future Pro row on DeepSeek direct joins the list below; one on any other
+ * provider must not.
  */
+const FREEBUFF_WEB_PEAK_CLOSED_PRO_MODEL_IDS: readonly string[] = Object.freeze([
+  FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
+])
+
 export function isFreebuffWebProClosedNow(
   id: string,
   now: Date = new Date(),
 ): boolean {
-  if (!FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS.includes(id)) return false
+  if (!isFreebuffWebPeakClosedProModelId(id)) return false
   return isDeepSeekExpensiveWindow(now)
+}
+
+/**
+ * Whether the peak closure applies to this row AT ALL, independent of the hour.
+ *
+ * Separate from `isFreebuffWebProClosedNow` because a PICKER asks a different
+ * question than an admission gate does. Admission asks "is it shut right now";
+ * the picker has to decide whether to draw an hours badge at every hour,
+ * including the hours the row is open — a badge that appeared only once the
+ * door was already shut would be useless for planning around.
+ *
+ * The picker used to derive that badge from `isFreebuffSubscriptionProModelId`,
+ * which was indistinguishable from this while V4 Pro was the only Pro row. It
+ * stopped being true on 2026-09-04, and the result was Luna and Gemini 3.8
+ * Flash both advertising `Open 3:00 AM - 5:00 PM PDT` — hours neither of them
+ * has, taken from a third model's provider.
+ */
+export function isFreebuffWebPeakClosedProModelId(id: string): boolean {
+  return FREEBUFF_WEB_PEAK_CLOSED_PRO_MODEL_IDS.includes(id)
 }
 
 /** "3:00 AM – 5:00 PM" — when the Web Pro row is open, in the reader's zone. */
@@ -377,10 +466,12 @@ export function getFreebuffPlanPauseWindowLabel(
   now: Date = new Date(),
   timeZone?: string,
 ): string | undefined {
-  if (!FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS.includes(id)) return undefined
+  if (!FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS.includes(id))
+    return undefined
   // A model already closed outright at peak needs no second sentence about it —
   // its availability label already names the same window.
-  if (getFreebuffWebModel(id)?.availability === 'off_peak_only') return undefined
+  if (getFreebuffWebModel(id)?.availability === 'off_peak_only')
+    return undefined
   return `Plan paused ${formatDeepSeekExpensiveWindowLocal(now, timeZone)}`
 }
 
@@ -435,6 +526,12 @@ export const FREEBUFF_BETA_RATE_LOCK_MULTIPLIER = 3
  */
 export function freebuffPlanHours(count: number): string {
   return `${count} ${count === 1 ? 'hour' : 'hours'}`
+}
+
+/** "24 hrs" — the abbreviated form for secondary lines (bullets, strips),
+ *  where the full word crowds a card. Headlines keep `freebuffPlanHours`. */
+export function freebuffPlanHrs(count: number): string {
+  return `${count} ${count === 1 ? 'hr' : 'hrs'}`
 }
 
 /**

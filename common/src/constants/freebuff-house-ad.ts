@@ -13,9 +13,20 @@ import { FREEBUFF_SUBSCRIPTION_TIERS } from './freebuff-subscriptions'
  *
  * THE FLOOR IS COPY, NOT INVENTORY. There is no campaign row, no budget, no
  * frequency cap and no targeting behind it, and that is deliberate: a house
- * fallback that can itself return nothing is not a fallback. The serving
- * mechanism lives in `@codebuff/internal/ad-serving/house-ad` and is required
- * to be total over every surface below.
+ * fallback that can itself return nothing is not a fallback. It is also off by
+ * default and unset in production. The CAMPAIGN is a different thing and is
+ * capped: it carries the shared per-user frequency default, the same as any
+ * advertiser who configured none. The floor's serving mechanism lives in
+ * `@codebuff/internal/ad-serving/house-ad` and is required to be total over
+ * every surface below.
+ *
+ * ONE EXCEPTION, AND IT IS NOT TARGETING: since 2026-09-02 an entitled
+ * subscriber is served nothing here. This copy advertises the subscription, so
+ * the one reader it must never reach is the one who already bought it. Every
+ * serve path -- the campaign's candidate filter and all four checked-in floors
+ * -- asks `resolveHouseSuppressedForUser` first. That is the ONLY thing a
+ * serve path reads about a subscription; the claims below are unaffected, and
+ * in particular a subscription still does not remove ads.
  *
  * **This file is published.** `common` ships wholesale to the public mirror
  * (docs/public-repo-sync.md). That is fine here -- it is marketing copy and a
@@ -42,6 +53,7 @@ export type HouseAdSurface =
   | 'waiting_room'
   | 'freebuff_web_chat'
   | 'chat_assistant'
+  | 'chat_assistant_sr'
   | 'cli_chat'
 
 /** Where every house ad sends the reader. */
@@ -121,23 +133,25 @@ const FAVICON = HOUSE_AD_FAVICON_URL
 /**
  * What the inline renderer actually gives a creative, in characters.
  *
- * Both numbers come from `getInlineAdLayout` in `common/src/ads/inline-ad-layout.ts`
- * at the preview widths the advertiser console offers (`PLACEMENT_PREVIEW_WIDTHS`
- * = 20/48/60). The adjacent test RECOMPUTES them from that function rather than
- * trusting these constants, so a layout change fails the build instead of
- * silently cutting our own copy.
+ * Both numbers come from `getInlineAdLayout` in `common/src/ads/inline-ad-layout.ts`.
+ * The adjacent test RECOMPUTES them from that function rather than trusting
+ * these constants, so a layout change fails the build instead of silently
+ * cutting our own copy.
  *
- * - TITLE at width 20: content is `20 - 4` for border and padding, less the
- *   `Ad` disclosure and its gap, leaving 12.
+ * - TITLE at the RENDERER FLOOR (`MIN_INLINE_AD_WIDTH` = 20): content is
+ *   `20 - 4` for border and padding, less the `Ad` disclosure and its gap,
+ *   leaving 12. The floor is a renderer fact, deliberately NOT
+ *   `PLACEMENT_PREVIEW_WIDTHS` — the console stopped previewing 20 columns
+ *   (nobody runs one), but a real terminal can still be that narrow, and a
+ *   cut title reads as a different product rather than a shortened claim.
  * - DESCRIPTION at width 48: content is `48 - 4`, less the destination label
  *   (`freebuff.com`), its gap and the link arrow, leaving 28.
  *
- * THE DESCRIPTION BUDGET IS DELIBERATELY NOT THE NARROWEST WIDTH. At 20
- * columns the description gets 16 characters, which no sentence from any
- * advertiser survives -- holding our own copy to it would buy a promotion
- * nobody can read at the widths people actually use. So 20 is accepted as a
- * degraded render for the description and enforced for the TITLE, where a cut
- * reads as a different product rather than as a shortened claim.
+ * THE DESCRIPTION BUDGET IS DELIBERATELY NOT THE FLOOR. At 20 columns the
+ * description gets 16 characters, which no sentence from any advertiser
+ * survives -- holding our own copy to it would buy a promotion nobody can
+ * read at the widths people actually use. So 20 is accepted as a degraded
+ * render for the description and enforced for the TITLE only.
  */
 export const HOUSE_AD_TITLE_BUDGET = 12
 export const HOUSE_AD_TEXT_BUDGET = 28
@@ -163,9 +177,9 @@ const inline = (title: string, adText: string): HouseAdCreative => ({
  * Variation 0 is the safest of each set and is what the floor serves: it makes
  * the plainest claim, so it is the one that stays true if the others age.
  *
- * Repetition is handled by rotating these, never by capping the campaign -- a
- * cap means "show the promotion three times, then go back to an empty pane",
- * which is the behaviour this whole feature exists to remove.
+ * Rotation is for VARIETY, not for avoiding a cap. The campaign carries the
+ * same per-user frequency cap as any advertiser who configured none, so the
+ * few impressions a reader does get should not all say the same thing.
  */
 export const HOUSE_AD_VARIATIONS: Readonly<
   Record<HouseAdSurface, readonly HouseAdCreative[]>
@@ -198,6 +212,20 @@ export const HOUSE_AD_VARIATIONS: Readonly<
     inline('Freebuff Pro', `Every model, +${SESSIONS_PER_DAY} a day.`),
     inline('Need more?', `Pro starts at ${PRICE}.`),
   ]),
+  // DRAFT (COD-407). The server-rendered-ads experiment arm of
+  // `chat_assistant`: the SAME slot above the composer under a distinct
+  // placement id (`Chat-Assistant-Above-Input-SR`), so it takes the chat
+  // copy verbatim -- a reader in the SR arm should see the same promotion as
+  // one in the control arm, or the arms measure the copy rather than the
+  // renderer. It exists here because `house-ad.ts` requires the floor to be
+  // total over `AD_SURFACES`; there is no sellable slot for it in
+  // `PLACEMENT_SLOTS`, so only the FLOOR ever serves it, never the campaign.
+  chat_assistant_sr: Object.freeze([
+    inline('Freebuff Pro', `${SESSIONS_PER_DAY} more a day. ${PRICE}`),
+    inline('Freebuff Pro', `${SESSIONS_PER_MONTH} more a month. ${PRICE}`),
+    inline('Freebuff Pro', `Every model, +${SESSIONS_PER_DAY} a day.`),
+    inline('Need more?', `Pro starts at ${PRICE}.`),
+  ]),
 })
 
 /**
@@ -215,6 +243,103 @@ export const HOUSE_AD_CREATIVES: Readonly<
   waiting_room: HOUSE_AD_VARIATIONS.waiting_room[0]!,
   freebuff_web_chat: HOUSE_AD_VARIATIONS.freebuff_web_chat[0]!,
   chat_assistant: HOUSE_AD_VARIATIONS.chat_assistant[0]!,
+  chat_assistant_sr: HOUSE_AD_VARIATIONS.chat_assistant_sr[0]!,
+})
+
+/**
+ * The SPONSOR BREAK copy, keyed by PLACEMENT ID rather than by surface
+ * (COD-486).
+ *
+ * WHY NOT A `HouseAdSurface` KEY. A break is the same `cli_chat` surface as
+ * the inline Desktop slot beside it -- `PLACEMENT_FORMATS` explains why the
+ * format is a property of the SLOT and not of the surface -- so there is no
+ * surface to hang this on. Keying by placement id is also what keeps the FLOOR
+ * out of it: {@link HOUSE_AD_CREATIVES} is built from
+ * {@link HOUSE_AD_VARIATIONS} alone, so nothing here can ever be served as the
+ * checked-in text floor. That is required rather than merely tidy -- COD-453
+ * excludes the text-only floor from a break, and a break card built around a
+ * hero cannot render a creative that has none.
+ *
+ * DIFFERENT BUDGET, SAME RULES. The inline budget above (12 / 28) is the
+ * terminal renderer's; a break is drawn at display size and its limits are
+ * `SPONSOR_BREAK_CREATIVE_LIMITS` (28 / 60 / 18), asserted in the adjacent
+ * test against that constant rather than retyped. Everything else is
+ * unchanged: the claims are the same claims, the destination is the same
+ * `/plans`, and the banned-claims test covers these creatives too.
+ *
+ * `*marked*` is the ONE accent run the break card draws in the accent colour
+ * (`splitMarkedTitle` in `SponsorSpotlight.tsx`). It is plain text everywhere
+ * else and counts toward the title limit, which is why it is spent on one
+ * word.
+ *
+ * These rows carry NO `imageUrl`: a break's picture is the HERO, which is
+ * uploaded bytes behind `hero_image_public_token` and cannot be a static path
+ * (the same reason {@link HOUSE_AD_FAVICON_URL} exists for the logo). The seed
+ * script uploads it; see `scripts/seed-house-subscription-campaign.ts`.
+ */
+export const HOUSE_BREAK_AD_PLACEMENT_IDS = [
+  'Desktop-Spotlight',
+  'Desktop-Showcase',
+] as const
+
+export type HouseBreakAdPlacementId =
+  (typeof HOUSE_BREAK_AD_PLACEMENT_IDS)[number]
+
+const breakCreative = (
+  title: string,
+  adText: string,
+  cta: string,
+): HouseAdCreative => ({
+  title,
+  adText,
+  cta,
+  url: HOUSE_AD_DESTINATION_URL,
+  favicon: FAVICON,
+})
+
+export const HOUSE_BREAK_AD_VARIATIONS: Readonly<
+  Record<HouseBreakAdPlacementId, readonly HouseAdCreative[]>
+> = Object.freeze({
+  // Spotlight interrupts after a completed task, full-frame. The reader has
+  // just finished something, so the claim is what the next day looks like.
+  'Desktop-Spotlight': Object.freeze([
+    breakCreative(
+      'Freebuff *Pro*',
+      `${SESSIONS_PER_DAY} more sessions a day, from ${PRICE}.`,
+      'See plans',
+    ),
+    breakCreative(
+      'More runs, *every* model',
+      `${SESSIONS_PER_MONTH} more sessions a month, from ${PRICE}.`,
+      'See plans',
+    ),
+    breakCreative(
+      'Out of *sessions*?',
+      `Pro adds ${SESSIONS_PER_DAY} more a day, on every model.`,
+      'Compare plans',
+    ),
+  ]),
+  // Showcase is a banner above the composer, read mid-task and not rationed.
+  // Shorter, and it argues the price rather than the ceiling.
+  //
+  // NO ACCENT MARKUP HERE, and this is a renderer fact rather than a style
+  // choice: `splitMarkedTitle` is SPOTLIGHT's. The Showcase card draws the
+  // title as plain text, so `*Pro*` renders with the asterisks visible --
+  // measured, on the `showcase-house` shot. Keying this catalog by placement
+  // is what makes the difference expressible at all; the adjacent test pins it
+  // so a copy edit cannot quietly put the markup back.
+  'Desktop-Showcase': Object.freeze([
+    breakCreative(
+      'Freebuff Pro',
+      `${SESSIONS_PER_DAY} more sessions a day, from ${PRICE}.`,
+      'See plans',
+    ),
+    breakCreative(
+      'Need more runs?',
+      `Pro adds ${SESSIONS_PER_MONTH} a month, on every model.`,
+      'See plans',
+    ),
+  ]),
 })
 
 /**

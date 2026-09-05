@@ -162,6 +162,14 @@ export type ImpreziaEventType =
   | typeof IMPREZIA_EVENT_INSERTED
   | typeof IMPREZIA_EVENT_VIEWABLE
 
+/**
+ * Which moment a client says it is reporting, on OUR wire (the beacon strings
+ * above are Imprezia's). Absent means insertion, so builds predating the
+ * viewable path keep their meaning. Both impression endpoints import it: a word
+ * one accepted and the other rejected would silently lose one surface.
+ */
+export const impreziaEventSchema = z.enum(['inserted', 'viewable']).optional()
+
 export const IMPREZIA_BEACON_PATH = '/v1/events/sdk-impression'
 
 /**

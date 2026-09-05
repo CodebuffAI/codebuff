@@ -1,5 +1,6 @@
 import type { FreebuffAccessTier } from '../constants/freebuff-models'
 import type { FreebuffStandingInfo } from '../constants/freebuff-standing'
+import { applyFreebucksPriceChanges } from '../util/freebuff-price-changes'
 
 /**
  * Wire-level shapes returned by `/api/v1/freebuff/session`. Source of truth
@@ -139,39 +140,134 @@ export interface FreebuffSubscriptionUsage {
  * Sent only to callers in the rollout audience, so its absence means "this
  * account has no subscriptions surface" rather than "no data".
  */
-/** One window of a Freebucks allowance, as the client should render it. */
+/** The daily Freebucks pool, as the client should render it. */
 export interface FreebuffFreebucksWindow {
-  /** Total allowance for the window: free grant + whatever the plan adds. */
+  /** Freebucks granted for the Pacific day: the access tier's free pool, or
+   *  the plan's daily pool for a subscriber (the plan REPLACES the free
+   *  figure rather than stacking on it). */
   limit: number
-  /** Freebucks already spent inside the window. */
+  /** Freebucks already spent from the daily pool today. */
   spent: number
   /** `limit - spent`, floored at zero so a lowered allowance reads as 0. */
   remaining: number
-  /** ISO instant this window reopens. */
+  /** ISO instant the pool refills. */
+  resetAt: string
+}
+
+/**
+ * The wallet: what is left once the daily pool is spent. Holds two kinds of
+ * Freebucks that behave differently and are deliberately shown as ONE number,
+ * because the distinction is ours to keep rather than the user's to track:
+ * EARNED ones (bounties, referrals, grants) stay until they are spent, while a
+ * plan's monthly bonus is an allowance for its period and any of it left over
+ * is retired when another period’s bonus is credited, including on upgrade
+ * (`FREEBUCKS_BONUS_EXPIRY_REASON`). Subscription end alone does not retire it.
+ * Wallet spending is attributed to the expiring half first, so a user who spends is always
+ * treated as having spent the money that was about to go.
+ *
+ * Drawn on only once the daily pool
+ * is spent, so a session costing more than what is left in the pool takes the
+ * remainder from here.
+ */
+export interface FreebuffFreebucksWallet {
+  /** Spendable wallet balance right now. */
+  balance: number
+  /** Freebucks the plan credits here once per billing period (0 on free). */
+  monthlyBonus: number
+  /** Current period end: the next bonus is available then IF the plan renews.
+   * Still present when cancellation is scheduled; absent without a live plan. */
+  nextBonusAt?: string
+}
+
+/**
+ * The hard daily dollar ceiling behind the Freebucks meter.
+ *
+ * NOT SHOWN ANYWHERE, and that is the point: it is an abuse backstop sized to
+ * catch only the heaviest days, while the meter a user plans against is their
+ * Freebucks. Rendering a second, smaller-looking limit beside the pool invited
+ * the reading that the dollars run out first. It stays on the wire because a
+ * refusal names it and an operator surface may want it, and it deliberately
+ * carries no running total — computing one cost an extra spend aggregate on
+ * every session response for a number nothing draws.
+ */
+export interface FreebuffFreebucksSpendCeiling {
+  /** Settled provider spend since midnight Pacific at which fresh sessions
+   *  stop being admitted, for this account's tier and access tier. */
+  limitUsd: number
+  /** ISO instant the day rolls. */
+  resetAt: string
+}
+
+/**
+ * The MONTHLY dollar allowance: what this account may draw in provider spend
+ * over the period, what it has drawn, and what is left.
+ *
+ * Unlike the daily ceiling above, this one IS shown — as "$N left" beside the
+ * Freebucks balances — because the two answer different questions. The daily
+ * figure is an abuse backstop nobody should ever meet, and showing it invited
+ * the reading that the dollars run out before the Freebucks do. This one is
+ * the honest size of the gift: it is what the plan card advertises, it is what
+ * the server enforces, and a user who wants to know how much they are being
+ * given can read it directly instead of inferring it from a session price.
+ *
+ * `spentUsd` lags live traffic by up to an hour: it is summed from the hourly
+ * spend rollup rather than the hot `message` table, deliberately, because a
+ * SUM over that table on every session response is the shape of the
+ * 2026-08-17 saturation. For a monthly bound an hour of lag is noise.
+ */
+export interface FreebuffFreebucksMonthlyAllowance {
+  /** Provider spend for the period at which fresh sessions stop. */
+  limitUsd: number
+  /** Settled spend so far this period, from the hourly rollup. */
+  spentUsd: number
+  /** `limitUsd - spentUsd`, floored at zero so an overshoot reads as spent
+   *  rather than as a negative allowance. */
+  remainingUsd: number
+  /** ISO instant the period rolls: the Stripe period end for a subscriber,
+   *  else the first of next month. */
   resetAt: string
 }
 
 /**
  * The caller's Freebucks position, present on every authenticated session
- * response. Distinct from Trust: Freebucks are a granted, expiring budget that
- * buys premium sessions, Trust is earned standing that buys Levels.
+ * response inside the rollout audience. Distinct from Trust: Freebucks are a
+ * granted budget that buys sessions, Trust is earned standing that buys
+ * Levels.
+ *
+ * For models in `prices`, this balance takes precedence over legacy
+ * `rateLimitsByModel` and referral balances when starting a new session.
+ *
+ * Two balances and one ceiling — deliberately nothing else. The 2026-08-31
+ * shape carried day/week/month windows beside the session pools' own rings;
+ * this one is the whole indicator set for an account on the meter.
  */
 export interface FreebuffFreebucksInfo {
-  /**
-   * Spendable right now — the MINIMUM remaining across the three windows, which
-   * is the only number that answers "can I start a session". Rendering the
-   * daily figure alone would promise Freebucks the weekly cap will refuse.
-   */
+  /** Server-authorized quota exemption: new sessions remain usable at zero balance. */
+  quotaExempt?: boolean
+  /** Spendable right now: `daily.remaining + wallet.balance`. */
   balance: number
   daily: FreebuffFreebucksWindow
-  weekly: FreebuffFreebucksWindow
-  monthly: FreebuffFreebucksWindow
-  /** Which window is currently binding — the one `balance` came from. */
-  bindingWindow: 'daily' | 'weekly' | 'monthly'
-  /** Freebucks the caller's plan adds on top of the free grant, if subscribed. */
-  planDaily?: number
-  /** Session price per model id. Only models Freebucks can buy appear here. */
+  wallet: FreebuffFreebucksWallet
+  spend: FreebuffFreebucksSpendCeiling
+  /** The monthly dollar allowance, shown to the user and enforced. Absent
+   *  from a server that predates it, so clients render nothing rather than
+   *  a zero that would read as "you have nothing left". */
+  monthly?: FreebuffFreebucksMonthlyAllowance
+  /** The plan the daily pool and bonus were sized from; null on free. */
+  planId: string | null
+  /** Session price per model id. Only models on the meter appear here. */
   prices: Record<string, number>
+  /** Copy resolved with the price, overriding the static model tagline. */
+  priceNotices?: Record<string, string>
+  /** Scheduled changes announced by the server; do not reprice admitted sessions. */
+  priceChanges?: readonly FreebuffPriceChange[]
+}
+
+export interface FreebuffPriceChange {
+  at: string
+  modelId: string
+  price: number
+  tagline: string
 }
 
 export interface FreebuffSubscriptionInfo {
@@ -203,6 +299,34 @@ export interface FreebuffSubscriptionInfo {
     | 'premium_daily'
     /** The tier's dollar ceiling for the period is spent. */
     | 'monthly_spend'
+}
+
+/**
+ * The FREE tier's windows, for every full-access account (2026-09-01).
+ *
+ * `today` is the live premium pool — the same number the picker's daily ring
+ * has always drawn, base + level + referral bonus. `week` and `month` are the
+ * MARKETED free allowance (`FREEBUFF_FREE_TIER_ALLOWANCE`) with the account's
+ * real usage against them, so free users see the same three rings a
+ * subscriber sees. DISPLAY-ONLY for now: nothing refuses on the week or month
+ * yet (operator decision — enforcement is a later change), so `weekUsed` can
+ * legitimately exceed `weekLimit` until it lands.
+ *
+ * Absent for quota-exempt accounts (they hold no pools), for limited access
+ * (whose one regional pool is already the picker's ring), and from servers
+ * older than this field.
+ */
+export interface FreebuffFreeWindowsInfo {
+  dayUsed: number
+  dayLimit: number
+  weekUsed: number
+  weekLimit: number
+  monthUsed: number
+  monthLimit: number
+  /** ISO instant the daily pool resets. */
+  dayResetAt: string
+  /** ISO instant the calendar month (Pacific) rolls. The week is rolling. */
+  monthResetAt: string
 }
 
 /**
@@ -247,10 +371,19 @@ export interface FreebuffSessionRateLimit {
    * for session quotas with `limit = base + referral + streak + promo`. */
   entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
   limit: number
-  /** 'pacific_day' for the daily pools (premium/limited, and the GLM 5.2
+  /** 'pacific_day' for the daily pools (premium/limited, and the reward
    *  referral pool since 2026-07-29). 'pacific_week' is kept for wire compat
-   *  with servers from when the GLM pool reset weekly. */
-  period: 'pacific_day' | 'pacific_week'
+   *  with servers from when the GLM pool reset weekly.
+   *
+   *  'pacific_month' arrived with the monthly dollar allowance. EVERY RELEASED
+   *  CLIENT renders an unrecognised value as "today" (`period === 'pacific_week'
+   *  ? 'this week' : 'today'`), which is wrong copy rather than a crash — it
+   *  invites a user to retry in the morning for an allowance that returns on
+   *  the 1st. Harmless today because only Freebuff Web is on the meter and its
+   *  copy is updated in step; a widening of the Freebucks audience has to
+   *  carry a client release with it, or accept that wording. `resetAt` is
+   *  correct on every client either way, so anything reading THAT is safe. */
+  period: 'pacific_day' | 'pacific_week' | 'pacific_month'
   resetTimeZone: string
   resetAt: string
   /** Deprecated wire field kept for older clients. Session usage now follows
@@ -286,7 +419,7 @@ export interface FreebuffDesktopSessionCounts {
  * Referral status surfaced to the CLI model-selector so it can render an
  * "invite friends" banner. The reward depends on the session's access tier:
  *
- *   - full tier    → unlock daily GLM 5.2 sessions (`weeklySessionsRemaining`
+ *   - full tier    → one extra daily PREMIUM session (`weeklySessionsRemaining`
  *     and `resetAt` carry the live balance / next reset; the field name
  *     predates the weekly→daily cadence change and is kept for wire compat).
  *   - limited tier → earn a daily free-session bonus (+1/day per qualified
@@ -306,20 +439,20 @@ export interface FreebuffReferralInfo {
    *  name set. */
   referrerName: string | null
   /** Qualified-referral count for the tier's reward, ALREADY CAPPED on both
-   *  branches: full tier = GLM sessions per day, clamped to
-   *  FREEBUFF_GLM_V52_MAX_DAILY_SESSIONS (uncapped between 2026-07-30 and
+   *  branches: full tier = extra premium sessions per day, clamped to
+   *  FREEBUFF_REWARD_MAX_DAILY_SESSIONS (uncapped between 2026-07-30 and
    *  2026-08-25); limited tier = daily-session bonus earned, capped at
    *  REFERRAL_CLI_DAILY_SESSION_BONUS_CAP. The CLI knows both constants
    *  locally and renders "(N/cap)" progress copy off them, so a value that
    *  arrived un-clamped would advertise sessions the gate refuses. */
   qualifiedCount: number
-  /** GLM sessions still available in the current reset window (entitlement −
-   *  used, ≥ 0). Daily since 2026-07-29; the "weekly" name is kept for wire
-   *  compat. Full tier only; omitted for the limited-tier daily-bonus
-   *  variant. */
+  /** Reward-bearing sessions still available in the current reset window
+   *  (entitlement − used, ≥ 0). Daily since 2026-07-29; the "weekly" name is
+   *  kept for wire compat. Reads the pool the tier's reward is actually paid
+   *  into — premium at full access, the reward pool at limited. */
   weeklySessionsRemaining?: number
-  /** ISO timestamp of the next GLM pool reset. Full tier only; omitted for
-   *  the limited-tier daily-bonus variant. */
+  /** ISO timestamp of the next reward-pool reset. Both pools share a window,
+   *  so this is the same instant at either tier. */
   resetAt?: string
   /** Whether the current user has a GitHub account linked. Referrals only
    *  qualify with a connected, sufficiently-old GitHub, so the CLI prompts
@@ -328,7 +461,7 @@ export interface FreebuffReferralInfo {
 }
 
 /**
- * A live GLM 5.2 promotion, as advertised to every surface.
+ * A live bounty-spend promotion, as advertised to every surface.
  *
  * One block drives the CLI banner, the desktop footer, the web picker, the Earn
  * page and the landing eyebrow, so their copy cannot disagree about the size of
@@ -383,9 +516,42 @@ export const getRateLimitsByModel = (
 /** The caller's Freebucks block, wherever it rides the response. */
 export const getFreebucksInfo = (
   session: { status: string } | null | undefined,
-): FreebuffFreebucksInfo | undefined =>
-  session && 'freebucks' in session
+): FreebuffFreebucksInfo | undefined => {
+  const info = session && 'freebucks' in session
     ? (session as { freebucks?: FreebuffFreebucksInfo }).freebucks
+    : undefined
+  return info ? applyFreebucksPriceChanges(info) : undefined
+}
+
+/**
+ * The access tier the SERVER decided, wherever it rides the response.
+ *
+ * Not the same thing as the tier a client resolved for itself, and the
+ * difference is the point: this is the tier that set the allowance in the same
+ * payload, so anything explaining that allowance has to read it here. A client
+ * that derives the tier separately can disagree with the number it is
+ * labelling — and does, for accounts whose client-side resolution is
+ * short-circuited — leaving a menu that claims one thing beside a balance
+ * computed from another.
+ *
+ * Undefined on the variants that do not carry it, so callers fall back rather
+ * than assert.
+ */
+export const getFreebuffServerAccessTier = (
+  session: { status: string } | null | undefined,
+): FreebuffAccessTier | undefined =>
+  session && 'accessTier' in session
+    ? (session as { accessTier?: FreebuffAccessTier }).accessTier
+    : undefined
+
+/** The free tier's windows off whichever statuses carry them; undefined from
+ *  a server that predates the field, for a quota-exempt account, or at
+ *  limited access — callers render the daily ring alone in every such case. */
+export const getFreeWindowsInfo = (
+  session: { status: string } | null | undefined,
+): FreebuffFreeWindowsInfo | undefined =>
+  session && 'freeWindows' in session
+    ? (session as { freeWindows?: FreebuffFreeWindowsInfo }).freeWindows
     : undefined
 
 export const getSubscriptionInfo = (
@@ -523,7 +689,7 @@ export interface FreebuffLimitedModeReason {
   ipPrivacySignals?: FreebuffIpPrivacySignal[] | null
 }
 
-export type FreebuffSessionServerResponse = (
+export type FreebuffSessionAdmissionResponse = (
   | ({
       /** User has no session row. CLI must POST to start a session. Also
        *  returned when `getSessionState` notices the user has been swept past
@@ -536,7 +702,8 @@ export type FreebuffSessionServerResponse = (
        *  to a model. */
       rateLimitsByModel?: FreebuffSessionRateLimitByModel
       /** Referral status for the "invite friends" banner. Full tier advertises
-       *  GLM 5.2; limited tier advertises a daily free-session bonus. */
+       *  an extra premium session; limited tier advertises a daily
+       *  free-session bonus. */
       referral?: FreebuffReferralInfo
       /** Capacity-limited models the picker may additionally offer right now.
        *  Only sent on the pre-join response, which is the only state that
@@ -560,6 +727,8 @@ export type FreebuffSessionServerResponse = (
        * catalog is empty or the server predates subscriptions.
        */
       subscription?: FreebuffSubscriptionInfo
+      /** See FreebuffFreeWindowsInfo. */
+      freeWindows?: FreebuffFreeWindowsInfo
       /** Spendable Freebucks and the per-model session prices. Rides
        *  every state for the same reason `subscription` does: the
        *  balance is shown in the picker, mid-session and after it. */
@@ -582,6 +751,8 @@ export type FreebuffSessionServerResponse = (
       /** Subscription offers and state, so an in-session picker can still
        *  render "subscribed" badges and an upgrade CTA. */
       subscription?: FreebuffSubscriptionInfo
+      /** See FreebuffFreeWindowsInfo. */
+      freeWindows?: FreebuffFreeWindowsInfo
       /** Spendable Freebucks and the per-model session prices. Rides
        *  every state for the same reason `subscription` does: the
        *  balance is shown in the picker, mid-session and after it. */
@@ -613,19 +784,13 @@ export type FreebuffSessionServerResponse = (
       /** Carried like `rateLimitsByModel`: the post-session banner and picker
        *  keep the plan rings without a round-trip. */
       subscription?: FreebuffSubscriptionInfo
+      /** See FreebuffFreeWindowsInfo. */
+      freeWindows?: FreebuffFreeWindowsInfo
       /** Spendable Freebucks and the per-model session prices. Rides
        *  every state for the same reason `subscription` does: the
        *  balance is shown in the picker, mid-session and after it. */
       freebucks?: FreebuffFreebucksInfo
     } & FreebuffLimitedModeReason)
-  | {
-      /** Another CLI on the same account rotated our instance id. Polling
-       *  stops and the UI shows a "close the other CLI" screen. The server
-       *  returns this from GET /session when the caller's instance id
-       *  doesn't match the stored one; the chat-completions gate also
-       *  surfaces it as a 409 for fast in-flight feedback. */
-      status: 'superseded'
-    }
   | {
       /** Request originated outside the free-mode allowlist, or from an
        *  unknown/anonymized location that cannot be trusted for free mode.
@@ -724,15 +889,28 @@ export type FreebuffSessionServerResponse = (
       accessTier?: FreebuffAccessTier
       /** The way out of this refusal, when there is one to sell. */
       upgrade?: FreebuffUpgradeHint
+      /** Not sent by the server on a refusal; a client may CARRY the block it
+       *  was holding so the refusal is still rendered in the meter's words. */
+      freebucks?: FreebuffFreebucksInfo
       /** The freebuff model the user tried to join. */
       model: string
+      /** The pool that refused, as on `FreebuffSessionRateLimit` — opaque. */
+      pool?: string
+      poolLabel?: string
+      /**
+       * Present when the FREEBUCKS METER refused (2026-09-02): the model's
+       * session price against what the account could spend. A client that
+       * knows the currency says "N Freebucks short"; older clients read the
+       * daily figures above as an ordinary pool.
+       */
+      freebucksShortfall?: { price: number; balance: number }
       /** Max session units permitted per period (e.g. the configured daily
-       * premium allowance, or the user's weekly GLM referral plus streak
-       * entitlement). */
+       * premium allowance, including the earned reward on top of it — or, at
+       * limited access, the reward balance plus streak entitlement). */
       limit: number
       /** Additive detail for `limit`; absent on older servers. */
       entitlementBreakdown?: FreebuffSessionEntitlementBreakdown
-      period: 'pacific_day' | 'pacific_week'
+      period: 'pacific_day' | 'pacific_week' | 'pacific_month'
       resetTimeZone: string
       resetAt: string
       /** Deprecated wire field kept for older clients. */
@@ -748,6 +926,8 @@ export type FreebuffSessionServerResponse = (
        *  running, including a reconnect to the same live session, continue. */
       status: 'spend_limited'
       accessTier?: FreebuffAccessTier
+      /** See `rate_limited`: carried by the client, never sent. */
+      freebucks?: FreebuffFreebucksInfo
       message: string
       resetAt: string
       retryAfterMs: number
@@ -755,15 +935,9 @@ export type FreebuffSessionServerResponse = (
       upgrade?: FreebuffUpgradeHint
     }
   | {
-      /** Freebuff Desktop multi-session only: every premium-bucket slot the
-       *  account holds is already running, and this tab asked for another.
-       *
-       *  A FREE account has one such slot and three unlimited-model sessions
-       *  (`FREEBUFF_DESKTOP_SESSION_LIMITS`); a SUBSCRIBER has three and eight
-       *  (`FREEBUFF_SUBSCRIBER_DESKTOP_SESSION_LIMITS`). Premium-bucket models
-       *  are the expensive rows (Luna / GLM / MiniMax M3 …); on the LIMITED
-       *  tier every model occupies a slot for a free account — one freebuff tab
-       *  at a time — while a subscriber there is metered by their plan instead.
+      /** Freebuff Desktop only: every slot-bound session is occupied. Free
+       *  accounts get one slot-bound and three multi-tab sessions; subscribers
+       *  get three and eight. Limited free access makes every model slot-bound.
        *
        *  The desktop client surfaces this and steers the tab to an unlimited
        *  model (or closes the holding tab). Never returned to CLI/web, which
@@ -783,6 +957,18 @@ export type FreebuffSessionServerResponse = (
    * all Desktop processes for this user. */
   desktopSessionCounts?: FreebuffDesktopSessionCounts
 }
+
+export type FreebuffSessionServerResponse =
+  | FreebuffSessionAdmissionResponse
+  | {
+      /** Another CLI on the same account rotated our instance id. Polling
+       *  stops and the UI shows a "close the other CLI" screen. The server
+       *  returns this from GET /session when the caller's instance id
+       *  doesn't match the stored one; the chat-completions gate also
+       *  surfaces it as a 409 for fast in-flight feedback. */
+      status: 'superseded'
+      desktopSessionCounts?: FreebuffDesktopSessionCounts
+    }
 
 /**
  * The session gate on `/api/v1/chat/completions`, as a wire contract.

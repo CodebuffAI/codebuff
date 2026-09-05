@@ -68,6 +68,32 @@ export interface MessageBlockCallbacks {
   onAdImpression: (ad: AdResponse) => void
   /** Ensure the response has fetched ads for every currently eligible slot. */
   onResponseAdsNeeded: (messageId: string, count: number) => void
+  /**
+   * Sponsored proposals (COD-376). Beside `responseAds` because they share a
+   * transcript and nothing else -- a display ad is a link out, a proposal is an
+   * offer to do work in this repository, and the two have different controls.
+   *
+   * Keyed by TARGET (`owner/name`), never by message: a repository has one live
+   * offer, and declining it in one place must not leave it standing in another.
+   *
+   * ACCEPT IS TWO CALLBACKS, not one, and that is the COD-336 consent gate
+   * expressed in the type. `onSponsoredProposalAccept` OPENS the consent and
+   * writes nothing anywhere; `onSponsoredProposalConsent` carries the user's
+   * answer to it, and only `true` starts a run. A single "accept" callback
+   * would be a control that runs an advertiser's procedure on one keypress,
+   * which is exactly the pattern this channel exists not to be.
+   */
+  onSponsoredProposalMenu: (target: string, open: boolean) => void
+  onSponsoredProposalDisclose: (target: string, open: boolean) => void
+  /** Open the consent screen. Starts nothing, writes nothing. */
+  onSponsoredProposalAccept: (target: string) => void
+  /** The consent's answer. `false` refuses and leaves the row `offered`. */
+  onSponsoredProposalConsent: (target: string, approved: boolean) => void
+  /** Dismiss, report, never-this-advertiser, or the channel opt-out. */
+  onSponsoredProposalControl: (
+    target: string,
+    control: 'dismiss' | 'report' | 'never-advertiser' | 'opt-out',
+  ) => void
 }
 
 interface MessageBlockStoreState {
@@ -119,6 +145,11 @@ const initialCallbacks: MessageBlockCallbacks = {
   onAdClick: noop,
   onAdImpression: noop,
   onResponseAdsNeeded: noop,
+  onSponsoredProposalMenu: noop,
+  onSponsoredProposalDisclose: noop,
+  onSponsoredProposalAccept: noop,
+  onSponsoredProposalConsent: noop,
+  onSponsoredProposalControl: noop,
 }
 
 const initialState: MessageBlockStoreState = {

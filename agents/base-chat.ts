@@ -46,7 +46,7 @@ Never spawn the context-pruner agent: it is spawned automatically for you before
 
 End every response by calling the suggest_followups tool with exactly 3 followups the user is likely to want next — natural next questions, deeper dives, or related directions that build on what you just said. Make them specific to this conversation, not generic. For each followup give a short \`label\` (2–5 words, the card title) and a \`prompt\` (the message sent verbatim when the user clicks it, phrased in the user's first-person voice, e.g. "Show me how to…"). Keep the prompt short and goal-oriented — usually one sentence naming what the user wants to know, not a spec for how you should answer it. Call it last, after your written answer (and after any tool/subagent calls). Skip it only when there is no sensible next step (e.g. the user said goodbye).`,
 
-  handleSteps: function* ({ model }) {
+  handleSteps: function* ({ model, contextPruning }) {
     // Constants live inside handleSteps because it is serialized with
     // toString() and re-evaluated standalone — nothing outside this body,
     // imports included, is in scope. CONTEXT_WINDOWS mirrors
@@ -64,6 +64,8 @@ End every response by calling the suggest_followups tool with exactly 3 followup
       'openai/gpt-5.6-luna': 1_000_000,
       'openai/gpt-5.6-luna-es': 372_000,
       'meta/muse-spark-1.2-contributor': 1_000_000,
+      'google/gemini-3.8-flash': 1_000_000,
+      'meta/muse-spark-1.3-contributor': 1_000_000,
       // Ox Alpha: 1,048,576 published, entered low for the same reason.
       'stealth/ox-alpha': 1_000_000,
       // GLM 5.3 Flash: 1,310,720 published, entered low for the same reason.
@@ -99,6 +101,18 @@ End every response by calling the suggest_followups tool with exactly 3 followup
      *  trigger. */
     const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000
 
+    /** DeepSeek Flash is the exception: its Luminal lane forgets the prefix
+     *  in ~15 minutes, so past that the compaction only shrinks a cold prefill
+     *  that was coming anyway. Gap and floor arrive via the runtime's
+     *  `contextPruning` (see common/src/constants/compaction-policy.ts). */
+    const compaction =
+      model === 'deepseek/deepseek-v4-flash' && contextPruning
+        ? {
+            cacheExpiryMs: contextPruning.cacheExpiryMs,
+            cacheExpiryMinTokens: contextPruning.cacheExpiryMinTokens,
+          }
+        : { cacheExpiryMs: CACHE_EXPIRY_MS }
+
     // `model` is absent only when the generator is driven directly (tests) or
     // by a runtime predating AgentStepContext.model.
     const contextWindow = CONTEXT_WINDOWS[model ?? ''] ?? DEFAULT_CONTEXT_WINDOW
@@ -113,7 +127,7 @@ End every response by calling the suggest_followups tool with exactly 3 followup
         toolName: 'spawn_agent_inline',
         input: {
           agent_type: 'context-pruner',
-          params: { maxContextLength, cacheExpiryMs: CACHE_EXPIRY_MS },
+          params: { maxContextLength, ...compaction },
         },
         includeToolCall: false,
       } as any

@@ -5,7 +5,8 @@
  * This lives in `common` rather than in the CLI because two surfaces have to
  * agree on it exactly: the CLI, which renders the ad, and the advertiser
  * campaign builder in `freebuff/web`, whose creative preview has to show an
- * advertiser what their copy will actually look like at 20, 48 and 60 columns.
+ * advertiser what their copy will actually look like at the widths the
+ * console offers (`PLACEMENT_PREVIEW_WIDTHS`).
  *
  * A CSS approximation of this in the web preview would be wrong. Note that
  * {@link truncateToWidth} measures with `String.length`, which counts UTF-16
@@ -17,6 +18,16 @@
 
 /** Widths where inline ad layout actually changes behaviour. */
 export const MIN_INLINE_WIDTH_WITH_DESTINATION = 48
+/**
+ * The narrowest width the CLI transcript renderer draws an inline ad at.
+ *
+ * This is a RENDERER fact, not a console-preview choice: the console's
+ * `PLACEMENT_PREVIEW_WIDTHS` no longer offers it (almost nobody runs a
+ * terminal this narrow), but real terminals can still be this size, so the
+ * house-ad width budget keeps enforcing the title here — a cut title reads
+ * as a different product, at any width.
+ */
+export const MIN_INLINE_AD_WIDTH = 20
 export const MAX_DESC_LINES = 2
 export const INLINE_AD_DISCLOSURE = 'Ad'
 export const INLINE_AD_GAP = 2
@@ -109,5 +120,345 @@ export function getInlineAdLayout(
     title: truncateToWidth(ad.title.trim() || displayLabel.text, titleWidth),
     description: truncateToWidth(ad.adText.trim(), descriptionWidth),
     label,
+  }
+}
+
+/* ------------------------------------------------------------------------- *
+ * Dock V2 (COD-457)
+ *
+ * The above-input dock and its expandable detail panel. Same reason as
+ * everything above it in this file: the terminal draws it and the advertiser
+ * console previews it, and a CSS approximation of either would be a lie. The
+ * grid, not the mockup, is the contract.
+ * ------------------------------------------------------------------------- */
+
+/** Interior columns eaten by the border (2) and the horizontal padding (2). */
+export const DOCK_CHROME_WIDTH = 4
+/** ` ↗` plus the CTA box's own border (2) and padding (2). */
+export const DOCK_CTA_BOX_PADDING = 6
+/** Columns between the copy block and the CTA box. */
+export const DOCK_CTA_GAP = 2
+/**
+ * At or above this DOCK width the dock prints the keyboard chord hint.
+ *
+ * 78, not 80, because the dock is the terminal minus its two one-cell margins:
+ * this is the "80-column terminal" threshold expressed in the only width this
+ * function is ever given. Comparing 80 against the dock width silently moved
+ * the rule to an 82-column terminal, where it never fired on the standard one.
+ */
+export const DOCK_CHORD_HINT_MIN_WIDTH = 78
+/** The detail panel never gets wider than this, however wide the terminal is. */
+export const DOCK_PANEL_MAX_WIDTH = 58
+export const DOCK_PANEL_MAX_BODY_LINES = 4
+export const DOCK_PANEL_MAX_BULLETS = 3
+
+/** Advertiser-authored limits, enforced in the console and re-clamped here. */
+export const DOCK_EXPANDED_BODY_MAX_LENGTH = 240
+export const DOCK_BULLET_MAX_LENGTH = 40
+export const DOCK_DIAGRAM_MAX_LENGTH = 40
+
+/**
+ * The optional expanded creative. Every field is nullable because only
+ * first-party creatives can carry them: a Gravity, Carbon or house ad reaches
+ * the panel with nothing but its `adText`, and must still render a full panel.
+ */
+export interface DockAdInput extends InlineAdLayoutInput {
+  cta?: string | null
+  expandedBody?: string | null
+  bullets?: readonly string[] | null
+  diagram?: string | null
+}
+
+/**
+ * Word-wrap `text` into at most `maxLines` lines of `width` columns.
+ *
+ * A word longer than the line is hard-split rather than allowed to overflow —
+ * a URL in an advertiser's body must not push the panel's border off-screen.
+ * Overflow past `maxLines` is truncated with an ellipsis on the last line, the
+ * same visual contract as {@link truncateToWidth}.
+ */
+export function wrapToLines(
+  text: string,
+  width: number,
+  maxLines: number,
+): string[] {
+  if (width <= 0 || maxLines <= 0) return []
+  const words = text.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return []
+
+  const lines: string[] = []
+  let current = ''
+  const pushCurrent = (): void => {
+    if (current) lines.push(current)
+    current = ''
+  }
+
+  let overflowed = false
+  for (const word of words) {
+    let remaining = word
+    // A word wider than the line is hard-split across as many lines as it
+    // needs; whatever is left of it then joins the flow normally.
+    while (remaining.length > width) {
+      pushCurrent()
+      if (lines.length > maxLines) {
+        overflowed = true
+        break
+      }
+      lines.push(remaining.slice(0, width))
+      remaining = remaining.slice(width)
+    }
+    if (overflowed || lines.length > maxLines) {
+      overflowed = true
+      break
+    }
+    if (!current) {
+      current = remaining
+    } else if (current.length + 1 + remaining.length <= width) {
+      current = `${current} ${remaining}`
+    } else {
+      pushCurrent()
+      if (lines.length > maxLines) {
+        overflowed = true
+        break
+      }
+      current = remaining
+    }
+  }
+  pushCurrent()
+
+  if (lines.length <= maxLines) return lines
+  const kept = lines.slice(0, maxLines)
+  const last = kept[maxLines - 1] ?? ''
+  kept[maxLines - 1] = truncateToWidth(`${last} …`, width)
+  return kept
+}
+
+export type DockAdLayout =
+  | {
+      /**
+       * Below {@link MIN_INLINE_WIDTH_WITH_DESTINATION} the dock renders the
+       * pre-existing five-row card verbatim. Nothing about the copy budget
+       * moves at narrow widths, which is what keeps the house-ad width budget
+       * (title at width 20) measuring the same thing it always did.
+       */
+      mode: 'card'
+    }
+  | {
+      mode: 'dock'
+      /** The literal disclosure word; the caller colours it. */
+      sponsored: string
+      /** `getAdDisplayLabel` text, truncated to what the label row can hold. */
+      brand: string
+      brandVariant: 'domain' | 'title'
+      headline: string
+      description: string
+      /** 1 with a headline, 2 without — the rule `getCardAdLayout` already uses. */
+      descriptionLines: number
+      ctaText: string
+      /** Total columns the bordered CTA box occupies, including its border. */
+      ctaBoxWidth: number
+      /** Columns available to the headline/description block. */
+      copyWidth: number
+      /** Right-aligned chord hint, or '' when it is suppressed. */
+      chordHint: string
+    }
+
+export const DOCK_SPONSORED_LABEL = 'Sponsored'
+export const DOCK_LABEL_SEPARATOR = ' · '
+
+/**
+ * Fit an ad into the resting dock at `width` columns.
+ *
+ * The CTA box is sized from the CTA text and then CLAMPED to half the interior:
+ * an advertiser with a long call to action may not squeeze the headline out of
+ * existence, and clamping here — rather than adding a second width fallback —
+ * keeps the `card`/`dock` decision a pure function of terminal width.
+ *
+ * The chord hint is right-aligned inside the COPY block rather than the full
+ * interior row, because the CTA box occupies all three interior rows on the
+ * right. The spec's alternative — suppress the hint whenever the box is
+ * present — would mean it never renders at all, so the hint moved rather than
+ * died. It is still never a hover affordance.
+ */
+export function getDockAdLayout(
+  ad: DockAdInput,
+  width: number,
+  options?: { chordHint?: string; collapsed?: boolean },
+): DockAdLayout {
+  if (width < MIN_INLINE_WIDTH_WITH_DESTINATION) return { mode: 'card' }
+
+  // Every field is defaulted before it is read, for the reason
+  // `getCardAdLayout` documents: providers cast their JSON rather than parse it.
+  const title = (ad.title ?? '').trim()
+  const cta = (ad.cta ?? '').trim()
+  const adText = (ad.adText ?? '').trim()
+  const url = ad.url ?? ''
+
+  const interior = Math.max(0, width - DOCK_CHROME_WIDTH)
+  const ctaBudget = Math.max(0, Math.floor(interior / 2))
+  const ctaText = truncateToWidth(
+    cta || 'Learn more',
+    Math.max(1, ctaBudget - DOCK_CTA_BOX_PADDING),
+  )
+  const ctaBoxWidth = Math.min(ctaBudget, ctaText.length + DOCK_CTA_BOX_PADDING)
+  const copyWidth = Math.max(0, interior - ctaBoxWidth - DOCK_CTA_GAP)
+
+  const label = getAdDisplayLabel({ title, url })
+  const headline = truncateToWidth(title, copyWidth)
+  const descriptionLines = headline ? 1 : MAX_DESC_LINES
+
+  const collapsed = options?.collapsed ?? true
+  const rawHint = (options?.chordHint ?? '').trim()
+  const hintFits = rawHint.length > 0 && rawHint.length + 2 < copyWidth
+  const chordHint =
+    collapsed && width >= DOCK_CHORD_HINT_MIN_WIDTH && hintFits ? rawHint : ''
+
+  const brandBudget = Math.max(
+    0,
+    copyWidth -
+      DOCK_SPONSORED_LABEL.length -
+      DOCK_LABEL_SEPARATOR.length -
+      (chordHint ? chordHint.length + 1 : 0),
+  )
+
+  return {
+    mode: 'dock',
+    sponsored: DOCK_SPONSORED_LABEL,
+    brand: truncateToWidth(label.text, brandBudget),
+    brandVariant: label.variant,
+    headline,
+    description: truncateToLines(adText, copyWidth, descriptionLines),
+    descriptionLines,
+    ctaText,
+    ctaBoxWidth,
+    copyWidth,
+    chordHint,
+  }
+}
+
+/** Which optional block a degradation step gave up, in the order it gave it up. */
+export type DockPanelDropped = 'diagram' | 'bullets' | 'body'
+
+export interface DockPanelLayout {
+  /**
+   * False when even the smallest panel would cover the composer. The caller
+   * must then refuse to expand — a panel that hides the input box is worse
+   * than no panel at all.
+   */
+  fits: boolean
+  width: number
+  /** Total rows including the panel's own border. */
+  height: number
+  brand: string
+  headline: string
+  bodyLines: string[]
+  diagram: string
+  bullets: string[]
+  ctaText: string
+  dropped: DockPanelDropped[]
+}
+
+/** Interior rows that are always present at the head: header, blank, headline. */
+const PANEL_FIXED_HEAD_ROWS = 3
+/** Interior rows always present at the foot: divider, blank, three-row CTA box. */
+const PANEL_FIXED_FOOT_ROWS = 1 + 1 + 3
+/** The panel's own top and bottom border. */
+const PANEL_BORDER_ROWS = 2
+/** Below two body lines there is no pitch left, so the panel refuses to open. */
+const PANEL_MIN_BODY_LINES = 2
+
+/**
+ * Plan the expanded panel for `availableRows` rows of free space.
+ *
+ * Pure, and tested as such, because the thing it protects — never covering the
+ * composer on a 24-row terminal — is not observable from a snapshot of a wide
+ * one. The ladder drops the diagram, then the bullets, then body lines 3-4, in
+ * that order, and then gives up (`fits: false`).
+ */
+export function getDockPanelLayout(
+  ad: DockAdInput,
+  options: { width: number; availableRows: number },
+): DockPanelLayout {
+  const width = Math.max(
+    0,
+    Math.min(DOCK_PANEL_MAX_WIDTH, Math.floor(options.width)),
+  )
+  const interiorWidth = Math.max(0, width - DOCK_CHROME_WIDTH)
+
+  const title = (ad.title ?? '').trim()
+  const url = ad.url ?? ''
+  const brandLabel = getAdDisplayLabel({ title, url })
+  const brand = truncateToWidth(
+    brandLabel.text,
+    Math.max(0, interiorWidth - DOCK_SPONSORED_LABEL.length - 1),
+  )
+  const headline = truncateToWidth(title, interiorWidth)
+  const ctaText = truncateToWidth(
+    (ad.cta ?? '').trim() || 'Learn more',
+    Math.max(1, interiorWidth - DOCK_CTA_BOX_PADDING),
+  )
+
+  const bodySource = (ad.expandedBody ?? '').trim() || (ad.adText ?? '').trim()
+  const allBodyLines = wrapToLines(
+    bodySource.slice(0, DOCK_EXPANDED_BODY_MAX_LENGTH),
+    interiorWidth,
+    DOCK_PANEL_MAX_BODY_LINES,
+  )
+  const rawDiagram = truncateToWidth(
+    (ad.diagram ?? '').trim().slice(0, DOCK_DIAGRAM_MAX_LENGTH),
+    interiorWidth,
+  )
+  const allBullets = (ad.bullets ?? [])
+    .map((bullet) => (bullet ?? '').trim())
+    .filter(Boolean)
+    .slice(0, DOCK_PANEL_MAX_BULLETS)
+    .map((bullet) =>
+      truncateToWidth(
+        bullet.slice(0, DOCK_BULLET_MAX_LENGTH),
+        Math.max(0, interiorWidth - 2),
+      ),
+    )
+
+  let bodyLines = allBodyLines
+  let diagram = rawDiagram
+  let bullets = allBullets
+  const dropped: DockPanelDropped[] = []
+
+  const totalRows = (): number =>
+    PANEL_FIXED_HEAD_ROWS +
+    bodyLines.length +
+    (diagram ? 2 : 0) +
+    (bullets.length > 0 ? 1 + bullets.length : 0) +
+    PANEL_FIXED_FOOT_ROWS +
+    PANEL_BORDER_ROWS
+
+  if (totalRows() > options.availableRows && diagram) {
+    diagram = ''
+    dropped.push('diagram')
+  }
+  if (totalRows() > options.availableRows && bullets.length > 0) {
+    bullets = []
+    dropped.push('bullets')
+  }
+  if (
+    totalRows() > options.availableRows &&
+    bodyLines.length > PANEL_MIN_BODY_LINES
+  ) {
+    bodyLines = bodyLines.slice(0, PANEL_MIN_BODY_LINES)
+    dropped.push('body')
+  }
+
+  const height = totalRows()
+  return {
+    fits: width > 0 && height <= options.availableRows,
+    width,
+    height,
+    brand,
+    headline,
+    bodyLines,
+    diagram,
+    bullets,
+    ctaText,
+    dropped,
   }
 }

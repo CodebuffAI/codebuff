@@ -351,6 +351,16 @@ export interface AgentStepContext {
    * `undefined` as "unknown model" and pick a safe default.
    */
   model?: string
+  /**
+   * Context-pruning thresholds for `model` (budget, idle gap, token floor),
+   * resolved by the runtime. A serialized generator that spawns
+   * `context-pruner` reads them here; optional for the same reason as `model`.
+   */
+  contextPruning?: {
+    maxContextLength: number
+    cacheExpiryMs: number
+    cacheExpiryMinTokens: number
+  }
   logger: Logger
 }
 

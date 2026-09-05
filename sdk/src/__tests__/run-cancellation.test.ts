@@ -94,6 +94,37 @@ describe('Run Cancellation Handling', () => {
     expect(messageHistory.length).toBe(2)
   })
 
+  it('an abort during the user lookup returns a cancelled run, not an auth error', async () => {
+    // the lookup is the first request a run makes; an abort while it hangs must read as a cancel, not "invalid API key"
+    const controller = new AbortController()
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockImplementation(
+      async (params: { signal?: AbortSignal }) => {
+        expect(params.signal).toBe(controller.signal)
+        controller.abort()
+        throw new Error('Network request failed')
+      },
+    )
+    const mainPrompt = spyOn(
+      mainPromptModule,
+      'callMainPrompt',
+    ).mockImplementation(async () => {
+      throw new Error('the request must never be sent')
+    })
+
+    const client = new CodebuffClient({ apiKey: 'test-key' })
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'hello',
+      signal: controller.signal,
+    })
+
+    expect(result.output).toMatchObject({
+      type: 'error',
+      message: 'Run cancelled by user.',
+    })
+    expect(mainPrompt).not.toHaveBeenCalled()
+  })
+
   it('does not duplicate user message when cancelled and server already processed the prompt', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',

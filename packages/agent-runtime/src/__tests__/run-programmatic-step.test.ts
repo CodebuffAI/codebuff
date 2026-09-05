@@ -1,3 +1,5 @@
+import { compactionPolicyForModel } from '@codebuff/common/constants/compaction-policy'
+import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
@@ -167,6 +169,29 @@ describe('runProgrammaticStep', () => {
       await runProgrammaticStep(mockParams)
 
       expect(seenModel).toBe('moonshotai/kimi-k2.7-code')
+    })
+
+    it("passes the model's pruner thresholds to handleSteps", async () => {
+      // Serialized generators that spawn context-pruner (base2, base-chat)
+      // cannot import the budget or compaction tables; this is how the numbers
+      // reach them.
+      let seen: unknown = 'not-called'
+      mockTemplate.model = 'deepseek/deepseek-v4-flash'
+      mockTemplate.handleSteps = ({ contextPruning }) => {
+        seen = contextPruning
+        return (function* () {
+          yield { toolName: 'end_turn', input: {} }
+        })() as StepGenerator
+      }
+
+      await runProgrammaticStep(mockParams)
+
+      expect(seen).toEqual({
+        maxContextLength: contextPrunerBudgetForModel(
+          'deepseek/deepseek-v4-flash' as any,
+        ),
+        ...compactionPolicyForModel('deepseek/deepseek-v4-flash'),
+      })
     })
 
     it('reflects a per-request model override on the next run', async () => {

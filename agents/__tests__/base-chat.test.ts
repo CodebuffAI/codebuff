@@ -1,4 +1,8 @@
 import {
+  compactionPolicyForModel,
+  DEEPSEEK_FLASH_COMPACTION_POLICY,
+} from '@codebuff/common/constants/compaction-policy'
+import {
   FREEBUFF_DEFAULT_CONTEXT_WINDOW,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MODEL_CONTEXT_WINDOWS,
@@ -52,6 +56,12 @@ function firstPrunerSpawn(model?: string) {
     agentState: createMockAgentState(100),
     logger: mockLogger,
     model,
+    // What the runtime supplies (run-programmatic-step.ts): the model's pruner
+    // thresholds. base-chat sizes its own budget and reads only the policy.
+    contextPruning: {
+      maxContextLength: 400_000,
+      ...compactionPolicyForModel(model),
+    },
   })
   return generator.next().value as {
     toolName: string
@@ -300,5 +310,30 @@ describe('base-chat pruning triggers', () => {
     expect((spawn.input.params as any).cacheExpiryMs).toBeGreaterThanOrEqual(
       60 * 60 * 1000,
     )
+  })
+
+  test('non-Flash models keep the 24-hour gap and no token floor', () => {
+    for (const model of [
+      'minimax/minimax-m3',
+      'openai/gpt-5.6-luna',
+      undefined,
+    ]) {
+      const params = firstPrunerSpawn(model).input.params as any
+      expect(params.cacheExpiryMs).toBe(24 * 60 * 60 * 1000)
+      expect(params).not.toHaveProperty('cacheExpiryMinTokens')
+    }
+  })
+
+  test('DeepSeek Flash follows the shared compaction policy: 15 minutes, 40k floor', () => {
+    // Flash's Luminal lane forgets the prefix in ~15 minutes, so the 24-hour
+    // gap only postponed a compaction the cold prefill was going to pay for.
+    const params = firstPrunerSpawn(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID).input
+      .params as any
+    expect(params).toEqual({
+      maxContextLength: params.maxContextLength,
+      ...DEEPSEEK_FLASH_COMPACTION_POLICY,
+    })
+    expect(params.cacheExpiryMs).toBe(15 * 60 * 1000)
+    expect(params.cacheExpiryMinTokens).toBe(40_000)
   })
 })

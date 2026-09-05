@@ -22,6 +22,8 @@ export type GetUserInfoFromApiKeyInput<T extends UserColumn> = {
   apiKey: string
   fields: readonly T[]
   logger: Logger
+  /** ends the lookup, including its retries, when the caller's run is aborted */
+  signal?: AbortSignal
 }
 export type GetUserInfoFromApiKeyOutput<T extends UserColumn> = Promise<
   | {
@@ -81,6 +83,8 @@ export type StartAgentRunFn = (params: {
   agentId: string
   ancestorRunIds: string[]
   logger: Logger
+  /** ends the request, including its retries, when the caller's run is aborted */
+  signal?: AbortSignal
 }) => Promise<string | null>
 
 export type FinishAgentRunFn = (params: {

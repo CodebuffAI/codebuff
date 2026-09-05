@@ -16,9 +16,20 @@ import {
   PLACEMENTS_CONSOLE_ENABLED,
   PLACEMENT_METRIC_LABELS,
   PLACEMENT_PREVIEW_WIDTHS,
+  PLACEMENT_FORMATS,
   PLACEMENT_SLOTS,
+  SPONSOR_BREAK_CREATIVE_LIMITS,
+  SPONSOR_BREAK_FORMATS,
+  INTERRUPTING_BREAK_FORMATS,
+  isInterruptingBreakFormat,
+  isInterruptingBreakPlacement,
+  isSponsorBreakFormat,
+  SPONSOR_BREAK_HERO_SPEC,
   TRACKED_LINK_PLACEMENT_ID,
+  isSponsorBreakPlacement,
+  placementFormat,
   placementSlotLabel,
+  placementSurface,
   PLACEMENT_STATUS_LABELS,
   PRIMARY_METRICS,
   UNDERSPEND_COPY,
@@ -177,8 +188,13 @@ describe('copy and configuration', () => {
     expect(PLACEMENTS_CONSOLE_ENABLED).toBe(true)
   })
 
-  it('previews the widths where layout actually changes', () => {
-    expect(PLACEMENT_PREVIEW_WIDTHS).toEqual([20, 48, 60])
+  it('previews the destination-label breakpoint plus the widths people run', () => {
+    // 48 is the narrowest width that still renders the destination domain;
+    // 80 and 100 are the terminals users actually have (100 rather than 120
+    // so the widest card still fits the preview dialog unscrolled). The
+    // renderer's 20-column floor is deliberately absent — nobody runs one,
+    // and the house-ad budget enforces it separately via MIN_INLINE_AD_WIDTH.
+    expect(PLACEMENT_PREVIEW_WIDTHS).toEqual([48, 80, 100])
   })
 
   it('states the attribution window in the copy that goes on screen', () => {
@@ -216,10 +232,103 @@ describe('copy and configuration', () => {
     // eight `CLI-Chat-Inline-N` ids:
     // no shipping client requests those, so selling them would be selling a
     // decaying legacy path.
-    expect(bySurface('cli_chat')).toBe(4)
+    // Plus the three sponsor breaks, which are deliberately the same surface:
+    // a break is a different RENDERER on Desktop chat, not a new surface, and
+    // adding one costs a house creative and a pinned rollup row.
+    expect(bySurface('cli_chat')).toBe(7)
     expect(bySurface('waiting_room')).toBe(4)
     expect(bySurface('freebuff_web_chat')).toBe(2)
     expect(bySurface('chat_assistant')).toBe(1)
+  })
+
+  it('gives every slot a format, so no slot renders by guesswork', () => {
+    // The whole point of the column: a renderer asks the catalog how to draw
+    // a slot rather than pattern-matching its id. A slot with no format would
+    // fall through `placementFormat`'s conservative default and silently
+    // render inline, which for a break is a blank-looking card.
+    for (const slot of PLACEMENT_SLOTS) {
+      expect([slot.id, PLACEMENT_FORMATS.includes(slot.format)]).toEqual([
+        slot.id,
+        true,
+      ])
+    }
+  })
+
+  it('names the three sponsor breaks and leaves every other slot inline', () => {
+    const breaks = PLACEMENT_SLOTS.filter((slot) =>
+      isSponsorBreakPlacement(slot.id),
+    ).map((slot) => slot.id)
+    expect(breaks).toEqual([
+      'Desktop-Spotlight',
+      'Desktop-Showcase',
+      'Desktop-Intermission',
+    ])
+    expect(placementFormat('Desktop-Spotlight')).toBe('spotlight')
+    expect(placementFormat('Desktop-Showcase')).toBe('showcase')
+    expect(placementFormat('Desktop-Intermission')).toBe('intermission')
+    // Resolvable as slots, exactly like every other sellable id.
+    for (const id of breaks) expect(placementSurface(id)).toBe('cli_chat')
+    expect(SPONSOR_BREAK_FORMATS).toEqual([
+      'showcase',
+      'spotlight',
+      'intermission',
+    ])
+  })
+
+  it('caps the two INTERRUPTING breaks and never Showcase (COD-455)', () => {
+    // Two predicates, two questions. The creative rules (hero required, no
+    // text-only house floor) are the same for all three; the daily cap, the
+    // min-session floor and the fail-closed-with-no-Redis are the price of
+    // TAKING THE SCREEN AWAY, which Showcase does not do -- it is the same
+    // above-composer slot drawn taller, on the same rotation as the banner it
+    // is being compared against. Capping it at one a day would leave the
+    // treatment arm byte-identical to control for all but one rotation, so the
+    // format test would measure nothing.
+    expect(INTERRUPTING_BREAK_FORMATS).toEqual(['spotlight', 'intermission'])
+    expect(isInterruptingBreakFormat('showcase')).toBe(false)
+    expect(isSponsorBreakFormat('showcase')).toBe(true)
+
+    const interrupting = PLACEMENT_SLOTS.filter((slot) =>
+      isInterruptingBreakPlacement(slot.id),
+    ).map((slot) => slot.id)
+    expect(interrupting).toEqual(['Desktop-Spotlight', 'Desktop-Intermission'])
+    expect(isInterruptingBreakPlacement('Desktop-Showcase')).toBe(false)
+
+    // Still the conservative fallback for an unknown id, in both directions.
+    expect(isInterruptingBreakPlacement('some-future-grain')).toBe(false)
+    // Every interrupting format is a break; the reverse does not hold.
+    for (const format of INTERRUPTING_BREAK_FORMATS) {
+      expect([format, isSponsorBreakFormat(format)]).toEqual([format, true])
+    }
+  })
+
+  it('answers inline for an id it does not know, never undefined', () => {
+    // The conservative direction. An unknown id guessed as a break would turn
+    // one typo into a full-screen interruption; guessed as inline it renders
+    // as the ordinary card it almost certainly is.
+    expect(placementFormat('CLI-Chat-Inline-3')).toBe('inline')
+    expect(placementFormat('some-future-grain')).toBe('inline')
+    expect(isSponsorBreakPlacement('some-future-grain')).toBe(false)
+  })
+
+  it('bounds break copy far below the inline lengths', () => {
+    // A break title renders at display size; inline-length copy does not
+    // shrink to fit, it overflows or truncates mid-word.
+    expect(SPONSOR_BREAK_CREATIVE_LIMITS).toEqual({
+      titleMaxLength: 28,
+      bodyMaxLength: 60,
+      ctaMaxLength: 18,
+    })
+    expect(SPONSOR_BREAK_HERO_SPEC.minWidth).toBe(1024)
+    expect(SPONSOR_BREAK_HERO_SPEC.minHeight).toBe(640)
+    // The floor is itself on-ratio, so the minimum acceptable image passes
+    // both gates rather than being rejected by the one it defines.
+    expect(
+      Math.abs(
+        SPONSOR_BREAK_HERO_SPEC.minWidth / SPONSOR_BREAK_HERO_SPEC.minHeight -
+          SPONSOR_BREAK_HERO_SPEC.aspectRatio,
+      ),
+    ).toBeLessThan(1e-9)
   })
 
   it('gives every not-serving and underspend reason copy', () => {
@@ -277,6 +386,17 @@ describe('placementSlotLabel', () => {
     for (const slot of PLACEMENT_SLOTS) {
       expect(placementSlotLabel(slot.id).length).toBeGreaterThan(0)
     }
+  })
+
+  it('names the four format slots by their format, not their position', () => {
+    // `Single-Ad-Unit-1` is the one this exists for: the hyphen-splitter
+    // renders it "Single Ad Unit 1", which names nothing an advertiser bought.
+    expect(placementSlotLabel('Single-Ad-Unit-1')).toBe('CLI — Dock')
+    expect(placementSlotLabel('Desktop-Spotlight')).toBe('Desktop — Spotlight')
+    expect(placementSlotLabel('Desktop-Showcase')).toBe('Desktop — Showcase')
+    expect(placementSlotLabel('Desktop-Intermission')).toBe(
+      'Desktop — Intermission',
+    )
   })
 
   it('names the tracked-link grain, which no slot describes', () => {
