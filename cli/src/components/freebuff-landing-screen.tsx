@@ -83,6 +83,9 @@ const formatRetryAfter = (ms: number): string => {
   if (minutes < 1) return 'under a minute'
   if (minutes < 60) return `${minutes} min`
   const hours = Math.floor(minutes / 60)
+  // The monthly allowance resets on the 1st: "622h 18m" is a number nobody
+  // converts, "26 days" is a date.
+  if (hours >= 48) return `${Math.round(hours / 24)} days`
   const rem = minutes % 60
   return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`
 }
@@ -911,21 +914,20 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           {session?.status === 'spend_limited' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ☕ Daily Freebuff limit reached
+                {metered ? '☕ Daily usage cap reached' : '☕ Daily Freebuff limit reached'}
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                {session.message} Come back in{' '}
+                {session.message} It resets in{' '}
                 <span fg={theme.foreground}>
                   {formatRetryAfter(session.retryAfterMs)}
                 </span>
-                {' — '}your free usage resets automatically at midnight Pacific.
-                Press Ctrl+C to exit.
+                , at midnight Pacific. Press Ctrl+C to exit.
               </text>
               <text style={{ fg: theme.muted, wrapMode: 'word', marginTop: 1 }}>
                 {'upgrade' in session && session.upgrade
                   ? `${session.upgrade.message} ${session.upgrade.url}`
                   : metered
-                    ? 'Get more Freebucks with a plan: https://freebuff.com/plans'
+                    ? 'A plan raises the daily cap: https://freebuff.com/plans'
                     : 'Get more sessions with a plan: https://freebuff.com/plans'}
               </text>
             </>

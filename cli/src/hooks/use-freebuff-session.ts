@@ -454,7 +454,22 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
       if (next.status === 'active') {
         recordFreebuffInstanceOwner(next.instanceId)
       }
-      setSession(next)
+      // A refusal carries no `freebucks` block of its own, and the landing
+      // decides its wording by that block: without the carry, the monthly
+      // wall read "You've used 2500 of 2500 sessions this month" — the
+      // dollar allowance in cents, in the pool's shape, with the meter
+      // forgotten. The block we hold is still the account's.
+      if (
+        (next.status === 'rate_limited' || next.status === 'spend_limited') &&
+        getFreebucksInfo(next) === undefined
+      ) {
+        const carried = getFreebucksInfo(
+          useFreebuffSessionStore.getState().session,
+        )
+        setSession(carried ? { ...next, freebucks: carried } : next)
+      } else {
+        setSession(next)
+      }
       setFailure(null)
       previousStatus = next.status
     }

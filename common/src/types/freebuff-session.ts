@@ -889,6 +889,9 @@ export type FreebuffSessionAdmissionResponse = (
       accessTier?: FreebuffAccessTier
       /** The way out of this refusal, when there is one to sell. */
       upgrade?: FreebuffUpgradeHint
+      /** Not sent by the server on a refusal; a client may CARRY the block it
+       *  was holding so the refusal is still rendered in the meter's words. */
+      freebucks?: FreebuffFreebucksInfo
       /** The freebuff model the user tried to join. */
       model: string
       /** The pool that refused, as on `FreebuffSessionRateLimit` — opaque. */
@@ -923,6 +926,8 @@ export type FreebuffSessionAdmissionResponse = (
        *  running, including a reconnect to the same live session, continue. */
       status: 'spend_limited'
       accessTier?: FreebuffAccessTier
+      /** See `rate_limited`: carried by the client, never sent. */
+      freebucks?: FreebuffFreebucksInfo
       message: string
       resetAt: string
       retryAfterMs: number
