@@ -13,7 +13,20 @@ export function toTokenCountInputSchema(
   if (inputSchema == null) return undefined
 
   let jsonSchema: Record<string, unknown>
+  // AI SDK Schema objects (served by getToolSet for raw JSON Schema inputs,
+  // e.g. loose MCP schemas) already carry the model-facing JSON Schema —
+  // use it directly. Converting it through zod again would count tokens
+  // against a lossy round-tripped copy instead of the real schema.
+  const asSchema = inputSchema as { jsonSchema?: unknown; validate?: unknown }
   if (
+    typeof asSchema.validate === 'function' &&
+    asSchema.jsonSchema != null &&
+    typeof asSchema.jsonSchema === 'object'
+  ) {
+    jsonSchema = {
+      ...(asSchema.jsonSchema as Record<string, unknown>),
+    }
+  } else if (
     typeof (inputSchema as { safeParse?: unknown }).safeParse === 'function'
   ) {
     try {
