@@ -522,7 +522,8 @@ describe('getToolSet: commit-attribution suppression', () => {
 // tool with `{}` — no arguments at all. These tests pin the contract: what
 // the server declared is what the model must see.
 describe('getToolSet: loose MCP schemas survive the point-of-use round-trip', () => {
-  // One tight field, one loose field, both required.
+  // quwin's minimal repro from the issue #912 follow-up, verbatim:
+  // one tight field, one loose field, both required.
   const LOOSE_MCP_SCHEMA = {
     type: 'object',
     properties: {
@@ -647,7 +648,8 @@ describe('getToolSet: loose MCP schemas survive the point-of-use round-trip', ()
 // receives a string where an object was meant - and since the union accepts
 // strings, nothing fails loudly. The tool-executor already repairs
 // double-encoded arguments at the top level; these tests pin the same repair
-// for nested, schema-guided cases.
+// for nested, schema-guided cases. Found while digging into quwin's report
+// on issue #912.
 describe('parseRawCustomToolCall: schema-guided repair of string-encoded union members', () => {
   const buildWithCustomTool = (inputSchema: unknown) => ({
     customToolDefs: {
