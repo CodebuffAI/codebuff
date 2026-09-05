@@ -9,6 +9,7 @@ user-emails-*.csv
 .env
 .env.*
 !.env.example
+!.env.local.example
 
 # ctags
 tags
@@ -55,6 +56,8 @@ cli/release-staging/launcher.js
 cli/release-staging/http.js
 freebuff/cli/release/launcher.js
 freebuff/cli/release/http.js
+xcuserdata/
+.claude/settings.local.json
 
 # QA harness fixture: a snapshot of REAL feedback rows, including the Discord
 # and GitHub handles of real people and what they complained about. Useful
