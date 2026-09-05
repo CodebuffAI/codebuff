@@ -1525,7 +1525,6 @@ const SOLAR_PRO_4_MODEL = {
   // Limited access still uses its tier-specific metering.
   premium: FREEBUFF_SOLAR_PRO_4_ENTITLEMENT.fullAccess.premium,
   multimodal: false,
-  experimental: true,
 } as const satisfies FreebuffModelOption
 
 /**
