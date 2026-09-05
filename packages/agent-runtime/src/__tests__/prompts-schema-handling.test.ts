@@ -569,7 +569,7 @@ describe('getToolSet: loose MCP schemas survive the point-of-use round-trip', ()
     // Act
     const modelFacing = servedSchema.jsonSchema
 
-    // Assert: the raw JSON Schema must reach the model unamputated -
+    // Assert: the raw JSON Schema must reach the model intact -
     // both named properties and the required list, no passthrough fallback.
     const properties = modelFacing.properties as
       | Record<string, unknown>

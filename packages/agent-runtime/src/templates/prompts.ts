@@ -19,7 +19,8 @@ function ensureJsonSchemaCompatible(
     return schema
   } catch (error) {
     // Same silent-fallback hazard as the copy in tools/prompts.ts: this once
-    // consumed amputated zod schemas without a trace. Log it loudly.
+    // consumed zod schemas whose internals a shallow clone had stripped,
+    // without a trace. Log it loudly.
     opts?.logger?.warn(
       {
         toolName: opts.name,

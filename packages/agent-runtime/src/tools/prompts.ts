@@ -513,7 +513,8 @@ export async function getToolSet(params: {
     const clonedDef = cloneDeepKeepingZod(toolDefinition)
     // Custom tool inputSchema may be JSON Schema (from SDK) or Zod (from MCP).
     // JSON Schema is served verbatim (see serveInputSchema); the former
-    // unconditional zod round-trip amputated loose schemas.
+    // unconditional zod round-trip stripped loose schemas to an empty
+    // object schema at the model.
     const safeSchema = serveInputSchema(clonedDef.inputSchema, {
       logger,
       name: toolName,
