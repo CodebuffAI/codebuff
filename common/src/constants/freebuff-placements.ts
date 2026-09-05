@@ -358,6 +358,24 @@ export function isInterruptingBreakPlacement(placementId: string): boolean {
  * copy for an inline slot and the console is where a placement choice and its
  * copy are seen together.
  */
+/**
+ * The one delivery fact a break's numbers cannot be read without.
+ *
+ * A break is capped at one per user per day, so its impression count is
+ * bounded by AUDIENCE rather than by budget: a break row two orders of
+ * magnitude under an inline row beside it is the cap working, not
+ * under-delivery. Stated wherever a break's delivery is shown, in one place
+ * so the builder's picker and the delivery breakdown cannot phrase the same
+ * cap two ways.
+ *
+ * Deliberately not a number. The cap itself is server-side and operator-owned
+ * (`FREEBUFF_SPONSOR_BREAK_DAILY_CAP`); printing a figure here would be a
+ * second copy of it, free to drift, in the one place an advertiser would
+ * quote it back to us.
+ */
+export const SPONSOR_BREAK_FREQUENCY_COPY =
+  'Shown at most once per user per day'
+
 export const SPONSOR_BREAK_CREATIVE_LIMITS = {
   titleMaxLength: 28,
   bodyMaxLength: 60,
@@ -412,8 +430,31 @@ export const TRACKED_LINK_SURFACE = 'tracked_link'
  * exactly as the breakdown table already rendered them, and an unknown id
  * degrades to a readable string rather than to `undefined`.
  */
+/**
+ * The four slots whose name has to say the FORMAT, not the position.
+ *
+ * The hyphen-splitter below is a good formatter for a slot named after where
+ * it sits (`waiting-room-1`, `Desktop-Below-Chat`), and a poor one for a slot
+ * named after how it draws. `Single-Ad-Unit-1` becomes "Single Ad Unit 1",
+ * which tells an advertiser reading a delivery breakdown nothing about the
+ * expandable terminal dock they bought; the three break ids happen to split
+ * correctly today and are pinned here anyway, so a rename of the splitter
+ * cannot quietly rename a format.
+ *
+ * The em dash matches the campaign builder's picker labels, so the same slot
+ * reads the same way in the place it is bought and the place it is reported.
+ */
+const PLACEMENT_FORMAT_LABELS: Record<string, string> = {
+  'Desktop-Spotlight': 'Desktop — Spotlight',
+  'Desktop-Showcase': 'Desktop — Showcase',
+  'Desktop-Intermission': 'Desktop — Intermission',
+  'Single-Ad-Unit-1': 'CLI — Dock',
+}
+
 export function placementSlotLabel(placementId: string): string {
   if (placementId === TRACKED_LINK_PLACEMENT_ID) return 'Tracked links'
+  const formatted = PLACEMENT_FORMAT_LABELS[placementId]
+  if (formatted) return formatted
   const [head, ...rest] = placementId.split('-')
   if (!head) return placementId
   return [head[0]!.toUpperCase() + head.slice(1), ...rest].join(' ')

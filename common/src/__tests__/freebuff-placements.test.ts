@@ -388,6 +388,17 @@ describe('placementSlotLabel', () => {
     }
   })
 
+  it('names the four format slots by their format, not their position', () => {
+    // `Single-Ad-Unit-1` is the one this exists for: the hyphen-splitter
+    // renders it "Single Ad Unit 1", which names nothing an advertiser bought.
+    expect(placementSlotLabel('Single-Ad-Unit-1')).toBe('CLI — Dock')
+    expect(placementSlotLabel('Desktop-Spotlight')).toBe('Desktop — Spotlight')
+    expect(placementSlotLabel('Desktop-Showcase')).toBe('Desktop — Showcase')
+    expect(placementSlotLabel('Desktop-Intermission')).toBe(
+      'Desktop — Intermission',
+    )
+  })
+
   it('names the tracked-link grain, which no slot describes', () => {
     expect(placementSlotLabel(TRACKED_LINK_PLACEMENT_ID)).toBe('Tracked links')
     // That it is not a slot is proved by the compiler rather than asserted
