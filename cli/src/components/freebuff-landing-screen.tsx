@@ -2,9 +2,16 @@ import { TextAttributes } from '@opentui/core'
 import { useKeyboard, useRenderer } from '@opentui/react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
+import {
+  FREEBUCKS_LABEL,
+  formatFreebucks,
+  freebucksOf,
+  freebucksPriceLabel,
+} from '../utils/freebucks'
 import { Button } from './button'
 import { ChoiceAdBanner, AD_CARD_HEIGHT } from './ad-banner'
 import { visibleWaitingRoomPlacementIds } from '@codebuff/common/ads/waiting-room-placements'
+import { FreebucksIntroCard } from './freebucks-intro-card'
 import { FreebuffModelSelector } from './freebuff-model-selector'
 import { ShimmerText } from './shimmer-text'
 import {
@@ -674,6 +681,16 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
                 gap: 0,
               }}
             >
+              {/* The one-time Freebucks introduction, only where it fits:
+                  on a short terminal it would push the picker off the
+                  bottom, and an unseen card is shown on the next launch
+                  instead (it is marked seen only when it renders). */}
+              {terminalHeight >= 30 && (
+                <FreebucksIntroCard
+                  metered={freebucksOf(session) !== undefined}
+                  width={Math.min(contentMaxWidth, 72)}
+                />
+              )}
               <LandingHeadingRow
                 streakLine={streakOnHeadingRow ? streakLine : null}
                 marginBottom={textMarginBottom}
@@ -795,26 +812,59 @@ export const FreebuffLandingScreen: React.FC<FreebuffLandingScreenProps> = ({
           {session?.status === 'rate_limited' && (
             <>
               <text style={{ fg: theme.secondary, marginBottom: 1 }}>
-                ⚠ Session limit reached
+                {session.freebucksShortfall
+                  ? `⚠ Not enough ${FREEBUCKS_LABEL}`
+                  : '⚠ Session limit reached'}
               </text>
-              <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-                You've used{' '}
-                <span fg={theme.foreground}>
-                  {formatSessionUnits(session.recentCount)} of {session.limit}
-                </span>{' '}
-                sessions{' '}
-                {session.period === 'pacific_month'
-                  ? 'this month'
-                  : session.period === 'pacific_week'
-                    ? 'this week'
-                    : 'today'}
-                . Try
-                again in{' '}
-                <span fg={theme.foreground}>
-                  {formatRetryAfter(session.retryAfterMs)}
-                </span>
-                . Press Ctrl+C to exit.
-              </text>
+              {/* THE METER'S REFUSAL, when the server sent one.
+                  
+                  `freebucksShortfall` is what distinguishes "you are out of
+                  Freebucks" from "you have used your sessions", and the two
+                  want completely different sentences: the counts on this
+                  response are shaped like a session pool for older clients,
+                  so rendering them here would tell a metered user they had
+                  spent N of M sessions — a meter they are no longer on.
+
+                  The monthly wall arrives in the SAME shape with no shortfall
+                  attached and `period: 'pacific_month'`, which is why the
+                  period copy below still has to be right: telling somebody to
+                  come back at midnight for an allowance that returns on the
+                  1st sends them back to the same wall in the morning. */}
+              {session.freebucksShortfall ? (
+                <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                  This model costs{' '}
+                  <span fg={theme.foreground}>
+                    {freebucksPriceLabel(session.freebucksShortfall.price)}
+                  </span>
+                  , and you have{' '}
+                  <span fg={theme.foreground}>
+                    {formatFreebucks(session.freebucksShortfall.balance)}
+                  </span>{' '}
+                  left. More in{' '}
+                  <span fg={theme.foreground}>
+                    {formatRetryAfter(session.retryAfterMs)}
+                  </span>
+                  , or pick a cheaper model. Press Ctrl+C to exit.
+                </text>
+              ) : (
+                <text style={{ fg: theme.muted, wrapMode: 'word' }}>
+                  You've used{' '}
+                  <span fg={theme.foreground}>
+                    {formatSessionUnits(session.recentCount)} of {session.limit}
+                  </span>{' '}
+                  {session.period === 'pacific_month' ? 'this month' : 'sessions'}{' '}
+                  {session.period === 'pacific_month'
+                    ? ''
+                    : session.period === 'pacific_week'
+                      ? 'this week'
+                      : 'today'}
+                  . Try again in{' '}
+                  <span fg={theme.foreground}>
+                    {formatRetryAfter(session.retryAfterMs)}
+                  </span>
+                  . Press Ctrl+C to exit.
+                </text>
+              )}
               {/* The paywall half (2026-09-01): the server's structured hint
                   when it sent one, the plans page otherwise — a quota wall is
                   never a dead end. */}

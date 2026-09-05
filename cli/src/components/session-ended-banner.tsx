@@ -17,6 +17,11 @@ import {
 import { useTheme } from '../hooks/use-theme'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
+import {
+  FREEBUCKS_LABEL,
+  formatFreebucks,
+  freebucksOf,
+} from '../utils/freebucks'
 import { formatSessionUnits } from '../utils/format-session-units'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -52,13 +57,20 @@ export const SessionEndedBanner: React.FC<SessionEndedBannerProps> = ({
   const isQuotaExhausted = premiumQuota
     ? premiumQuota.recentCount >= premiumQuota.limit
     : false
+  const freebucks = useFreebuffSessionStore((s) => freebucksOf(s.session))
   const accessTier = useFreebuffSessionStore((s) =>
     s.session && 'accessTier' in s.session ? s.session.accessTier : 'full',
   )
   const quotaLabel = accessTier === 'limited' ? 'sessions' : 'premium sessions'
-  const bannerTitle = premiumQuota
-    ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} ${quotaLabel} used today`
-    : 'Session ended'
+  // On the meter the pool count is the wrong number twice over: the session
+  // that just ended was charged to Freebucks, not to that pool, and the pool
+  // is not what decides whether another one can start. Report the balance the
+  // next session will actually be bought with.
+  const bannerTitle = freebucks
+    ? `Session ended  ·  ${formatFreebucks(freebucks.balance)} ${FREEBUCKS_LABEL} left`
+    : premiumQuota
+      ? `Session ended  ·  ${formatSessionUnits(premiumQuota.recentCount)} of ${premiumQuota.limit} ${quotaLabel} used today`
+      : 'Session ended'
   const landingButtonLabel = 'Change model'
   const landingPendingLabel = 'Opening model selection…'
 

@@ -57,6 +57,10 @@ export interface Settings {
    *  first-time onboarding suggested prompts so they only show to brand-new
    *  users and quietly retire afterwards. */
   hasSubmittedFirstPrompt?: boolean
+  /** When the one-time Freebucks introduction was shown (ISO). Set the
+   *  moment it renders, not when it is dismissed, so "once" holds however
+   *  the launch ends. */
+  freebucksIntroSeenAt?: string
 }
 
 /**
@@ -308,4 +312,11 @@ export const hasSubmittedFirstPrompt = (): boolean => {
 export const markFirstPromptSubmitted = (): void => {
   if (loadSettings().hasSubmittedFirstPrompt === true) return
   saveSettings({ hasSubmittedFirstPrompt: true })
+}
+
+export const hasSeenFreebucksIntro = (): boolean =>
+  Boolean(loadSettings().freebucksIntroSeenAt)
+
+export const markFreebucksIntroSeen = (): void => {
+  saveSettings({ freebucksIntroSeenAt: new Date().toISOString() })
 }

@@ -774,7 +774,8 @@ describe('GLM selection uses the applicable meter', () => {
           : DEFAULT_FREEBUFF_MODEL_ID,
       )
       if (balance >= 5)
-        expect(setup.captureCharFrame()).toContain('5 Freebucks')
+        // The price reads `5/hr`; the balance lives in the header line.
+        expect(setup.captureCharFrame()).toContain('5/hr')
     },
   )
 
@@ -982,7 +983,7 @@ test('a funded Luna row does not show its exhausted legacy quota in the section 
   useFreebuffModelStore.getState().setSelectedModel(id)
   const setup = await renderSelector()
   await setup.renderOnce()
-  expect(setup.captureCharFrame()).toContain('20 Freebucks')
+  expect(setup.captureCharFrame()).toContain('20/hr')
   expect(setup.captureCharFrame()).not.toContain('1 of 1 used')
   expect(getSelectedFreebuffModel()).toBe(id)
 })

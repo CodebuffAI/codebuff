@@ -13,6 +13,7 @@ import { ShimmerText } from './shimmer-text'
 import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
+import { freebucksOf } from '../utils/freebucks'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 import { formatContextUsage } from '../utils/format-token-count'
 import {
@@ -113,8 +114,15 @@ export const StatusBar = ({
   }, [timerStartTime, shouldShowTimer, statusIndicatorState?.kind])
 
   const sessionProgress = useFreebuffSessionProgress(freebuffSession)
+  // A metered session is NOT unlimited, and the absence of `rateLimit` is no
+  // longer evidence that it is: a Freebucks row carries no pool row at all, so
+  // the old test reported "unlimited" for the one kind of session that was
+  // actually bought. It still means unlimited off the meter, where an unpriced
+  // row genuinely has no ceiling.
   const isUnlimited =
-    freebuffSession?.status === 'active' && !freebuffSession.rateLimit
+    freebuffSession?.status === 'active' &&
+    !freebuffSession.rateLimit &&
+    freebucksOf(freebuffSession) === undefined
 
   // Context occupancy of the main agent only: subagent states never land in
   // mainAgentState, so their tokens are excluded by construction. The store's

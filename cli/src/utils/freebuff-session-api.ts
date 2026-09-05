@@ -211,6 +211,12 @@ export function mergeCompactActiveSession(
     // Compact polls omit the subscription block along with the rate limits;
     // dropping it here would blank the plan panel until the next full poll.
     subscription: next.subscription ?? current.subscription,
+    // Same carry, and it matters MORE here: the Freebucks header is the whole
+    // meter for a metered account, so losing it mid-session would drop the
+    // picker back to session rings that no longer gate anything. The balance
+    // cannot change during a session anyway — a session is charged once, at
+    // admission — so the carried block is not merely a placeholder, it is
+    // still correct.
     freebucks: next.freebucks ?? current.freebucks,
   }
 }

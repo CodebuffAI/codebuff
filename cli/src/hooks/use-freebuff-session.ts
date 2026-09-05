@@ -9,8 +9,8 @@ import {
   getLimitedModelOffers,
   getRateLimitsByModel,
   getReferralInfo,
-  getSubscriptionInfo,
   getFreebucksInfo,
+  getSubscriptionInfo,
 } from '@codebuff/common/types/freebuff-session'
 import { useEffect } from 'react'
 
@@ -176,6 +176,10 @@ export function toLandingSession(
   // Same carry as rateLimitsByModel: the plan panel must not blink out
   // between dropping to the picker and the refreshing GET.
   const subscription = getSubscriptionInfo(current)
+  // And the meter itself, for the same reason and with more at stake: without
+  // this the picker falls back to session rings for the frame between the
+  // synthesized state and the GET, which on a metered account is a different
+  // product flickering into view.
   const freebucks = getFreebucksInfo(current)
 
   return {
@@ -369,6 +373,7 @@ export function markFreebuffSessionEnded(): void {
       current && 'accessTier' in current ? current.accessTier : undefined,
     rateLimitsByModel,
     subscription: getSubscriptionInfo(current),
+    // The post-session banner and the picker behind it both read the meter.
     freebucks: getFreebucksInfo(current),
   })
 }
@@ -668,7 +673,9 @@ export function useFreebuffSession(): UseFreebuffSessionResult {
             rateLimitsByModel,
             subscription:
               getSubscriptionInfo(next) ?? getSubscriptionInfo(current),
-            freebucks: getFreebucksInfo(next),
+            // Prefer the fresh block: a session that just ended was CHARGED,
+            // so the server's balance is newer than the one we were holding.
+            freebucks: getFreebucksInfo(next) ?? getFreebucksInfo(current),
           })
           return
         }
