@@ -50,6 +50,15 @@ export const ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT =
  * opaque click/event identifiers never leave the request handler. */
 export const ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT =
   'ads.external_conversion_postback' as const
+/**
+ * Durable campaign-health evidence. Unlike the content-free postback census,
+ * this stream intentionally carries opaque advertiser/campaign identifiers so
+ * the health reader can distinguish independent ingress binding from a join
+ * learned only after click resolution. Raw click ids, event ids, credentials,
+ * email, IP and user-agent data are never fields on this event.
+ */
+export const ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT =
+  'ads.campaign_ingress_evidence_v1' as const
 export const ADS_ADVERTISER_REPORTING_READ_EVENT =
   'ads.advertiser_reporting_read' as const
 /** Browser-side Imprezia decisions. The route deliberately reports only
@@ -348,6 +357,13 @@ export const ADS_FETCH_COMPLETED_FIELD_NAMES: readonly string[] = Object.keys(
 
 const ADS_IMPREZIA_FETCH_COMPLETED_FIELDS = {
   outcome: 'string',
+  /**
+   * Server-minted correlation handles for this route's single placement.
+   * These are the same request/opportunity identities written by the route;
+   * client, session, prompt, and provider request identifiers stay excluded.
+   */
+  request_id: 'string',
+  opportunity_id: 'string',
   selection_reason: 'string',
   experiment_arm: 'string',
   surface: 'string',
@@ -391,6 +407,8 @@ const ADS_IMPREZIA_FAILURE_CLASSES = [
   'client_exception',
 ] as const
 const ADS_IMPREZIA_MAX_DURATION_MS = 60_000
+const AD_REQUEST_GRAIN_ID_RE = /^adr_[0-9a-f]{32}$/
+const AD_OPPORTUNITY_ID_RE = /^opp_[0-9a-f]{32}$/
 
 function sanitizeImpreziaFetchCompletedFields(
   record: Record<string, unknown>,
@@ -400,6 +418,8 @@ function sanitizeImpreziaFetchCompletedFields(
     ADS_IMPREZIA_FETCH_COMPLETED_FIELDS,
   )
   const outcome = data.outcome
+  const requestId = data.request_id
+  const opportunityId = data.opportunity_id
   const selectionReason = data.selection_reason
   const experimentArm = data.experiment_arm
   const surface = data.surface
@@ -412,6 +432,10 @@ function sanitizeImpreziaFetchCompletedFields(
     !ADS_IMPREZIA_FETCH_OUTCOMES.includes(
       outcome as (typeof ADS_IMPREZIA_FETCH_OUTCOMES)[number],
     ) ||
+    typeof requestId !== 'string' ||
+    !AD_REQUEST_GRAIN_ID_RE.test(requestId) ||
+    typeof opportunityId !== 'string' ||
+    !AD_OPPORTUNITY_ID_RE.test(opportunityId) ||
     !ADS_IMPREZIA_SELECTION_REASONS.includes(
       selectionReason as (typeof ADS_IMPREZIA_SELECTION_REASONS)[number],
     ) ||
@@ -632,6 +656,19 @@ const ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS = {
   match_outcome: 'string',
 } as const satisfies AxiomOnlyFieldSchema
 
+const ADS_CAMPAIGN_INGRESS_EVIDENCE_FIELDS = {
+  evidence_version: 'string',
+  evidence_id: 'string',
+  advertiser_id: 'string',
+  campaign_id: 'string',
+  campaign_config_revision: 'number',
+  binding_status: 'string',
+  outcome: 'string',
+  rail: 'string',
+  traffic_class: 'string',
+  traffic_class_version: 'string',
+} as const satisfies AxiomOnlyFieldSchema
+
 const ADS_ADVERTISER_REPORTING_READ_FIELDS = {
   advertiser_id: 'string',
   key_id: 'string',
@@ -665,6 +702,7 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_FIRST_PARTY_CLICK_RECORDED_EVENT
     | typeof ADS_FIRST_PARTY_IMPRESSION_RECORDED_EVENT
     | typeof ADS_EXTERNAL_CONVERSION_POSTBACK_EVENT
+    | typeof ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT
     | typeof ADS_ADVERTISER_REPORTING_READ_EVENT
     | typeof ADS_IMPREZIA_FETCH_COMPLETED_EVENT
     | typeof ADS_REQUEST_REJECTED_EVENT
@@ -778,6 +816,15 @@ export function getAxiomOnlyLogEvent(
       data: sanitizeAllowlistedFields(
         record,
         ADS_EXTERNAL_CONVERSION_POSTBACK_FIELDS,
+      ),
+    }
+  }
+  if (eventName === ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(
+        record,
+        ADS_CAMPAIGN_INGRESS_EVIDENCE_FIELDS,
       ),
     }
   }
