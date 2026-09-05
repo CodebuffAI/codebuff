@@ -247,6 +247,102 @@ export const HOUSE_AD_CREATIVES: Readonly<
 })
 
 /**
+ * The SPONSOR BREAK copy, keyed by PLACEMENT ID rather than by surface
+ * (COD-486).
+ *
+ * WHY NOT A `HouseAdSurface` KEY. A break is the same `cli_chat` surface as
+ * the inline Desktop slot beside it -- `PLACEMENT_FORMATS` explains why the
+ * format is a property of the SLOT and not of the surface -- so there is no
+ * surface to hang this on. Keying by placement id is also what keeps the FLOOR
+ * out of it: {@link HOUSE_AD_CREATIVES} is built from
+ * {@link HOUSE_AD_VARIATIONS} alone, so nothing here can ever be served as the
+ * checked-in text floor. That is required rather than merely tidy -- COD-453
+ * excludes the text-only floor from a break, and a break card built around a
+ * hero cannot render a creative that has none.
+ *
+ * DIFFERENT BUDGET, SAME RULES. The inline budget above (12 / 28) is the
+ * terminal renderer's; a break is drawn at display size and its limits are
+ * `SPONSOR_BREAK_CREATIVE_LIMITS` (28 / 60 / 18), asserted in the adjacent
+ * test against that constant rather than retyped. Everything else is
+ * unchanged: the claims are the same claims, the destination is the same
+ * `/plans`, and the banned-claims test covers these creatives too.
+ *
+ * `*marked*` is the ONE accent run the break card draws in the accent colour
+ * (`splitMarkedTitle` in `SponsorSpotlight.tsx`). It is plain text everywhere
+ * else and counts toward the title limit, which is why it is spent on one
+ * word.
+ *
+ * These rows carry NO `imageUrl`: a break's picture is the HERO, which is
+ * uploaded bytes behind `hero_image_public_token` and cannot be a static path
+ * (the same reason {@link HOUSE_AD_FAVICON_URL} exists for the logo). The seed
+ * script uploads it; see `scripts/seed-house-subscription-campaign.ts`.
+ */
+export const HOUSE_BREAK_AD_PLACEMENT_IDS = [
+  'Desktop-Spotlight',
+  'Desktop-Showcase',
+] as const
+
+export type HouseBreakAdPlacementId =
+  (typeof HOUSE_BREAK_AD_PLACEMENT_IDS)[number]
+
+const breakCreative = (
+  title: string,
+  adText: string,
+  cta: string,
+): HouseAdCreative => ({
+  title,
+  adText,
+  cta,
+  url: HOUSE_AD_DESTINATION_URL,
+  favicon: FAVICON,
+})
+
+export const HOUSE_BREAK_AD_VARIATIONS: Readonly<
+  Record<HouseBreakAdPlacementId, readonly HouseAdCreative[]>
+> = Object.freeze({
+  // Spotlight interrupts after a completed task, full-frame. The reader has
+  // just finished something, so the claim is what the next day looks like.
+  'Desktop-Spotlight': Object.freeze([
+    breakCreative(
+      'Freebuff *Pro*',
+      `${SESSIONS_PER_DAY} more sessions a day, from ${PRICE}.`,
+      'See plans',
+    ),
+    breakCreative(
+      'More runs, *every* model',
+      `${SESSIONS_PER_MONTH} more sessions a month, from ${PRICE}.`,
+      'See plans',
+    ),
+    breakCreative(
+      'Out of *sessions*?',
+      `Pro adds ${SESSIONS_PER_DAY} more a day, on every model.`,
+      'Compare plans',
+    ),
+  ]),
+  // Showcase is a banner above the composer, read mid-task and not rationed.
+  // Shorter, and it argues the price rather than the ceiling.
+  //
+  // NO ACCENT MARKUP HERE, and this is a renderer fact rather than a style
+  // choice: `splitMarkedTitle` is SPOTLIGHT's. The Showcase card draws the
+  // title as plain text, so `*Pro*` renders with the asterisks visible --
+  // measured, on the `showcase-house` shot. Keying this catalog by placement
+  // is what makes the difference expressible at all; the adjacent test pins it
+  // so a copy edit cannot quietly put the markup back.
+  'Desktop-Showcase': Object.freeze([
+    breakCreative(
+      'Freebuff Pro',
+      `${SESSIONS_PER_DAY} more sessions a day, from ${PRICE}.`,
+      'See plans',
+    ),
+    breakCreative(
+      'Need more runs?',
+      `Pro adds ${SESSIONS_PER_MONTH} a month, on every model.`,
+      'See plans',
+    ),
+  ]),
+})
+
+/**
  * The Desktop new-tab display slot renders a card rather than an inline text
  * ad, so it is the one place an image earns its keep -- and the one place the
  * inline width budget above does not apply.

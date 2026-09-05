@@ -4,6 +4,8 @@ import { getInlineAdLayout, MIN_INLINE_AD_WIDTH } from '../../ads/inline-ad-layo
 import {
   PLACEMENT_PREVIEW_WIDTHS,
   PLACEMENT_SLOTS,
+  SPONSOR_BREAK_CREATIVE_LIMITS,
+  isSponsorBreakPlacement,
 } from '../freebuff-placements'
 import {
   HOUSE_AD_CREATIVES,
@@ -13,6 +15,8 @@ import {
   HOUSE_AD_TEXT_BUDGET,
   HOUSE_AD_TITLE_BUDGET,
   HOUSE_AD_VARIATIONS,
+  HOUSE_BREAK_AD_PLACEMENT_IDS,
+  HOUSE_BREAK_AD_VARIATIONS,
 } from '../freebuff-house-ad'
 
 import type { HouseAdCreative, HouseAdSurface } from '../freebuff-house-ad'
@@ -64,6 +68,19 @@ const everyInlineCreative = (): Array<{
   SURFACES.flatMap((surface) =>
     HOUSE_AD_VARIATIONS[surface].map((creative, index) => ({
       surface,
+      index,
+      creative,
+    })),
+  )
+
+const everyBreakCreative = (): Array<{
+  placementId: string
+  index: number
+  creative: HouseAdCreative
+}> =>
+  HOUSE_BREAK_AD_PLACEMENT_IDS.flatMap((placementId) =>
+    HOUSE_BREAK_AD_VARIATIONS[placementId].map((creative, index) => ({
+      placementId,
       index,
       creative,
     })),
@@ -207,6 +224,7 @@ describe('house ad catalog', () => {
     ]
     const everyCreative = [
       ...everyInlineCreative().map(({ creative }) => creative),
+      ...everyBreakCreative().map(({ creative }) => creative),
       ...HOUSE_AD_DISPLAY_VARIATIONS,
     ]
     for (const creative of everyCreative) {
@@ -217,11 +235,104 @@ describe('house ad catalog', () => {
     }
   })
 
+  test('break copy fits the card the break actually draws', () => {
+    // The inline budget above is the TERMINAL's; a break is drawn at display
+    // size and has its own, tighter, limits. Read from
+    // `SPONSOR_BREAK_CREATIVE_LIMITS` rather than retyped, so a retune of the
+    // card moves this assertion with it -- the same reason the inline budget
+    // is recomputed from the layout function.
+    for (const { creative } of everyBreakCreative()) {
+      expect(creative.title.length).toBeLessThanOrEqual(
+        SPONSOR_BREAK_CREATIVE_LIMITS.titleMaxLength,
+      )
+      expect(creative.adText.length).toBeLessThanOrEqual(
+        SPONSOR_BREAK_CREATIVE_LIMITS.bodyMaxLength,
+      )
+      expect(creative.cta.length).toBeLessThanOrEqual(
+        SPONSOR_BREAK_CREATIVE_LIMITS.ctaMaxLength,
+      )
+    }
+  })
+
+  test('only Spotlight uses the accent markup, because only Spotlight draws it', () => {
+    // MEASURED, on the `showcase-house` shot: `splitMarkedTitle` belongs to the
+    // Spotlight card. The Showcase banner renders its title as plain text, so a
+    // `*Pro*` there reaches the reader with the asterisks in it. Keying this
+    // catalog by placement is what makes the difference expressible; this is
+    // what stops a later copy edit putting the markup back.
+    for (const creative of HOUSE_BREAK_AD_VARIATIONS['Desktop-Showcase']) {
+      expect(creative.title).not.toContain('*')
+    }
+  })
+
+  test('break copy marks at most one accent run, and closes it', () => {
+    // `splitMarkedTitle` degrades an unmatched asterisk to plain text rather
+    // than failing, so a stray one is invisible in the card and visible only
+    // here. The console allows ONE marked run; two is a headline the accent
+    // colour no longer emphasises anything in.
+    for (const { creative } of everyBreakCreative()) {
+      const marks = creative.title.match(/\*/g)?.length ?? 0
+      expect(marks % 2).toBe(0)
+      expect(marks).toBeLessThanOrEqual(2)
+    }
+  })
+
+  test('every break creative targets a placement that is really a break', () => {
+    for (const placementId of HOUSE_BREAK_AD_PLACEMENT_IDS) {
+      expect(isSponsorBreakPlacement(placementId)).toBe(true)
+      expect(
+        PLACEMENT_SLOTS.some(
+          (slot) => slot.id === placementId && slot.available,
+        ),
+      ).toBe(true)
+      expect(
+        HOUSE_BREAK_AD_VARIATIONS[placementId].length,
+      ).toBeGreaterThanOrEqual(2)
+    }
+    // Intermission is deliberately out of scope (COD-486): it is the one break
+    // format this campaign does not run, and a stray entry here would put the
+    // promotion in front of a reader mid-task with no way to tell.
+    expect(HOUSE_BREAK_AD_PLACEMENT_IDS).not.toContain('Desktop-Intermission')
+  })
+
+  test('the floor can never serve a break creative', () => {
+    // The text-only floor is excluded from a break by COD-453, and a break
+    // card cannot render a creative with no hero at all. The structural
+    // guarantee is that `HOUSE_AD_CREATIVES` is built from
+    // `HOUSE_AD_VARIATIONS` alone; this asserts the two catalogs stay
+    // disjoint, so break copy cannot reach the floor by being pasted into a
+    // surface set as well.
+    const floorCopy = new Set(
+      Object.values(HOUSE_AD_CREATIVES).map(
+        (creative) => `${creative.title}|${creative.adText}`,
+      ),
+    )
+    const inlineCopy = new Set(
+      everyInlineCreative().map(
+        ({ creative }) => `${creative.title}|${creative.adText}`,
+      ),
+    )
+    for (const { creative } of everyBreakCreative()) {
+      const key = `${creative.title}|${creative.adText}`
+      expect(floorCopy.has(key)).toBe(false)
+      expect(inlineCopy.has(key)).toBe(false)
+    }
+  })
+
   test('every creative sends the reader to the plans page', () => {
-    for (const { creative } of everyInlineCreative()) {
+    for (const { creative } of [
+      ...everyInlineCreative(),
+      ...everyBreakCreative(),
+    ]) {
       expect(creative.url).toBe(HOUSE_AD_DESTINATION_URL)
       expect(creative.cta.length).toBeGreaterThan(0)
       expect(creative.favicon).toStartWith('https://')
+    }
+    // A break's picture is the uploaded HERO, not a static URL. A break
+    // creative carrying `imageUrl` would be describing the display card's
+    // mechanism, which the break renderer does not read.
+    for (const { creative } of everyBreakCreative()) {
+      expect(creative.imageUrl).toBeUndefined()
     }
     for (const creative of HOUSE_AD_DISPLAY_VARIATIONS) {
       expect(creative.url).toBe(HOUSE_AD_DESTINATION_URL)
