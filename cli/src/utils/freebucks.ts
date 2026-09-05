@@ -138,8 +138,9 @@ export function sortModelsByPrice<T extends { id: string; displayName: string }>
 
 /**
  * The one-line header for a metered account:
- * `100/100 Freebucks daily · 20 in wallet · $25 monthly usage left`
- * (the wallet only when there is something in it).
+ * `100/100 Freebucks daily · resets in 4h 12m · 20 in wallet · $25 monthly usage left`
+ * (the countdown only when a clock is given, the wallet only when there is
+ * something in it).
  *
  * The same four figures, in the same order, as the Web and Desktop pickers.
  * Built as a string rather than as components because the CLI's selector
@@ -153,12 +154,17 @@ export function sortModelsByPrice<T extends { id: string; displayName: string }>
  */
 export function freebucksHeaderLine(
   freebucks: FreebuffFreebucksInfo,
+  /** When given, the daily figure carries "resets in 4h 12m". */
+  nowMs?: number,
 ): string {
   const parts = [
     `${formatFreebucks(freebucks.daily.remaining)}/${formatFreebucks(
       freebucks.daily.limit,
     )} ${FREEBUCKS_LABEL} daily`,
   ]
+  if (nowMs !== undefined) {
+    parts.push(`resets in ${freebucksResetCountdown(freebucks.daily.resetAt, nowMs)}`)
+  }
   // An empty wallet is the ordinary case for a free account, and "0 wallet"
   // reads as something to worry about. Web and Desktop hide it too.
   if (freebucks.wallet.balance > 0) {
@@ -214,3 +220,19 @@ export const FREEBUCKS_INTRO = {
 /** Under the picker on a metered account, in place of the tier notices. */
 export const FREEBUCKS_PICKER_NOTICE =
   'Each model is priced in Freebucks per hour of session, charged once when the session starts. Your daily Freebucks refill at midnight Pacific; the wallet keeps what you buy or earn.'
+
+/**
+ * "4h 12m", "38m", "2d 5h" — until the daily pool refills. Same shape as the
+ * Web and Desktop pickers' countdowns; "now" once it has passed.
+ */
+export function freebucksResetCountdown(resetAt: string, nowMs: number): string {
+  const remainingMs = Date.parse(resetAt) - nowMs
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return 'now'
+  const totalMinutes = Math.ceil(remainingMs / 60_000)
+  const days = Math.floor(totalMinutes / (24 * 60))
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+  const minutes = totalMinutes % 60
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}

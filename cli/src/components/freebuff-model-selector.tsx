@@ -1439,7 +1439,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
           <text
             style={{ fg: theme.muted, wrapMode: 'none', marginTop: SECTION_GAP }}
           >
-            {planName.toUpperCase()} · {freebucksHeaderLine(freebucks)}
+            {planName.toUpperCase()} · {freebucksHeaderLine(freebucks, now)}
           </text>
         )}
         {!freebucks && freeWindows && !planSummary && (
