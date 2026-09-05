@@ -159,8 +159,9 @@ export interface FreebuffFreebucksWindow {
  * because the distinction is ours to keep rather than the user's to track:
  * EARNED ones (bounties, referrals, grants) stay until they are spent, while a
  * plan's monthly bonus is an allowance for its period and any of it left over
- * is retired at the roll (`FREEBUCKS_BONUS_EXPIRY_REASON`). Wallet spending is
- * attributed to the expiring half first, so a user who spends is always
+ * is retired when another period’s bonus is credited, including on upgrade
+ * (`FREEBUCKS_BONUS_EXPIRY_REASON`). Subscription end alone does not retire it.
+ * Wallet spending is attributed to the expiring half first, so a user who spends is always
  * treated as having spent the money that was about to go.
  *
  * Drawn on only once the daily pool
@@ -172,7 +173,8 @@ export interface FreebuffFreebucksWallet {
   balance: number
   /** Freebucks the plan credits here once per billing period (0 on free). */
   monthlyBonus: number
-  /** ISO instant the next plan bonus lands; absent without a plan. */
+  /** Current period end: the next bonus is available then IF the plan renews.
+   * Still present when cancellation is scheduled; absent without a live plan. */
   nextBonusAt?: string
 }
 
