@@ -2152,31 +2152,31 @@ export const FREEBUFF_PAUSED_FREE_MODEL_IDS: readonly string[] = [
   // SUPPORTED_FREEBUFF_MODELS and its agent entries stay in FREE_MODE_AGENT_MODELS
   // so sessions admitted before the deploy drain instead of failing mid-turn.
   FREEBUFF_GLM_V52_MODEL_ID,
-  // Withdrawn from free mode on 2026-09-03, the day it shipped, on RELIABILITY
-  // and SPEED rather than on cost — a first for this list.
+  // GEMINI 3.8 FLASH WAS HERE from 2026-09-03 to 2026-09-04 and is NOT any
+  // more. Both halves of what withdrew it were measured again before it came
+  // back, because only one of them had actually been fixed:
   //
-  // What users met: turns that ran roughly seven times slower than the row
-  // promised, and runs that died mid-tool-call with "Provider returned error".
-  // Both were measured rather than inferred. The slowness was routing (fixed
-  // separately in #2787 — unpinned turns were landing on the BYOK Vertex
-  // endpoint at 16.37s and 29 tok/s against AI Studio flex's 2.39s and 104
-  // tok/s). The errors are the flex endpoint itself, which answered "Provider
-  // returned error" on roughly one probe in four; once a stream has opened it
-  // cannot be rerouted, so that surfaces as a failed run rather than a retry.
+  //  - ROUTING. Unpinned turns were landing on the BYOK Vertex endpoint at
+  //    16.37s and 29 tok/s against AI Studio flex's 2.39s and 104 tok/s. Fixed
+  //    in #2787; re-measured 2026-09-04 over 24 concurrent streaming turns,
+  //    every one of which landed on Google AI Studio, non-BYOK, at the flex
+  //    rate.
+  //  - RELIABILITY, which is what actually withdrew it: the flex endpoint
+  //    answered "Provider returned error" on roughly one probe in four. That
+  //    figure does NOT reproduce — 24 of 24 turns completed with
+  //    `finish_reason: stop`. The original probe capped `max_tokens` at 120,
+  //    and this row reasons before it answers, so a short cap was consumed by
+  //    thinking and returned an empty completion. Re-running it at a realistic
+  //    budget is clean. Some of that quarter was the Vertex path, and some was
+  //    the measurement.
   //
-  // The routing fix does not rescue the row on its own, which is why this
-  // entry exists alongside it: a faster endpoint that still fails a quarter of
-  // the time, on the dearest row in the catalog, is not something to leave in
-  // front of every full-access user while it is evaluated.
-  //
-  // Paused rather than deleted for the reason every row above gives: it is in
-  // SUPPORTED_FREEBUFF_MODELS, so released CLI and Desktop binaries hold the id
-  // and an unrecognised id can only be refused, never coerced — the #1801 retry
-  // loop. Its roots and FREE_MODE_AGENT_MODELS entries stay so sessions
-  // admitted before the deploy drain instead of failing mid-turn. Restoring it
-  // means deleting this entry and re-adding the picker row and Freebucks price
-  // below; docs/freebuff-gemini-3-8-flash.md has what to measure first.
-  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  // It comes back BEHIND THE PAYWALL rather than to where it was:
+  // FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS, listed to everyone without a price and
+  // openable only on a paid session. It is also Web-only now — it is in
+  // FREEBUFF_WEB_MODELS and deliberately NOT back in FREEBUFF_MODELS, because
+  // Pro is enforced on Web alone (FREEBUFF_PRO_ENFORCED_SURFACES) and listing
+  // the dearest row in the catalog on a surface that cannot charge for it would
+  // hand it out free.
 ]
 
 /**
@@ -2287,6 +2287,14 @@ export const FREEBUFF_WEB_MODELS = [
   // admitted on it finish their hour. Remove this entry with the row once
   // those sessions have drained.
   MUSE_SPARK_12_CONTRIBUTOR_MODEL,
+  // Gemini 3.8 Flash is listed HERE rather than in FREEBUFF_MODELS, and the
+  // difference is the whole gate. It is a Pro row
+  // (FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS), and Pro is enforced on Freebuff Web
+  // alone; naming it in FREEBUFF_MODELS would put it in the CLI and Desktop
+  // pickers too, where `checkProOnlyModel` does not run and the row would be
+  // served free. Web-only listing and Web-only enforcement are the same
+  // decision written in two places, and they must move together.
+  GEMINI_38_FLASH_MODEL,
   // GLM 5.2 LEFT on 2026-08-31, when the reward it backed moved to GLM 5.3
   // Flash and the row was withdrawn (FREEBUFF_PAUSED_FREE_MODEL_IDS). It
   // reached this list, and only this list, as the earned row the browser picker
@@ -2878,6 +2886,34 @@ export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
  * the cheap ones, and the limited pool meters by tier rather than by model, so
  * it costs no more per session there than Flash already did.
  */
+/**
+ * Model ids only a PAID session may open.
+ *
+ * Defined in the CATALOG rather than in freebuff-subscriptions.ts, which is
+ * where it is published from as `FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS` and where
+ * its policy is documented. It lives here because this file needs it and
+ * cannot import that one — freebuff-subscriptions.ts already imports this
+ * module, so the dependency only runs one way.
+ *
+ * That it is needed here at all is the point. The limited tier's catalog used
+ * to exclude Luna by NAME, which was correct only while Luna was the sole row
+ * a plan stood in front of; the moment a second one existed, the free limited
+ * catalog silently handed it out. One definition, consumed by both, is what
+ * stops the next Pro row repeating it.
+ */
+export const FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS: readonly string[] =
+  Object.freeze([
+    FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  ])
+
+/** Whether the catalog marks `id` openable only on a paid session. Exact match:
+ *  the suffix-tolerant public predicate is
+ *  `isFreebuffSubscriptionProModelId`. */
+export function isFreebuffProOnlyCatalogModelId(id: string): boolean {
+  return FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS.includes(id)
+}
+
 export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS: readonly string[] = [
   ...new Set<string>([
     ...LIMITED_FREEBUFF_MODEL_IDS,
@@ -2885,7 +2921,13 @@ export const FREEBUFF_WEB_GEO_EXEMPT_MODEL_IDS: readonly string[] = [
       (model) =>
         isFreebuffWebSelectableModelId(model.id) &&
         !isFreebuffWebGodOnlyModelId(model.id) &&
-        model.id !== FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        // Every Pro row, not just Luna. This read `!== LUNA` while Luna was
+        // the only model a plan stood in front of, so "the row a plan gates"
+        // and "Luna" were the same set and the narrower reading was the one
+        // written down. Gemini 3.8 Flash joining the Pro rows on 2026-09-04
+        // separated them: the old test would have put the dearest row in the
+        // catalog into the FREE limited catalog.
+        !isFreebuffProOnlyCatalogModelId(model.id),
     ).map((model) => model.id),
   ]),
 ]
@@ -3129,11 +3171,34 @@ export function isFreebuffSessionModelAllowedForAccessTier(
 }
 
 /**
- * Whether a plan meters this model, as a local predicate.
+ * The models a plan's pooled allowance may be spent on.
  *
- * Duplicated from `freebuff-subscriptions.ts` rather than imported because
- * that module imports THIS one; the two ids are asserted equal by a test so
- * they cannot drift.
+ * Defined HERE and published from `freebuff-subscriptions.ts` as
+ * `FREEBUFF_SUBSCRIPTION_MODEL_IDS`, for the reason
+ * FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS gives: that module imports this one, so
+ * the dependency can only run this way, and this file needs the set.
+ *
+ * It was DUPLICATED into a predicate here until 2026-09-04, with a drift test
+ * standing in for the missing import. The test worked — it is what caught
+ * Gemini 3.8 Flash being added to the plan and not to this list — but a guard
+ * that reports drift after the fact is weaker than not being able to drift,
+ * and every id added to a plan from now on has one place to be added.
+ *
+ * A plan can only cover a model admission will actually open. GLM 5.3 Flash
+ * sits in the slot DeepSeek V4 Pro held until its withdrawal from free mode on
+ * 2026-08-26.
+ */
+export const FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS: readonly string[] =
+  Object.freeze([
+    FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+    FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+    FREEBUFF_KIMI_K3_ECO_MODEL_ID,
+    FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  ])
+
+/**
+ * Whether a plan meters this model, as a local predicate.
  *
  * Exported because the limited-tier widening it drives is not one gate but a
  * CHAIN — picker catalog, explicit-pick resolution, session admission, the
@@ -3145,16 +3210,7 @@ export function isFreebuffSubscriptionModelIdForAccessTier(
   model: string | null | undefined,
 ): boolean {
   if (!model) return false
-  return (
-    // GLM 5.3 Flash sits in the slot DeepSeek V4 Pro held until its withdrawal
-    // from free mode on 2026-08-26; a plan can only cover a model admission
-    // will actually open. Kept in step with FREEBUFF_SUBSCRIPTION_MODEL_IDS by
-    // the drift test in __tests__/freebuff-limited-subscriber.test.ts.
-    model === FREEBUFF_GLM_V53_FLASH_MODEL_ID ||
-    model === FREEBUFF_GPT_5_6_LUNA_MODEL_ID ||
-    model === FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID ||
-    model === FREEBUFF_KIMI_K3_ECO_MODEL_ID
-  )
+  return FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS.includes(model)
 }
 
 export function isFreebuffModelId(
