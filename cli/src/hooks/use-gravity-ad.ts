@@ -9,6 +9,7 @@ import {
 import { createFirstPartyViewAckTelemetry } from '@codebuff/common/util/axiom-only-log'
 import { useEffect, useRef, useState } from 'react'
 
+import { getSessionDockArm } from './use-dock-panel'
 import { useTerminalLayout } from './use-terminal-layout'
 import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
@@ -28,6 +29,7 @@ import {
 
 import type { Message } from '@codebuff/sdk'
 import type { ChatMessage } from '../types/chat'
+import type { DockClickContext } from './use-dock-panel'
 
 const AD_ROTATION_INTERVAL_MS = 60 * 1000 // 60 seconds per ad
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then pause fetching new ads
@@ -56,6 +58,14 @@ export type AdResponse = {
    * then simply omits the delay and the server stores unknown.
    */
   receivedAtMs?: number
+  /**
+   * Optional expanded creative for the dock's detail panel (COD-457). Only
+   * first-party creatives carry these; a Gravity, Carbon or house ad arrives
+   * without them and the panel falls back to `adText`, no bullets, no diagram.
+   */
+  expandedBody?: string
+  bullets?: string[]
+  diagram?: string
 }
 
 /**
@@ -93,7 +103,7 @@ export type GravityAdState = {
   /** Lazily fill the response's bounded ad pool as slots become eligible. */
   requestResponseAds: (messageId: string, count: number) => void
   isLoading: boolean
-  recordClick: (ad: AdResponse) => void
+  recordClick: (ad: AdResponse, dock?: DockClickContext) => void
   recordImpression: (ad: AdResponse) => void
 }
 
@@ -412,7 +422,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
     })
   }
 
-  const recordClick = (ad: AdResponse): void => {
+  const recordClick = (ad: AdResponse, dock?: DockClickContext): void => {
     const authToken = getAuthToken()
     if (!authToken) {
       logger.warn('[ads] No auth token, skipping ad click recording')
@@ -434,6 +444,16 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         impUrl: ad.impUrl,
         clientEventId,
         ...(surface ? { surface } : {}),
+        // The dock's own fields ride the ACK (COD-457), so the canonical
+        // server-side `ads.clicked` carries them and one click stays one
+        // event. Emitting a second client-side click here double-counted.
+        ...(dock
+          ? {
+              dockFrom: dock.from,
+              dockDwellMs: dock.dwellMs,
+              dockAccidentalClick: dock.accidental,
+            }
+          : {}),
       }),
     })
       .then((res) => {
@@ -517,6 +537,10 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
           // Native runtime UAs look bot-like to ad networks. Send the shared
           // browser-like UA so every provider sees a usable targeting signal.
           userAgent: getAdUserAgent(),
+          // The dock arm THIS session cached (COD-457). Omitted until the
+          // policy resolves, so the server falls back to its own assignment
+          // rather than being handed a guess.
+          ...(getSessionDockArm() ? { cliDockArm: getSessionDockArm() } : {}),
         }),
       })
 

@@ -148,6 +148,94 @@ export function firstPartyArmKey(userId: string | null | undefined): string {
   return `fpa_${fnv1a(`${FIRST_PARTY_ARM_SALT}:${userId ?? ''}`).toString(36)}`
 }
 
+/**
+ * Salt for the sticky CLI dock arm (COD-457).
+ *
+ * Its OWN salt, not a reuse of any other in this module: the dock experiment
+ * asks a presentation question and the first-party salts move which inventory
+ * a person gets, so sharing one would correlate the two arms and make either
+ * result unreadable. Dated for the same reason as its neighbours — rotating it
+ * reshuffles every user, and that is a new experiment rather than a re-tune.
+ */
+export const CLI_DOCK_EXPERIMENT_SALT = 'ads_cli_dock_v2_2026_09'
+
+/** Share of users given the expandable dock while the knob is `on`. */
+export const CLI_DOCK_EXPERIMENT_PERCENT = 50
+
+/** `off` serves control to everyone; `shadow` assigns and logs but still serves
+ * control; `on` is the only mode where an arm changes what is rendered. */
+export type CliDockExperimentMode = 'off' | 'shadow' | 'on'
+export const CLI_DOCK_EXPERIMENT_MODES = ['off', 'shadow', 'on'] as const
+export const DEFAULT_CLI_DOCK_EXPERIMENT: CliDockExperimentMode = 'off'
+
+/**
+ * An unrecognised value is `off`, never a guess at intent — the same rule
+ * `parseSupabaseGateMode` follows, and for the same reason: a typo in an
+ * Infisical value must not silently enrol every CLI user in an experiment.
+ * Case-sensitive on purpose, so `ON` is a refusal rather than a rollout.
+ */
+export function parseCliDockExperimentMode(
+  raw: string | undefined | null,
+): CliDockExperimentMode {
+  return raw === 'on' || raw === 'shadow' ? raw : DEFAULT_CLI_DOCK_EXPERIMENT
+}
+
+export type CliDockArm = 'control' | 'expandable'
+
+/**
+ * The user's sticky dock arm.
+ *
+ * `off` is not merely "assign nobody": it returns control WITHOUT hashing, so
+ * an unset knob is byte-identical to the pre-COD-457 world rather than merely
+ * harmless. `shadow` assigns the bucket so it can be logged and sized, and the
+ * CALLER is responsible for still rendering control — the mode rides back to
+ * the client beside the arm so a shadow assignment cannot be mistaken for a
+ * live one by a client that only reads `dockArm`.
+ *
+ * An absent user id parks on control: every ad surface rejects unauthenticated
+ * callers, so an anonymous caller sees no dock to expand.
+ */
+export function cliDockArmForUser(
+  userId: string | null | undefined,
+  mode: CliDockExperimentMode,
+): CliDockArm {
+  if (mode === 'off') return 'control'
+  if (!userId) return 'control'
+  const bucket = fnv1a(`${CLI_DOCK_EXPERIMENT_SALT}:${userId}`) % 100
+  return bucket < CLI_DOCK_EXPERIMENT_PERCENT ? 'expandable' : 'control'
+}
+
+/**
+ * The arm to REPORT for one ad request.
+ *
+ * The client's cached value wins whenever it sent a recognisable one, because
+ * the server recomputes `serverAssigned` from the CURRENT env mode while a CLI
+ * session holds its arm for its whole life. At a `shadow` -> `on` flip a
+ * session still drawing the control dock would otherwise be logged as
+ * `expandable`, and a rollback mislabels the reverse — exactly at the rollout
+ * boundaries the experiment is read across.
+ *
+ * Anything unrecognisable falls back rather than being trusted: this is a
+ * request-body field, and the only thing it may ever do is label a log line.
+ */
+export function resolveReportedCliDockArm(
+  clientCached: unknown,
+  serverAssigned: CliDockArm,
+): { arm: CliDockArm; source: 'client' | 'server' } {
+  if (clientCached === 'expandable' || clientCached === 'control') {
+    return { arm: clientCached, source: 'client' }
+  }
+  return { arm: serverAssigned, source: 'server' }
+}
+
+/** What the client should actually RENDER, as opposed to what it was assigned. */
+export function cliDockArmServed(
+  arm: CliDockArm,
+  mode: CliDockExperimentMode,
+): CliDockArm {
+  return mode === 'on' ? arm : 'control'
+}
+
 export type AdExperimentArm = 'imprezia_forced' | 'imprezia_first' | 'control'
 
 export function isImpreziaAudienceEmail(

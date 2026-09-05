@@ -19,7 +19,14 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import { SingleAdBanner } from './components/ad-banner'
+import {
+  SingleAdBanner,
+  dockPanelRowBudget,
+} from './components/ad-banner'
+import {
+  DOCK_PANEL_MAX_WIDTH,
+  getDockPanelLayout,
+} from '@codebuff/common/ads/inline-ad-layout'
 import { ChatInputBar } from './components/chat-input-bar'
 import { ChatHeader } from './components/chat-header'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
@@ -52,6 +59,7 @@ import { useChatUI } from './hooks/use-chat-ui'
 import { useClipboard } from './hooks/use-clipboard'
 import { useEvent } from './hooks/use-event'
 import { useGravityAd } from './hooks/use-gravity-ad'
+import { DOCK_CHORD_HINT, useDockPanel } from './hooks/use-dock-panel'
 import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
@@ -213,6 +221,7 @@ export const Chat = ({
   // the latest recorder from the hook.
   const handleAdClick = useEvent(recordClick)
   const handleAdImpression = useEvent(recordImpression)
+
   const handleResponseAdsNeeded = useEvent(requestResponseAds)
 
   // ------------------------------------------------- sponsored proposals
@@ -466,6 +475,31 @@ export const Chat = ({
     () => registerScrollToLatest(scrollToLatest),
     [registerScrollToLatest, scrollToLatest],
   )
+
+  // The sponsor dock's detail panel (COD-457). `enabled` is the surface gate,
+  // not the experiment: the arm itself comes from the policy route, and every
+  // failure there lands on control.
+  //
+  // `canExpand` is computed HERE rather than inside the hook because only this
+  // component knows the terminal height. Passing it in is what stops a toggle
+  // parking the dock in an open state that renders nothing on a short
+  // terminal: below roughly 22 rows the budget leaves fewer rows than the
+  // smallest panel needs, and accepting the toggle there hid the chord hint
+  // and required Escape to clear a state the user could not see.
+  const dockPanelFits = useMemo(() => {
+    const ad = ads?.[0]
+    if (!ad) return false
+    return getDockPanelLayout(ad, {
+      width: Math.min(DOCK_PANEL_MAX_WIDTH, terminalWidth - 2),
+      availableRows: dockPanelRowBudget(terminalHeight),
+    }).fits
+  }, [ads, terminalWidth, terminalHeight])
+
+  const dockPanel = useDockPanel({
+    ad: ads?.[0],
+    enabled: showInlineAds,
+    canExpand: dockPanelFits,
+  })
 
   const updateHeaderVisibility = useCallback(() => {
     const header = headerRef.current
@@ -1213,13 +1247,15 @@ export const Chat = ({
   const handleSubmit = useCallback(async () => {
     // Report activity for ad rotation
     reportActivity()
+    // A new send collapses the panel: the user has moved on from the ad.
+    dockPanel.collapse('send')
     // Update terminal title with truncated user input
     if (inputValue.trim()) {
       setTerminalTitle(inputValue)
     }
     const result = await onSubmitPrompt(inputValue, agentMode)
     handleCommandResult(result)
-  }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult])
+  }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult, dockPanel])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
   const historyNavUpEnabled =
@@ -1261,6 +1297,8 @@ export const Chat = ({
       nextCtrlCWillExit,
       queuePaused,
       queuedCount,
+      dockExpandable: dockPanel.expandable,
+      dockPanelOpen: dockPanel.expanded,
     }),
     [
       inputMode,
@@ -1283,6 +1321,8 @@ export const Chat = ({
       nextCtrlCWillExit,
       queuePaused,
       queuedCount,
+      dockPanel.expandable,
+      dockPanel.expanded,
     ],
   )
 
@@ -1499,8 +1539,11 @@ export const Chat = ({
         // Otherwise open the buy credits page
         safeOpen(WEBSITE_URL + '/usage')
       },
+      onToggleDockPanel: () => dockPanel.toggle('key'),
+      onCloseDockPanel: () => dockPanel.collapse('esc'),
     }),
     [
+      dockPanel,
       setInputMode,
       handleCloseFeedback,
       setFeedbackText,
@@ -1719,6 +1762,21 @@ export const Chat = ({
     IS_FREEBUFF && freebuffSession?.status === 'active'
   const isFreebuffSessionOver =
     IS_FREEBUFF && freebuffSession?.status === 'ended'
+
+  // A takeover screen owns both the keyboard and the rows above the composer.
+  // Rather than teach the panel to arbitrate with four other Escape handlers,
+  // it simply closes for the duration -- and `collapse` is a no-op when it was
+  // already shut, so this fires exactly one `dock_collapsed`.
+  const dockTakeoverActive =
+    askUserState !== null ||
+    reviewMode ||
+    queuePanelOpen ||
+    sponsoredProposalMenuOpen ||
+    isFreebuffSessionOver
+  useEffect(() => {
+    if (dockTakeoverActive) dockPanel.collapse('outside')
+  }, [dockTakeoverActive, dockPanel])
+
   const shouldShowStatusLine =
     !feedbackMode &&
     (hasStatusIndicatorContent ||
@@ -1858,6 +1916,21 @@ export const Chat = ({
             ad={ads[0]}
             onClick={recordClick}
             onImpression={recordImpression}
+            arm={dockPanel.arm}
+            // A takeover screen owns the keyboard and the space above the
+            // composer, so the panel is force-closed for its duration rather
+            // than fighting it for Escape.
+            expanded={dockPanel.expanded && !dockTakeoverActive}
+            chordHint={DOCK_CHORD_HINT}
+            panelRows={dockPanelRowBudget(terminalHeight)}
+            onToggle={() => dockPanel.toggle('click')}
+            onClose={() => dockPanel.collapse('close')}
+            // One click, one event: the dock's metadata rides the click
+            // acknowledgement so the canonical server-side `ads.clicked`
+            // carries it, rather than a second client-side event beside it.
+            onDockClick={(clickedAd, from) =>
+              recordClick(clickedAd, dockPanel.clickContext(from))
+            }
           />
         )}
 

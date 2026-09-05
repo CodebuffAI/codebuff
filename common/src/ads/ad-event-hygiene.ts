@@ -90,6 +90,58 @@ export function readRenderDelayMs(...candidates: unknown[]): number | null {
   return null
 }
 
+/* ------------------------------------------------------------------------- *
+ * Dock expansion (COD-457)
+ *
+ * Expanding the dock is a UI gesture, NOT an ad event in the billable sense:
+ * it fires no impression and no click, and nothing downstream may be tempted
+ * to settle on it. The dedupe below is what keeps that true across a session —
+ * a user who opens and closes the same ad ten times produced ONE expansion.
+ * ------------------------------------------------------------------------- */
+
+export const DOCK_EXPAND_METHODS = ['click', 'key'] as const
+export type DockExpandMethod = (typeof DOCK_EXPAND_METHODS)[number]
+
+export const DOCK_COLLAPSE_METHODS = [
+  'esc',
+  'close',
+  'key',
+  'outside',
+  'rotate',
+  'send',
+  'gone',
+] as const
+export type DockCollapseMethod = (typeof DOCK_COLLAPSE_METHODS)[number]
+
+/** Where a CTA click was pressed. Rides the click event, never the ack body. */
+export const DOCK_CLICK_ORIGINS = ['dock', 'panel'] as const
+export type DockClickOrigin = (typeof DOCK_CLICK_ORIGINS)[number]
+
+/**
+ * Under this, a click is flagged `accidental_click` rather than dropped. It is
+ * a LABEL and not a filter: suppressing the click would silently under-report
+ * an advertiser's delivery, and the settlement path is not this module's to
+ * change.
+ */
+export const DOCK_ACCIDENTAL_CLICK_MS = 300
+
+/** Per-session dedupe for `ads.dock_expanded`, keyed by `impUrl`. */
+export function claimDockExpansion(
+  expansionsFired: Set<string>,
+  impUrl: string,
+): boolean {
+  if (!impUrl) return false
+  if (expansionsFired.has(impUrl)) return false
+  expansionsFired.add(impUrl)
+  return true
+}
+
+/** Non-negative whole milliseconds; a clock that moved backwards is a zero. */
+export function dockDwellMs(openedAtMs: number, now: number): number {
+  if (!Number.isFinite(openedAtMs) || !Number.isFinite(now)) return 0
+  return Math.max(0, Math.round(now - openedAtMs))
+}
+
 export const AD_EVENT_CLIENT_FAMILIES = [
   'cli',
   'desktop',
