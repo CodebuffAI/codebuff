@@ -7,10 +7,12 @@ import {
   buildSponsorBreakEvent,
   clampDwellMs,
   isSponsorBreakCloseMethod,
+  isSponsorBreakEvent,
   readDwellMs,
   SPONSOR_BREAK_ACCIDENTAL_CLICK_MS,
   SPONSOR_BREAK_CLOSE_METHODS,
   SPONSOR_BREAK_DWELL_MAX_MS,
+  SPONSOR_BREAK_EVENTS,
 } from '../sponsor-break-events'
 
 import {
@@ -244,6 +246,30 @@ describe('the Axiom allowlist', () => {
   test('CI guard: the break allowlist carries the client hygiene fields', () => {
     for (const field of ADS_CLIENT_EVENT_HYGIENE_FIELDS) {
       expect(ADS_SPONSOR_BREAK_FIELD_NAMES).toContain(field)
+    }
+  })
+})
+
+describe('isSponsorBreakEvent', () => {
+  test('admits the three names and nothing else', () => {
+    // A CLOSED set at the boundary, for the same reason the close methods
+    // are: these become the `event` field every break readout groups on, and
+    // a client that could invent one would widen that field's cardinality
+    // with rows nothing queries.
+    for (const event of SPONSOR_BREAK_EVENTS) {
+      expect(isSponsorBreakEvent(event)).toBe(true)
+    }
+    for (const value of [
+      'ads.break_exploded',
+      'ads.fetch_completed',
+      '',
+      ' ads.break_shown',
+      null,
+      undefined,
+      42,
+      { event: 'ads.break_shown' },
+    ]) {
+      expect(isSponsorBreakEvent(value)).toBe(false)
     }
   })
 })

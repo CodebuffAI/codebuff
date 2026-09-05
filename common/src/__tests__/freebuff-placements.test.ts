@@ -20,6 +20,10 @@ import {
   PLACEMENT_SLOTS,
   SPONSOR_BREAK_CREATIVE_LIMITS,
   SPONSOR_BREAK_FORMATS,
+  INTERRUPTING_BREAK_FORMATS,
+  isInterruptingBreakFormat,
+  isInterruptingBreakPlacement,
+  isSponsorBreakFormat,
   SPONSOR_BREAK_HERO_SPEC,
   TRACKED_LINK_PLACEMENT_ID,
   isSponsorBreakPlacement,
@@ -269,6 +273,33 @@ describe('copy and configuration', () => {
       'spotlight',
       'intermission',
     ])
+  })
+
+  it('caps the two INTERRUPTING breaks and never Showcase (COD-455)', () => {
+    // Two predicates, two questions. The creative rules (hero required, no
+    // text-only house floor) are the same for all three; the daily cap, the
+    // min-session floor and the fail-closed-with-no-Redis are the price of
+    // TAKING THE SCREEN AWAY, which Showcase does not do -- it is the same
+    // above-composer slot drawn taller, on the same rotation as the banner it
+    // is being compared against. Capping it at one a day would leave the
+    // treatment arm byte-identical to control for all but one rotation, so the
+    // format test would measure nothing.
+    expect(INTERRUPTING_BREAK_FORMATS).toEqual(['spotlight', 'intermission'])
+    expect(isInterruptingBreakFormat('showcase')).toBe(false)
+    expect(isSponsorBreakFormat('showcase')).toBe(true)
+
+    const interrupting = PLACEMENT_SLOTS.filter((slot) =>
+      isInterruptingBreakPlacement(slot.id),
+    ).map((slot) => slot.id)
+    expect(interrupting).toEqual(['Desktop-Spotlight', 'Desktop-Intermission'])
+    expect(isInterruptingBreakPlacement('Desktop-Showcase')).toBe(false)
+
+    // Still the conservative fallback for an unknown id, in both directions.
+    expect(isInterruptingBreakPlacement('some-future-grain')).toBe(false)
+    // Every interrupting format is a break; the reverse does not hold.
+    for (const format of INTERRUPTING_BREAK_FORMATS) {
+      expect([format, isSponsorBreakFormat(format)]).toEqual([format, true])
+    }
   })
 
   it('answers inline for an id it does not know, never undefined', () => {

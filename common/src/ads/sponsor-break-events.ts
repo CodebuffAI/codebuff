@@ -47,6 +47,23 @@ export const SPONSOR_BREAK_EVENTS = [
 export type SponsorBreakEvent = (typeof SPONSOR_BREAK_EVENTS)[number]
 
 /**
+ * Whether an untrusted value names one of the three break events.
+ *
+ * A CLOSED set at the boundary, for the same reason
+ * {@link isSponsorBreakCloseMethod} is: these names become the `event` field
+ * every break readout groups on, and a client that could invent one would
+ * widen that field's cardinality with rows nothing queries.
+ */
+export function isSponsorBreakEvent(
+  value: unknown,
+): value is SponsorBreakEvent {
+  return (
+    typeof value === 'string' &&
+    (SPONSOR_BREAK_EVENTS as readonly string[]).includes(value)
+  )
+}
+
+/**
  * How a break ended. A CLOSED vocabulary, like the census codes: these are a
  * histogram dimension and an open set would let a new renderer widen the
  * cardinality of the field the whole readout groups on.
@@ -165,11 +182,18 @@ export interface SponsorBreakEventPayload {
   timer_ms?: number
   timer_completed?: boolean
   /**
-   * SPOTLIGHT'S DISMISS LOCK (COD-454): how long the ways OUT were held, in
-   * milliseconds of VISIBLE time. Separate from `timer_ms` because the two
-   * hold different things -- the countdown gates the whole card, the lock only
-   * the dismissals -- and pooling them would make the readout unable to say
-   * which format a row came from without joining on `format`.
+   * THE DISMISS LOCK: how long the ways OUT were held, in milliseconds of
+   * VISIBLE time. Spotlight (COD-454) and Showcase (COD-455) both hold their
+   * dismissals, so this is ONE field across the formats and `format` is what
+   * separates them.
+   *
+   * Separate from `timer_ms` because the two hold different things -- the
+   * countdown gates the whole card, the lock only the dismissals -- and
+   * pooling them would make the readout unable to say which format a row came
+   * from without joining on `format`. Concretely: Intermission's `timer_ms`
+   * counts down to a Continue button the person is waiting ON, while this
+   * counts down to a control they may never look for, on a card that is fully
+   * clickable and fully ignorable throughout.
    */
   dismiss_lock_ms?: number
   /**
