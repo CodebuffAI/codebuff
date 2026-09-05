@@ -146,6 +146,46 @@ describe('buildSponsorBreakEvent', () => {
     })
   })
 
+  test('the dismiss lock rides the close event, and 0 survives (COD-454)', () => {
+    // `dismiss_lock_ms` is a DIFFERENT field from `timer_ms` because the two
+    // hold different things — the countdown gates the whole card, the lock
+    // only the ways out — so a readout must be able to tell them apart without
+    // joining on the format.
+    expect(
+      buildSponsorBreakEvent({
+        ...base,
+        method: 'click',
+        dismissLockMs: 5000,
+        lockCompleted: false,
+      }),
+    ).toMatchObject({ dismiss_lock_ms: 5000, lock_completed: false })
+    // ZERO IS A VALUE, not an absence: it is the lock's rollback, and a row
+    // that dropped it would be indistinguishable from an older client that
+    // never had a lock at all.
+    expect(
+      buildSponsorBreakEvent({
+        ...base,
+        dismissLockMs: 0,
+        lockCompleted: true,
+      }),
+    ).toMatchObject({ dismiss_lock_ms: 0, lock_completed: true })
+  })
+
+  test('a renderer that predates the lock emits exactly as it does today', () => {
+    // The `ad-event-hygiene` rule: every optional field degrades to ABSENT.
+    const built = buildSponsorBreakEvent({ ...base, method: 'x' })
+    expect(built).not.toHaveProperty('dismiss_lock_ms')
+    expect(built).not.toHaveProperty('lock_completed')
+    // And a nonsense value is absent rather than emitted raw.
+    const junk = buildSponsorBreakEvent({
+      ...base,
+      dismissLockMs: 'soon',
+      lockCompleted: 'yes',
+    })
+    expect(junk).not.toHaveProperty('dismiss_lock_ms')
+    expect(junk).not.toHaveProperty('lock_completed')
+  })
+
   test('a malformed method or event id is dropped, never emitted raw', () => {
     const built = buildSponsorBreakEvent({
       ...base,

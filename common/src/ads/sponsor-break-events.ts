@@ -164,6 +164,21 @@ export interface SponsorBreakEventPayload {
   dwell_ms?: number
   timer_ms?: number
   timer_completed?: boolean
+  /**
+   * SPOTLIGHT'S DISMISS LOCK (COD-454): how long the ways OUT were held, in
+   * milliseconds of VISIBLE time. Separate from `timer_ms` because the two
+   * hold different things -- the countdown gates the whole card, the lock only
+   * the dismissals -- and pooling them would make the readout unable to say
+   * which format a row came from without joining on `format`.
+   */
+  dismiss_lock_ms?: number
+  /**
+   * Whether that lock had expired when the break closed. The one field that
+   * distinguishes "they waited it out and then left" from "they took the CTA
+   * while it was still held", which is the number that says whether the lock
+   * is buying attention or manufacturing clicks.
+   */
+  lock_completed?: boolean
   client_event_id?: string
   client_family?: AdEventClientFamily
   sample_rate: number
@@ -191,11 +206,14 @@ export function buildSponsorBreakEvent(params: {
   dwellMs?: unknown
   timerMs?: unknown
   timerCompleted?: unknown
+  dismissLockMs?: unknown
+  lockCompleted?: unknown
   clientEventId?: unknown
   clientFamily?: AdEventClientFamily
 }): SponsorBreakEventPayload {
   const dwellMs = clampDwellMs(params.dwellMs)
   const timerMs = clampDwellMs(params.timerMs)
+  const dismissLockMs = clampDwellMs(params.dismissLockMs)
   const clientEventId = readClientEventId(params.clientEventId)
   return {
     placement_id: params.placementId,
@@ -215,6 +233,10 @@ export function buildSponsorBreakEvent(params: {
     ...(timerMs === null ? {} : { timer_ms: timerMs }),
     ...(typeof params.timerCompleted === 'boolean'
       ? { timer_completed: params.timerCompleted }
+      : {}),
+    ...(dismissLockMs === null ? {} : { dismiss_lock_ms: dismissLockMs }),
+    ...(typeof params.lockCompleted === 'boolean'
+      ? { lock_completed: params.lockCompleted }
       : {}),
     ...(clientEventId ? { client_event_id: clientEventId } : {}),
     ...(params.clientFamily ? { client_family: params.clientFamily } : {}),

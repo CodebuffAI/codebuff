@@ -541,6 +541,45 @@ export function clampSponsorBreakTimerMs(value: unknown): number {
 }
 
 /**
+ * Bounds for SPOTLIGHT'S DISMISS LOCK, in milliseconds (COD-454).
+ *
+ * A DIFFERENT THING FROM THE COUNTDOWN ABOVE, and the difference is the whole
+ * reason it is a second knob rather than a reuse of `timerMs`. Intermission's
+ * countdown gates the WHOLE card: nothing may be pressed until it finishes.
+ * The dismiss lock gates only the ways OUT — the X, Escape, the backdrop and
+ * Continue — while the CTA and the hero stay live throughout, so the shortest
+ * path off the card the entire time is the advertiser's own link. Sharing one
+ * value would mean re-tuning one format silently re-tuned the other.
+ *
+ * ZERO IS LEGAL AND IS THE KILL SWITCH -- unlike the countdown, whose floor is
+ * 1000. A lock of 0 restores the immediately-dismissible card exactly, which is
+ * the rollback an operator needs to be able to reach without a deploy.
+ */
+export const SPONSOR_BREAK_DISMISS_LOCK_MS_DEFAULT = 5_000
+export const SPONSOR_BREAK_DISMISS_LOCK_MS_MIN = 0
+export const SPONSOR_BREAK_DISMISS_LOCK_MS_MAX = 5_000
+
+/**
+ * Clamp, never reject — the same rule and the same reason as
+ * {@link clampSponsorBreakTimerMs}. The ceiling is what matters here: this
+ * value decides how long a full-screen card cannot be dismissed, so every hop
+ * that could have introduced a bad one bounds it again.
+ */
+export function clampSponsorBreakDismissLockMs(value: unknown): number {
+  const numeric =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : Number.NaN
+  if (!Number.isFinite(numeric)) return SPONSOR_BREAK_DISMISS_LOCK_MS_DEFAULT
+  return Math.min(
+    SPONSOR_BREAK_DISMISS_LOCK_MS_MAX,
+    Math.max(SPONSOR_BREAK_DISMISS_LOCK_MS_MIN, Math.round(numeric)),
+  )
+}
+
+/**
  * The sticky sample key for one user's sponsor-break arm. Shaped like
  * {@link firstPartyArmKey} so the two read the same at a call site, with its
  * own prefix so one cannot be passed to the other's bucket function unnoticed.
