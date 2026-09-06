@@ -234,7 +234,10 @@ export function trimMessagesToFitTokenLimit(params: {
   // then reaches the provider without its call and is rejected with
   // "tool_call_id does not exist", failing the whole step. Drop results whose
   // call this trim removed — but only those, so orphans that were already in
-  // the input history pass through unchanged.
+  // the input history pass through unchanged. This also overrides
+  // keepDuringTruncation on a tool result whose call was removed: keeping the
+  // pair together would exceed the budget and keeping the result alone would
+  // be rejected, so a result cannot outlive its call.
   const removedCallIds = new Set<string>()
   const survivingCallIds = new Set<string>()
   const collectCallIds = (message: Message, into: Set<string>) => {
