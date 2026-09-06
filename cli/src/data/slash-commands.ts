@@ -116,6 +116,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description: 'Review code changes',
   },
   {
+    id: 'btw',
+    label: 'btw',
+    description:
+      'Queue an additional thought without interrupting the current task',
+  },
+  {
     id: 'queue',
     label: 'queue',
     description: 'Edit, reorder, or delete the messages waiting to be sent',
