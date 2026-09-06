@@ -6,13 +6,15 @@
  * through this map and must never serialize an input reason directly.
  */
 export const ADVERTISER_REASON_REDACTION_VERSION =
-  'advertiser_reason_redaction_2026_09_v1'
+  'advertiser_reason_redaction_2026_09_v2'
 
 export const ADVERTISER_OPERATOR_REASON_CODES = [
   'not_active',
   'off_flight',
   'no_creatives',
   'placement_mismatch',
+  'country_excluded',
+  'country_unresolved',
   'intent_gate_no',
   'balance_empty',
   'daily_cap_spent',
@@ -35,6 +37,8 @@ export const ADVERTISER_SAFE_REASON_CODES = [
   'off_flight',
   'no_creatives',
   'placement_mismatch',
+  'country_excluded',
+  'country_unresolved',
   'context_filtered',
   'balance_empty',
   'daily_cap_spent',
@@ -64,6 +68,12 @@ export const ADVERTISER_VISIBLE_REASONS = {
   off_flight: { kind: 'show', reason: 'off_flight' },
   no_creatives: { kind: 'show', reason: 'no_creatives' },
   placement_mismatch: { kind: 'show', reason: 'placement_mismatch' },
+  // The advertiser wrote the country rule that refused this viewer, so naming
+  // it back to them reveals nothing they do not already own. Kept as two codes
+  // for the same reason serving keeps them apart: "your rule excluded them" and
+  // "we could not place them at all" are different things to act on.
+  country_excluded: { kind: 'show', reason: 'country_excluded' },
+  country_unresolved: { kind: 'show', reason: 'country_unresolved' },
   intent_gate_no: { kind: 'generalize', reason: 'context_filtered' },
   balance_empty: { kind: 'show', reason: 'balance_empty' },
   daily_cap_spent: { kind: 'show', reason: 'daily_cap_spent' },
