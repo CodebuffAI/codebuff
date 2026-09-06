@@ -87,11 +87,12 @@ describe('run_terminal_command commit attribution', () => {
     // Everything a normal run relies on is still there: the two variants differ
     // in the step-4 block and the second example and nowhere else.
     for (const shared of [
-      'Stick to these use cases:',
-      'DO NOT do any of the following:',
+      'Commands run in bash on every OS',
       '### Using git to commit changes',
-      'Never alter the git config.',
-      'Do not create an empty commit if there are no changes.',
+      "Don't push",
+      "never alter git config",
+      "don't use interactive flags",
+      "don't create empty commits",
       String.raw`echo \"hello world\"`,
     ]) {
       expect(runTerminalCommandParams.description).toContain(shared)

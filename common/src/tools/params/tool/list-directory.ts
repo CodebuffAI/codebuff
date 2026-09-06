@@ -16,23 +16,11 @@ const inputSchema = z
     'List files and directories in the specified path. Returns separate arrays of file names and directory names.',
   )
 const description = `
-Lists all files and directories in the specified path. Useful for exploring directory structure and finding files.
-
-Example:
 ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
     path: 'src/components',
-  },
-  endsAgentStep,
-})}
-
-${$getNativeToolCallExampleString({
-  toolName,
-  inputSchema,
-  input: {
-    path: '.',
   },
   endsAgentStep,
 })}

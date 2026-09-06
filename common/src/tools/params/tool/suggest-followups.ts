@@ -45,43 +45,17 @@ const outputSchema = z.object({
 })
 
 const description = `
-Suggest clickable followup prompts to the user. When the user clicks a suggestion, it sends that prompt as a new user message.
+Suggest clickable followup prompts. Each followup becomes a card the user can click to send that prompt.
 
-Use this tool after completing a task to suggest what the user might want to do next. Good suggestions include:
-- Alternatives to the latest implementation like "Cache the data in local storage instead"
-- Related features like "Show the state data in a hover card"
-- Cleanup opportunities like "Split app.ts into focused modules"
-- Testing suggestions like "Add unit tests for this change"
-- Verification you can run yourself like "Check the login flow in the browser and fix what breaks"
-- "Continue with the next step" - when there are more steps in a plan
-
-Keep every suggestion short and goal-oriented: one sentence naming the outcome you want, not the steps to get there. Whoever picks up the prompt does better work when free to choose the approach, so leave out file paths, function names, ordering, and design decisions unless one of those is the actual point of the request. A prompt still has to stand on its own — name the target clearly, just don't narrate a plan.
-
-Don't include suggestions like:
-- "Commit these changes"
-- Anything the user would have to carry out themselves, like "Ask your designer whether this matches the spec" — as opposed to "Add test coverage for the login flow", which is a goal the assistant can own. Judge by the tools you actually have: work you can do yourself is a goal, not a chore.
-
-Try to make different suggestions than you did in past steps. That's because users can still click previous suggestions if they want to.
-
-Aim for around 3 suggestions. The suggestions persist and remain clickable, with clicked ones visually updated to show they were used.
+Aim for ~3 suggestions. Keep each short and goal-oriented — name the outcome, not the steps. Skip work the user would have to do themselves.
 
 ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
     followups: [
-      {
-        prompt: 'Continue with the next step',
-        label: 'Continue',
-      },
-      {
-        prompt: 'Add unit tests for UserService',
-        label: 'Add tests',
-      },
-      {
-        prompt: 'Pull the auth logic out of the request handler',
-        label: 'Refactor auth',
-      },
+      { prompt: 'Add unit tests for this change', label: 'Add tests' },
+      { prompt: 'Continue with the next step', label: 'Continue' },
     ],
   },
   endsAgentStep,
