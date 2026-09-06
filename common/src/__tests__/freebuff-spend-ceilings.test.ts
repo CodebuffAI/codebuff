@@ -172,6 +172,42 @@ describe('overrides', () => {
   })
 })
 
+describe('on the Freebucks meter', () => {
+  // The plan ceiling is the budget; the session-era budget cohorts sat under
+  // it and refused accounts with Freebucks in hand (SG, 2026-09-05).
+  it('the plan ceiling replaces the elevated-country and trust-level budgets', () => {
+    const elevated = resolveFreebuffSpendCeiling({
+      accessTier: 'full',
+      countryCode: 'SG',
+      freebucksPlanUsd: 3,
+    })
+    expect(elevated.reason).toBe('freebucks_plan')
+    expect(elevated.usd).toBe(3)
+    const trusted = resolveFreebuffSpendCeiling({
+      accessTier: 'full',
+      trustLevelCeilingUsd: 0.5,
+      freebucksPlanUsd: 3,
+    })
+    expect(trusted.reason).toBe('freebucks_plan')
+    expect(trusted.usd).toBe(3)
+  })
+
+  it('the abuse cohorts still compose under the plan ceiling', () => {
+    const egress = resolveFreebuffSpendCeiling({
+      accessTier: 'full',
+      privacyEgress: true,
+      freebucksPlanUsd: 3,
+    })
+    expect(egress.reason).toBe('privacy_egress')
+    expect(egress.usd).toBe(FREEBUFF_RESTRICTED_DAILY_SPEND_USD)
+  })
+
+  it('off the meter nothing changes', () => {
+    const result = resolveFreebuffSpendCeiling({ accessTier: 'full', countryCode: 'SG' })
+    expect(result.reason).toBe('elevated_country')
+  })
+})
+
 describe('elevated countries', () => {
   it('holds an elevated country between the region and restricted ceilings', () => {
     const result = resolveFreebuffSpendCeiling({

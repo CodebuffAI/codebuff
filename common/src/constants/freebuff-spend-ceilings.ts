@@ -510,7 +510,15 @@ export function resolveFreebuffSpendCeiling(
   ]
 
   const country = input.countryCode?.toUpperCase() ?? null
-  if (country && elevatedCountries.includes(country)) {
+  // ON THE METER the plan ceiling IS the whole-population budget, so the two
+  // other BUDGET cohorts do not compose under it: `elevated_country` and
+  // `trust_level` were sized for the session era and sit BELOW the plan's
+  // figure (SG's $1 under the free plan's $3), which refused accounts with
+  // Freebucks in hand and told them they had "used all of today's free
+  // usage" — 57 accounts on 2026-09-05. The ABUSE cohorts (restricted
+  // country, anonymising or unverified egress, flagged domain, third-party
+  // client) still compose by minimum: they are fences, not budgets.
+  if (country && elevatedCountries.includes(country) && !onFreebucksMeter) {
     applied.push({ reason: 'elevated_country', usd: elevatedUsd })
   }
   if (country && restrictedCountries.includes(country)) {
@@ -530,7 +538,8 @@ export function resolveFreebuffSpendCeiling(
   }
   if (
     typeof input.trustLevelCeilingUsd === 'number' &&
-    Number.isFinite(input.trustLevelCeilingUsd)
+    Number.isFinite(input.trustLevelCeilingUsd) &&
+    !onFreebucksMeter
   ) {
     applied.push({ reason: 'trust_level', usd: input.trustLevelCeilingUsd })
   }
