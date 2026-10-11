@@ -56,7 +56,7 @@ This exists because every check bun gives you is blind to the failure mode that 
 
 A Cloud Agent — or any checkout without Infisical — can confirm the workspace can run a package-local unit test from the placeholder fixture alone. This is one file in `@codebuff/internal`. A pass does not validate the rest of the application, CI, or production runtime.
 
-The repo pins Bun **1.3.14** (`.bun-version`, `package.json` `engines.bun` / `packageManager`) and Node **20.15.1** (`.node-version`). The smoke test runs under Bun, not Node. If the VM has no Bun, install that pin from the official installer without changing tracked runtime files:
+The repo pins Bun **1.3.14** (`.bun-version`, `package.json` `engines.bun` / `packageManager`) and Node **24.21.0** (`.node-version`, which Render applies to every repo-root service; only `web` runs on Node, the rest start Bun). The smoke test runs under Bun, not Node. If the VM has no Bun, install that pin from the official installer without changing tracked runtime files:
 
 ```bash
 curl -fsSL https://bun.sh/install | bash -s "bun-v1.3.14"
