@@ -36,9 +36,15 @@ export function freebuffCatalogRootAgent(
   >,
 ): AgentDefinition {
   const rowOptions = { modelLabel: row.displayName, compaction: row.compaction }
-  const root = isFreebuffFastModeModel(compiledFreebuffModelIdOfRow(row))
+  const compiledModelId = compiledFreebuffModelIdOfRow(row)
+  const root = isFreebuffFastModeModel(compiledModelId)
     ? createBase3FastCliRoot(row.handle, rowOptions)
-    : createBase3CliRoot({ model: row.handle, isFreebuff: true, ...rowOptions })
+    : createBase3CliRoot({
+        model: row.handle,
+        isFreebuff: true,
+        ...rowOptions,
+        compiledModelId,
+      })
   return {
     ...root,
     id: FREEBUFF_CLI_CATALOG_ROOT_AGENT_ID,

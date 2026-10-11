@@ -997,6 +997,34 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     })
   })
 
+  it("keeps each turn's instructions in history, so the next request extends this one", async () => {
+    // A per-turn instructionsPrompt must not cost the prompt cache (base3's
+    // turn-ending note, docs/freebuff-base3-harness.md).
+    mockTemplate.stepPrompt = ''
+    const requests: unknown[][] = []
+    const promptAiSdkStream: Parameters<
+      typeof loopAgentSteps
+    >[0]['promptAiSdkStream'] = async function* ({ messages }) {
+      requests.push(JSON.parse(JSON.stringify(messages)))
+      yield { type: 'text', text: 'Done.' }
+      return promptSuccess(`turn-${requests.length}`)
+    }
+    const first = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      promptAiSdkStream,
+    })
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentState: first.agentState,
+      prompt: 'continue',
+      promptAiSdkStream,
+    })
+
+    expect(requests).toHaveLength(2)
+    expect(requests[1].slice(0, requests[0].length)).toEqual(requests[0])
+    expect(JSON.stringify(requests[1]).split('Test user prompt')).toHaveLength(3)
+  })
+
   describe('suggest_prompts before the answer', () => {
     const answer = `Here is the plan.\n\n${'1. A concrete step and why it is needed.\n'.repeat(10)}`
     const note = JSON.stringify(SUGGEST_PROMPTS_BEFORE_ANSWER_MESSAGE).slice(
@@ -1048,7 +1076,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         { text: "Planning-only, here's the proposal.", cards: true },
         { text: answer, cards: false },
       ])
-      expect(requests).toHaveLength(2)
+    expect(requests).toHaveLength(2)
       expect(requests[0]).not.toContain(note)
       expect(requests[1]).toContain(note)
       expect(result.output.type).not.toBe('error')

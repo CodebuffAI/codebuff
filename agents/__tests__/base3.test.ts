@@ -4,8 +4,15 @@ import {
   hasFreebuffRootSystemPromptOpening,
 } from '@codebuff/common/constants/free-agents'
 import { compactionPolicyForModel } from '@codebuff/common/constants/compaction-policy'
-import { TURN_ENDING_RULE } from '@codebuff/common/constants/turn-ending-rule'
-import { SUPPORTED_FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
+import {
+  TURN_ENDING_NOTE,
+  TURN_ENDING_RULE,
+} from '@codebuff/common/constants/turn-ending-rule'
+import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  SUPPORTED_FREEBUFF_MODELS,
+} from '@codebuff/common/constants/freebuff-models'
 import { describe, test, expect } from 'bun:test'
 
 import base3, { createBase3, createBase3CliRoot } from '../base3'
@@ -99,10 +106,26 @@ describe('base3 CLI roots', () => {
       // Single loop: no subagents at all, which is what the harness IS.
       expect(agent.spawnableAgents ?? []).toEqual([])
       expect(agent.toolNames ?? []).not.toContain('spawn_agents')
-      // No per-turn instructions prompt: re-injecting one after every user
-      // message breaks the prompt cache the harness is built to keep warm.
-      expect(agent.instructionsPrompt).toBeUndefined()
+      // No per-turn instructions but Muse Spark 1.3's turn-ending note.
+      expect(agent.instructionsPrompt).toBe(
+        agent.model === FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID
+          ? TURN_ENDING_NOTE
+          : undefined,
+      )
     }
+  })
+
+  test('only Muse Spark 1.3 gets the turn-ending note, by its compiled id', () => {
+    const muse = FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID
+    expect(createBase3(muse).instructionsPrompt).toBe(TURN_ENDING_NOTE)
+    // A catalog root runs on an opaque handle; the compiled id decides.
+    expect(
+      createBase3('fbm1.handle', { compiledModelId: muse }).instructionsPrompt,
+    ).toBe(TURN_ENDING_NOTE)
+    expect(createBase3('fbm1.handle').instructionsPrompt).toBeUndefined()
+    expect(
+      createBase3(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID).instructionsPrompt,
+    ).toBeUndefined()
   })
 
   test('DeepSeek Flash roots get 15 minutes / 40k, the rest the hour / 140k', () => {

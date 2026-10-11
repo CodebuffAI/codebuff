@@ -2,7 +2,14 @@ import {
   compactionPolicyForModel,
   type CompactionPolicy,
 } from '@codebuff/common/constants/compaction-policy'
-import { TURN_ENDING_RULE } from '@codebuff/common/constants/turn-ending-rule'
+import {
+  FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  freebuffModelIdMatches,
+} from '@codebuff/common/constants/freebuff-models'
+import {
+  TURN_ENDING_NOTE,
+  TURN_ENDING_RULE,
+} from '@codebuff/common/constants/turn-ending-rule'
 
 import {
   FOLLOWUP_STYLE_GUIDANCE,
@@ -26,8 +33,18 @@ export function createBase3(
     compaction?: CompactionPolicy & { maxContextLength?: number }
     /** Web/Cloud owns persistent processes through managed sessions. */
     supportsBackgroundCommands?: boolean
+    /** The compiled model a catalog handle stands for, which decides the
+     *  per-model parts below; defaults to `model`. */
+    compiledModelId?: string
   } = {},
 ): Omit<SecretAgentDefinition, 'id'> {
+  // Muse Spark 1.3 only: the model that ends turns on a status line
+  // (docs/freebuff-muse-spark.md). Follows every user message, and every copy
+  // stays in history, so the cached prefix only grows.
+  const turnEndingNote = freebuffModelIdMatches(
+    options.compiledModelId ?? model,
+    FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  )
   return {
     publisher,
     model,
@@ -51,6 +68,7 @@ export function createBase3(
     // compaction-policy.ts). Explicit, not `true`: a bare `true` would take
     // the runtime default instead of the model's.
     compactContext: options.compaction ?? compactionPolicyForModel(model),
+    ...(turnEndingNote ? { instructionsPrompt: TURN_ENDING_NOTE } : {}),
     toolNames: [
       'read_files',
       'str_replace',
@@ -100,14 +118,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
  * freebuff-desktop/.../thread-agent.ts unions that array with its own extras).
  * The bare eight are the harness; what follows is CLI product surface.
  *
- * Two things are load-bearing, both for the same reason they are on the Web
- * roots (docs/freebuff-base3-harness.md):
- *
- * - The appendix is APPENDED. The root prompt must keep its canonical
- *   opening first (`hasFreebuffRootSystemPromptOpening`).
- * - No `instructionsPrompt`. base2 carries one and it is re-injected after
- *   every user message, which breaks the prompt cache this harness exists to
- *   keep warm.
+ * One thing is load-bearing, for the same reason it is on the Web roots
+ * (docs/freebuff-base3-harness.md): the appendix is APPENDED. The root prompt
+ * must keep its canonical opening first (`hasFreebuffRootSystemPromptOpening`).
  */
 export function createBase3CliRoot(
   options: {
@@ -132,6 +145,8 @@ export function createBase3CliRoot(
     modelLabel?: string
     /** See createBase3. */
     compaction?: CompactionPolicy & { maxContextLength?: number }
+    /** See createBase3. */
+    compiledModelId?: string
   } = {},
 ): Omit<SecretAgentDefinition, 'id'> {
   const {
@@ -141,7 +156,10 @@ export function createBase3CliRoot(
     noWeb = false,
     extraSystemPrompt,
   } = options
-  const base3 = createBase3(model, { compaction: options.compaction })
+  const base3 = createBase3(model, {
+    compaction: options.compaction,
+    compiledModelId: options.compiledModelId,
+  })
 
   const root: Omit<SecretAgentDefinition, 'id'> = {
     ...base3,
