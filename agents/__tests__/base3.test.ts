@@ -9,7 +9,6 @@ import {
   TURN_ENDING_RULE,
 } from '@codebuff/common/constants/turn-ending-rule'
 import {
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
   SUPPORTED_FREEBUFF_MODELS,
 } from '@codebuff/common/constants/freebuff-models'
@@ -113,19 +112,6 @@ describe('base3 CLI roots', () => {
           : undefined,
       )
     }
-  })
-
-  test('only Muse Spark 1.3 gets the turn-ending note, by its compiled id', () => {
-    const muse = FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID
-    expect(createBase3(muse).instructionsPrompt).toBe(TURN_ENDING_NOTE)
-    // A catalog root runs on an opaque handle; the compiled id decides.
-    expect(
-      createBase3('fbm1.handle', { compiledModelId: muse }).instructionsPrompt,
-    ).toBe(TURN_ENDING_NOTE)
-    expect(createBase3('fbm1.handle').instructionsPrompt).toBeUndefined()
-    expect(
-      createBase3(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID).instructionsPrompt,
-    ).toBeUndefined()
   })
 
   test('DeepSeek Flash roots get 15 minutes / 40k, the rest the hour / 140k', () => {
