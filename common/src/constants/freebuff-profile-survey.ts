@@ -338,10 +338,11 @@ export const PROFILE_SURVEY_VERSIONS = [
 export const ACTIVE_PROFILE_SURVEY_VERSION: number | null = 2
 
 /** Freebucks per arm. Index = arm; assignment is per user per version.
- *  Arm 2 paid 25 until 2026-10-07, when 5 proved enough; it now pays 5 too, so
- *  no one is re-bucketed. A state row keeps the reward it was created with, so
- *  analyse by `reward_freebucks`, not `arm`. */
-export const PROFILE_SURVEY_REWARD_ARMS = [0, 5, 5] as const
+ *  Arm 2 paid 25 until 2026-10-07, when 5 proved enough; arms 1 and 2 paid 5
+ *  until 2026-10-11, when rewards stopped for anyone not yet shown the survey.
+ *  A state row keeps the reward it was created with (so a "5" already shown is
+ *  still paid), so analyse by `reward_freebucks`, not `arm`. */
+export const PROFILE_SURVEY_REWARD_ARMS = [0, 0, 0] as const
 export type ProfileSurveyArm = 0 | 1 | 2
 
 export const PROFILE_SURVEY_ARM_SALT = 'profile_survey_reward_arm_2026_10'
