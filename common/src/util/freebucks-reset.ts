@@ -3,7 +3,7 @@ import type { FreebuffFreebucksWindow } from '../types/freebuff-session'
 // This module is also shipped in the public CLI; keep it independent of the
 // private pricing catalog. It describes server snapshots, never grants funds.
 export const FREEBUCKS_RESET_POLICY_COPY =
-  'Daily Freebucks refill at midnight in your reset timezone. When making the one-time switch from Pacific time, your first refill may arrive earlier. Later timezone changes keep your scheduled refill and may delay the following one. Follow the displayed reset time.'
+  'Daily Freebucks refill at midnight in your local timezone. When making the one-time switch from Pacific time, your first refill may arrive earlier. Later timezone changes keep your scheduled refill and may delay the following one. Follow the displayed reset time.'
 
 export const FREEBUCKS_REFILL_PENDING_LABEL = 'Updating balance…'
 
