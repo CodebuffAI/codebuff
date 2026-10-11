@@ -78,7 +78,7 @@ const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
     'z-ai/glm-5.3-flash': { section: 'optimized', order: 20 },
     'deepseek/deepseek-v4-flash': { section: 'optimized', order: 30 }, // V4.1 Flash
     // Powerful
-    // Claude Haiku 5.5 (2026-10-07): first; paid plans, open in the US.
+    // Claude Haiku 5.5 (2026-10-07): first.
     'm-79293c5b7d': { section: 'powerful', order: 1 }, // Claude Haiku 5.5
     // DeepSeek V4.1 Flash Fast: no longer badged Recommended (2026-10-07).
     'deepseek/deepseek-v4-flash-fast': { section: 'powerful', order: 5 },
