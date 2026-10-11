@@ -60,6 +60,11 @@ import {
   FOLLOWUP_TODO_NUDGE_TAG,
 } from './util/followup-todo-nudge'
 import {
+  endsOnSuggestPromptsBeforeAnswer,
+  SUGGEST_PROMPTS_BEFORE_ANSWER_MESSAGE,
+  SUGGEST_PROMPTS_BEFORE_ANSWER_TAG,
+} from './util/suggest-prompts-before-answer'
+import {
   decideGravityReportNudge,
   GRAVITY_REPORT_NUDGE_TAG,
 } from './util/gravity-report-nudge'
@@ -761,6 +766,26 @@ export const runAgentStep = async (
     shouldEndTurn =
       !hadToolCallError &&
       (hasTaskCompleted || (hasNoToolResults && !isThinkOnly))
+  }
+
+  // Cards before the answer; see util/suggest-prompts-before-answer.ts.
+  if (
+    shouldEndTurn &&
+    !hasTaskCompleted &&
+    endsOnSuggestPromptsBeforeAnswer(
+      toolCalls,
+      fullResponse,
+      agentState.messageHistory,
+    )
+  ) {
+    logger.info({ metric: 'suggest_prompts_before_answer' }, 'Continuing')
+    agentState.messageHistory.push(
+      userMessage({
+        content: withSystemTags(SUGGEST_PROMPTS_BEFORE_ANSWER_MESSAGE),
+        tags: [SUGGEST_PROMPTS_BEFORE_ANSWER_TAG],
+      }),
+    )
+    shouldEndTurn = false
   }
 
   // Ending on followup cards while the agent's own to-do list is part done

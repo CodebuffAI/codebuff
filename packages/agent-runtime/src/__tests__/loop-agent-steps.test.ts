@@ -53,6 +53,7 @@ import {
   FOLLOWUP_TODO_NUDGE_TAG,
   MAX_FOLLOWUP_TODO_NUDGES,
 } from '../util/followup-todo-nudge'
+import { SUGGEST_PROMPTS_BEFORE_ANSWER_MESSAGE } from '../util/suggest-prompts-before-answer'
 import { TODO_PROGRESS_REMINDER_TAG } from '../util/todo-progress-reminder'
 import { createToolCallChunk, mockFileContext } from './test-utils'
 
@@ -993,6 +994,75 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       })
       expect(calls).toBe(1)
       expect(nudges(result.agentState)).toBe(0)
+    })
+  })
+
+  describe('suggest_prompts before the answer', () => {
+    const answer = `Here is the plan.\n\n${'1. A concrete step and why it is needed.\n'.repeat(10)}`
+    const note = JSON.stringify(SUGGEST_PROMPTS_BEFORE_ANSWER_MESSAGE).slice(
+      1,
+      -1,
+    )
+
+    /** Runs the loop on `steps` (step n's text, and whether it calls
+     *  suggest_prompts) and returns each request's messages. */
+    const run = async (steps: { text: string; cards: boolean }[]) => {
+      mockTemplate.toolNames.push('suggest_prompts')
+      const requests: string[] = []
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        fileContext: {
+          ...mockFileContext,
+          customToolDefinitions: {
+            suggest_prompts: {
+              inputSchema: {
+                type: 'object',
+                properties: { prompts: { type: 'array' } },
+                required: ['prompts'],
+              },
+              description: 'Suggest follow-up prompts',
+              endsAgentStep: false,
+            },
+          },
+        },
+        requestToolCall: async () => ({
+          output: [{ type: 'json', value: { ok: true } }],
+        }),
+        promptAiSdkStream: async function* ({ messages }) {
+          const step = steps[requests.length]!
+          requests.push(JSON.stringify(messages))
+          yield { type: 'text', text: step.text }
+          if (step.cards) {
+            yield createToolCallChunk('suggest_prompts', {
+              prompts: [{ prompt: 'Add tests' }],
+            })
+          }
+          return promptSuccess(`before-answer-${requests.length}`)
+        },
+      })
+      return { result, requests }
+    }
+
+    it('takes one more step with the note, then ends on the answer', async () => {
+      const { result, requests } = await run([
+        { text: "Planning-only, here's the proposal.", cards: true },
+        { text: answer, cards: false },
+      ])
+      expect(requests).toHaveLength(2)
+      expect(requests[0]).not.toContain(note)
+      expect(requests[1]).toContain(note)
+      expect(result.output.type).not.toBe('error')
+      expect(JSON.stringify(result.agentState.messageHistory.at(-1))).toContain(
+        'A concrete step and why it is needed.',
+      )
+    })
+
+    it('ends after one step when the cards follow a real answer', async () => {
+      const { result, requests } = await run([{ text: answer, cards: true }])
+      expect(requests).toHaveLength(1)
+      expect(JSON.stringify(result.agentState.messageHistory)).not.toContain(
+        note,
+      )
     })
   })
 
