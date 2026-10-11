@@ -489,6 +489,8 @@ export enum AnalyticsEvent {
   // MAX_MESSAGE_AD_COUNT); historical rows exist but nothing emits it. The
   // CLI's `cli.inline_ad_pool_reused` sibling remains Axiom-only.
   DESKTOP_AD_SHOWN = 'desktop.ad_shown',
+  /** Disjoint focused/visible chat milliseconds and physical ad-count integrals. Axiom only. */
+  DESKTOP_AD_DENSITY = 'desktop.ad_density',
   ADS_SHOWCASE_PRESENTED = 'ads.showcase_presented',
   DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
   DESKTOP_INLINE_AD_SLOT_ELIGIBLE = 'desktop.inline_ad_slot_eligible',

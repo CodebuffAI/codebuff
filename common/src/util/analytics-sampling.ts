@@ -53,6 +53,8 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   // this one is never sampled. Volume is controlled at the emit site instead
   // (intent-only actions + per-session dedupe), not by throwing away users.
   AnalyticsEvent.DESKTOP_FEATURE_USED,
+  // Ratios use summed disjoint durations, so numerator and denominator stay whole.
+  AnalyticsEvent.DESKTOP_AD_DENSITY,
   AnalyticsEvent.DESKTOP_HARNESS_CHANGED,
   AnalyticsEvent.DESKTOP_MODEL_CHANGED,
   AnalyticsEvent.DESKTOP_SKILL_RUN,

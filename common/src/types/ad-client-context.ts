@@ -483,6 +483,10 @@ export const adEngagementSchema = z.object({
   /** MRC50 (>=50% visible for 1s continuously) for EVERY provider, not only the one that bills on it */
   mrc50: z.boolean().optional(),
   mrc50AtMs: ms.optional(),
+  /** Cumulative time at >=50% intersection while the document was visible. */
+  viewableMs: ms.optional(),
+  /** The viewable interval additionally while the window had focus. */
+  focusedViewableMs: ms.optional(),
   visibleMs: ms.optional(),
   focusedVisibleMs: ms.optional(),
   maxVisiblePct: z.number().int().min(0).max(100).optional(),

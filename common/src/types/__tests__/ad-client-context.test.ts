@@ -218,6 +218,8 @@ describe('parseAdEngagement', () => {
       visibleAtMs: 120,
       mrc50: true,
       mrc50AtMs: 1_200,
+      viewableMs: 35_000,
+      focusedViewableMs: 28_000,
       visibleMs: 41_000,
       focusedVisibleMs: 30_000,
       maxVisiblePct: 100,
@@ -247,6 +249,17 @@ describe('parseAdEngagement', () => {
   test('a post-click-only upsert is valid on its own', () => {
     const update = { v: 1, impUrl: 'https://ads.example/i', postClick: { returnMs: 2_000 } }
     expect(parseAdEngagement(update)).toEqual(update)
+  })
+
+  test('accepts records from clients before viewable-duration fields shipped', () => {
+    const record = {
+      v: 1,
+      impUrl: 'https://ads.example/old',
+      mrc50: true,
+      visibleMs: 1_200,
+      focusedVisibleMs: 800,
+    }
+    expect(parseAdEngagement(record)).toEqual(record)
   })
 
   test('requires impUrl and rejects out-of-range timings', () => {
