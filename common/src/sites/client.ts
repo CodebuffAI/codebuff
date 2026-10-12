@@ -103,6 +103,7 @@ export class SitesClient {
           secret_not_found: 'This variable no longer exists. Refresh the list.',
           environment_busy:
             'An operation is running or needs reconciliation. Refresh deployment activity before trying again.',
+          site_deleting: 'This site is being deleted.',
         }
         const messages: Record<number, string> = {
           401: 'Sign in to Freebuff to use Sites.',
@@ -152,6 +153,10 @@ export class SitesClient {
       requestId,
       signal,
     )
+  }
+  async deleteSite(siteId: string) {
+    if (!uuid.safeParse(siteId).success) throw invalid('Use a valid site id.')
+    return this.request(`/${siteId}`, 'DELETE')
   }
   async writeSecret(
     siteId: string,
