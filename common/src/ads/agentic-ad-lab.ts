@@ -103,6 +103,20 @@ export const labSelectionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('draft'), id: z.string().uuid() }).strict(),
 ])
 export type LabSelection = z.infer<typeof labSelectionSchema>
+/**
+ * What a batch may test: any selection, or a skill version (`<id>@<version>`,
+ * shipped or Lab) run as the custom ad it renders. Settings never hold one.
+ */
+export const labBatchSelectionSchema = z.union([
+  labSelectionSchema,
+  z
+    .object({
+      kind: z.literal('skill'),
+      id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*@[0-9A-Za-z.+-]{1,64}$/),
+    })
+    .strict(),
+])
+export type LabBatchSelection = z.infer<typeof labBatchSelectionSchema>
 export type LabAdSearchPage = {
   items: Array<{
     id: string

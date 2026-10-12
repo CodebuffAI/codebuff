@@ -1,5 +1,5 @@
 import { z } from 'zod/v4'
-import { labSelectionSchema } from './agentic-ad-lab'
+import { labBatchSelectionSchema } from './agentic-ad-lab'
 
 /**
  * Agentic Ads Lab batch mode (COD-833): run one procedure N times on each of a
@@ -191,7 +191,7 @@ export const labBatchInputSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
     /** The ad to test; its text is copied into the batch when it is created. */
-    selection: labSelectionSchema,
+    selection: labBatchSelectionSchema,
     projectIds: z
       .array(z.string().regex(/^[a-zA-Z0-9_-]{1,120}$/))
       .min(1)

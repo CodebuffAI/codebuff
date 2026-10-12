@@ -14,6 +14,7 @@ import {
   type SponsoredSkill,
 } from './sponsored-skill'
 import { sha256Hex } from '../util/hash'
+import type { LabAd } from './agentic-ad-lab'
 
 const httpsUrl = z
   .string()
@@ -40,6 +41,8 @@ export const labSkillMakeInputSchema = z
       .array(z.enum(SPONSORED_SKILL_FRAMEWORKS))
       .min(1)
       .max(SPONSORED_SKILL_FRAMEWORKS.length),
+    /** The agentic campaign whose Lab folder the made version goes in. */
+    campaignId: z.string().uuid().optional(),
   })
   .strict()
 export type LabSkillMakeInput = z.infer<typeof labSkillMakeInputSchema>
@@ -50,6 +53,8 @@ export type LabSkillResearch = {
   sources: Array<{ url: string; chars: number }>
   /** Version pins the maker corrected against the npm registry, and similar. */
   notes: string[]
+  /** The campaign settings the maker read, when made from a campaign. */
+  campaign?: LabSkillCampaignBrief | null
   model: string
   costUsd: number
 }
@@ -64,6 +69,8 @@ export type LabSkillVersion = {
   procedureSha256: string
   /** `shipped` is in the repository's registry; the rest live in the Lab. */
   origin: 'shipped' | 'maker' | 'edit'
+  /** The campaign whose Lab folder holds it; null for shipped and unfiled versions. */
+  campaignId: string | null
   research: LabSkillResearch | null
   createdBy: string | null
   createdAt: string | null
@@ -73,8 +80,48 @@ export const labSkillSaveInputSchema = z
   .object({
     /** The skill JSON as edited; validated by `parseSponsoredSkill`. */
     skill: z.record(z.string(), z.unknown()),
+    campaignId: z.string().uuid().nullable().optional(),
   })
   .strict()
+
+/**
+ * An agentic campaign as a Lab skill folder: what it runs live, and the skill
+ * that live text renders when it is one (shipped or Lab).
+ */
+export type LabSkillCampaign = {
+  id: string
+  name: string
+  status: string
+  advertiserName: string
+  /** The advertiser's website, to prefill the skill maker. */
+  websiteUrl: string | null
+  /** Hex sha256 of the trimmed live procedure, as batches record it. */
+  procedureSha256: string
+  /** `<id>@<version>` of the skill the live procedure renders exactly, if any. */
+  liveSkill: string | null
+  /** What the advertiser set on the campaign; the skill maker reads it. */
+  brief: LabSkillCampaignBrief
+}
+
+/**
+ * An agentic campaign's advertiser-written settings, as the skill maker reads
+ * them: data about what the advertiser wants, never instructions to a model.
+ */
+export type LabSkillCampaignBrief = {
+  /** `sponsored_goal`; null for campaigns not made by guided creation. */
+  goal: string | null
+  /** `sponsored_targeting`: when to suggest the product. */
+  targeting: string | null
+  /** The live onboarding prompt (`sponsored_procedure`). */
+  procedure: string
+  /** The success criteria, one `title: expected` line each. */
+  successCriteria: string[]
+}
+
+export type LabSkillCatalog = {
+  campaigns: LabSkillCampaign[]
+  versions: LabSkillVersion[]
+}
 
 export type LabSkillMakeResult =
   | { ok: true; version: LabSkillVersion }
@@ -95,7 +142,7 @@ export function labSkillVersion(
   skill: SponsoredSkill,
   meta: Pick<
     LabSkillVersion,
-    'origin' | 'research' | 'createdBy' | 'createdAt'
+    'origin' | 'campaignId' | 'research' | 'createdBy' | 'createdAt'
   >,
 ): LabSkillVersion {
   return {
@@ -105,6 +152,20 @@ export function labSkillVersion(
     sha256: sponsoredSkillSha256(skill),
     procedureSha256: sponsoredSkillProcedureSha256(skill),
     ...meta,
+  }
+}
+
+/** The custom ad that runs a skill as a campaign would: its exact rendering. */
+export function labAdFromSkill(skill: SponsoredSkill, id: string): LabAd {
+  return {
+    id,
+    name: `${skill.id}@${skill.version}`,
+    advertiserName: skill.advertiser.slice(0, 120),
+    headline: skill.consent.title,
+    body: skill.consent.summary,
+    procedure: renderSponsoredSkillProcedure(skill),
+    targeting: '',
+    signupUrl: '',
   }
 }
 
