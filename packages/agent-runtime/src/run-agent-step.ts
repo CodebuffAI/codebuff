@@ -1,3 +1,4 @@
+import { APPEND_INSTRUCTIONS_KEY } from '@codebuff/common/append-instructions'
 import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 import { compactionThreshold } from '@codebuff/common/constants/compaction-policy'
 import {
@@ -1890,8 +1891,10 @@ export async function loopAgentSteps(
         totalSteps,
         directCreditsUsed: currentAgentState.directCreditsUsed,
         creditsUsed: currentAgentState.creditsUsed,
-        messageHistory: currentAgentState.messageHistory,
-        systemPrompt: system,
+        messageHistory: fileContext.userKnowledgeFiles?.[APPEND_INSTRUCTIONS_KEY]
+          ? '[omitted: host instructions configured]' : currentAgentState.messageHistory,
+        systemPrompt: fileContext.userKnowledgeFiles?.[APPEND_INSTRUCTIONS_KEY]
+          ? '[omitted: host instructions configured]' : system,
       },
       'Agent execution failed',
     )

@@ -10,9 +10,12 @@ name: Public CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "fix/additive-instruction-snapshot"]
   pull_request:
     branches: [main]
+
+permissions:
+  contents: read
 
 concurrency:
   group: public-ci-${{ github.workflow }}-${{ github.ref }}
@@ -35,6 +38,9 @@ jobs:
       - name: Build SDK
         run: bun run build:sdk
 
+      - name: Additive instruction regression tests
+        run: bun test sdk/src/__tests__/append-instructions.test.ts cli/src/utils/append-instructions.test.ts
+
       - name: Build Freebuff binary
         run: bun freebuff/cli/build.ts 0.0.0-ci
 
@@ -52,3 +58,10 @@ jobs:
           chmod +x cli/bin/freebuff
           cli/bin/freebuff --version
           bun cli/scripts/smoke-binary.ts cli/bin/freebuff
+
+      - name: Upload exact-head Linux prerelease (not a release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: freebuff-linux-${{ github.sha }}
+          path: cli/bin/freebuff
+          retention-days: 7

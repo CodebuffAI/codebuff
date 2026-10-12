@@ -1,3 +1,4 @@
+import { getProcessAppendInstructions } from './append-instructions'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
@@ -53,6 +54,10 @@ export function resetCodebuffClient(): void {
 export async function getCodebuffClient(
   options: { byok?: ResolvedByokConnection } = {},
 ): Promise<CodebuffClient | null> {
+  // Validate before auth/client admission, even when a client is already cached.
+  const appendInstructions = await getProcessAppendInstructions(
+    getSystemProcessEnv().FREEBUFF_APPEND_INSTRUCTIONS_FILE,
+  )
   const byokIdentity = options.byok
     ? `${options.byok.id}:${options.byok.revision}`
     : null
@@ -96,6 +101,7 @@ export async function getCodebuffClient(
             }
           : {}),
         cwd: projectRoot,
+        ...(appendInstructions !== undefined ? { appendInstructions } : {}),
         // Keeps the model's skill list identical to the one the registry shows
         // (utils/skill-registry.ts). The SDK default is project-only so that a
         // server embedding it cannot read a home directory by omission; the
