@@ -52,6 +52,10 @@ test('constructor snapshot reaches native provider prompt; persists across turns
   const compacted = await client.run({ agent: agent.id, prompt: '/compact', previousRun: second })
   expect(compacted.output.type).not.toBe('error')
   expect(compacted.sessionState!.fileContext.userKnowledgeFiles![APPEND_INSTRUCTIONS_KEY]).toBe(snapshot)
+  const afterCompact = await client.run({ agent: agent.id, prompt: 'After compact.', previousRun: compacted })
+  expect(afterCompact.output.type).not.toBe('error')
+  const compactSystem = JSON.stringify(requests.at(-1).messages.filter((m: any) => m.role === 'system'))
+  expect(compactSystem.split(snapshot)).toHaveLength(2)
   const before = requests.length
   for (const input of ['changed', '', '\0', 'a'.repeat(65537), '\ud800', null, 42]) {
     await expect(plainClient.run({ agent: agent.id, prompt: 'Continue.', previousRun: compacted, appendInstructions: input as string })).rejects.toBeInstanceOf(AppendInstructionsError)

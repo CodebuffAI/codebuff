@@ -6,7 +6,7 @@ import { AppendInstructionsError, MAX_APPEND_INSTRUCTIONS_BYTES, validateAppendI
 export { AppendInstructionsError }
 
 /** POSIX file input. Never retain filesystem errors, paths or contents in errors. */
-export async function loadAppendInstructions(path?: string): Promise<string | undefined> {
+export async function loadAppendInstructions(path?: string, openFile = open): Promise<string | undefined> {
   if (path === undefined) return undefined
   try {
     if (!['linux', 'darwin'].includes(process.platform) ||
@@ -14,7 +14,7 @@ export async function loadAppendInstructions(path?: string): Promise<string | un
         !constants.O_NOFOLLOW || !constants.O_NONBLOCK) {
       throw new AppendInstructionsError()
     }
-    const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
+    const file = await openFile(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
     try {
       const stat = await file.stat()
       if (!stat.isFile() || stat.size === 0 || stat.size > MAX_APPEND_INSTRUCTIONS_BYTES) {

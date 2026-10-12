@@ -41,3 +41,23 @@ test('bounded regular UTF-8 input preserves Unicode; all failures redact path/co
     }
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
+
+
+test('growth after stat remains bounded and decoder/read failures close the descriptor', async () => {
+  for (const scenario of ['growth', 'decode', 'read'] as const) {
+    let closed = 0
+    const fakeOpen = (async () => ({
+      stat: async () => ({ isFile: () => true, size: 1 }),
+      read: async (buffer: Buffer, offset: number, length: number) => {
+        expect(length).toBeLessThanOrEqual(65537)
+        if (scenario === 'read') throw new Error('private path/content must disappear')
+        if (offset) return { bytesRead: 0 }
+        buffer.fill(scenario === 'decode' ? 255 : 65)
+        return { bytesRead: scenario === 'growth' ? 65537 : 1 }
+      },
+      close: async () => { closed++ },
+    })) as unknown as Parameters<typeof loadAppendInstructions>[1]
+    await expect(loadAppendInstructions('/private-canary', fakeOpen)).rejects.toBeInstanceOf(AppendInstructionsError)
+    expect(closed).toBe(1)
+  }
+})
