@@ -135,11 +135,50 @@ export type LabOffer = {
   ad: LabAd
   state: 'offered' | 'accepted' | 'declined'
   signup: 'idle' | 'requested' | 'confirmed' | 'declined'
+  /** The part of the account step that is up while `signup` is `requested`. */
+  signupStage: LabSignupStage | null
+  /** Set when Instant setup was tried and fell back to sign-up. */
+  signupInstantFailed: boolean
+  /** The tracked signup link, while the step is up; may hold an `{email}` slot. */
   signupUrl: string | null
+  /**
+   * The tester's own email while the step is up, for the Instant setup and
+   * `{email}` questions; null when the account has none.
+   */
+  signupEmail: string | null
   signupExpiresAt: string | null
   runStatus: string | null
   runError: string | null
 }
+export type LabSignupStage = 'instant' | 'instant_pending' | 'account'
+/** What `POST …/instant-setup` would answer Desktop: an assertion for one endpoint. */
+export const labInstantSetupGrantSchema = z
+  .object({
+    assertion: z.string().min(1).max(8192),
+    endpoint: z.string().url().max(2048),
+    env: z.string().min(1).max(64),
+    email: z.string().min(3).max(320),
+    expiresAt: z.number().int().positive(),
+  })
+  .strict()
+export type LabInstantSetupGrant = z.infer<typeof labInstantSetupGrantSchema>
+/**
+ * An account-step answer that carries a secret. It goes to the Cloud API
+ * (`POST /cloud/runs/{runId}/lab-signup`), which seals it for the worker;
+ * answers without a secret go through `agenticAdLab:answerSignup`.
+ */
+export const labSignupSecretSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('credentials'),
+      values: z.record(z.string().min(1).max(64), z.string().max(4096)),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal('instant'), grant: labInstantSetupGrantSchema })
+    .strict(),
+])
+export type LabSignupSecret = z.infer<typeof labSignupSecretSchema>
 /** Accept only a GitHub repository, never a user-supplied fetch host or revision. */
 export function publicRepositoryName(input: string): string | null {
   let name = input
@@ -170,6 +209,3 @@ export function publicRepositorySpec(
   const fullName = publicRepositoryName(trimmed.slice(0, at))
   return fullName && /^[a-f0-9]{40}$/.test(commit) ? { fullName, commit } : null
 }
-export const LAB_SIGNUP_YES = 'Yes, I’m signed in'
-export const LAB_SIGNUP_NO = 'No, I don’t want to sign up'
-export const LAB_RUN_GUIDANCE = `This is an accepted sponsored implementation in the agentic ads lab. Execute only the accepted advertiser procedure, fitted to this project. Even if signup is listed first, finish useful implementation and checks that do not require authentication before calling request_sponsored_signup. Call it only when remaining progress requires the account. The host supplies the approved URL; never substitute another signup destination. Wait for the tool result. If the user declines, preserve progress and explain what remains incomplete without asking again. Browser sign-in is not CLI authentication or a verified conversion. Never request API keys, passwords or tokens in chat. If more credentials are required, report the blocked step. Leave changes uncommitted; do not push, deploy, publish, or access another project. Finish with completed work and remaining blockers.`
