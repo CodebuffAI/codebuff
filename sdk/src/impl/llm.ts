@@ -626,7 +626,14 @@ export async function* promptAiSdkStream(
     }
     if (chunkValue.type === 'tool-call') {
       hasYieldedToolCall = true
-      yield chunkValue
+      // The call's provider metadata (e.g. Gemini's thought signature) rides
+      // into the history's tool-call part, so the next request replays it.
+      yield chunkValue.providerMetadata
+        ? {
+            ...chunkValue,
+            providerOptions: chunkValue.providerMetadata as ProviderMetadata,
+          }
+        : chunkValue
     }
   }
   const flushed = stopSequenceHandler.flush()

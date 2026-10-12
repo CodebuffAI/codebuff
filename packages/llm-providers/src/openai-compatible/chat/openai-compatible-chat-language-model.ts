@@ -288,6 +288,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           input: toolCall.function.arguments!,
+          ...toolCallExtraContentMetadata(
+            toolCall.extra_content,
+            this.providerOptionsName,
+            this.modelId,
+          ),
         })
       }
     }
@@ -376,6 +381,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
         name: string
         arguments: string
       }
+      extraContent?: unknown
       hasFinished: boolean
     }> = []
 
@@ -606,6 +612,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                       name: toolCallDelta.function.name,
                       arguments: toolCallDelta.function.arguments ?? '',
                     },
+                    extraContent: toolCallDelta.extra_content ?? undefined,
                     hasFinished: false,
                   }
 
@@ -637,6 +644,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                         toolCallId: toolCall.id ?? generateId(),
                         toolName: toolCall.function.name,
                         input: toolCall.function.arguments,
+                        ...toolCallExtraContentMetadata(
+                          toolCall.extraContent,
+                          providerOptionsName,
+                          modelId,
+                        ),
                       })
                       toolCall.hasFinished = true
                     }
@@ -650,6 +662,10 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
                 if (toolCall.hasFinished) {
                   continue
+                }
+
+                if (toolCallDelta.extra_content != null) {
+                  toolCall.extraContent = toolCallDelta.extra_content
                 }
 
                 if (toolCallDelta.function?.arguments != null) {
@@ -680,6 +696,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
                     input: toolCall.function.arguments,
+                    ...toolCallExtraContentMetadata(
+                      toolCall.extraContent,
+                      providerOptionsName,
+                      modelId,
+                    ),
                   })
                   toolCall.hasFinished = true
                 }
@@ -730,6 +751,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                 toolCallId: toolCall.id ?? generateId(),
                 toolName: toolCall.function.name,
                 input: toolCall.function.arguments,
+                ...toolCallExtraContentMetadata(
+                  toolCall.extraContent,
+                  providerOptionsName,
+                  modelId,
+                ),
               })
             }
 
@@ -770,6 +796,32 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
       request: { body },
       response: { headers: responseHeaders },
     }
+  }
+}
+
+/**
+ * A tool call's `extra_content`, kept so the next request can send it back.
+ * Gemini 3's OpenAI-compatible endpoint puts the call's thought signature at
+ * `extra_content.google.thought_signature` and refuses (HTTP 400) a follow-up
+ * whose replayed call lacks it. Like `reasoning_details`, it is tagged with
+ * the model that produced it and only replayed to that model.
+ */
+function toolCallExtraContentMetadata(
+  extraContent: unknown,
+  providerOptionsName: string,
+  modelId: string,
+): { providerMetadata?: SharedV2ProviderMetadata } {
+  if (
+    extraContent == null ||
+    typeof extraContent !== 'object' ||
+    Array.isArray(extraContent)
+  ) {
+    return {}
+  }
+  return {
+    providerMetadata: {
+      [providerOptionsName]: { extra_content: extraContent, model: modelId },
+    } as SharedV2ProviderMetadata,
   }
 }
 
@@ -848,6 +900,7 @@ const OpenAICompatibleChatResponseSchema = z.object({
                 name: z.string(),
                 arguments: z.string(),
               }),
+              extra_content: z.unknown().nullish(),
             }),
           )
           .nullish(),
@@ -908,6 +961,7 @@ const createOpenAICompatibleChatChunkSchema = <
                       name: z.string().nullish(),
                       arguments: z.string().nullish(),
                     }),
+                    extra_content: z.unknown().nullish(),
                   }),
                 )
                 .nullish(),

@@ -262,12 +262,20 @@ export function byokRequestTransform(connection: ResolvedByokConnection) {
 
   const replayRefused = refusesReasoningReplay(endpoint)
 
+  const geminiSignatures = new URL(endpoint).hostname === GEMINI_API_HOST
+
   return (body: Record<string, unknown>): Record<string, unknown> => {
     if (Array.isArray(body.messages)) {
       if (replayRefused || replayRejected.has(rejectionKey(connection))) {
         body = { ...body, messages: stripReasoningReplay(body.messages) }
       } else if (deepSeekReplay) {
         body = { ...body, messages: backfillDeepSeekReasoning(body.messages) }
+      }
+      if (geminiSignatures) {
+        body = {
+          ...body,
+          messages: backfillGeminiThoughtSignatures(body.messages as unknown[]),
+        }
       }
     }
     // Checked per request, not per transform: a rejection learned mid-run
@@ -309,6 +317,71 @@ type WireMessage = {
   role?: unknown
   tool_calls?: unknown
   reasoning_content?: unknown
+}
+
+const GEMINI_API_HOST = 'generativelanguage.googleapis.com'
+
+/**
+ * Google's documented placeholder for a function call that has no thought
+ * signature of its own (ai.google.dev/gemini-api/docs/thinking#signatures).
+ */
+export const GEMINI_SKIP_THOUGHT_SIGNATURE = 'skip_thought_signature_validator'
+
+type WireToolCall = { extra_content?: unknown }
+
+function geminiThoughtSignatureOf(call: unknown): unknown {
+  const extra = (call as WireToolCall | null)?.extra_content as
+    | { google?: { thought_signature?: unknown } }
+    | undefined
+  return extra?.google?.thought_signature
+}
+
+/**
+ * Gemini 3 refuses (HTTP 400, "Function call is missing a thought_signature")
+ * a request whose replayed tool calls lack the signature each step's first
+ * call came back with. The real one is carried through history and replayed
+ * (the provider's `extra_content`); this covers the calls that cannot have
+ * one — history from before signatures were kept, calls the runtime added
+ * itself, and calls made by another model earlier in the thread — by giving
+ * the first call of each unsigned assistant message Google's placeholder.
+ */
+export function backfillGeminiThoughtSignatures(messages: unknown[]): unknown[] {
+  let changed = false
+  const out = messages.map((raw) => {
+    const m = raw as WireMessage | null
+    if (
+      m?.role !== 'assistant' ||
+      !Array.isArray(m.tool_calls) ||
+      m.tool_calls.length === 0 ||
+      m.tool_calls.some((call) => typeof geminiThoughtSignatureOf(call) === 'string')
+    ) {
+      return raw
+    }
+    changed = true
+    const [first, ...rest] = m.tool_calls as Record<string, unknown>[]
+    const extra =
+      first?.extra_content && typeof first.extra_content === 'object'
+        ? (first.extra_content as Record<string, unknown>)
+        : {}
+    const google =
+      extra.google && typeof extra.google === 'object'
+        ? (extra.google as Record<string, unknown>)
+        : {}
+    return {
+      ...m,
+      tool_calls: [
+        {
+          ...first,
+          extra_content: {
+            ...extra,
+            google: { ...google, thought_signature: GEMINI_SKIP_THOUGHT_SIGNATURE },
+          },
+        },
+        ...rest,
+      ],
+    }
+  })
+  return changed ? out : messages
 }
 
 /** `reasoning_content: ''` on each assistant tool-call message after the last

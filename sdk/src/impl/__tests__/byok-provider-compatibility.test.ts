@@ -403,3 +403,188 @@ describe('BYOK provider compatibility', () => {
     },
   )
 })
+
+describe('BYOK Gemini thought signatures', () => {
+  // Real report (2026-10-06, Desktop + Gemini 3.5 Flash-Lite): every task
+  // failed with HTTP 400 on the request after the first tool call, because the
+  // call's thought signature was dropped on the way into history.
+  const gemini = {
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    model: 'gemini-3.5-flash-lite',
+  }
+  const signed = (signature: string) => ({
+    google: { thought_signature: signature },
+  })
+
+  function geminiModel(
+    overrides: Partial<ResolvedByokConnection>,
+    answer: () => Response = () =>
+      Response.json({
+        choices: [
+          { message: { role: 'assistant', content: 'OK' }, finish_reason: 'stop' },
+        ],
+      }),
+  ) {
+    const bodies: Array<Record<string, unknown>> = []
+    globalThis.fetch = (async (_input, init) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>)
+      return answer()
+    }) as typeof fetch
+    const languageModel = getModelForRequest({
+      apiKey: 'hosted-key-must-not-be-sent',
+      model: 'ignored',
+      byok: { ...connection, ...overrides },
+    }) as LanguageModelV2
+    return { languageModel, bodies }
+  }
+
+  const geminiToolCall = {
+    id: 'call_1',
+    type: 'function',
+    function: { name: 'read_files', arguments: '{"paths":["AGENTS.md"]}' },
+    extra_content: signed('sig-A'),
+  }
+
+  test('stream: the signature arrives on the tool call', async () => {
+    const { languageModel } = geminiModel(gemini, () =>
+      new Response(
+        `data: ${JSON.stringify({
+          choices: [
+            {
+              delta: { role: 'assistant', tool_calls: [{ index: 0, ...geminiToolCall }] },
+              finish_reason: 'tool_calls',
+            },
+          ],
+        })}\n\ndata: [DONE]\n\n`,
+        { headers: { 'content-type': 'text/event-stream' } },
+      ),
+    )
+    const result = await languageModel.doStream(options)
+    const reader = result.stream.getReader()
+    const calls: unknown[] = []
+    while (true) {
+      const next = await reader.read()
+      if (next.done) break
+      if (next.value.type === 'tool-call') calls.push(next.value)
+    }
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({
+      toolName: 'read_files',
+      providerMetadata: {
+        byok: { extra_content: signed('sig-A'), model: gemini.model },
+      },
+    })
+  })
+
+  test('generate: the signature arrives on the tool call', async () => {
+    const { languageModel } = geminiModel(gemini, () =>
+      Response.json({
+        choices: [
+          {
+            message: { role: 'assistant', tool_calls: [geminiToolCall] },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      }),
+    )
+    const result = await languageModel.doGenerate(options)
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+        providerMetadata: {
+          byok: { extra_content: signed('sig-A'), model: gemini.model },
+        },
+      }),
+    )
+  })
+
+  const signedLoopPrompt = (model: string): LanguageModelV2CallOptions['prompt'] => [
+    toolLoopPrompt[0]!,
+    {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'call-1',
+          toolName: 'read_files',
+          input: { paths: ['a.ts'] },
+          providerOptions: {
+            byok: { extra_content: signed('sig-A'), model },
+          },
+        },
+      ],
+    },
+    toolLoopPrompt[2]!,
+  ]
+
+  const firstCallOf = (body: Record<string, unknown>) =>
+    (assistantOf(body)?.tool_calls as Array<Record<string, unknown>>)[0]
+
+  test('the next request replays the real signature', async () => {
+    const { languageModel, bodies } = geminiModel(gemini)
+    await languageModel.doGenerate({
+      ...options,
+      prompt: signedLoopPrompt(gemini.model),
+    })
+    expect(firstCallOf(bodies[0]!).extra_content).toEqual(signed('sig-A'))
+  })
+
+  test("another model's signature is not replayed; the call gets the placeholder", async () => {
+    const { languageModel, bodies } = geminiModel(gemini)
+    await languageModel.doGenerate({
+      ...options,
+      prompt: signedLoopPrompt('gemini-3.1-flash-lite'),
+    })
+    expect(firstCallOf(bodies[0]!).extra_content).toEqual(
+      signed('skip_thought_signature_validator'),
+    )
+  })
+
+  test('an unsigned call (older history, runtime-added) gets the placeholder', async () => {
+    const { languageModel, bodies } = geminiModel(gemini)
+    await languageModel.doGenerate({ ...options, prompt: toolLoopPrompt })
+    expect(firstCallOf(bodies[0]!).extra_content).toEqual(
+      signed('skip_thought_signature_validator'),
+    )
+  })
+
+  test('only the first of parallel unsigned calls is given one', async () => {
+    const { languageModel, bodies } = geminiModel(gemini)
+    const call = (id: string) => ({
+      type: 'tool-call' as const,
+      toolCallId: id,
+      toolName: 'read_files',
+      input: { paths: [`${id}.ts`] },
+    })
+    const result = (id: string) => ({
+      type: 'tool-result' as const,
+      toolCallId: id,
+      toolName: 'read_files',
+      output: { type: 'text' as const, value: 'contents' },
+    })
+    await languageModel.doGenerate({
+      ...options,
+      prompt: [
+        toolLoopPrompt[0]!,
+        { role: 'assistant', content: [call('a'), call('b')] },
+        { role: 'tool', content: [result('a'), result('b')] },
+      ],
+    })
+    const calls = assistantOf(bodies[0]!)?.tool_calls as Array<
+      Record<string, unknown>
+    >
+    expect(calls[0]!.extra_content).toEqual(
+      signed('skip_thought_signature_validator'),
+    )
+    expect(calls[1]).not.toHaveProperty('extra_content')
+  })
+
+  test('other endpoints get no signature field', async () => {
+    const { languageModel, bodies } = geminiModel({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'some-model',
+    })
+    await languageModel.doGenerate({ ...options, prompt: toolLoopPrompt })
+    expect(firstCallOf(bodies[0]!)).not.toHaveProperty('extra_content')
+  })
+})

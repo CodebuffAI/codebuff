@@ -36,6 +36,7 @@ import type {
   Message,
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
+import type { ProviderMetadata } from '@codebuff/common/types/messages/provider-metadata'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -243,6 +244,10 @@ export async function processStream(
   const toolResultsToAddToMessageHistory: ToolMessage[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
   const toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[] = []
+  // The provider metadata each native tool call arrived with (e.g. Gemini's
+  // thought signature), stored on its history part so the next request can
+  // replay it. Kept off the tool call itself, which also reaches clients.
+  const toolCallProviderOptions = new Map<string, ProviderMetadata>()
   const assistantMessages: Message[] = []
   // Inline agents replace the parent's history with their result. Track which
   // current-step messages they inherited so finalization does not append them
@@ -296,7 +301,11 @@ export async function processStream(
     const responseHandler = createResponseHandler()
     return {
       onTagStart: () => { },
-      onTagEnd: async (_: string, input: Record<string, string>) => {
+      onTagEnd: async (
+        _: string,
+        input: Record<string, string>,
+        providerOptions?: ProviderMetadata,
+      ) => {
         sawToolCall = true
         if (signal.aborted || followupSuggestionLimitHit) {
           return
@@ -325,6 +334,9 @@ export async function processStream(
           }
         }
         const toolCallId = generateCompactId()
+        if (providerOptions) {
+          toolCallProviderOptions.set(toolCallId, providerOptions)
+        }
         const isNativeTool = toolNames.includes(toolName as ToolName)
 
         // Check if this is an agent tool call that should be transformed to spawn_agents
@@ -743,7 +755,14 @@ export async function processStream(
       ...assistantMessages.filter(
         (message) => !claimedByInlineAgent.has(message),
       ),
-      ...filteredToolCalls.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
+      ...filteredToolCalls.map((toolCall) => {
+        const providerOptions = toolCallProviderOptions.get(toolCall.toolCallId)
+        return assistantMessage({
+          ...toolCall,
+          type: 'tool-call',
+          ...(providerOptions ? { providerOptions } : {}),
+        })
+      }),
       ...toolResultsToAddToMessageHistory,
       ...errorMessages,
     ])

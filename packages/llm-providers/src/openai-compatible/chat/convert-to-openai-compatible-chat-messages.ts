@@ -14,6 +14,31 @@ function getOpenAIMetadata(message: {
   return message?.providerOptions?.openaiCompatible ?? {}
 }
 
+/**
+ * The `extra_content` a tool call arrived with (Gemini's thought signature),
+ * when it was captured under this provider's name for this same model.
+ * Signatures are only valid for the model that produced them.
+ */
+function replayableExtraContent(
+  part: { providerOptions?: SharedV2ProviderMetadata },
+  options: { providerOptionsName?: string; modelId?: string } | undefined,
+): JSONValue | undefined {
+  if (!options?.providerOptionsName) return undefined
+  const namespace = part.providerOptions?.[options.providerOptionsName]
+  const extraContent = namespace?.extra_content
+  if (
+    extraContent == null ||
+    typeof extraContent !== 'object' ||
+    Array.isArray(extraContent)
+  ) {
+    return undefined
+  }
+  if (options.modelId !== undefined && namespace?.model !== options.modelId) {
+    return undefined
+  }
+  return extraContent
+}
+
 /** Approximate payload size of a file part's data, for placeholder text. */
 function filePartByteLength(data: unknown): number {
   let value = data
@@ -137,6 +162,7 @@ export function convertToOpenAICompatibleChatMessages(
           id: string
           type: 'function'
           function: { name: string; arguments: string }
+          extra_content?: JSONValue
         }> = []
 
         for (const part of content) {
@@ -173,6 +199,7 @@ export function convertToOpenAICompatibleChatMessages(
               break
             }
             case 'tool-call': {
+              const extraContent = replayableExtraContent(part, options)
               toolCalls.push({
                 id: part.toolCallId,
                 type: 'function',
@@ -180,6 +207,9 @@ export function convertToOpenAICompatibleChatMessages(
                   name: part.toolName,
                   arguments: JSON.stringify(part.input),
                 },
+                ...(extraContent !== undefined
+                  ? { extra_content: extraContent }
+                  : {}),
                 ...partMetadata,
               })
               break
