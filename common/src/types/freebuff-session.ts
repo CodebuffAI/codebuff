@@ -196,7 +196,7 @@ export interface FreebuffFreebucksWindow {
  * because the distinction is ours to keep rather than the user's to track:
  * EARNED ones (bounties, referrals, grants) stay until they are spent, while a
  * plan's monthly bonus is an allowance for its period and any of it left over
- * is retired when another period’s bonus is credited, including on upgrade
+ * is retired when the next month’s bonus is credited, but not on an upgrade
  * (`FREEBUCKS_BONUS_EXPIRY_REASON`). Subscription end alone does not retire it.
  * Wallet spending is attributed to the expiring half first, so a user who spends is always
  * treated as having spent the money that was about to go.
