@@ -10,7 +10,8 @@ export class AppendInstructionsError extends Error {
 }
 
 export function validateAppendInstructions(value: unknown): asserts value is string {
-  if (typeof value !== 'string' || !value.trim() || value.includes('\0') ||
+  if (typeof value !== 'string' || value.length > MAX_APPEND_INSTRUCTIONS_BYTES ||
+      !value.trim() || value.includes('\0') ||
       new TextEncoder().encode(value).length > MAX_APPEND_INSTRUCTIONS_BYTES ||
       // Reject unpaired UTF-16 surrogates rather than silently replacing input.
       /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(value)) {

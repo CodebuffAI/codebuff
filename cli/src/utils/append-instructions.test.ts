@@ -21,11 +21,11 @@ test('bounded regular UTF-8 input preserves Unicode; all failures redact path/co
   const dir = await mkdtemp(join(tmpdir(), 'freebuff-private-path-'))
   try {
     const file = join(dir, 'private-canary')
-    for (const content of ['  你好\n', 'a'.repeat(65536)]) {
+    for (const content of ['  你好\n', 'a'.repeat(65536), 'é'.repeat(32768)]) {
       await writeFile(file, content)
       expect(await loadAppendInstructions(file)).toBe(content)
     }
-    for (const content of ['', '  ', 'a\0b', Buffer.from([255]), 'a'.repeat(65537)]) {
+    for (const content of ['', '  ', 'a\0b', Buffer.from([255]), 'a'.repeat(65537), 'é'.repeat(32769)]) {
       await writeFile(file, content)
       try { await loadAppendInstructions(file); throw new Error('accepted invalid input') } catch (error) {
         expect(error).toBeInstanceOf(AppendInstructionsError)
