@@ -221,6 +221,15 @@ function dispatchAction(
       handlers.onBashHistoryDown()
       return true
     case 'paste': {
+      const survey = getProfileSurveyKeyContext()
+      const draft = useChatStore.getState()
+      if (
+        survey?.question.sponsoredKind === 'text' && survey.textEditing &&
+        draft.inputMode === 'default' && !draft.inputValue
+      ) {
+        handlers.onProfileSurveyInput?.({ type: 'text', text: readClipboardText() ?? '', now: Date.now() })
+        return true
+      }
       const cwd = getProjectRoot() ?? process.cwd()
       
       // First, check if clipboard contains a copied file (e.g., from Finder)

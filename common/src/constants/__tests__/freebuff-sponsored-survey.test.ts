@@ -17,6 +17,8 @@ import {
   sponsoredSurveyAdvertiserTargetingSchema,
   sponsoredSurveyCampaignInputSchema,
   sponsoredSurveyLengthBucket,
+  sponsoredSurveyInSchedule,
+  sponsoredSurveyScheduleSchema,
   sponsoredSurveyPriceCents,
   sponsoredSurveyQuote,
   sponsoredSurveyRewardFreebucks,
@@ -28,7 +30,10 @@ import {
 const single = (n = 3): SponsoredSurveyQuestionInput => ({
   prompt: 'Pick one',
   kind: 'single',
-  options: Array.from({ length: n }, (_, i) => ({ id: `o${i}`, label: `O${i}` })),
+  options: Array.from({ length: n }, (_, i) => ({
+    id: `o${i}`,
+    label: `O${i}`,
+  })),
 })
 
 describe('sponsoredSurveyLengthBucket', () => {
@@ -80,7 +85,11 @@ describe('sponsoredSurveyPriceCents', () => {
 
   it('requires an override on custom and applies tier and speed on top', () => {
     expect(
-      sponsoredSurveyPriceCents({ bucket: 'custom', tier: 'tier1', speed: 'standard' }),
+      sponsoredSurveyPriceCents({
+        bucket: 'custom',
+        tier: 'tier1',
+        speed: 'standard',
+      }),
     ).toBeNull()
     expect(
       sponsoredSurveyPriceCents({
@@ -151,13 +160,25 @@ describe('sponsoredSurveyRewardFreebucks', () => {
 
   it('pays nothing on standard, the table on expedited, L for custom', () => {
     expect(
-      sponsoredSurveyRewardFreebucks({ bucket: 'S', tier: 'tier1', speed: 'standard' }),
+      sponsoredSurveyRewardFreebucks({
+        bucket: 'S',
+        tier: 'tier1',
+        speed: 'standard',
+      }),
     ).toBe(0)
     expect(
-      sponsoredSurveyRewardFreebucks({ bucket: 'S', tier: 'tier2', speed: 'expedited' }),
+      sponsoredSurveyRewardFreebucks({
+        bucket: 'S',
+        tier: 'tier2',
+        speed: 'expedited',
+      }),
     ).toBe(18)
     expect(
-      sponsoredSurveyRewardFreebucks({ bucket: 'custom', tier: 'tier1', speed: 'expedited' }),
+      sponsoredSurveyRewardFreebucks({
+        bucket: 'custom',
+        tier: 'tier1',
+        speed: 'expedited',
+      }),
     ).toBe(60)
   })
 })
@@ -186,10 +207,16 @@ describe('canTransition', () => {
 describe('quality', () => {
   it('a fast answer or straight-lining makes a response unclean', () => {
     expect(
-      isCleanSponsoredSurveyResponse({ responseFlags: null, answerFlags: [null, []] }),
+      isCleanSponsoredSurveyResponse({
+        responseFlags: null,
+        answerFlags: [null, []],
+      }),
     ).toBe(true)
     expect(
-      isCleanSponsoredSurveyResponse({ responseFlags: [], answerFlags: [['fast']] }),
+      isCleanSponsoredSurveyResponse({
+        responseFlags: [],
+        answerFlags: [['fast']],
+      }),
     ).toBe(false)
     expect(
       isCleanSponsoredSurveyResponse({
@@ -200,16 +227,32 @@ describe('quality', () => {
   })
 
   it('straight-lining needs three single-choice answers at one index', () => {
-    const qs = [single(), single(), single(), { ...single(), kind: 'multi' as const }]
-    const at = (i: number, opt: string) => ({ questionIndex: i, optionIds: [opt] })
-    expect(isStraightLinedSponsoredResponse(qs, [at(0, 'o0'), at(1, 'o0')])).toBe(
-      false,
-    )
+    const qs = [
+      single(),
+      single(),
+      single(),
+      { ...single(), kind: 'multi' as const },
+    ]
+    const at = (i: number, opt: string) => ({
+      questionIndex: i,
+      optionIds: [opt],
+    })
     expect(
-      isStraightLinedSponsoredResponse(qs, [at(0, 'o1'), at(1, 'o1'), at(2, 'o1')]),
+      isStraightLinedSponsoredResponse(qs, [at(0, 'o0'), at(1, 'o0')]),
+    ).toBe(false)
+    expect(
+      isStraightLinedSponsoredResponse(qs, [
+        at(0, 'o1'),
+        at(1, 'o1'),
+        at(2, 'o1'),
+      ]),
     ).toBe(true)
     expect(
-      isStraightLinedSponsoredResponse(qs, [at(0, 'o1'), at(1, 'o2'), at(2, 'o1')]),
+      isStraightLinedSponsoredResponse(qs, [
+        at(0, 'o1'),
+        at(1, 'o2'),
+        at(2, 'o1'),
+      ]),
     ).toBe(false)
   })
 
@@ -245,12 +288,15 @@ describe('zod schemas', () => {
   }
 
   it('accepts a valid campaign', () => {
-    expect(sponsoredSurveyCampaignInputSchema.safeParse(campaign).success).toBe(true)
+    expect(sponsoredSurveyCampaignInputSchema.safeParse(campaign).success).toBe(
+      true,
+    )
   })
 
   it('rejects unknown keys, duplicate option ids and too many questions', () => {
     expect(
-      sponsoredSurveyCampaignInputSchema.safeParse({ ...campaign, extra: 1 }).success,
+      sponsoredSurveyCampaignInputSchema.safeParse({ ...campaign, extra: 1 })
+        .success,
     ).toBe(false)
     expect(
       sponsoredSurveyCampaignInputSchema.safeParse({
@@ -270,31 +316,47 @@ describe('zod schemas', () => {
     expect(
       sponsoredSurveyCampaignInputSchema.safeParse({
         ...campaign,
-        questions: Array.from({ length: SPONSORED_SURVEY_MAX_QUESTIONS + 1 }, () =>
-          single(),
+        questions: Array.from(
+          { length: SPONSORED_SURVEY_MAX_QUESTIONS + 1 },
+          () => single(),
         ),
       }).success,
     ).toBe(false)
   })
 
-  it('advertisers cannot target country tiers or countries; the stored shape can', () => {
-    for (const geo of [{ countryTiers: ['tier1'] }, { countries: ['US'] }]) {
+  it('advertisers choose countries but not pricing tiers', () => {
+    for (const geo of [{ countryTiers: ['tier1'] }]) {
       expect(
         sponsoredSurveyCampaignInputSchema.safeParse({
           ...campaign,
           targeting: { ...campaign.targeting, ...geo },
         }).success,
       ).toBe(false)
-      expect(sponsoredSurveyAdvertiserTargetingSchema.safeParse(geo).success).toBe(false)
-      expect(sponsoredSurveyAdminTargetingSchema.safeParse(geo).success).toBe(true)
       expect(
-        sponsoredSurveyTargetingSchema.safeParse({ plans: ['paid'], ...geo }).success,
+        sponsoredSurveyAdvertiserTargetingSchema.safeParse(geo).success,
+      ).toBe(false)
+      expect(sponsoredSurveyAdminTargetingSchema.safeParse(geo).success).toBe(
+        true,
+      )
+      expect(
+        sponsoredSurveyTargetingSchema.safeParse({ plans: ['paid'], ...geo })
+          .success,
       ).toBe(true)
     }
+    expect(
+      sponsoredSurveyAdvertiserTargetingSchema.parse({ countries: ['US'] }),
+    ).toEqual({ countries: ['US'] })
+    expect(
+      sponsoredSurveyCampaignInputSchema.parse({
+        ...campaign,
+        targetCompletes: null,
+      }).targetCompletes,
+    ).toBeNull()
     // The admin schema is geography only.
-    expect(sponsoredSurveyAdminTargetingSchema.safeParse({ plans: ['paid'] }).success).toBe(
-      false,
-    )
+    expect(
+      sponsoredSurveyAdminTargetingSchema.safeParse({ plans: ['paid'] })
+        .success,
+    ).toBe(false)
     // An advertiser targeting value is always a valid stored one.
     expect(
       sponsoredSurveyTargetingSchema.safeParse(campaign.targeting).success,
@@ -332,7 +394,9 @@ describe('zod schemas', () => {
       surface: 'desktop',
       clientTs: '2026-10-09T10:00:00.000-07:00',
     }
-    expect(surveyEventBatchSchema.safeParse({ events: [event] }).success).toBe(true)
+    expect(surveyEventBatchSchema.safeParse({ events: [event] }).success).toBe(
+      true,
+    )
     expect(
       surveyEventBatchSchema.safeParse({
         events: Array.from({ length: 21 }, () => event),
@@ -345,8 +409,9 @@ describe('zod schemas', () => {
       }).success,
     ).toBe(false)
     expect(
-      surveyEventBatchSchema.safeParse({ events: [{ ...event, eventType: 'x' }] })
-        .success,
+      surveyEventBatchSchema.safeParse({
+        events: [{ ...event, eventType: 'x' }],
+      }).success,
     ).toBe(false)
   })
 })
@@ -360,13 +425,22 @@ describe('sponsoredSurveyQuote', () => {
       tier4: 0.76,
       tier5: 0.022,
     })
-    const sum = Object.values(SPONSORED_SURVEY_DEFAULT_TIER_MIX).reduce((a, b) => a + b, 0)
+    const sum = Object.values(SPONSORED_SURVEY_DEFAULT_TIER_MIX).reduce(
+      (a, b) => a + b,
+      0,
+    )
     expect(sum).toBeCloseTo(1, 9)
   })
 
   it('normalises a mix, and falls back to the default when empty', () => {
     const m = normalizeSponsoredSurveyTierMix({ tier1: 2, tier4: 6 })
-    expect(m).toEqual({ tier1: 0.25, tier2: 0, tier3: 0, tier4: 0.75, tier5: 0 })
+    expect(m).toEqual({
+      tier1: 0.25,
+      tier2: 0,
+      tier3: 0,
+      tier4: 0.75,
+      tier5: 0,
+    })
     const bad = normalizeSponsoredSurveyTierMix({
       tier1: -1,
       tier2: Number.NaN,
@@ -389,7 +463,11 @@ describe('sponsoredSurveyQuote', () => {
     })
     // 500*.073 + 275*.06 + 125*.085 + 50*.76 + 50*.022 = 102.725
     expect(standard?.bucket).toBe('S')
-    expect(standard?.perComplete).toEqual({ minCents: 50, maxCents: 500, likelyCents: 103 })
+    expect(standard?.perComplete).toEqual({
+      minCents: 50,
+      maxCents: 500,
+      likelyCents: 103,
+    })
     expect(standard?.total).toEqual({
       minCents: 20_000,
       maxCents: 200_000,
@@ -401,7 +479,11 @@ describe('sponsoredSurveyQuote', () => {
       targetCompletes: 400,
     })
     // 750*.073 + 413*.06 + 188*.085 + 75*.76 + 75*.022 = 154.16
-    expect(expedited?.perComplete).toEqual({ minCents: 75, maxCents: 750, likelyCents: 154 })
+    expect(expedited?.perComplete).toEqual({
+      minCents: 75,
+      maxCents: 750,
+      likelyCents: 154,
+    })
     expect(expedited?.total).toEqual({
       minCents: 30_000,
       maxCents: 300_000,
@@ -419,8 +501,12 @@ describe('sponsoredSurveyQuote', () => {
         expect(q.perComplete.maxCents).toBe(
           sponsoredSurveyPriceCents({ bucket, tier: 'tier1', speed })!,
         )
-        expect(q.perComplete.likelyCents).toBeGreaterThanOrEqual(q.perComplete.minCents)
-        expect(q.perComplete.likelyCents).toBeLessThanOrEqual(q.perComplete.maxCents)
+        expect(q.perComplete.likelyCents).toBeGreaterThanOrEqual(
+          q.perComplete.minCents,
+        )
+        expect(q.perComplete.likelyCents).toBeLessThanOrEqual(
+          q.perComplete.maxCents,
+        )
       }
   })
 
@@ -444,10 +530,18 @@ describe('sponsoredSurveyQuote', () => {
 
   it('custom is quoted after review; an admin price quotes it', () => {
     expect(
-      sponsoredSurveyQuote({ questionCount: 25, speed: 'standard', targetCompletes: 100 }),
+      sponsoredSurveyQuote({
+        questionCount: 25,
+        speed: 'standard',
+        targetCompletes: 100,
+      }),
     ).toBeNull()
     expect(
-      sponsoredSurveyQuote({ bucket: 'custom', speed: 'standard', targetCompletes: 100 }),
+      sponsoredSurveyQuote({
+        bucket: 'custom',
+        speed: 'standard',
+        targetCompletes: 100,
+      }),
     ).toBeNull()
     const priced = sponsoredSurveyQuote({
       bucket: 'custom',
@@ -461,7 +555,11 @@ describe('sponsoredSurveyQuote', () => {
 
   it('refuses counts with no bucket and bad completes', () => {
     expect(
-      sponsoredSurveyQuote({ questionCount: 0, speed: 'standard', targetCompletes: 1 }),
+      sponsoredSurveyQuote({
+        questionCount: 0,
+        speed: 'standard',
+        targetCompletes: 1,
+      }),
     ).toBeNull()
     expect(
       sponsoredSurveyQuote({
@@ -471,10 +569,94 @@ describe('sponsoredSurveyQuote', () => {
       }),
     ).toBeNull()
     expect(() =>
-      sponsoredSurveyQuote({ questionCount: 4, speed: 'standard', targetCompletes: 0 }),
+      sponsoredSurveyQuote({
+        questionCount: 4,
+        speed: 'standard',
+        targetCompletes: 0,
+      }),
     ).toThrow(RangeError)
     expect(() =>
-      sponsoredSurveyQuote({ questionCount: 4, speed: 'standard', targetCompletes: 1.5 }),
+      sponsoredSurveyQuote({
+        questionCount: 4,
+        speed: 'standard',
+        targetCompletes: 1.5,
+      }),
     ).toThrow(RangeError)
+  })
+})
+
+describe('survey schedule', () => {
+  const schedule = { startDate: '2026-11-01', durationDays: 2 }
+  const approved = new Date('2026-10-31T18:00:00Z')
+  it('uses Pacific calendar days, including the daylight-saving boundary', () => {
+    expect(
+      sponsoredSurveyInSchedule(
+        schedule,
+        approved,
+        new Date('2026-11-01T06:59:59Z'),
+      ),
+    ).toBe(false)
+    expect(
+      sponsoredSurveyInSchedule(
+        schedule,
+        approved,
+        new Date('2026-11-01T07:00:00Z'),
+      ),
+    ).toBe(true)
+    expect(
+      sponsoredSurveyInSchedule(
+        schedule,
+        approved,
+        new Date('2026-11-03T07:59:59Z'),
+      ),
+    ).toBe(true)
+    expect(
+      sponsoredSurveyInSchedule(
+        schedule,
+        approved,
+        new Date('2026-11-03T08:00:00Z'),
+      ),
+    ).toBe(false)
+  })
+  it('starts after approval when approval comes after the chosen date', () => {
+    const late = new Date('2026-11-05T18:00:00Z')
+    expect(
+      sponsoredSurveyInSchedule(
+        schedule,
+        late,
+        new Date('2026-11-06T18:00:00Z'),
+      ),
+    ).toBe(true)
+    expect(
+      sponsoredSurveyInSchedule(
+        schedule,
+        late,
+        new Date('2026-11-07T18:00:00Z'),
+      ),
+    ).toBe(false)
+  })
+  it('preserves legacy open-ended surveys and supports starting at approval', () => {
+    expect(sponsoredSurveyInSchedule(undefined, null, approved)).toBe(true)
+    expect(
+      sponsoredSurveyInSchedule(
+        { startDate: null, durationDays: null },
+        approved,
+        new Date('2027-01-01'),
+      ),
+    ).toBe(true)
+    expect(sponsoredSurveyInSchedule(schedule, null, approved)).toBe(false)
+  })
+  it('validates actual dates and bounded calendar durations', () => {
+    expect(
+      sponsoredSurveyScheduleSchema.safeParse({
+        ...schedule,
+        startDate: '2026-02-30',
+      }).success,
+    ).toBe(false)
+    for (const durationDays of [0, -1, 1.5, 91])
+      expect(
+        sponsoredSurveyScheduleSchema.safeParse({ ...schedule, durationDays })
+          .success,
+      ).toBe(false)
   })
 })

@@ -62,6 +62,41 @@ async function setup(offer: SponsoredSurveyOffer | null) {
 afterEach(() => setProfileSurveyClientForTests(null))
 
 describe('sponsored survey in the CLI box', () => {
+  test('posts a complete ranking and written answer through the store', async () => {
+    const { fake } = await setup({
+      ...OFFER,
+      questions: [
+        { ...OFFER.questions[0]!, kind: 'ranking' },
+        { ...OFFER.questions[1]!, kind: 'text', options: [] },
+      ],
+    })
+    setProfileSurveyEligible(true)
+    dispatchProfileSurveyInput({ type: 'digit', digit: 2, now: 1000 })
+    dispatchProfileSurveyInput({ type: 'enter', now: 1100 })
+    expect(useProfileSurveyStore.getState().survey?.step).toBe(0)
+    dispatchProfileSurveyInput({ type: 'digit', digit: 1, now: 2000 })
+    dispatchProfileSurveyInput({ type: 'enter', now: 3000 })
+    dispatchProfileSurveyInput({ type: 'enter', now: 4000 })
+    expect(getProfileSurveyKeyContext()?.textEditing).toBe(true)
+    dispatchProfileSurveyInput({
+      type: 'text',
+      text: '  More docs\nwith examples.  ',
+      now: 5000,
+    })
+    dispatchProfileSurveyInput({ type: 'enter', now: 6000 })
+    await profileSurveyIdle()
+    expect(fake.requests[0]).toMatchObject({
+      optionIds: ['code', 'vim'],
+      surface: 'cli',
+    })
+    expect(fake.requests[1]).toMatchObject({
+      optionIds: [],
+      textAnswer: 'More docs\nwith examples.',
+      surface: 'cli',
+    })
+    expect(useProfileSurveyStore.getState().survey?.status).toBe('completed')
+  })
+
   test('maps an offer onto the machine', () => {
     const state = sponsoredOfferToSurveyState({ ...OFFER, resumeAt: 1 }, 5)
     expect(state?.step).toBe(1)

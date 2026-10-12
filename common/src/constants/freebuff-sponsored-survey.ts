@@ -3,7 +3,7 @@
  * (`packages/internal/src/sponsored-survey/`), the advertiser and admin APIs,
  * and every client that renders the survey card (Desktop, Web, CLI).
  *
- * An advertiser runs a short choice-only survey on Freebuff users and pays per
+ * An advertiser runs a short survey on Freebuff users and pays per
  * CLEAN complete from the placements prepaid balance, at a fixed rate card (no
  * auction). Clean = no answer flagged `fast` and the response not flagged
  * `straight_lined`. Expedited campaigns pay 1.5x and the user gets a fixed
@@ -17,6 +17,9 @@
  * See docs/freebuff-sponsored-surveys.md.
  */
 import { z } from 'zod/v4'
+import { addDaysToDateKey } from '../util/freebuff-streak'
+import { getZonedYmd } from '../util/zoned-time'
+import { AD_RESET_TIMEZONE } from './freebuff-ads'
 
 import {
   PROFILE_SURVEY_FAST_ANSWER_MS,
@@ -36,7 +39,12 @@ export type SponsoredSurveySurface = ProfileSurveySurface
 /** Hard ceiling on questions per campaign. Above `L` needs an admin price. */
 export const SPONSORED_SURVEY_MAX_QUESTIONS = 40
 
-export const SPONSORED_SURVEY_LENGTH_BUCKETS = ['S', 'M', 'L', 'custom'] as const
+export const SPONSORED_SURVEY_LENGTH_BUCKETS = [
+  'S',
+  'M',
+  'L',
+  'custom',
+] as const
 export type SponsoredSurveyLengthBucket =
   (typeof SPONSORED_SURVEY_LENGTH_BUCKETS)[number]
 
@@ -138,7 +146,10 @@ export const SPONSORED_SURVEY_STRAIGHT_LINE_MIN_SINGLE = 3
  *  unique (user_id, offer_date) on `sponsored_survey_offer`, so it is 1. */
 export const SPONSORED_SURVEY_OFFERS_PER_DAY = 1
 
-export const SPONSORED_SURVEY_QUALITY_FLAGS = ['fast', 'straight_lined'] as const
+export const SPONSORED_SURVEY_QUALITY_FLAGS = [
+  'fast',
+  'straight_lined',
+] as const
 export type SponsoredSurveyQualityFlag =
   (typeof SPONSORED_SURVEY_QUALITY_FLAGS)[number]
 
@@ -296,17 +307,30 @@ export function isStraightLinedSponsoredResponse(
   )
 }
 
-/** Known option ids, no duplicates, single has exactly one, an exclusive
- *  option stands alone. */
+/** Choice answers use known ids; rankings are a complete ordered permutation.
+ * Text answers are trimmed, bounded, and carry no option ids. */
 export function isValidSponsoredSurveyAnswer(
-  question: SponsoredSurveyQuestionInput,
+  question: { kind: string; options: readonly SponsoredSurveyOption[] },
   optionIds: readonly string[],
+  textAnswer?: string | null,
 ): boolean {
+  if (question.kind === 'text')
+    return (
+      optionIds.length === 0 &&
+      typeof textAnswer === 'string' &&
+      textAnswer.trim().length > 0 &&
+      !textAnswer.includes('\u0000') &&
+      textAnswer.length <= SPONSORED_SURVEY_LIMITS.textAnswerMax
+    )
+  if (textAnswer != null) return false
+  if (!['single', 'multi', 'ranking'].includes(question.kind)) return false
   if (optionIds.length === 0) return false
   if (new Set(optionIds).size !== optionIds.length) return false
   if (question.kind === 'single' && optionIds.length !== 1) return false
   const byId = new Map(question.options.map((o) => [o.id, o]))
   if (!optionIds.every((id) => byId.has(id))) return false
+  if (question.kind === 'ranking')
+    return optionIds.length === question.options.length
   if (optionIds.length > 1 && optionIds.some((id) => byId.get(id)?.exclusive))
     return false
   return true
@@ -354,7 +378,8 @@ export function normalizeSponsoredSurveyTierMix(
     sum = sumOf(source)
   }
   const out = {} as Record<SponsoredSurveyCountryTier, number>
-  for (const t of SPONSORED_SURVEY_COUNTRY_TIERS) out[t] = clean(source[t]) / sum
+  for (const t of SPONSORED_SURVEY_COUNTRY_TIERS)
+    out[t] = clean(source[t]) / sum
   return out
 }
 
@@ -408,7 +433,9 @@ export function sponsoredSurveyQuote(
   if (!bucket) return null
   const completes = params.targetCompletes
   if (!Number.isInteger(completes) || completes < 1) {
-    throw new RangeError(`invalid sponsored survey targetCompletes: ${completes}`)
+    throw new RangeError(
+      `invalid sponsored survey targetCompletes: ${completes}`,
+    )
   }
   const prices = {} as Record<SponsoredSurveyCountryTier, number>
   for (const tier of SPONSORED_SURVEY_COUNTRY_TIERS) {
@@ -455,6 +482,7 @@ export const SPONSORED_SURVEY_LIMITS = Object.freeze({
   sponsorNameMax: 80,
   promptMax: 300,
   optionLabelMax: 120,
+  textAnswerMax: 2000,
   optionsMin: 2,
   optionsMax: 12,
   targetCompletesMax: 100_000,
@@ -475,9 +503,40 @@ export const sponsoredSurveyOptionSchema = z.strictObject({
 })
 export type SponsoredSurveyOption = z.infer<typeof sponsoredSurveyOptionSchema>
 
-export const SPONSORED_SURVEY_QUESTION_KINDS = ['single', 'multi'] as const
+export const SPONSORED_SURVEY_QUESTION_KINDS = [
+  'single',
+  'multi',
+  'ranking',
+  'text',
+] as const
 export type SponsoredSurveyQuestionKind =
   (typeof SPONSORED_SURVEY_QUESTION_KINDS)[number]
+
+export const SPONSORED_SURVEY_QUESTION_LABELS: Record<
+  SponsoredSurveyQuestionKind,
+  string
+> = {
+  single: 'Single Choice',
+  multi: 'Multiple selection',
+  ranking: 'Ranking',
+  text: 'Free-form answer',
+}
+
+export const SPONSORED_SURVEY_QUESTION_HINTS: Record<
+  SponsoredSurveyQuestionKind,
+  string
+> = {
+  single: 'Pick one',
+  multi: 'Select all that apply',
+  ranking: 'Put the options in order, first to last',
+  text: 'Answer in your own words',
+}
+
+/** Clients predating format negotiation can only render these types. */
+export const SPONSORED_SURVEY_LEGACY_QUESTION_KINDS = [
+  'single',
+  'multi',
+] as const
 
 export const sponsoredSurveyQuestionSchema = z
   .strictObject({
@@ -485,12 +544,35 @@ export const sponsoredSurveyQuestionSchema = z
     kind: z.enum(SPONSORED_SURVEY_QUESTION_KINDS),
     options: z
       .array(sponsoredSurveyOptionSchema)
-      .min(SPONSORED_SURVEY_LIMITS.optionsMin)
       .max(SPONSORED_SURVEY_LIMITS.optionsMax),
+  })
+  .superRefine((q, ctx) => {
+    if (
+      q.kind === 'text'
+        ? q.options.length !== 0
+        : q.options.length < SPONSORED_SURVEY_LIMITS.optionsMin
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['options'],
+        message:
+          q.kind === 'text'
+            ? 'Free-form answers have no options'
+            : 'Give at least two options',
+      })
+    if (q.kind === 'ranking' && q.options.some((option) => option.exclusive))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['options'],
+        message: 'Ranking options cannot be exclusive',
+      })
   })
   .refine(
     (q) => new Set(q.options.map((o) => o.id)).size === q.options.length,
-    { message: 'option ids must be unique within a question', path: ['options'] },
+    {
+      message: 'option ids must be unique within a question',
+      path: ['options'],
+    },
   )
 export type SponsoredSurveyQuestionInput = z.infer<
   typeof sponsoredSurveyQuestionSchema
@@ -512,7 +594,11 @@ const countriesField = z
   .max(SPONSORED_SURVEY_LIMITS.countriesMax)
   .optional()
 
-const plansField = z.array(z.enum(SPONSORED_SURVEY_PLANS)).min(1).max(2).optional()
+const plansField = z
+  .array(z.enum(SPONSORED_SURVEY_PLANS))
+  .min(1)
+  .max(2)
+  .optional()
 
 /** Profile-survey segments: the user's current answer to `questionId`
  *  includes at least one of `optionIds`. Flagged answers do not match
@@ -538,14 +624,42 @@ const profileAnswersField = z
   .max(SPONSORED_SURVEY_LIMITS.profileAnswerFiltersMax)
   .optional()
 
-/**
- * What an ADVERTISER may target. Freebuff controls the audience mix, so there
- * is no country tier or country here: the advertiser sees a quote range
- * (`sponsoredSurveyQuote`) instead, and an advertiser campaign reaches every
- * tier. Strict, so a body that still sends `countryTiers` or `countries` is
- * refused rather than silently stored.
- */
+/** Timing is an eligibility rule, stored with the other targeting rules.
+ * A null start means approval day; a null duration preserves legacy open-ended surveys. */
+export const sponsoredSurveyScheduleSchema = z.strictObject({
+  startDate: z.iso.date().nullable(),
+  durationDays: z.number().int().min(1).max(90).nullable(),
+})
+
+export type SponsoredSurveySchedule = z.infer<
+  typeof sponsoredSurveyScheduleSchema
+>
+
+export function sponsoredSurveyInSchedule(
+  schedule: SponsoredSurveySchedule | undefined,
+  startedAt: Date | string | null,
+  now: Date,
+): boolean {
+  if (!schedule) return true
+  if (!startedAt) return false
+  const approved = getZonedYmd(new Date(startedAt), AD_RESET_TIMEZONE)
+  const start =
+    schedule.startDate && schedule.startDate > approved
+      ? schedule.startDate
+      : approved
+  const day = getZonedYmd(now, AD_RESET_TIMEZONE)
+  return (
+    day >= start &&
+    (schedule.durationDays === null ||
+      day < addDaysToDateKey(start, schedule.durationDays))
+  )
+}
+
+/** Advertisers choose countries and timing; country tiers remain admin-only. */
 export const sponsoredSurveyAdvertiserTargetingSchema = z.strictObject({
+  countries: countriesField,
+  countryMode: z.enum(['include', 'exclude']).optional(),
+  schedule: sponsoredSurveyScheduleSchema.optional(),
   plans: plansField,
   profileAnswers: profileAnswersField,
 })
@@ -572,6 +686,8 @@ export type SponsoredSurveyAdminTargeting = z.infer<
 export const sponsoredSurveyTargetingSchema = z.strictObject({
   countryTiers: countryTiersField,
   countries: countriesField,
+  countryMode: z.enum(['include', 'exclude']).optional(),
+  schedule: sponsoredSurveyScheduleSchema.optional(),
   plans: plansField,
   profileAnswers: profileAnswersField,
 })
@@ -589,13 +705,15 @@ export const sponsoredSurveyCampaignInputSchema = z.strictObject({
     .min(1)
     .max(SPONSORED_SURVEY_LIMITS.sponsorNameMax),
   speed: z.enum(SPONSORED_SURVEY_SPEEDS),
-  /** No country tiers or countries: see `sponsoredSurveyAdvertiserTargetingSchema`. */
+  /** Country tiers remain admin-only. */
   targeting: sponsoredSurveyAdvertiserTargetingSchema,
   targetCompletes: z
     .number()
     .int()
     .min(1)
-    .max(SPONSORED_SURVEY_LIMITS.targetCompletesMax),
+    .max(SPONSORED_SURVEY_LIMITS.targetCompletesMax)
+    .nullable()
+    .default(null),
   budgetCents: z
     .number()
     .int()

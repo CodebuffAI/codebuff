@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   createHttpSponsoredSurveyClient,
   isSponsoredAnswerReady,
+  moveSponsoredRanking,
   sponsoredRewardLine,
   toggleSponsoredOption,
 } from '../freebuff-sponsored-survey-client'
@@ -55,13 +56,34 @@ describe('sponsored survey client helpers', () => {
       },
     })
     expect(await client.getState('cli')).toEqual({ show: false })
-    expect(paths).toEqual(['/api/sponsored-survey?surface=cli'])
+    const url = new URL(paths[0]!, 'https://freebuff.test')
+    expect(url.pathname).toBe('/api/sponsored-survey')
+    expect(url.searchParams.get('surface')).toBe('cli')
+    expect(url.searchParams.get('questionKinds')).toBe(
+      'single,multi,ranking,text',
+    )
     expect(
-      await client.answer({ action: 'answer', campaignId: 'c', questionId: 'q', optionIds: ['a'] }),
+      await client.answer({
+        action: 'answer',
+        campaignId: 'c',
+        questionId: 'q',
+        optionIds: ['a'],
+      }),
     ).toEqual({ ok: false, error: 'down' })
-    expect(await client.dismiss({ action: 'dismiss', campaignId: 'c' })).toEqual({
+    expect(
+      await client.dismiss({ action: 'dismiss', campaignId: 'c' }),
+    ).toEqual({
       ok: false,
       error: 'down',
     })
+  })
+
+  test('ranking moves preserve all choices and stop at the boundaries', () => {
+    const ids = ['a', 'b', 'c']
+    expect(moveSponsoredRanking(ids, 2, -1)).toEqual(['a', 'c', 'b'])
+    expect(moveSponsoredRanking(ids, 0, 1)).toEqual(['b', 'a', 'c'])
+    expect(moveSponsoredRanking(ids, 0, -1)).toEqual(ids)
+    expect(moveSponsoredRanking(ids, 2, 1)).toEqual(ids)
+    expect(ids).toEqual(['a', 'b', 'c'])
   })
 })

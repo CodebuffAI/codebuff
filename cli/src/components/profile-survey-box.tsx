@@ -1,5 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import { profileSurveySnoozeDays } from '@codebuff/common/constants/freebuff-profile-survey'
+import { SPONSORED_SURVEY_LIMITS } from '@codebuff/common/constants/freebuff-sponsored-survey'
 import React from 'react'
 
 import { useTheme } from '../hooks/use-theme'
@@ -7,6 +8,7 @@ import { useProfileSurveyStore } from '../state/profile-survey-store'
 import {
   currentQuestion,
   numberedOptions,
+  surveyOptionKey,
 } from '../utils/profile-survey-machine'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -31,13 +33,19 @@ export function profileSurveyProgressBar(step: number, total: number): string {
 export function profileSurveyHint(state: ProfileSurveyState): string {
   const question = currentQuestion(state)
   if (!question) return ''
+  if (question.sponsoredKind === 'text')
+    return state.textEditing
+      ? `Type your answer · enter continue · esc stop editing · ${(state.textAnswer ?? '').length}/${SPONSORED_SURVEY_LIMITS.textAnswerMax}`
+      : `enter write an answer${state.step > 0 ? ' · ← back' : ''} · esc not now`
   const numbered = numberedOptions(question)
   const top = numbered.filter((n) => n.key > 0).length
   const hasNa = numbered.some((n) => n.key === 0)
   const snoozeDays = profileSurveySnoozeDays(state.dismissCount + 1)
   const parts = [
-    question.multi ? `1–${top} toggle` : `1–${top} pick`,
-    ...(question.multi ? ['enter continue'] : []),
+    `${top > 9 ? `1–9, a–${surveyOptionKey(top)}` : `1–${top}`} ${question.sponsoredKind === 'ranking' ? 'pick in rank order (again to undo)' : question.multi ? 'toggle' : 'pick'}`,
+    ...(question.multi || question.sponsoredKind === 'ranking'
+      ? ['enter continue']
+      : []),
     ...(hasNa ? ["0 doesn't apply"] : []),
     ...(state.step > 0 ? ['← back'] : []),
     ...(snoozeDays === null || state.sponsored
@@ -77,14 +85,23 @@ export const ProfileSurveyBoxView = ({
   const total = state.questions.length
   const innerWidth = Math.max(10, width - 4)
   const labels = numberedOptions(question).map(({ key, option }) => {
-    const mark = question.multi
-      ? state.selection.includes(option.id)
-        ? '◉ '
-        : '○ '
-      : ''
-    return `${key} ${mark}${option.label}`
+    const rank = state.selection.indexOf(option.id)
+    const mark =
+      question.sponsoredKind === 'ranking'
+        ? rank < 0
+          ? '○ '
+          : `#${rank + 1} `
+        : question.multi
+          ? state.selection.includes(option.id)
+            ? '◉ '
+            : '○ '
+          : ''
+    return `${surveyOptionKey(key)} ${mark}${option.label}`
   })
-  const rows = packOptionLabels(labels, innerWidth)
+  const rows =
+    question.sponsoredKind === 'ranking'
+      ? labels
+      : packOptionLabels(labels, innerWidth)
   const reward =
     state.rewardFreebucks > 0
       ? state.sponsored
@@ -125,6 +142,15 @@ export const ProfileSurveyBoxView = ({
           {row}
         </text>
       ))}
+      {question.sponsoredKind === 'text' && (
+        <text style={{ fg: theme.foreground, wrapMode: 'word' }}>
+          {state.textAnswer ||
+            (state.textEditing
+              ? 'Write your answer…'
+              : 'Answer in your own words')}
+          {state.textEditing ? ' ▌' : ''}
+        </text>
+      )}
       <text style={{ fg: theme.muted, wrapMode: 'word' }}>
         {profileSurveyHint(state)}
       </text>

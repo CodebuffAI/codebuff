@@ -16,6 +16,12 @@
  */
 
 import { isValidProfileSurveyAnswer } from '@codebuff/common/constants/freebuff-profile-survey'
+import {
+  isValidSponsoredSurveyAnswer,
+  SPONSORED_SURVEY_LIMITS,
+  type SponsoredSurveyQuestionKind,
+} from '@codebuff/common/constants/freebuff-sponsored-survey'
+import { sanitizeTerminalStrings } from '@codebuff/common/util/terminal-safe-text'
 
 import { isPlainEnterKey } from './terminal-enter-detection'
 
@@ -28,9 +34,18 @@ import type {
   ProfileSurveyStateResponse,
 } from '@codebuff/common/constants/freebuff-profile-survey'
 
-/** Only digits 1–9 fit one keypress; a longer list would leave the tail
- *  unreachable, so the numbering stops there (the v1 bank tops out at 9). */
+/** The profile bank fits the digit shortcuts; sponsored surveys also use a–c. */
 export const MAX_NUMBERED_OPTIONS = 9
+
+/** Sponsored surveys can also ask for an ordering or a written answer. */
+export type SurveyMachineQuestion = ProfileSurveyQuestion & {
+  sponsoredKind?: SponsoredSurveyQuestionKind
+}
+
+/** Sponsored choices 10–12 use a–c so every option has a single-key shortcut. */
+export function surveyOptionKey(key: number): string {
+  return key <= 9 ? String(key) : String.fromCharCode(97 + key - 10)
+}
 
 export type ProfileSurveyStatus =
   /** On screen, waiting for a key. */
@@ -47,7 +62,7 @@ export type ProfileSurveyStatus =
 
 export type ProfileSurveyState = {
   version: number
-  questions: ProfileSurveyQuestion[]
+  questions: SurveyMachineQuestion[]
   rewardFreebucks: number
   /** "Not now"s already on file, so the next one's snooze is known. */
   dismissCount: number
@@ -55,8 +70,12 @@ export type ProfileSurveyState = {
   step: number
   /** Committed answers by question id (server-resumed or given here). */
   answers: Record<string, string[]>
-  /** Working selection on a multi-select question. */
+  /** Working selection on a multi-select, or the selected ranking order. */
   selection: string[]
+  textAnswers?: Record<string, string>
+  textAnswer?: string
+  /** Enter explicitly focuses a written answer; ordinary prompt typing still works. */
+  textEditing?: boolean
   /** When the current question was shown, for `durationMs`. */
   questionShownAt: number
   /** When the box first came on screen (the `rendered` event), or null while
@@ -77,6 +96,8 @@ export type ProfileSurveyInput =
   | { type: 'back'; now: number }
   | { type: 'escape'; now: number }
   | { type: 'typed'; now: number }
+  | { type: 'text'; text: string; now: number }
+  | { type: 'delete-text'; now: number }
   /** The box is on screen right now (the store sends it after every change
    *  while eligible and asking). Idempotent: it only reports what is new. */
   | { type: 'shown'; now: number }
@@ -87,6 +108,7 @@ export type ProfileSurveyEffect =
       version: number
       questionId: ProfileSurveyQuestionId
       optionIds: string[]
+      textAnswer?: string
       durationMs: number
       /** True when this answer is the last unanswered one. */
       last: boolean
@@ -116,18 +138,23 @@ export type NumberedOption = { key: number; option: ProfileSurveyOption }
 
 /** The options as the box lists them: `1..n`, then `0` for notApplicable. */
 export function numberedOptions(
-  question: ProfileSurveyQuestion,
+  question: SurveyMachineQuestion,
 ): NumberedOption[] {
   const regular = question.options
     .filter((o) => !o.notApplicable)
-    .slice(0, MAX_NUMBERED_OPTIONS)
+    .slice(
+      0,
+      question.sponsoredKind
+        ? SPONSORED_SURVEY_LIMITS.optionsMax
+        : MAX_NUMBERED_OPTIONS,
+    )
     .map((option, i) => ({ key: i + 1, option }))
   const na = question.options.find((o) => o.notApplicable)
   return na ? [...regular, { key: 0, option: na }] : regular
 }
 
 export function optionForDigit(
-  question: ProfileSurveyQuestion,
+  question: SurveyMachineQuestion,
   digit: number,
 ): ProfileSurveyOption | undefined {
   return numberedOptions(question).find((n) => n.key === digit)?.option
@@ -165,21 +192,21 @@ export function createProfileSurveyState(
 
 export function currentQuestion(
   state: ProfileSurveyState,
-): ProfileSurveyQuestion | undefined {
+): SurveyMachineQuestion | undefined {
   return state.questions[state.step]
 }
 
 function selectionFor(
-  question: ProfileSurveyQuestion | undefined,
+  question: SurveyMachineQuestion | undefined,
   answers: Record<string, string[]>,
 ): string[] {
-  if (!question?.multi) return []
+  if (!question?.multi && question?.sponsoredKind !== 'ranking') return []
   return [...(answers[question.id] ?? [])]
 }
 
 /** Toggle one option in a multi-select, honouring exclusivity both ways. */
 export function toggleSelection(
-  question: ProfileSurveyQuestion,
+  question: SurveyMachineQuestion,
   selection: readonly string[],
   optionId: string,
 ): string[] {
@@ -199,11 +226,16 @@ export function toggleSelection(
 
 function commit(
   state: ProfileSurveyState,
-  question: ProfileSurveyQuestion,
+  question: SurveyMachineQuestion,
   optionIds: string[],
   now: number,
+  textAnswer?: string,
 ): ProfileSurveyTransition {
   const answers = { ...state.answers, [question.id]: optionIds }
+  const textAnswers =
+    textAnswer === undefined
+      ? state.textAnswers
+      : { ...state.textAnswers, [question.id]: textAnswer }
   const nextStep = state.step + 1
   const remaining = state.questions
     .slice(nextStep)
@@ -214,6 +246,7 @@ function commit(
     version: state.version,
     questionId: question.id as ProfileSurveyQuestionId,
     optionIds,
+    ...(textAnswer === undefined ? {} : { textAnswer }),
     durationMs: Math.max(0, now - state.questionShownAt),
     last: last && !remaining,
   }
@@ -222,6 +255,9 @@ function commit(
       state: {
         ...state,
         answers,
+        textAnswers,
+        textAnswer: '',
+        textEditing: false,
         step: nextStep,
         selection: [],
         status: 'finishing',
@@ -233,6 +269,9 @@ function commit(
     state: {
       ...state,
       answers,
+      textAnswers,
+      textAnswer: textAnswers?.[state.questions[nextStep]!.id] ?? '',
+      textEditing: false,
       step: nextStep,
       selection: selectionFor(state.questions[nextStep], answers),
       questionShownAt: now,
@@ -252,13 +291,19 @@ export function transitionProfileSurvey(
 
   const questionId = question.id as ProfileSurveyQuestionId
   const onScreenFor = (now: number) =>
-    state.renderedAt === null ? {} : { durationMs: Math.max(0, now - state.renderedAt) }
+    state.renderedAt === null
+      ? {}
+      : { durationMs: Math.max(0, now - state.renderedAt) }
 
   switch (input.type) {
     case 'shown': {
       const effects: ProfileSurveyEffect[] = []
       if (state.renderedAt === null) {
-        effects.push({ type: 'event', version: state.version, event: 'rendered' })
+        effects.push({
+          type: 'event',
+          version: state.version,
+          event: 'rendered',
+        })
       }
       if (state.viewedQuestionId !== questionId) {
         effects.push({
@@ -299,6 +344,8 @@ export function transitionProfileSurvey(
       }
 
     case 'escape':
+      if (state.textEditing)
+        return { state: { ...state, textEditing: false }, effects: [] }
       return {
         state: { ...state, status: 'dismissed' },
         effects: [
@@ -319,6 +366,8 @@ export function transitionProfileSurvey(
           ...state,
           step,
           selection: selectionFor(state.questions[step], state.answers),
+          textAnswer: state.textAnswers?.[state.questions[step]!.id] ?? '',
+          textEditing: false,
           questionShownAt: input.now,
         },
         effects: [],
@@ -328,7 +377,8 @@ export function transitionProfileSurvey(
     case 'digit': {
       const option = optionForDigit(question, input.digit)
       if (!option) return unchanged
-      if (!question.multi) return commit(state, question, [option.id], input.now)
+      if (!question.multi && question.sponsoredKind !== 'ranking')
+        return commit(state, question, [option.id], input.now)
       return {
         state: {
           ...state,
@@ -339,11 +389,59 @@ export function transitionProfileSurvey(
     }
 
     case 'enter': {
+      if (question.sponsoredKind === 'text') {
+        if (!state.textEditing)
+          return { state: { ...state, textEditing: true }, effects: [] }
+        if (
+          !isValidSponsoredSurveyAnswer(
+            { ...question, kind: 'text' },
+            [],
+            state.textAnswer,
+          )
+        )
+          return unchanged
+        return commit(state, question, [], input.now, state.textAnswer!.trim())
+      }
+      if (question.sponsoredKind === 'ranking') {
+        if (
+          !isValidSponsoredSurveyAnswer(
+            { ...question, kind: 'ranking' },
+            state.selection,
+          )
+        )
+          return unchanged
+        return commit(state, question, [...state.selection], input.now)
+      }
       if (!question.multi) return unchanged
       if (!isValidProfileSurveyAnswer(question, state.selection)) {
         return unchanged
       }
       return commit(state, question, [...state.selection], input.now)
+    }
+    case 'text': {
+      if (question.sponsoredKind !== 'text' || !state.textEditing)
+        return unchanged
+      const text = sanitizeTerminalStrings(input.text).replace(
+        /[\u0000-\u0008\u000b-\u001f\u007f]/g,
+        '',
+      )
+      const textAnswer = (state.textAnswer ?? '') + text
+      if (textAnswer.length > SPONSORED_SURVEY_LIMITS.textAnswerMax)
+        return unchanged
+      return { state: { ...state, textAnswer }, effects: [] }
+    }
+    case 'delete-text': {
+      if (question.sponsoredKind !== 'text' || !state.textEditing)
+        return unchanged
+      return {
+        state: {
+          ...state,
+          textAnswer: Array.from(state.textAnswer ?? '')
+            .slice(0, -1)
+            .join(''),
+        },
+        effects: [],
+      }
     }
   }
 }
@@ -372,7 +470,8 @@ export type ProfileSurveyKey = {
 /** What the keyboard layer needs to know about the box, or null when the
  *  box is not on screen (then it claims nothing). */
 export type ProfileSurveyKeyContext = {
-  question: ProfileSurveyQuestion
+  question: SurveyMachineQuestion
+  textEditing?: boolean
 }
 
 /**
@@ -382,10 +481,10 @@ export type ProfileSurveyKeyContext = {
  * draft is empty and the input mode is default: the survey never claims a
  * key while the user has started a prompt.
  *
- * Claimed: a digit that names an option on this question, ← (back), Esc
- * (not now), and Enter on a multi-select. Everything else — letters, a digit
- * with no option, modified keys — falls through to the composer, where it
- * starts a prompt and closes the box.
+ * Choice keys, ← (back), Esc (not now), and Enter for questions requiring
+ * confirmation belong to the survey. Written answers claim typing only
+ * after Enter focuses them; Esc releases that focus. Otherwise ordinary
+ * typing falls through to the composer and closes the box.
  */
 export function profileSurveyInputForKey(
   key: ProfileSurveyKey,
@@ -395,13 +494,32 @@ export function profileSurveyInputForKey(
   if (!context) return null
   if (key.ctrl || key.meta || key.option) return null
   if (key.name === 'escape') return { type: 'escape', now }
+  if (context.question.sponsoredKind === 'text') {
+    if (isPlainEnterKey(key)) return { type: 'enter', now }
+    if (context.textEditing) {
+      if (key.name === 'backspace') return { type: 'delete-text', now }
+      if (key.sequence && !/[\u0000-\u001f\u007f]/.test(key.sequence))
+        return { type: 'text', text: key.sequence, now }
+      // Keep navigation keys out of the empty composer while this answer has focus.
+      return { type: 'text', text: '', now }
+    }
+  }
   if (key.name === 'left' && !key.shift) return { type: 'back', now }
-  if (context.question.multi && isPlainEnterKey(key)) {
+  if (
+    (context.question.multi || context.question.sponsoredKind === 'ranking') &&
+    isPlainEnterKey(key)
+  ) {
     return { type: 'enter', now }
   }
   const char = key.sequence ?? key.name
-  if (char && /^[0-9]$/.test(char)) {
-    const digit = Number(char)
+  if (
+    char &&
+    (/^[0-9]$/.test(char) ||
+      (context.question.sponsoredKind && /^[a-c]$/.test(char)))
+  ) {
+    const digit = /^[a-c]$/.test(char)
+      ? char.charCodeAt(0) - 97 + 10
+      : Number(char)
     if (optionForDigit(context.question, digit)) {
       return { type: 'digit', digit, now }
     }

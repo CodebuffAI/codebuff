@@ -16,14 +16,20 @@ import {
   type SponsoredSurveyOffer,
 } from '@codebuff/common/constants/freebuff-sponsored-survey-client'
 import { sanitizeTerminalStrings } from '@codebuff/common/util/terminal-safe-text'
+import {
+  SPONSORED_SURVEY_QUESTION_KINDS,
+  type SponsoredSurveyQuestionKind,
+} from '@codebuff/common/constants/freebuff-sponsored-survey'
 
 import { FREEBUFF_WEB_URL } from '../login/constants'
 
 import { getCliAdRequestUserAgent } from './ad-client-identity'
 import { getAuthToken } from './auth'
 
-import type { ProfileSurveyState } from './profile-survey-machine'
-import type { ProfileSurveyQuestion } from '@codebuff/common/constants/freebuff-profile-survey'
+import type {
+  ProfileSurveyState,
+  SurveyMachineQuestion,
+} from './profile-survey-machine'
 
 export { SPONSORED_SURVEY_PATH }
 
@@ -64,7 +70,8 @@ export function createCliSponsoredSurveyClient(
   }
   return createHttpSponsoredSurveyClient({
     get: (path) => send(path, { method: 'GET' }),
-    post: (path, body) => send(path, { method: 'POST', body: JSON.stringify(body) }),
+    post: (path, body) =>
+      send(path, { method: 'POST', body: JSON.stringify(body) }),
   })
 }
 
@@ -73,11 +80,21 @@ export function sponsoredOfferToSurveyState(
   offer: SponsoredSurveyOffer,
   now: number,
 ): ProfileSurveyState | null {
-  const questions: ProfileSurveyQuestion[] = offer.questions.map((q) => ({
+  if (
+    offer.questions.some(
+      (q) =>
+        !SPONSORED_SURVEY_QUESTION_KINDS.includes(
+          q.kind as SponsoredSurveyQuestionKind,
+        ),
+    )
+  )
+    return null
+  const questions: SurveyMachineQuestion[] = offer.questions.map((q) => ({
     id: q.id,
     revision: 1,
     prompt: q.prompt,
     multi: q.kind === 'multi',
+    sponsoredKind: q.kind as SponsoredSurveyQuestionKind,
     options: q.options.map((o) => ({
       id: o.id,
       label: o.label,

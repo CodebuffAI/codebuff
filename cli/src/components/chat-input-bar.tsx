@@ -19,7 +19,11 @@ import { useEvent } from '../hooks/use-event'
 import { tryGetProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { shouldInterceptChatInputKey } from '../utils/chat-input-key-intercept'
-import { getProfileSurveyKeyContext } from '../state/profile-survey-store'
+import {
+  dispatchProfileSurveyInput,
+  getProfileSurveyKeyContext,
+} from '../state/profile-survey-store'
+import { readClipboardText } from '../utils/clipboard-image'
 import { getInputModeConfig } from '../utils/input-modes'
 import { recordTypedInput } from '../utils/input-profile'
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -179,6 +183,25 @@ export const ChatInputBar = ({
       })
     },
   )
+
+  const handleSurveyPaste = useEvent((fallbackText?: string) => {
+    const context = getProfileSurveyKeyContext()
+    const draft = useChatStore.getState()
+    if (
+      context?.question.sponsoredKind === 'text' &&
+      context.textEditing &&
+      draft.inputMode === 'default' &&
+      !draft.inputValue
+    ) {
+      dispatchProfileSurveyInput({
+        type: 'text',
+        text: fallbackText ?? readClipboardText() ?? '',
+        now: Date.now(),
+      })
+      return
+    }
+    onPaste(fallbackText)
+  })
 
   if (feedbackMode) {
     return (
@@ -393,7 +416,7 @@ export const ChatInputBar = ({
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSubmit}
-            onPaste={onPaste}
+            onPaste={handleSurveyPaste}
             onTypedText={recordTypedInput}
             onKeyIntercept={handleKeyIntercept}
             placeholder={effectivePlaceholder}
@@ -490,7 +513,7 @@ export const ChatInputBar = ({
                 value={inputValue}
                 onChange={setInputValue}
                 onSubmit={handleSubmit}
-                onPaste={onPaste}
+                onPaste={handleSurveyPaste}
                 onTypedText={recordTypedInput}
                 onKeyIntercept={handleKeyIntercept}
                 placeholder={effectivePlaceholder}

@@ -8,7 +8,8 @@
  * respondent id with the answers, the completion date, the country pricing
  * tier, free/paid plan, and coarse bands of three profile answers (monthly
  * tool spend, team size, who pays), the bands shown only where at least 30
- * respondents share them. Never a name, email, account id or exact country.
+ * respondents share them. We do not attach a name, email, account id or exact
+ * country. Written answers are shared as entered.
  * If the export gains a column, this copy changes in the same PR.
  *
  * No imports: this file ships in the public export.
@@ -19,13 +20,13 @@ export const SPONSORED_SURVEY_CARD_LABEL = 'Survey from {sponsor}'
 
 /** The one-line footer under every sponsored survey card. */
 export const SPONSORED_SURVEY_CARD_FOOTER =
-  'Sponsored surveys are from advertisers. They see only anonymous responses, never your name or account.'
+  'Sponsored surveys are from advertisers. We share your answers without attaching your name, email or account.'
 
 /** Expanded "How this works" text behind the footer's info link. */
 export const SPONSORED_SURVEY_CARD_DISCLOSURE = [
   '{sponsor} pays Freebuff for each completed response.',
   'They get your answers and the date you answered, under a random ID that is different for every survey, plus your country group, whether you are on a free or paid plan, and broad ranges of your profile answers (dev tool spend, team size, who pays) when at least 30 people share them.',
-  'They never get your name, email, account or exact country, and cannot contact you.',
+  'We do not attach your name, email, account or exact country. Written answers are shared as you enter them.',
   'Answering is optional. Skipping never affects your account.',
 ] as const
 
@@ -33,7 +34,7 @@ export const SPONSORED_SURVEY_CARD_DISCLOSURE = [
 export const SPONSORED_SURVEY_ACCOUNT_PRIVACY_TITLE = 'Sponsored surveys'
 
 export const SPONSORED_SURVEY_ACCOUNT_PRIVACY_TEXT =
-  'Some surveys are sponsored by advertisers, who receive anonymous responses only: your answers under a random ID, never your name, email or account. Results they see hide any group smaller than 30 people.'
+  'Some surveys are sponsored by advertisers, who receive your answers under a random ID. We do not attach your name, email or account. Written answers are shared as entered; aggregate results hide groups smaller than 30 people.'
 
 /** Shown next to the account page "Clear" action. */
 export const SPONSORED_SURVEY_CLEAR_EXPLAINER =

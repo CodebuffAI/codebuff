@@ -21,14 +21,16 @@ import {
 
 import type { ProfileSurveyQuestion } from '@codebuff/common/constants/freebuff-profile-survey'
 import type { ProfileSurveyState } from '../../utils/profile-survey-machine'
+import { sponsoredOfferToSurveyState } from '../../utils/sponsored-survey-api'
 
 beforeAll(() => {
   initializeThemeStore()
 })
 
 /** Version 1's ten questions: the CLI is version-agnostic, and these pin its copy. */
-const QUESTIONS: readonly ProfileSurveyQuestion[] =
-  profileSurveyVersion(1)!.questionIds.map((id) => profileSurveyQuestion(id)!)
+const QUESTIONS: readonly ProfileSurveyQuestion[] = profileSurveyVersion(
+  1,
+)!.questionIds.map((id) => profileSurveyQuestion(id)!)
 
 function stateAt(resumeAt: number, rewardFreebucks = 25): ProfileSurveyState {
   return createProfileSurveyState(
@@ -60,6 +62,54 @@ const renderFrame = async (node: React.ReactNode, width = 80, height = 12) => {
 }
 
 describe('ProfileSurveyBoxView', () => {
+  test('draws ranking positions and a written-answer input with its own focus hint', async () => {
+    const offer = {
+      campaignId: 'c',
+      sponsorName: 'Acme',
+      resumeAt: 0,
+      rewardFreebucks: 0,
+      questions: [
+        {
+          id: 'q',
+          prompt: 'Rank these',
+          position: 0,
+          kind: 'ranking',
+          options: [
+            { id: 'a', label: 'Speed' },
+            { id: 'b', label: 'Reliability' },
+          ],
+        },
+      ],
+    }
+    const ranking = sponsoredOfferToSurveyState(offer, 0)!
+    ranking.selection = ['b', 'a']
+    const rankFrame = await renderFrame(
+      <ProfileSurveyBoxView state={ranking} width={100} />,
+      100,
+      14,
+    )
+    expect(rankFrame).toContain('1 #2 Speed')
+    expect(rankFrame).toContain('2 #1 Reliability')
+    expect(rankFrame).toContain('pick in rank order')
+    const text = sponsoredOfferToSurveyState(
+      {
+        ...offer,
+        questions: [{ ...offer.questions[0]!, kind: 'text', options: [] }],
+      },
+      0,
+    )!
+    text.textEditing = true
+    text.textAnswer = 'Better docs'
+    const textFrame = await renderFrame(
+      <ProfileSurveyBoxView state={text} width={100} />,
+      100,
+      14,
+    )
+    expect(textFrame).toContain('Better docs')
+    expect(textFrame).toContain('enter continue')
+    expect(textFrame).toContain('11/2000')
+  })
+
   test('header, progress, reward, prompt, numbered options and hints', async () => {
     const frame = await renderFrame(
       <ProfileSurveyBoxView state={stateAt(2)} width={80} />,
@@ -70,7 +120,9 @@ describe('ProfileSurveyBoxView', () => {
     expect(frame).toContain('How big is the team you build with?')
     expect(frame).toContain('1 Just me')
     expect(frame).toContain("0 Doesn't apply")
-    expect(frame).toContain("1–5 pick · 0 doesn't apply · ← back · esc not now (3 days)")
+    expect(frame).toContain(
+      "1–5 pick · 0 doesn't apply · ← back · esc not now (3 days)",
+    )
   })
 
   test('no reward copy when the arm pays nothing; no back on the first', async () => {

@@ -65,7 +65,9 @@ export const useProfileSurveyStore = create<ProfileSurveyStore>(() => ({
 // Sponsored funnel pings (COD-837) to `/api/survey-events`: every state
 // change, read by the CLI's event tracker. The profile survey's own engagement
 // events are the machine's `event` effects (#6278), not this.
-useProfileSurveyStore.subscribe((next, prev) => observeSponsoredSurvey(next, prev))
+useProfileSurveyStore.subscribe((next, prev) =>
+  observeSponsoredSurvey(next, prev),
+)
 
 let client: ProfileSurveyClient | null = null
 let sponsoredClient: SponsoredSurveyClient | null = null
@@ -155,7 +157,7 @@ export function getProfileSurveyKeyContext(): ProfileSurveyKeyContext | null {
   const { survey, eligible } = useProfileSurveyStore.getState()
   if (!eligible || !survey || survey.status !== 'asking') return null
   const question = currentQuestion(survey)
-  return question ? { question } : null
+  return question ? { question, textEditing: survey.textEditing } : null
 }
 
 export function isProfileSurveyOnScreen(): boolean {
@@ -230,6 +232,9 @@ function runSponsoredEffect(
       campaignId: sponsored.campaignId,
       questionId: effect.questionId,
       optionIds: effect.optionIds,
+      ...(effect.textAnswer === undefined
+        ? {}
+        : { textAnswer: effect.textAnswer }),
       durationMs: effect.durationMs,
       surface: 'cli',
     })
@@ -255,7 +260,8 @@ function runEffect(effect: ProfileSurveyEffect): void {
     return
   }
   if (effect.type === 'dismiss') {
-    const dismissCount = useProfileSurveyStore.getState().survey?.dismissCount ?? 0
+    const dismissCount =
+      useProfileSurveyStore.getState().survey?.dismissCount ?? 0
     enqueue(async () => {
       const response = await api.post({
         action: 'dismiss',
@@ -296,7 +302,8 @@ function runEffect(effect: ProfileSurveyEffect): void {
     }
     const current = useProfileSurveyStore.getState().survey
     if (!current || current.status !== 'finishing' || !effect.last) return
-    const completed = response.ok && 'completed' in response && response.completed
+    const completed =
+      response.ok && 'completed' in response && response.completed
     useProfileSurveyStore.setState({
       survey: finishProfileSurvey(current, completed),
     })
@@ -336,7 +343,10 @@ function sendEvent(
         )
       }
     } catch (error) {
-      logger.debug({ error, event: effect.event }, '[profile-survey] event failed')
+      logger.debug(
+        { error, event: effect.event },
+        '[profile-survey] event failed',
+      )
     }
   })()
   pendingEvents.add(task)

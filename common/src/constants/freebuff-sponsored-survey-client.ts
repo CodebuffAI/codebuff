@@ -9,10 +9,12 @@
  * offers one only to users who completed or stopped the profile survey) and
  * at most one per Pacific day. See docs/freebuff-sponsored-surveys.md.
  */
-import type {
-  SponsoredSurveyOption,
-  SponsoredSurveyQuestionKind,
-  SponsoredSurveySurface,
+import {
+  isValidSponsoredSurveyAnswer,
+  SPONSORED_SURVEY_QUESTION_KINDS,
+  type SponsoredSurveyOption,
+  type SponsoredSurveyQuestionKind,
+  type SponsoredSurveySurface,
 } from './freebuff-sponsored-survey'
 
 export const SPONSORED_SURVEY_PATH = '/api/sponsored-survey'
@@ -47,6 +49,7 @@ export type SponsoredSurveyRequest =
       campaignId: string
       questionId: string
       optionIds: string[]
+      textAnswer?: string
       durationMs?: number
       surface?: SponsoredSurveySurface
     }
@@ -63,7 +66,9 @@ export type SponsoredSurveyDismissResponse =
 
 export interface SponsoredSurveyClient {
   /** Never rejects: a failure reads as nothing to show. */
-  getState(surface?: SponsoredSurveySurface): Promise<SponsoredSurveyStateResponse>
+  getState(
+    surface?: SponsoredSurveySurface,
+  ): Promise<SponsoredSurveyStateResponse>
   /** Never rejects: a transport failure comes back as `{ ok: false }`. */
   answer(
     request: Extract<SponsoredSurveyRequest, { action: 'answer' }>,
@@ -86,13 +91,16 @@ function message(error: unknown, fallback: string) {
 
 export function createHttpSponsoredSurveyClient(
   transport: SponsoredSurveyTransport,
+  supportedKinds: readonly SponsoredSurveyQuestionKind[] = SPONSORED_SURVEY_QUESTION_KINDS,
 ): SponsoredSurveyClient {
   return {
     async getState(surface) {
       try {
-        const path = surface
-          ? `${SPONSORED_SURVEY_PATH}?surface=${encodeURIComponent(surface)}`
-          : SPONSORED_SURVEY_PATH
+        const query = new URLSearchParams({
+          questionKinds: supportedKinds.join(','),
+        })
+        if (surface) query.set('surface', surface)
+        const path = `${SPONSORED_SURVEY_PATH}?${query}`
         const state = await transport.get<SponsoredSurveyStateResponse>(path)
         return state && state.show === true && state.survey
           ? state
@@ -108,7 +116,10 @@ export function createHttpSponsoredSurveyClient(
           request,
         )
       } catch (error) {
-        return { ok: false, error: message(error, 'Could not save your answer.') }
+        return {
+          ok: false,
+          error: message(error, 'Could not save your answer.'),
+        }
       }
     },
     async dismiss(request) {
@@ -128,13 +139,22 @@ export function createHttpSponsoredSurveyClient(
 export function isSponsoredAnswerReady(
   question: SponsoredSurveyWireQuestion,
   optionIds: readonly string[],
+  textAnswer?: string,
 ): boolean {
-  if (optionIds.length === 0) return false
-  if (question.kind === 'single') return optionIds.length === 1
-  const exclusive = new Set(
-    question.options.filter((o) => o.exclusive).map((o) => o.id),
-  )
-  return optionIds.length === 1 || !optionIds.some((id) => exclusive.has(id))
+  return isValidSponsoredSurveyAnswer(question, optionIds, textAnswer)
+}
+
+export function moveSponsoredRanking(
+  optionIds: readonly string[],
+  index: number,
+  direction: -1 | 1,
+): string[] {
+  const next = [...optionIds]
+  const to = index + direction
+  if (index < 0 || index >= next.length || to < 0 || to >= next.length)
+    return next
+  ;[next[index], next[to]] = [next[to]!, next[index]!]
+  return next
 }
 
 /** Toggle `optionId` in a multi-choice selection; an exclusive option clears
@@ -145,7 +165,8 @@ export function toggleSponsoredOption(
   optionId: string,
 ): string[] {
   if (question.kind === 'single') return [optionId]
-  if (selected.includes(optionId)) return selected.filter((id) => id !== optionId)
+  if (selected.includes(optionId))
+    return selected.filter((id) => id !== optionId)
   const option = question.options.find((o) => o.id === optionId)
   if (option?.exclusive) return [optionId]
   const exclusive = new Set(
@@ -182,6 +203,12 @@ export function createFakeSponsoredSurveyClient(
       requests.push(request)
       if (!offer || request.campaignId !== offer.campaignId)
         return { ok: false, error: 'not_offered' }
+      const question = offer.questions.find((q) => q.id === request.questionId)
+      if (
+        !question ||
+        !isSponsoredAnswerReady(question, request.optionIds, request.textAnswer)
+      )
+        return { ok: false, error: 'invalid_answer' }
       answered.add(request.questionId)
       return answered.size >= offer.questions.length
         ? {
