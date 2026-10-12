@@ -712,3 +712,39 @@ describe('wave 2 collector helpers', () => {
     expect(gpuVendorOf('0x5143')).toBe('qualcomm')
   })
 })
+
+describe('Android fields', () => {
+  test('a full android block parses', () => {
+    const android = {
+      powerSave: false,
+      charging: true,
+      battery: '50-80',
+      dataSaver: false,
+      metered: true,
+      orientation: 'portrait',
+      windowClass: 'compact',
+      multiWindow: false,
+      keyboard: true,
+      hardwareKeyboard: false,
+      entry: 'notification',
+      installSource: 'play',
+      standby: 'active',
+      notifications: true,
+      lowRam: false,
+      fontScale: '1',
+    }
+    expect(parseAdClientContext({ v: 1, android })?.android).toEqual(android)
+  })
+
+  test('an unknown android value drops the whole context', () => {
+    expect(parseAdClientContext({ v: 1, android: { entry: 'widget' } })).toBeUndefined()
+  })
+
+  test('landing parses and is bounded', () => {
+    const base = { v: 1, impUrl: 'https://freebuff.com/api/ads/first-party/impression/x' }
+    const landing = { source: 'custom_tabs', loaded: true, loadMs: 800, maxScrollPct: 75, interacted: false, visibleMs: 30_000 }
+    expect(parseAdEngagement({ ...base, landing })?.landing).toEqual(landing)
+    expect(parseAdEngagement({ ...base, landing: { maxScrollPct: 101 } })).toBeUndefined()
+    expect(parseAdEngagement({ ...base, landing: { source: 'webview' } })).toBeUndefined()
+  })
+})

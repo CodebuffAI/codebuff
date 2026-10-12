@@ -19,6 +19,10 @@ import {
 
 import { AD_CAMPAIGN_STATUSES } from './freebuff-ads'
 import { IOS_AD_PLACEMENTS, IOS_AD_SURFACE } from '../ads/ios-placements'
+import {
+  ANDROID_AD_PLACEMENTS,
+  ANDROID_AD_SURFACE,
+} from '../ads/android-placements'
 
 import type { AdCampaignStatus } from './freebuff-ads'
 
@@ -263,6 +267,12 @@ const ORIGINAL_PLACEMENT_SLOTS = [
   ...IOS_AD_PLACEMENTS.map(({ id }) => ({
     id,
     surface: IOS_AD_SURFACE,
+    available: true,
+    format: 'inline' as const,
+  })),
+  ...ANDROID_AD_PLACEMENTS.map(({ id }) => ({
+    id,
+    surface: ANDROID_AD_SURFACE,
     available: true,
     format: 'inline' as const,
   })),

@@ -239,6 +239,24 @@ export const EDIT_RATIO_BUCKETS = ['<5%', '5-15%', '15-30%', '30%+'] as const
 /** rendered ad card size, CSS pixels */
 export const CARD_DIMENSION_BUCKETS = ['<120', '120-300', '300-600', '600+'] as const
 
+// Android. Only values the app reads without a runtime permission, and never one that names the device: no
+// advertising id, installed-app list, usage stats, location, sensors or accessibility state
+// (docs/freebuff-android.md, "Ad signals").
+export const BATTERY_BUCKETS = ['<15', '15-50', '50-80', '80+'] as const
+export const ORIENTATIONS = ['portrait', 'landscape'] as const
+/** Material window size class of the app window, by width */
+export const WINDOW_CLASSES = ['compact', 'medium', 'expanded'] as const
+/** what brought the app to the foreground for this session */
+export const ANDROID_ENTRIES = ['launcher', 'notification', 'share', 'deep_link', 'recents', 'other'] as const
+/** who installed the app (`PackageManager.getInstallSourceInfo`), classified; never the raw package name */
+export const INSTALL_SOURCES = ['play', 'other_store', 'sideload', 'unknown'] as const
+/** `UsageStatsManager.getAppStandbyBucket()` for our own app: how engaged the OS thinks the user is with Freebuff */
+export const STANDBY_BUCKETS = ['active', 'working_set', 'frequent', 'rare', 'restricted', 'other'] as const
+export const FONT_SCALE_BUCKETS = ['<1', '1', '1-1.3', '1.3+'] as const
+
+/** Where a post-click landing measurement came from. */
+export const LANDING_SOURCES = ['custom_tabs'] as const
+
 /**
  * Developer-tool vendors whose adoption after a click is recorded (`postClick.packageInstalled` / `mcpAdded`). A
  * package or MCP server outside this list is never reported, only whether it matched the clicked ad's vendor.
@@ -450,6 +468,31 @@ export const adClientContextSchema = z.object({
     })
     .partial()
     .optional(),
+  /** Android app only. Device-wide facts reuse `sys`, `net`, `ui`, `app` and `attn`; these have no other home. */
+  android: z
+    .object({
+      powerSave: z.boolean(),
+      charging: z.boolean(),
+      battery: z.enum(BATTERY_BUCKETS),
+      /** Data Saver restricts this app's background data */
+      dataSaver: z.boolean(),
+      metered: z.boolean(),
+      orientation: z.enum(ORIENTATIONS),
+      windowClass: z.enum(WINDOW_CLASSES),
+      /** split screen, freeform or picture-in-picture */
+      multiWindow: z.boolean(),
+      /** the soft keyboard is showing, which covers the lower part of the transcript */
+      keyboard: z.boolean(),
+      hardwareKeyboard: z.boolean(),
+      entry: z.enum(ANDROID_ENTRIES),
+      installSource: z.enum(INSTALL_SOURCES),
+      standby: z.enum(STANDBY_BUCKETS),
+      notifications: z.boolean(),
+      lowRam: z.boolean(),
+      fontScale: z.enum(FONT_SCALE_BUCKETS),
+    })
+    .partial()
+    .optional(),
   /** web only */
   web: z
     .object({
@@ -529,6 +572,29 @@ export const adEngagementSchema = z.object({
       region: z.enum(CLICK_REGIONS),
       modifier: z.boolean(),
       count: count,
+    })
+    .partial()
+    .optional(),
+  /**
+   * What happened on the advertiser's page after the click, as the in-app browser reports it (Android Custom Tabs
+   * navigation and engagement callbacks). Scroll depth and interaction only, never page content or URLs. Its own key
+   * rather than part of `postClick`, so the EEA/UK consent rule can drop it whole.
+   */
+  landing: z
+    .object({
+      source: z.enum(LANDING_SOURCES),
+      /** the page finished loading */
+      loaded: z.boolean(),
+      /** the page failed to load */
+      failed: z.boolean(),
+      /** ms from the click until the page finished loading */
+      loadMs: ms,
+      /** deepest scroll reached, percent of the page */
+      maxScrollPct: z.number().int().min(0).max(100),
+      /** the user tapped or typed on the page */
+      interacted: z.boolean(),
+      /** ms the page was open before the user left it */
+      visibleMs: ms,
     })
     .partial()
     .optional(),
