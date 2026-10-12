@@ -1,17 +1,9 @@
 /**
- * Stable salt for request sampling: the per-request draw that admits a Tier-2
- * request to non-billable bonus inventory (`firstPartyAdRouteForGeoRequest`).
- */
-export const FIRST_PARTY_ROUTING_EXPERIMENT =
-  'ads_first_party_before_paid_networks_2026_08'
-
-/**
  * An absent runtime knob is a dark deploy: a missing Infisical value must not
  * open first-party inventory.
  */
 export const DEFAULT_FIRST_PARTY_BACKFILL = false
 export const DEFAULT_FIRST_PARTY_GEO_ROUTING = false
-export const DEFAULT_FIRST_PARTY_TIER2_BONUS_PERCENT = 0
 /**
  * The house leg (COD-358) is a dark deploy too: absent means the house
  * campaigns keep their legacy single door behind the paid rotation.
@@ -28,12 +20,10 @@ export type FirstPartyAdGeoTier = 'tier1' | 'tier2' | 'unknown'
 /**
  * Gravity sees every ordinary request first (the exclusivity contract,
  * `common/src/util/ad-provider-policy.ts`), so no route puts our book ahead of
- * it. `first_party_primary` survives only in historical rows and DB checks.
+ * it. `first_party_primary` and the retired Tier-2 bonus route
+ * (`paid_networks_then_first_party_bonus`) survive only in historical rows.
  */
-export type FirstPartyAdRoute =
-  | 'paid_network_only'
-  | 'gravity_then_first_party'
-  | 'paid_networks_then_first_party_bonus'
+export type FirstPartyAdRoute = 'paid_network_only' | 'gravity_then_first_party'
 
 export interface FirstPartyRoutingConfig {
   /** Whether a released Gravity no-fill is backfilled from our book. */
@@ -43,25 +33,6 @@ export interface FirstPartyRoutingConfig {
 export interface FirstPartyGeoRoutingConfig extends FirstPartyRoutingConfig {
   /** Dark-deploy gate. Off preserves the pre-geo routing policy exactly. */
   geoRouting: boolean
-  /** Share of terminal Tier-2 paid no-fills offered non-billable inventory. */
-  tier2BonusPercent: number
-}
-
-/**
- * Normalize a percentage knob to the 10,000-bucket precision of
- * {@link firstPartyPrimaryBucket}. A non-finite value reads as 0.
- */
-export function firstPartyPrimaryBasisPoints(primaryPercent: number): number {
-  const configuredPercent = Number.isFinite(primaryPercent) ? primaryPercent : 0
-  return Math.round(Math.min(100, Math.max(0, configuredPercent)) * 100)
-}
-
-/**
- * Map one server-minted request sample to the 10,000-bucket space the Tier-2
- * bonus share is drawn in.
- */
-export function firstPartyPrimaryBucket(sampleId: string): number {
-  return fnv1a(`${FIRST_PARTY_ROUTING_EXPERIMENT}:${sampleId}`) % 10_000
 }
 
 /**
@@ -214,8 +185,8 @@ export function firstPartyAdRouteForUser(
  * Whether the HOUSE leg may run on this request (COD-358).
  *
  * The house campaigns are our own promotion: they bill nobody, so none of
- * the sampled windows above apply to them. The leg follows paid no-fill, ahead
- * of bonus inventory, on Tier 1 AND Tier 2. Unknown geography stays closed
+ * the paid routes apply to them. The leg follows paid no-fill, on Tier 1 AND
+ * Tier 2. Unknown geography stays closed
  * while geo routing is on: a missing or untrusted signal never
  * opens inventory. With geo routing off there is no tier, and the knob alone
  * decides.
@@ -240,34 +211,20 @@ export function houseLegOpen(
  * Apply the geo-aware policy.
  *
  * - Tier 1 keeps the configured backfill policy.
- * - Tier 2 never preempts a paid provider. Once the caller proves that every
- *   paid provider available on that surface has declined, a sampled request
- *   may receive explicitly non-billable bonus inventory.
- * - Unknown geography stays on paid networks only.
+ * - Tier 2 and unknown geography stay on paid networks. Tier 2's own paid CPC
+ *   leg and the house leg are decided by the caller, not by this route. The
+ *   free Tier-2 bonus was removed on 2026-10-11.
  */
 export function firstPartyAdRouteForGeoRequest(
   userId: string | null | undefined,
   config: FirstPartyGeoRoutingConfig,
-  context: {
-    geoTier: FirstPartyAdGeoTier
-    terminalPaidFallback: boolean
-  },
-  sampleId?: string,
+  geoTier: FirstPartyAdGeoTier,
 ): FirstPartyAdRoute {
   if (!config.geoRouting) {
     return firstPartyAdRouteForUser(userId, config)
   }
-  if (!userId) return 'paid_network_only'
-  if (context.geoTier === 'tier1') {
+  if (geoTier === 'tier1') {
     return firstPartyAdRouteForUser(userId, config)
-  }
-  if (
-    context.geoTier === 'tier2' &&
-    context.terminalPaidFallback &&
-    firstPartyPrimaryBucket(sampleId || userId) <
-      firstPartyPrimaryBasisPoints(config.tier2BonusPercent)
-  ) {
-    return 'paid_networks_then_first_party_bonus'
   }
   return 'paid_network_only'
 }

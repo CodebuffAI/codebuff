@@ -4,8 +4,6 @@ import {
   DEFAULT_FIRST_PARTY_BACKFILL,
   firstPartyAdRouteForUser,
   firstPartyAdRouteForGeoRequest,
-  firstPartyPrimaryBucket,
-  firstPartyPrimaryBasisPoints,
   houseLegOpen,
   houseSubscriptionBillingArmForUser,
   parseHouseSubscriptionBillingExperimentMode,
@@ -35,15 +33,6 @@ describe('house subscription billing experiment', () => {
 })
 
 describe('first-party request routing', () => {
-  test('normalizes decimal percentages to whole basis points', () => {
-    expect(firstPartyPrimaryBasisPoints(0)).toBe(0)
-    expect(firstPartyPrimaryBasisPoints(2.5)).toBe(250)
-    expect(firstPartyPrimaryBasisPoints(100)).toBe(10_000)
-    expect(firstPartyPrimaryBasisPoints(Number.NaN)).toBe(0)
-    expect(firstPartyPrimaryBasisPoints(-5)).toBe(0)
-    expect(firstPartyPrimaryBasisPoints(500)).toBe(10_000)
-  })
-
   test('keeps an absent runtime configuration on the paid-network-only path', () => {
     expect(DEFAULT_FIRST_PARTY_BACKFILL).toBe(false)
     expect(
@@ -77,94 +66,28 @@ describe('first-party request routing', () => {
     expect(
       firstPartyAdRouteForGeoRequest(
         'user',
-        {
-          backfill: true,
-          geoRouting: true,
-          tier2BonusPercent: 100,
-        },
-        {
-          geoTier: 'tier1',
-          terminalPaidFallback: false,
-        },
-        'sample',
+        { backfill: true, geoRouting: true },
+        'tier1',
       ),
     ).toBe('gravity_then_first_party')
   })
 
-  test('Tier 2 bonus inventory waits for terminal paid no-fill and unknown geo fails closed', () => {
-    const config = {
-      backfill: true,
-      geoRouting: true,
-      tier2BonusPercent: 100,
-    }
-    expect(
-      firstPartyAdRouteForGeoRequest(
-        'user',
-        config,
-        {
-          geoTier: 'tier2',
-          terminalPaidFallback: false,
-        },
-        'sample',
-      ),
-    ).toBe('paid_network_only')
-    expect(
-      firstPartyAdRouteForGeoRequest(
-        'user',
-        config,
-        {
-          geoTier: 'tier2',
-          terminalPaidFallback: true,
-        },
-        'sample',
-      ),
-    ).toBe('paid_networks_then_first_party_bonus')
-    expect(
-      firstPartyAdRouteForGeoRequest(
-        'user',
-        config,
-        {
-          geoTier: 'unknown',
-          terminalPaidFallback: true,
-        },
-        'sample',
-      ),
-    ).toBe('paid_network_only')
-  })
-
-  test('the Tier 2 bonus share samples requests in the shared bucket space', () => {
-    const config = { backfill: true, geoRouting: true, tier2BonusPercent: 2 }
-    for (let index = 0; index < 10_000; index++) {
-      const sampleId = `shared-sample-${index}`
-      expect(
-        firstPartyAdRouteForGeoRequest(
-          'user',
-          config,
-          { geoTier: 'tier2', terminalPaidFallback: true },
-          sampleId,
-        ),
-      ).toBe(
-        firstPartyPrimaryBucket(sampleId) < 200
-          ? 'paid_networks_then_first_party_bonus'
-          : 'paid_network_only',
-      )
-    }
+  test('Tier 2 and unknown geo stay on paid networks: there is no bonus route', () => {
+    const config = { backfill: true, geoRouting: true }
+    expect(firstPartyAdRouteForGeoRequest('user', config, 'tier2')).toBe(
+      'paid_network_only',
+    )
+    expect(firstPartyAdRouteForGeoRequest('user', config, 'unknown')).toBe(
+      'paid_network_only',
+    )
   })
 
   test('geo gate off preserves the legacy global policy', () => {
     expect(
       firstPartyAdRouteForGeoRequest(
         'user',
-        {
-          backfill: true,
-          geoRouting: false,
-          tier2BonusPercent: 100,
-        },
-        {
-          geoTier: 'unknown',
-          terminalPaidFallback: false,
-        },
-        'sample',
+        { backfill: true, geoRouting: false },
+        'unknown',
       ),
     ).toBe('gravity_then_first_party')
   })

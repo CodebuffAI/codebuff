@@ -456,7 +456,6 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   first_party_inventory_geo_tier: 'string',
   first_party_geo_source: 'string',
   first_party_country_code: 'string',
-  first_party_tier2_bonus_percent: 'number',
   /** Effective runtime money gates, emitted as bounded configuration state.
    * These are not campaign pricing or advertiser identifiers. */
   first_party_billing_mode: 'string',
