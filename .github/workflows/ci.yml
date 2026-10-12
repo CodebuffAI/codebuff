@@ -62,6 +62,15 @@ jobs:
           grep -q 'HOST_RULE_CANARY' /tmp/negative-control.log
 
       - name: Build Freebuff binary
+        env:
+          NEXT_PUBLIC_CB_ENVIRONMENT: prod
+          NEXT_PUBLIC_CODEBUFF_APP_URL: https://codebuff.com
+          NEXT_PUBLIC_SUPPORT_EMAIL: support@freebuff.com
+          NEXT_PUBLIC_POSTHOG_API_KEY: phc_public_placeholder
+          NEXT_PUBLIC_POSTHOG_HOST_URL: https://us.i.posthog.com
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+          NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: https://billing.stripe.com/p/login/test
+          NEXT_PUBLIC_WEB_PORT: '3000'
         run: bun freebuff/cli/build.ts 0.0.0-ci
 
       - name: Smoke test Freebuff binary
@@ -80,6 +89,7 @@ jobs:
           bun cli/scripts/smoke-binary.ts cli/bin/freebuff
 
       - name: Upload exact-head Linux prerelease (not a release)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: freebuff-linux-${{ github.sha }}
