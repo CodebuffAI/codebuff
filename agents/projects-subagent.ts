@@ -2,6 +2,7 @@ import {
   FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS,
   FREEBUFF_PROJECTS_SUBAGENT_ID,
 } from '@codebuff/common/constants/free-agents'
+import { MAX_LIVE_SUBAGENTS_PER_ROOT } from '@codebuff/common/tools/params/tool/spawn-agents'
 
 import { publisher } from './constants'
 
@@ -20,9 +21,13 @@ import type { SecretAgentDefinition } from './types/secret-agent-definition'
  * a prefix-cached provider, and the session gate accepts it because the model
  * is the session's own.
  *
- * At most FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS run at once under one root
- * (the agent runtime's spawn_agents handler), and every spawn_agents call is
- * held to MAX_SPAWN_AGENTS_PER_CALL. Every agent also has its step budget, and
+ * At most FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS run at once under one root,
+ * nested ones included (the agent runtime's spawn_agents handler). The helpers
+ * one of them spawns (file-picker and its file-lister, code-searcher,
+ * researcher-web) count against that subagent's own MAX_LIVE_SUBAGENTS_PER_ROOT,
+ * apart from the root's and its siblings', so they neither starve nor are
+ * starved by the rest of the tree. Every spawn_agents call is held to
+ * MAX_SPAWN_AGENTS_PER_CALL. Every agent also has its step budget, and
  * the server refuses a run more than MAX_ANCESTOR_RUN_IDS (32) levels deep
  * (web/src/app/api/v1/agent-runs/_post.ts).
  */
@@ -41,7 +46,7 @@ export function createProjectsSubagent(options: {
     model: options.model,
     displayName: 'Buffy Subagent',
     spawnerPrompt:
-      `A full coding agent that takes one piece of the current task and works it to the end in parallel with any siblings: it reads, edits, runs commands and tests, and can spawn subagents of its own. It sees this whole conversation and inherits your system prompt, so brief it rather than re-explaining. At most ${FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS} may run at once in a session. Its last message is its report.`,
+      `A full coding agent that takes one piece of the current task and works it to the end in parallel with any siblings: it reads, edits, runs commands and tests, and can spawn subagents of its own. It sees this whole conversation and inherits your system prompt, so brief it rather than re-explaining. At most ${FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS} may run at once in a session, counting the ones they spawn of themselves; the helpers each one spawns count against its own limit of ${MAX_LIVE_SUBAGENTS_PER_ROOT}, not yours. Its last message is its report.`,
     inputSchema: {
       prompt: {
         type: 'string',

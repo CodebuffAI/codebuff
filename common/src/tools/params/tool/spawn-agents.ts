@@ -21,6 +21,17 @@ export const spawnAgentsOutputSchema = z
  *  bigger batch with the same number, so bypassing this schema changes nothing. */
 export const MAX_SPAWN_AGENTS_PER_CALL = 6
 
+/** Most subagents of any type one root run may have running at once, nested
+ *  ones included. Each spawn_agents call is held to MAX_SPAWN_AGENTS_PER_CALL
+ *  on its own, which nesting multiplies (6 agents each spawning 6 is 42 live);
+ *  the runtime handler refuses a spawn past this total. An agent counts until
+ *  it reports, so a parent waiting on its children keeps its slot too (a
+ *  file-picker and its file-lister take two). Freebuff Projects subagents keep
+ *  their own count (FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS), and each one gets
+ *  this same allowance for its own helpers and their spawns, apart from the
+ *  root's. */
+export const MAX_LIVE_SUBAGENTS_PER_ROOT = 20
+
 const toolName = 'spawn_agents'
 const endsAgentStep = true
 const inputSchema = z

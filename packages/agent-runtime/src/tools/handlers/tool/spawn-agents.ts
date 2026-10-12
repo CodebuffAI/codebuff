@@ -2,8 +2,14 @@ import {
   FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS,
   FREEBUFF_PROJECTS_SUBAGENT_ID,
 } from '@codebuff/common/constants/free-agents'
-import { MAX_SPAWN_AGENTS_PER_CALL } from '@codebuff/common/tools/params/tool/spawn-agents'
-import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
+import {
+  MAX_LIVE_SUBAGENTS_PER_ROOT,
+  MAX_SPAWN_AGENTS_PER_CALL,
+} from '@codebuff/common/tools/params/tool/spawn-agents'
+import {
+  normalizeAgentIdForLookup,
+  parseAgentId,
+} from '@codebuff/common/util/agent-id-parsing'
 import { jsonToolResult } from '@codebuff/common/util/messages'
 
 import { outputForParent } from '../../../util/agent-output'
@@ -39,28 +45,57 @@ export type SendSubagentChunk = (data: {
 
 type ToolName = 'spawn_agents'
 
-/** Agent types capped by how many may run at once under one root run, nested
- *  spawns included. */
-const MAX_LIVE_PER_ROOT: Readonly<Record<string, number>> = {
-  [FREEBUFF_PROJECTS_SUBAGENT_ID]: FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS,
-}
+const bareAgentType = (agentType: string): string =>
+  parseAgentId(normalizeAgentIdForLookup(agentType)).agentId ?? agentType
 
-/** Live capped agents, keyed by root run and agent type. Every agent of one
- *  run tree spawns in this process, so a process-local count sees them all. */
+/** Live capped agents, keyed by scope and bucket. Every agent of one run tree
+ *  spawns in this process, so a process-local count sees them all. */
 const liveCappedAgents = new Map<string, number>()
 
-function liveCapKey(parent: AgentState, agentTypeStr: string): string | null {
-  const bare = parseAgentId(agentTypeStr).agentId ?? agentTypeStr
-  if (MAX_LIVE_PER_ROOT[bare] === undefined) return null
-  const root = parent.ancestorRunIds[0] ?? parent.runId ?? parent.agentId
-  return `${root}\u0000${bare}`
+/** Live agents below a Projects subagent, mapped to that subagent's agentId. */
+const projectsScopeOf = new Map<string, string>()
+
+type LiveBucket = {
+  key: string
+  cap: number
+  label: string
+  /** The Projects subagent whose helpers this spawn counts against, if any. */
+  projectsScope?: string
 }
 
-/** Takes a slot for a capped agent type; false when the root is at its cap. */
-function reserveLiveSlot(key: string, agentTypeStr: string): boolean {
-  const bare = parseAgentId(agentTypeStr).agentId ?? agentTypeStr
+/** Projects subagents share one count per root run. Every other agent counts
+ *  in its nearest Projects subagent's own MAX_LIVE_SUBAGENTS_PER_ROOT when it
+ *  runs below one, and in the root's otherwise, so a Projects subagent's
+ *  helpers neither consume nor are starved by the rest of the tree. Helpers
+ *  spawn no Projects subagents, so one root run holds at most
+ *  MAX_LIVE_SUBAGENTS_PER_ROOT + FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS *
+ *  (1 + MAX_LIVE_SUBAGENTS_PER_ROOT) live subagents. */
+function liveBucket(parent: AgentState, agentTypeStr: string): LiveBucket {
+  const root = parent.ancestorRunIds[0] ?? parent.runId ?? parent.agentId
+  if (bareAgentType(agentTypeStr) === FREEBUFF_PROJECTS_SUBAGENT_ID) {
+    return {
+      key: `${root}\u0000${FREEBUFF_PROJECTS_SUBAGENT_ID}`,
+      cap: FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS,
+      label: FREEBUFF_PROJECTS_SUBAGENT_ID,
+    }
+  }
+  const projectsScope =
+    parent.agentType &&
+    bareAgentType(parent.agentType) === FREEBUFF_PROJECTS_SUBAGENT_ID
+      ? parent.agentId
+      : projectsScopeOf.get(parent.agentId)
+  return {
+    key: `${projectsScope ?? root}\u0000subagents`,
+    cap: MAX_LIVE_SUBAGENTS_PER_ROOT,
+    label: 'subagents',
+    projectsScope,
+  }
+}
+
+/** Takes a slot; false when the bucket is at its cap. */
+function reserveLiveSlot({ key, cap }: LiveBucket): boolean {
   const live = liveCappedAgents.get(key) ?? 0
-  if (live >= MAX_LIVE_PER_ROOT[bare]!) return false
+  if (live >= cap) return false
   liveCappedAgents.set(key, live + 1)
   return true
 }
@@ -71,9 +106,9 @@ function releaseLiveSlot(key: string): void {
   else liveCappedAgents.set(key, live)
 }
 
-/** Test seam: how many capped agents are live under a root. */
+/** Test seam: how many capped agents are live, and scope entries held. */
 export function liveCappedAgentCountForTests(): number {
-  let total = 0
+  let total = projectsScopeOf.size
   for (const n of liveCappedAgents.values()) total += n
   return total
 }
@@ -151,13 +186,13 @@ export const handleSpawnAgents = (async (
       async ({ agent_type: agentTypeStr, prompt, params: spawnParams }) => {
         // Reserved before the first await, so the agents of one batch and of
         // concurrent batches all count against the cap in order.
-        const capKey = liveCapKey(parentAgentState, agentTypeStr)
-        if (capKey && !reserveLiveSlot(capKey, agentTypeStr)) {
-          const bare = parseAgentId(agentTypeStr).agentId ?? agentTypeStr
+        const bucket = liveBucket(parentAgentState, agentTypeStr)
+        if (!reserveLiveSlot(bucket)) {
           throw new Error(
-            `at most ${MAX_LIVE_PER_ROOT[bare]} ${bare} may run at once in this session. Wait for running ones to report, then spawn again.`,
+            `at most ${bucket.cap} ${bucket.label} may run at once here and that many are already running. Do not retry this spawn: do the remaining work yourself, or report what you have.`,
           )
         }
+        let childAgentId: string | undefined
         try {
           const { agentTemplate, agentType } =
             await validateAndGetAgentTemplate({
@@ -178,6 +213,10 @@ export const handleSpawnAgents = (async (
               currentAssistantMessages,
             },
           )
+          if (bucket.projectsScope) {
+            childAgentId = subAgentState.agentId
+            projectsScopeOf.set(childAgentId, bucket.projectsScope)
+          }
 
           // Extract common context params to avoid bugs from spreading all params
           const contextParams = extractSubagentContextParams(params)
@@ -266,7 +305,8 @@ export const handleSpawnAgents = (async (
           })
           return { ...result, agentType, agentName: agentTemplate.displayName }
         } finally {
-          if (capKey) releaseLiveSlot(capKey)
+          if (childAgentId) projectsScopeOf.delete(childAgentId)
+          releaseLiveSlot(bucket.key)
         }
       },
     ),
