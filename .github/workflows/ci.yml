@@ -42,6 +42,7 @@ jobs:
 
       - name: Additive instruction regression tests
         run: |
+          FREEBUFF_MODE=true bun --cwd cli run scripts/prebuild-agents.ts
           bun test sdk/src/__tests__/append-instructions.test.ts cli/src/utils/append-instructions.test.ts
           bun test cli/src/utils/append-instructions-admission.test.ts
 
@@ -50,6 +51,7 @@ jobs:
           cp sdk/src/run.ts /tmp/patched-run.ts
           git show 80c2f596b5af1a331fb2904f392a8d77485eb4f2:sdk/src/run.ts > sdk/src/run.ts
           set +e
+          FREEBUFF_MODE=true bun --cwd cli run scripts/prebuild-agents.ts
           bun test sdk/src/__tests__/append-instructions.test.ts > /tmp/negative-control.log 2>&1
           result=$?
           set -e
