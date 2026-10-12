@@ -48,6 +48,7 @@ jobs:
 
       - name: Stock-source negative control for SDK composition
         run: |
+          git fetch --depth=1 origin 80c2f596b5af1a331fb2904f392a8d77485eb4f2
           cp sdk/src/run.ts /tmp/patched-run.ts
           git show 80c2f596b5af1a331fb2904f392a8d77485eb4f2:sdk/src/run.ts > sdk/src/run.ts
           set +e
@@ -82,7 +83,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: freebuff-linux-${{ github.sha }}
-          path: cli/bin/freebuff
+          path: |
+            cli/bin/freebuff
+            cli/bin/tree-sitter.wasm
           retention-days: 7
 
       - name: Preserve declaration-build failure
