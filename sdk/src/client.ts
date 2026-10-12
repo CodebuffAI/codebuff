@@ -67,7 +67,8 @@ export class CodebuffClient {
       // An omitted/undefined per-call config inherits the client snapshot.
       // run() enforces the history pin unless the host explicitly authorizes a switch.
       byok: options.byok ?? this.options.byok,
-      appendInstructions: options.appendInstructions ?? this.options.appendInstructions,
+      appendInstructions: options.appendInstructions === undefined
+        ? this.options.appendInstructions : options.appendInstructions,
     })
   }
 

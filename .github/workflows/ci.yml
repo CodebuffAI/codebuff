@@ -45,6 +45,19 @@ jobs:
           bun test sdk/src/__tests__/append-instructions.test.ts cli/src/utils/append-instructions.test.ts
           bun test cli/src/utils/append-instructions-admission.test.ts
 
+      - name: Stock-source negative control for SDK composition
+        run: |
+          cp sdk/src/run.ts /tmp/patched-run.ts
+          git show 80c2f596b5af1a331fb2904f392a8d77485eb4f2:sdk/src/run.ts > sdk/src/run.ts
+          set +e
+          bun test sdk/src/__tests__/append-instructions.test.ts > /tmp/negative-control.log 2>&1
+          result=$?
+          set -e
+          cp /tmp/patched-run.ts sdk/src/run.ts
+          cat /tmp/negative-control.log
+          test "$result" -ne 0
+          grep -q 'HOST_RULE_CANARY' /tmp/negative-control.log
+
       - name: Build Freebuff binary
         run: bun freebuff/cli/build.ts 0.0.0-ci
 
