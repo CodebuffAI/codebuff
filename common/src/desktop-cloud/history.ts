@@ -5,6 +5,11 @@ export type CloudHistoryProject = {
   name: string
   createdAt: string
   github?: import('./github').GitHubRepository | null
+  /**
+   * When the user removed it from their project list, or null. A removed project is left out of
+   * `listProjects` until someone prompts in it again. Absent from older servers.
+   */
+  removedAt?: string | null
 }
 export type CloudHistoryRun = {
   id: string
@@ -47,10 +52,13 @@ export type CloudHistoryChatUpdate = {
   title?: string
   archived?: boolean
 }
-/** Last write wins: a project name has no revision to compare. */
-export type CloudHistoryProjectUpdate = {
-  name: string
-}
+/**
+ * Last write wins: a project name has no revision to compare. Removing keeps its chats and files;
+ * `removed: false` puts it back in the list.
+ */
+export type CloudHistoryProjectUpdate =
+  | { name: string; removed?: boolean }
+  | { name?: string; removed: boolean }
 /**
  * A server-internal run event marking that the run's SDK traces are stored in
  * R2 rather than as `trace` events. Never returned by the history API or the
