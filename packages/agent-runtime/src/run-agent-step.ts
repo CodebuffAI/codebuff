@@ -1083,6 +1083,7 @@ export async function loopAgentSteps(
 
   const offersProjectProfile = shouldOfferProjectProfileTool({
     costMode: params.costMode,
+    agentId: agentTemplate.id,
     isRoot: !initialAgentState.parentId,
     toolNames: agentTemplate.toolNames,
     getProjectProfile: params.getProjectProfile,

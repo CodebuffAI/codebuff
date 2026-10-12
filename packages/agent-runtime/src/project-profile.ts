@@ -1,8 +1,10 @@
+import { FREEBUFF_WORKSPACE_PROFILER_AGENT_ID } from '@codebuff/common/constants/free-agents'
 import {
   buildProjectProfileRequest,
   PROJECT_PROFILE_TOOL_NAME,
 } from '@codebuff/common/constants/project-profile'
 import { toolParams } from '@codebuff/common/tools/list'
+import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { userMessage } from '@codebuff/common/util/messages'
 
@@ -19,6 +21,7 @@ export const PROJECT_PROFILE_REPORT_TIMEOUT_MS = 90_000
 
 export function shouldOfferProjectProfileTool(params: {
   costMode: string | undefined
+  agentId: string
   isRoot: boolean
   toolNames: readonly string[]
   getProjectProfile: GetProjectProfileFn | undefined
@@ -27,6 +30,11 @@ export function shouldOfferProjectProfileTool(params: {
   return (
     params.costMode === 'free' &&
     params.isRoot &&
+    // The workspace profiler reports its own, fuller profile, and the
+    // completions route holds it to its fixed tool set, which this tool is
+    // not in.
+    parseAgentId(params.agentId).agentId !==
+      FREEBUFF_WORKSPACE_PROFILER_AGENT_ID &&
     params.toolNames.includes('read_files') &&
     params.getProjectProfile !== undefined &&
     params.reportProjectProfile !== undefined

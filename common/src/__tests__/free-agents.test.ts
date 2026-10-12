@@ -30,6 +30,7 @@ import {
   FREEBUFF_DESKTOP_AUTORUN_AGENT_ID,
   FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
   FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL,
+  FREEBUFF_WORKSPACE_PROFILER_AGENT_ID,
   FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL,
   FREE_MODE_AGENT_MODELS,
   FREE_TIER_AGENT_MODELS,
@@ -799,6 +800,8 @@ describe('every freebuff root agent declares a prompt opening', () => {
   const CLOUD_PLANNER = 'You are Buffy, the Freebuff Cloud project planner.'
   const DESKTOP_AUTORUN =
     'You are Buffy, the auto-run agent behind Freebuff Desktop.'
+  const WORKSPACE_PROFILER =
+    'You are Buffy, the workspace profiler behind Freebuff.'
 
   /** Root agent id → the opening its system prompt starts with. */
   const PROMPT_FAMILY: Record<string, string> = {
@@ -897,6 +900,9 @@ describe('every freebuff root agent declares a prompt opening', () => {
     // onto base3's: base3 tells the model it is the coding agent, and this one
     // exists to say it is not.
     [FREEBUFF_DESKTOP_AUTORUN_AGENT_ID]: DESKTOP_AUTORUN,
+    // The workspace profiler (common/src/workspace-profile/agent.ts) is not a
+    // coding agent either, and says so first.
+    [FREEBUFF_WORKSPACE_PROFILER_AGENT_ID]: WORKSPACE_PROFILER,
   }
 
   test('no root agent is missing from the prompt-family map', () => {

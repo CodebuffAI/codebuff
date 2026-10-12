@@ -28,6 +28,7 @@ function streamOf(chunks: StreamChunk[]) {
 describe('shouldOfferProjectProfileTool', () => {
   const base = {
     costMode: 'free',
+    agentId: 'base3-free-deepseek-flash',
     isRoot: true,
     toolNames: ['read_files', 'write_file'],
     getProjectProfile: async () => null,
@@ -51,6 +52,15 @@ describe('shouldOfferProjectProfileTool', () => {
     expect(
       shouldOfferProjectProfileTool({ ...base, getProjectProfile: undefined }),
     ).toBe(false)
+  })
+
+  test('skips the workspace profiler, which reports its own profile', () => {
+    for (const agentId of [
+      'freebuff-workspace-profiler',
+      'codebuff/freebuff-workspace-profiler@1.0.0',
+    ]) {
+      expect(shouldOfferProjectProfileTool({ ...base, agentId })).toBe(false)
+    }
   })
 })
 
