@@ -341,6 +341,42 @@ describe('direct BYOK SDK runs', () => {
     expect(requests).toBe(0)
   }, 30_000)
 
+  test.each(['missing-finish', 'empty', 'transport'])('reports repeated %s responses without blaming the user network', async (ending) => {
+    const requests: string[] = []
+    globalThis.fetch = (async (input) => {
+      requests.push(String(input))
+      if (ending === 'transport') {
+        return new Response(new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(Object.assign(new Error('provider-key-canary must not leak'), {
+              code: 'ECONNRESET',
+            }))
+          },
+        }), { headers: { 'content-type': 'text/event-stream' } })
+      }
+      // [DONE] alone is not a supported finish_reason, even when text arrived.
+      return ending === 'empty'
+        ? new Response('', { headers: { 'content-type': 'text/event-stream' } })
+        : sse({ choices: [{ delta: { content: 'Partial output.' }, finish_reason: null }] })
+    }) as typeof fetch
+    const client = new CodebuffClient({
+      agentDefinitions: [agent], byok: connection(), handleEvent: () => {},
+    })
+    const result = await client.run({ agent: agent.id, prompt: 'Fail safely on repeated incomplete responses.' })
+
+    expect(result.output.type).toBe('error')
+    if (result.output.type !== 'error') throw new Error('expected incomplete BYOK response error')
+    expect(result.output.message).toContain('could not confirm that the provider finished')
+    expect(result.output.message).toContain('connection problem or an incompatible provider response')
+    expect(result.output.message).toContain(ending === 'transport'
+      ? 'Last error: A connection-level error occurred'
+      : 'Last error: The provider response had no recognised completion status or token usage.')
+    expect(result.output.message).not.toContain('Please check your network connection')
+    expect(result.output.message).not.toContain('provider-key-canary')
+    expect(requests).toHaveLength(4)
+    expect(requests.every((url) => url === 'http://127.0.0.1:9876/v1/chat/completions')).toBe(true)
+  }, 30_000)
+
   test('returns a local cancellation result without provider or hosted fallback requests', async () => {
     const controller = new AbortController()
     controller.abort(new Error('Cancelled by user'))

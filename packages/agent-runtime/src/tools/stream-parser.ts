@@ -43,7 +43,8 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 /** History tags for the notes appended when a step's stream ends without a
  *  usable response and the loop auto-retries (see
  *  sdk/src/impl/stream-interruption.ts for detection): the connection was cut
- *  mid-response, or the model ended after reasoning without an answer. */
+ *  mid-response, completion metadata was missing, or the model ended after
+ *  reasoning without an answer. */
 export const STREAM_INTERRUPTED_TAG = 'STREAM_INTERRUPTED'
 export const OUTPUT_LIMIT_TAG = 'OUTPUT_LIMIT'
 /** The provider reported a retryable failure (5xx, 429) mid-stream. */
@@ -57,7 +58,7 @@ export const PROVIDER_ERROR_TAG = 'PROVIDER_ERROR'
 export const MAX_CONSECUTIVE_STREAM_RECOVERIES = 3
 
 export const REPEATED_STREAM_INTERRUPTIONS_MESSAGE =
-  'The connection kept dropping mid-response after several retries. Please check your network connection and try again.'
+  'Freebuff could not confirm that the provider finished its response after several retries. This can be a connection problem or an incompatible provider response. Check the provider settings or try a different model.'
 
 export const REPEATED_OUTPUT_LIMIT_MESSAGE =
   'The model kept ending after reasoning without producing a response. Try a simpler request or a different model.'

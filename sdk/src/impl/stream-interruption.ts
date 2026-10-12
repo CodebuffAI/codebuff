@@ -1,8 +1,8 @@
 /**
  * Classification of completion-stream endings that would otherwise silently
- * end the turn with nothing visible to the user. Two classes:
+ * end the turn with nothing visible to the user. Three classes:
  *
- * **'stream-interrupted'** — the connection was cut mid-response. A healthy
+ * **'stream-interrupted'** — no supported completion signal was received. A healthy
  * OpenAI-compatible SSE stream always ends with a chunk carrying a real
  * `finish_reason` (and, on our backend, usage totals) before `[DONE]`. When
  * the connection dies mid-stream — a server deploy killing the instance, a
@@ -13,8 +13,9 @@
  * proof: providers map any unrecognized `finish_reason` string to `'unknown'`
  * too. Usage disambiguates — it arrives in the stream's final chunk, so
  * `'unknown'` *with* usage means an odd but complete stream, while `'unknown'`
- * *without* usage means the tail was never received. A missing finish part
- * altogether is always an interruption.
+ * *without* usage means we cannot confirm completion. This can be a cut
+ * connection OR a provider that omits those fields, even before `[DONE]`.
+ * Missing completion metadata alone must not be described as a network error.
  *
  * **'output-limit'** — the model produced no text or tool calls because it
  * either spent its output budget on reasoning (`length`) or ended the stream
@@ -88,7 +89,7 @@ export interface StreamEndRecovery {
 const STREAM_INTERRUPTED_RECOVERY: StreamEndRecovery = {
   source: 'stream-interrupted',
   message:
-    'The connection dropped while the response was streaming, so the output above may be cut off mid-thought. Continue from where it left off (or start the step over if nothing useful arrived).',
+    'The response ended without a supported completion signal, so the output above may be incomplete. Continue from where it left off (or start the step over if nothing useful arrived).',
 }
 
 const OUTPUT_LIMIT_RECOVERY: StreamEndRecovery = {
@@ -128,7 +129,14 @@ export function classifyStreamEndRecovery(params: {
   const interrupted =
     finish === undefined ||
     (finish.finishReason === 'unknown' && !finish.hasUsage)
-  if (interrupted) return STREAM_INTERRUPTED_RECOVERY
+  if (interrupted) {
+    return {
+      ...STREAM_INTERRUPTED_RECOVERY,
+      detail: finish === undefined
+        ? 'No completion status was received from the provider.'
+        : 'The provider response had no recognised completion status or token usage.',
+    }
+  }
 
   if (yieldedText || yieldedToolCall) return null
 
@@ -154,7 +162,13 @@ export function classifyThrownStreamRecovery(params: {
   error: unknown
 }): StreamEndRecovery | null {
   if (params.aborted || !isTransientNetworkError(params.error)) return null
-  return STREAM_INTERRUPTED_RECOVERY
+  // Fixed observations only: transport errors can echo credentials and URLs.
+  return {
+    source: 'stream-interrupted',
+    message:
+      'A connection-level error interrupted the provider request, so the output above may be incomplete. Continue from where it left off (or start the step over if nothing useful arrived).',
+    detail: 'A connection-level error occurred while requesting or reading the provider response.',
+  }
 }
 
 /** Upper bound on any wait before a provider-error retry, whatever the

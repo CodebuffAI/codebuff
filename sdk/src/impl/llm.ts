@@ -441,8 +441,8 @@ export async function* promptAiSdkStream(
   let hasYieldedToolCall = false
 
   // A healthy stream always delivers a finish part with a real finishReason
-  // (and usage) before ending; its absence after the loop means the
-  // connection was cut mid-response. See stream-interruption.ts.
+  // (and usage) before ending; its absence after the loop can mean a cut
+  // connection or an incompatible provider stream. See stream-interruption.ts.
   let finishInfo: StreamFinishInfo | undefined
   // Bun/undici can throw when a response body is severed instead of ending the
   // iterator cleanly. Feed that through the same capped continuation path as a
