@@ -35,11 +35,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build SDK
+      - name: Build SDK (including declarations)
+        id: sdk
+        continue-on-error: true
         run: bun run build:sdk
 
       - name: Additive instruction regression tests
-        run: bun test sdk/src/__tests__/append-instructions.test.ts cli/src/utils/append-instructions.test.ts
+        run: |
+          bun test sdk/src/__tests__/append-instructions.test.ts cli/src/utils/append-instructions.test.ts
+          bun test cli/src/utils/append-instructions-admission.test.ts
 
       - name: Build Freebuff binary
         run: bun freebuff/cli/build.ts 0.0.0-ci
@@ -65,3 +69,7 @@ jobs:
           name: freebuff-linux-${{ github.sha }}
           path: cli/bin/freebuff
           retention-days: 7
+
+      - name: Preserve declaration-build failure
+        if: steps.sdk.outcome == 'failure'
+        run: exit 1
