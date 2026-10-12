@@ -29,12 +29,18 @@ export const AGENTIC_POOL_PLACEMENT_ID = 'Desktop-Agentic'
  */
 export const AGENTIC_POOL_CLIENT_VERSION = 1
 
-/** Starting price for new agentic campaigns. */
+/**
+ * Starting posted price for new agentic campaigns. An Accept is normally
+ * priced by budget pace instead (from $4, between $3 and $20; see "Paced
+ * click price" in `docs/ads/money/README.md`); the posted price is what an
+ * Accept costs when the campaign has no fresh pacing reading.
+ */
 export const DEFAULT_AGENTIC_CPC_CENTS = 300
 
 /**
  * What an agentic Accept from a TIER 2 request bills at most, in cents
- * (COD-665): `min(campaign cpc, this)`. Applied, frozen and charged only by
+ * (COD-665): `min(campaign cpc, this)`. Only an Accept priced at its posted
+ * CPC: a paced Accept pays the same price in every tier. Applied, frozen and charged only by
  * the agentic offer route (`freebuff/web/src/server/ads/agentic-pool.ts`,
  * which documents the rule); here so the advertiser console can name the
  * same figure when it explains why an effective CPC sits below the list CPC.
