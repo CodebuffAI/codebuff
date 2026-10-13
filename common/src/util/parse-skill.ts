@@ -4,6 +4,7 @@ import {
   type SkillDefinition,
 } from '../types/skill'
 import matter from 'gray-matter'
+import { parse as parseYaml } from 'yaml'
 
 /**
  * Parse and validate one SKILL.md document without touching disk.
@@ -80,7 +81,15 @@ const refuseEngine = (): never => {
 // in its module-level cache, which it does only when called without options.
 const MATTER_OPTIONS = {
   language: 'yaml',
-  engines: { javascript: refuseEngine, coffee: refuseEngine },
+  engines: {
+    javascript: refuseEngine,
+    coffee: refuseEngine,
+    // gray-matter's own YAML engine is js-yaml 3, whose merge-key handling
+    // can pollute Object.prototype, and a skill's frontmatter is
+    // user-controlled (AB827V0 #288). `yaml` parses YAML 1.2 with merge keys
+    // off by default.
+    yaml: (source: string) => parseYaml(source) as object,
+  },
 }
 
 /**
