@@ -12,7 +12,7 @@ import { CodebuffRunner } from './runners/codebuff'
 import { CodexRunner } from './runners/codex'
 import { OpenCodeRunner } from './runners/opencode'
 
-import type { Runner, AgentStep } from './runners/runner'
+import type { Runner, AgentStep, ContextLogEntry } from './runners/runner'
 import type { EvalCommitV2, FileDiff, FinalCheckOutput } from './types'
 import type { CodebuffClient } from '@codebuff/sdk'
 
@@ -60,6 +60,7 @@ export async function runAgentOnCommit({
   cost: number
   error?: string
   trace: AgentStep[]
+  contextLog?: ContextLogEntry[]
   finalCheckOutputs?: FinalCheckOutput[]
 }> {
   console.log(`[${commit.id}] Running agent ${agentId}...`)
@@ -70,6 +71,7 @@ export async function runAgentOnCommit({
   let cost = 0
   let agentDurationMs: number | undefined
   const trace: AgentStep[] = []
+  let contextLog: ContextLogEntry[] | undefined
   let finalCheckOutputs: FinalCheckOutput[] | undefined
 
   try {
@@ -115,6 +117,7 @@ export async function runAgentOnCommit({
           agentDurationMs = Date.now() - agentStart
           if (result.error) error = result.error
           trace.push(...result.steps)
+          contextLog = result.contextLog
           cost = result.totalCostUsd
           diff = result.diff
 
@@ -174,6 +177,7 @@ export async function runAgentOnCommit({
     cost,
     error,
     trace,
+    contextLog,
     finalCheckOutputs,
   }
 }

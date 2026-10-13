@@ -198,6 +198,7 @@ async function runTask(options: {
       commitSha: commit.sha,
       prompt: commit.prompt,
       trace: agentResult.trace,
+      contextLog: agentResult.contextLog,
       diff: agentResult.diff,
       judgeResult,
       cost: agentResult.cost,

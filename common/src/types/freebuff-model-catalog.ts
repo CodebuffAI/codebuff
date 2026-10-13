@@ -177,6 +177,9 @@ export const freebuffCatalogRowSchema = z.object({
       cacheExpiryMs: z.number().int().positive(),
       cacheExpiryMinTokens: z.number().int().nonnegative(),
       maxContextLength: z.number().int().positive().optional(),
+      /** See RootCompactionPolicy. A release that predates it drops it
+       *  (unknown keys are stripped) and compacts on the rest. */
+      lean: z.boolean().optional(),
     })
     .optional(),
   /** Sort position; ascending. Clients that sort by price may ignore it. */

@@ -2,7 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import type { Runner, RunnerResult, AgentStep } from './runner'
+import type { AgentStep, ContextLogEntry, Runner, RunnerResult } from './runner'
 import type { CodebuffClient, TerminalCommandBroker } from '@codebuff/sdk'
 
 const DEBUG_ERROR = true
@@ -48,6 +48,7 @@ export class CodebuffRunner implements Runner {
 
   async run(prompt: string): Promise<RunnerResult> {
     const steps: AgentStep[] = []
+    const contextLog: ContextLogEntry[] = []
     let totalCostUsd = 0
 
     // 500, not 40 (raised 2026-09-28). At 40 the single-loop base3 arm ran out
@@ -71,6 +72,10 @@ export class CodebuffRunner implements Runner {
             : 'allow',
       }),
       maxAgentSteps,
+      onUsage: (usage) => contextLog.push({ type: 'usage', ...usage }),
+      // The summary text is the history itself; the trace already has it.
+      onCompaction: ({ summary: _, ...data }) =>
+        contextLog.push({ type: 'compaction', ...data }),
       handleEvent: (event) => {
         if (
           (event.type === 'tool_call' || event.type === 'tool_result') &&
@@ -158,6 +163,7 @@ export class CodebuffRunner implements Runner {
       steps,
       totalCostUsd,
       diff,
+      contextLog,
       error: result.output.type === 'error' ? result.output.message : undefined,
     }
   }

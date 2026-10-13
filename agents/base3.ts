@@ -1,6 +1,6 @@
 import {
   compactionPolicyForModel,
-  type CompactionPolicy,
+  type RootCompactionPolicy,
 } from '@codebuff/common/constants/compaction-policy'
 import {
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
@@ -11,6 +11,7 @@ import {
   TURN_ENDING_RULE,
 } from '@codebuff/common/constants/turn-ending-rule'
 
+import { leanContextGuidance } from './lean-context'
 import {
   FOLLOWUP_STYLE_GUIDANCE,
   gravityIndexGuidance,
@@ -29,8 +30,9 @@ export function createBase3(
     /** Overrides the per-model policy. A server-catalog row supplies it,
      *  because its `model` is an opaque handle the lookup cannot key on; its
      *  `maxContextLength` replaces the runtime's per-model budget lookup for
-     *  the same reason. */
-    compaction?: CompactionPolicy & { maxContextLength?: number }
+     *  the same reason. `lean` (with a `maxContextLength`) adds the
+     *  context-budget prompt section. */
+    compaction?: RootCompactionPolicy
     /** Web/Cloud owns persistent processes through managed sessions. */
     supportsBackgroundCommands?: boolean
     /** The compiled model a catalog handle stands for, which decides the
@@ -45,6 +47,12 @@ export function createBase3(
     options.compiledModelId ?? model,
     FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
   )
+  const { lean, ...compactContext }: RootCompactionPolicy =
+    options.compaction ?? compactionPolicyForModel(model)
+  const leanGuidance =
+    lean && compactContext.maxContextLength
+      ? `\n${leanContextGuidance(compactContext.maxContextLength)}\n`
+      : ''
   return {
     publisher,
     model,
@@ -67,7 +75,7 @@ export function createBase3(
     // Per-model idle gap and token floor (common/src/constants/
     // compaction-policy.ts). Explicit, not `true`: a bare `true` would take
     // the runtime default instead of the model's.
-    compactContext: options.compaction ?? compactionPolicyForModel(model),
+    compactContext,
     ...(turnEndingNote ? { instructionsPrompt: TURN_ENDING_NOTE } : {}),
     toolNames: [
       'read_files',
@@ -104,7 +112,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
 
 ${PLACEHOLDER.GIT_CHANGES_PROMPT}
-`,
+${leanGuidance}`,
   }
 }
 
@@ -144,7 +152,7 @@ export function createBase3CliRoot(
      *  prompt tells the model it is running on. */
     modelLabel?: string
     /** See createBase3. */
-    compaction?: CompactionPolicy & { maxContextLength?: number }
+    compaction?: RootCompactionPolicy
     /** See createBase3. */
     compiledModelId?: string
   } = {},

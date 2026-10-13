@@ -71,3 +71,34 @@ export function compactionPolicyForModel(
     ? DEEPSEEK_FLASH_COMPACTION_POLICY
     : DEFAULT_COMPACTION_POLICY
 }
+
+/**
+ * What a root's builder takes: the policy, plus what a server-catalog row
+ * supplies because its `model` is an opaque handle no per-model lookup can
+ * key on. `lean` is the builder's, not the runtime's: it adds the prompt
+ * section that tells the model its context is scarce (agents/lean-context.ts),
+ * and is stripped before the rest becomes `compactContext`.
+ */
+export type RootCompactionPolicy = CompactionPolicy & {
+  maxContextLength?: number
+  lean?: boolean
+}
+
+/**
+ * A model whose provider prices a long prompt at a premium: every request
+ * stays under 100k prompt tokens.
+ *
+ * Compaction fires at 0.8 x 110k = 88k before each request. The runtime's
+ * prediction is anchored on the previous request's real prompt size and
+ * estimates only what was added since. In buffbench a step added at most ~25k
+ * real tokens, which the estimate read up to ~7k low on Claude's tokenizer,
+ * so the largest prompt was 89k. `lean` tells the model to read narrowly,
+ * which halved how often it compacted. The idle floor is 40k rather than
+ * 140k: under 100k a cold rewrite is cheap.
+ */
+export const LEAN_COMPACTION_POLICY = {
+  cacheExpiryMs: 60 * 60 * 1000,
+  cacheExpiryMinTokens: 40_000,
+  maxContextLength: 110_000,
+  lean: true,
+} as const satisfies RootCompactionPolicy

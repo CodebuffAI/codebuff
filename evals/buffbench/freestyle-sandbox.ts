@@ -195,7 +195,9 @@ async function startTask(
   await run(
     vm.exec({
       // --warning: macOS tar's extended headers are noise to GNU tar.
-      command: `tar --warning=no-unknown-keyword -xzf /tmp/buffbench.tgz -C ${VM_BENCH_DIR} && cd ${VM_BENCH_DIR} && bun install --frozen-lockfile --filter @codebuff/evals`,
+      // The install is retried: ~1 VM in 20 failed one registry tarball
+      // ("Fail extracting tarball", 2026-10-12) and zeroed its task.
+      command: `tar --warning=no-unknown-keyword -xzf /tmp/buffbench.tgz -C ${VM_BENCH_DIR} && cd ${VM_BENCH_DIR} && for attempt in 1 2 3; do bun install --frozen-lockfile --filter @codebuff/evals && break; [ $attempt = 3 ] && exit 1; sleep 5; done`,
       timeoutMs: 300_000,
     }),
   )

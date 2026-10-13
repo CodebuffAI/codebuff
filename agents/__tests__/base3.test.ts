@@ -3,7 +3,10 @@ import {
   FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL,
   hasFreebuffRootSystemPromptOpening,
 } from '@codebuff/common/constants/free-agents'
-import { compactionPolicyForModel } from '@codebuff/common/constants/compaction-policy'
+import {
+  compactionPolicyForModel,
+  LEAN_COMPACTION_POLICY,
+} from '@codebuff/common/constants/compaction-policy'
 import {
   TURN_ENDING_NOTE,
   TURN_ENDING_RULE,
@@ -259,5 +262,25 @@ describe('base3 CLI roots', () => {
     expect(base3FreeDeepseek.systemPrompt).not.toContain('/usage')
     // Codebuff's paid modes explain credits; Freebuff has none to explain.
     expect(base3.systemPrompt).toContain('/usage')
+  })
+})
+
+describe('a lean compaction policy', () => {
+  const { lean: _, ...runtimePolicy } = LEAN_COMPACTION_POLICY
+  const lean = createBase3('anthropic/claude-haiku-5.5', {
+    compaction: LEAN_COMPACTION_POLICY,
+  })
+  const plain = createBase3('anthropic/claude-haiku-5.5', {
+    compaction: runtimePolicy,
+  })
+
+  test('adds the context-budget section, naming where compaction fires', () => {
+    expect(lean.systemPrompt).toContain('# Context budget')
+    expect(lean.systemPrompt).toContain('past ~88k tokens')
+    expect(plain.systemPrompt).not.toContain('# Context budget')
+  })
+
+  test('keeps `lean` out of compactContext, whose schema is strict', () => {
+    expect(lean.compactContext).toEqual(runtimePolicy)
   })
 })

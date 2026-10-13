@@ -78,8 +78,10 @@ const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
     'z-ai/glm-5.3-flash': { section: 'optimized', order: 20 },
     'deepseek/deepseek-v4-flash': { section: 'optimized', order: 30 }, // V4.1 Flash
     // Powerful
-    // Claude Haiku 5.5 (2026-10-07): first.
-    'm-79293c5b7d': { section: 'powerful', order: 1 }, // Claude Haiku 5.5
+    // Claude Haiku 5.5: first since 2026-10-07; its 100k-context row above
+    // it since 2026-10-12.
+    'm-5b6a604eb6': { section: 'powerful', order: 1 }, // Claude Haiku 5.5, 100k context
+    'm-79293c5b7d': { section: 'powerful', order: 2 }, // Claude Haiku 5.5
     // DeepSeek V4.1 Flash Fast: no longer badged Recommended (2026-10-07).
     'deepseek/deepseek-v4-flash-fast': { section: 'powerful', order: 5 },
     'meta/muse-spark-1.3-contributor': { section: 'powerful', order: 10 },
