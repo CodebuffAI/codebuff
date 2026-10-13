@@ -1106,17 +1106,19 @@ export function sponsoredSkillConsentView(
 
 /**
  * The link Desktop's sidebar sign-up opens and attributes
- * (`freebuff-desktop/src/shared/sponsored-signup.ts`): the FIRST `https://`
- * URL in the rendered procedure whose `bfcid` parameter is the `{bfcid}` slot
- * (or its URL-encoded form). Null means the skill has no tracked link, so a
- * run of it converts with no attribution: `{{advertiserLink}}` alone does not
- * count, because it is text for the model, not a link Desktop opens. Mirrors
- * `sponsoredSignupStep`: a first match Desktop would refuse (two bfcids,
- * credentials, over 2,048 chars) is null too.
+ * (`freebuff-desktop/src/shared/sponsored-signup.ts`) in a procedure TEXT:
+ * the FIRST `https://` URL whose `bfcid` parameter is the `{bfcid}` slot (or
+ * its URL-encoded form). Null means a run of this text converts with no
+ * attribution: `{{advertiserLink}}` alone does not count, because it is text
+ * for the model, not a link Desktop opens. Mirrors `sponsoredSignupStep`: a
+ * first match Desktop would refuse (two bfcids, credentials, over 2,048
+ * chars) is null too.
  */
-export function sponsoredSkillTrackedLink(skill: SponsoredSkill): string | null {
-  const text = renderSponsoredSkillProcedure(skill)
-  for (const match of text.matchAll(/https:\/\/[^\s<>"'`]+/gi)) {
+export function sponsoredProcedureTrackedLink(
+  procedure: string | null | undefined,
+): string | null {
+  if (!procedure) return null
+  for (const match of procedure.matchAll(/https:\/\/[^\s<>"'`]+/gi)) {
     const raw = match[0].replace(/[.,;!?)\]]+$/, '')
     try {
       const url = new URL(raw)
@@ -1131,6 +1133,27 @@ export function sponsoredSkillTrackedLink(skill: SponsoredSkill): string | null 
     }
   }
   return null
+}
+
+/** {@link sponsoredProcedureTrackedLink} of the skill's rendered procedure. */
+export function sponsoredSkillTrackedLink(skill: SponsoredSkill): string | null {
+  return sponsoredProcedureTrackedLink(renderSponsoredSkillProcedure(skill))
+}
+
+/**
+ * Why a procedure text may not be saved for attribution, or null. A text
+ * that names a sponsored skill (`skill: <id>@<version> sha256:…`) must carry
+ * a tracked link: a skill is ours to write, so a missing one is our bug and
+ * loses every conversion's attribution (COD-882). A legacy free-text
+ * procedure is the advertiser's own words and is only flagged at review.
+ */
+export function sponsoredProcedureTrackedLinkError(
+  procedure: string | null | undefined,
+): string | null {
+  const directive = sponsoredSkillDirective(procedure)
+  if (!directive) return null
+  if (sponsoredProcedureTrackedLink(procedure)) return null
+  return `Sponsored skill ${directive.id}@${directive.version} ${SPONSORED_SKILL_TRACKED_LINK_ERROR}`
 }
 
 /** The authoring error for a skill with no tracked link, or null. */
