@@ -2737,13 +2737,9 @@ const GLM_V53_FLASH_MODEL = {
   // promotional 10 (2026-10-03 to 10-06, and 10-07) ended on 2026-10-07 by
   // product decision.
   //
-  // PROMOTIONAL AGAIN FROM 2026-10-09 (product), at the compiled 15: the price
-  // is labelled temporary, now that Merge's Pareto vendor carries the lane
-  // again and the 25 is gone. Clear it when the promotion ends.
-  promotional: {
-    short: 'Promotional',
-    tooltip: 'Temporary price. It goes up when the promotion ends.',
-  },
+  // PROMOTIONAL from 2026-10-09 to 10-12 (the label on the compiled 15). The
+  // promotion ended on 2026-10-13 with the price at 20 (freebuff-freebucks.ts),
+  // so the field is gone.
 } as const satisfies FreebuffModelOption
 
 /**
