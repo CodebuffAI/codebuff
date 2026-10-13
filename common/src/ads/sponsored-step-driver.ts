@@ -31,10 +31,13 @@
 
 import {
   DEFAULT_SKILL_MAX_ATTEMPTS,
+  SPONSORED_SKILL_OS,
   sponsoredSkillDirective,
   sponsoredSkillMatchesProcedure,
   sponsoredSkillSha256,
   type SponsoredSkill,
+  type SponsoredSkillCheck,
+  type SponsoredSkillOs,
   type SponsoredSkillStep,
 } from './sponsored-skill'
 import {
@@ -49,7 +52,10 @@ import {
   type SponsoredSkillCheckResult,
 } from './sponsored-skill-checks'
 
-import type { SponsoredFrictionInput } from './sponsored-run-friction'
+import {
+  SPONSORED_FRICTION_DETAIL_MAX,
+  type SponsoredFrictionInput,
+} from './sponsored-run-friction'
 
 export type SponsoredStepStatus =
   /** No check failed. */
@@ -82,7 +88,12 @@ export type SponsoredStepDriveResult = {
   /** Fix prompts sent in all. */
   fixes: number
   /** Why the walk stopped early, when it did. */
-  stoppedBecause?: 'turn_failed' | 'out_of_time'
+  stoppedBecause?: 'turn_failed' | 'out_of_time' | 'preflight_failed'
+  /**
+   * The skill's preflight (and its `requirements.os`), when it failed and so
+   * no step ran ({@link runSponsoredSkillPreflight}).
+   */
+  preflight?: SponsoredSkillCheckResult[]
 }
 
 export const SPONSORED_STEP_MAX_FIXES_PER_RUN = 6
@@ -183,8 +194,8 @@ function skillKey(skill: SponsoredSkill): string {
 }
 
 async function check(
-  deps: SponsoredStepDriverDeps,
-  step: SponsoredSkillStep,
+  deps: Pick<SponsoredStepDriverDeps, 'ctx' | 'skill'>,
+  step: Pick<SponsoredSkillStep, 'checks'>,
 ): Promise<{ passed: boolean; results: SponsoredSkillCheckResult[] }> {
   try {
     return await evaluateSponsoredSkillChecks(step.checks, deps.ctx, deps.skill)
@@ -325,23 +336,12 @@ export async function runSponsoredStepLoop<State>(
   initial: State,
   deps: SponsoredStepLoopDeps<State>,
 ): Promise<{ state: State; result: SponsoredStepDriveResult }> {
-  const redact = deps.redact ?? ((text: string) => text)
+  const redact = deps.redact ?? identity
   let state = initial
 
   const result = await driveSponsoredSkillSteps({
     skill: deps.skill,
-    // Command output reaches the agent and the report (COD-665).
-    ctx: {
-      ...deps.ctx,
-      runScript: async (script, timeout) => {
-        const out = await deps.ctx.runScript(script, timeout)
-        return out === 'missing' ? out : { ...out, output: redact(out.output) }
-      },
-      runCommand: async (argv, timeout) => {
-        const out = await deps.ctx.runCommand(argv, timeout)
-        return { ...out, output: redact(out.output) }
-      },
-    },
+    ctx: redactedCheckContext(deps.ctx, redact),
     canContinue: deps.canContinue,
     ...(deps.onStep ? { onStep: deps.onStep } : {}),
     prompt: async (text) => {
@@ -378,6 +378,171 @@ export async function runSponsoredStepLoop<State>(
     })
   }
   return { state, result }
+}
+
+const identity = (text: string) => text
+
+/** Command output reaches the agent and the report (COD-665): redacted first. */
+function redactedCheckContext(
+  ctx: SponsoredSkillCheckContext,
+  redact: (text: string) => string,
+): SponsoredSkillCheckContext {
+  return {
+    ...ctx,
+    runScript: async (script, timeout) => {
+      const out = await ctx.runScript(script, timeout)
+      return out === 'missing' ? out : { ...out, output: redact(out.output) }
+    },
+    runCommand: async (argv, timeout) => {
+      const out = await ctx.runCommand(argv, timeout)
+      return { ...out, output: redact(out.output) }
+    },
+  }
+}
+
+/** The synthetic check a skill's `requirements.os` becomes in its preflight. */
+export const SPONSORED_PREFLIGHT_OS_CHECK_ID = 'requirements-os'
+
+/**
+ * `process.platform` as a skill's `requirements.os` names it, or null for a
+ * platform it has no name for (the os check is then skipped).
+ */
+export function sponsoredSkillOs(
+  platform: string | null | undefined,
+): SponsoredSkillOs | null {
+  return (SPONSORED_SKILL_OS as readonly string[]).includes(platform ?? '')
+    ? (platform as SponsoredSkillOs)
+    : null
+}
+
+export type SponsoredSkillPreflightDeps = {
+  skill: SponsoredSkill
+  /** The same check context the steps are checked over. */
+  ctx: SponsoredSkillCheckContext
+  /**
+   * The `process.platform` of where the checks (and the run's commands) run:
+   * the user's machine on Desktop and the CLI, the VM in Cloud. Unknown, or
+   * one the skill format has no name for, skips the `requirements.os` check.
+   */
+  platform: string | null | undefined
+  /** Takes the run's credentials out of command output (see {@link SponsoredStepLoopDeps.redact}). */
+  redact?: (text: string) => string
+  /** The `report_friction` blocker a failed preflight sends, as a blocked step does. */
+  onFriction?: (input: SponsoredFrictionInput) => void
+}
+
+export type SponsoredSkillPreflightOutcome =
+  | { passed: true; checks: SponsoredSkillCheckResult[] }
+  | {
+      passed: false
+      checks: SponsoredSkillCheckResult[]
+      /** Names each failed preflight (and a missing path tool's install hint): the run's error. */
+      reason: string
+      /** The run's step result: no step reached, stopped by the preflight. */
+      result: SponsoredStepDriveResult
+    }
+
+const PREFLIGHT_DETAIL_CHARS = 200
+
+/** A failed preflight check, as the run's error and friction name it. */
+function preflightFailureLine(
+  skill: SponsoredSkill,
+  failed: SponsoredSkillCheckResult,
+): string {
+  // One line: the runs' diagnostics keep only an error's first line.
+  const oneLine = failed.detail.replace(/\s+/g, ' ').trim()
+  const detail =
+    oneLine.length > PREFLIGHT_DETAIL_CHARS
+      ? `${oneLine.slice(0, PREFLIGHT_DETAIL_CHARS - 1)}…`
+      : oneLine
+  const declared = (skill.preflight ?? []).find(
+    (
+      check,
+    ): check is Extract<SponsoredSkillCheck, { kind: 'command_succeeds' }> =>
+      check.id === failed.id && check.kind === 'command_succeeds',
+  )
+  const tool = declared
+    ? (skill.tools ?? []).find((candidate) => candidate.name === declared.argv[0])
+    : undefined
+  const hint =
+    tool?.source === 'path'
+      ? ` Install \`${tool.name}\`: ${tool.installHint}`
+      : ''
+  return `"${failed.label}" (${detail}).${hint}`
+}
+
+/**
+ * THE PREFLIGHT, run before the agent's first turn: the skill's
+ * `requirements.os` against the platform the checks run on, then its
+ * `preflight` checks through the same evaluator as the steps. On a failure no
+ * agent turn runs and nothing is edited: the caller ends the run with
+ * `reason`, and it is reported the way a blocked step is (the
+ * `report_friction` blocker is sent here; `result` is the step report, every
+ * step not reached). An unsupported OS runs no command: the skill's tool
+ * check says nothing more on a platform the skill does not support.
+ */
+export async function runSponsoredSkillPreflight(
+  deps: SponsoredSkillPreflightDeps,
+): Promise<SponsoredSkillPreflightOutcome> {
+  const { skill } = deps
+  const checks: SponsoredSkillCheckResult[] = []
+  const os = sponsoredSkillOs(deps.platform)
+  const supported = skill.requirements?.os ?? []
+  if (os && supported.length > 0) {
+    const ok = supported.includes(os)
+    checks.push({
+      id: SPONSORED_PREFLIGHT_OS_CHECK_ID,
+      label: `Runs on ${supported.join(' or ')}`,
+      status: ok ? 'pass' : 'fail',
+      detail: ok
+        ? `this run is on ${os}`
+        : `this skill supports ${supported.join(', ')}; this run is on ${os}`,
+    })
+  }
+  if (checks.every((result) => result.status !== 'fail')) {
+    const outcome = await check(
+      { skill, ctx: redactedCheckContext(deps.ctx, deps.redact ?? identity) },
+      { checks: skill.preflight ?? [] },
+    )
+    checks.push(...outcome.results)
+  }
+  const failed = checks.filter((result) => result.status === 'fail')
+  if (failed.length === 0) return { passed: true, checks }
+
+  const reason = `Preflight failed before any edit: ${failed
+    .map((result) => preflightFailureLine(skill, result))
+    .join(' ')}`
+  deps.onFriction?.({
+    blocking: true,
+    category: failed.some(
+      (result) => result.id === SPONSORED_PREFLIGHT_OS_CHECK_ID,
+    )
+      ? 'project_mismatch'
+      : 'missing_toolchain',
+    // The server keeps the first SPONSORED_FRICTION_DETAIL_MAX characters.
+    detail: reason.slice(0, SPONSORED_FRICTION_DETAIL_MAX),
+  })
+  return {
+    passed: false,
+    checks,
+    reason,
+    result: {
+      skill: skillKey(skill),
+      steps: skill.steps.map((step, index) => ({
+        number: index + 1,
+        id: step.id,
+        title: step.title,
+        kind: step.kind,
+        status: 'not_reached',
+        fixes: 0,
+        checks: [],
+      })),
+      delivered: false,
+      fixes: 0,
+      stoppedBecause: 'preflight_failed',
+      preflight: checks,
+    },
+  }
 }
 
 /** What the agent reads when a step's checks failed. */
@@ -439,6 +604,9 @@ export function sponsoredStepDiagnostic(
   }`
   return [
     head,
+    ...(result.preflight ?? [])
+      .filter((check) => check.status === 'fail')
+      .map((check) => `preflight ${check.id} failed`),
     ...open.map((step) => `step ${step.number} ${step.status}`),
   ].join('; ')
 }

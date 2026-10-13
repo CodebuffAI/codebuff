@@ -97,6 +97,7 @@ import {
   sponsoredStepCommandResult,
 } from '@codebuff/common/ads/sponsored-step-check-context'
 import {
+  runSponsoredSkillPreflight,
   runSponsoredStepLoop,
   selectSponsoredProcedureSkill,
   sponsoredStepCardStates,
@@ -1009,9 +1010,9 @@ export class SponsoredRun {
    * saying "queued" and nothing starts the turn twice. The `running` REPORT
    * waits for proof of compute (`computeStarted`).
    *
-   * Null when there is nothing queued, or when the grant can no longer pay for
-   * a run -- in which case the run is failed here, since no turn will ever
-   * settle it.
+   * Null when there is nothing queued, when the grant can no longer pay for
+   * a run, or when a driven skill's preflight fails -- in the last two the run
+   * is failed here, since no turn will ever settle it.
    */
   async startTurn(): Promise<SponsoredTurnPlan | null> {
     const active = this.active
@@ -1071,15 +1072,46 @@ export class SponsoredRun {
     }
     // A sponsored grant names a plain model id, which the catalog root does
     // not admit, so a catalog-mode CLI runs it on that model's compiled root.
-    const overrideTools = beforeFirstToolCall(
-      (this.deps.overrideTools ?? sponsoredOverrideTools)(context),
-      () => {
-        if (!active.settled) this.computeStarted(active)
-      },
+    const runTools = (this.deps.overrideTools ?? sponsoredOverrideTools)(
+      context,
     )
-    const driveSteps = active.skill
-      ? await this.stepDriver(active, active.skill, overrideTools)
+    const overrideTools = beforeFirstToolCall(runTools, () => {
+      if (!active.settled) this.computeStarted(active)
+    })
+    // The checks run on the run's own tools, but unwrapped: a preflight
+    // command is not the model spending the sponsor's compute.
+    const stepChecks = active.skill
+      ? await this.stepCheckContext(active, active.skill, runTools)
       : undefined
+    // THE PREFLIGHT, before the turn's first segment: a skill whose OS this
+    // is not, or whose tool is missing, ends the run here with no turn and no
+    // edit, reported as a blocked step is (friction, then the step report).
+    if (active.skill && stepChecks) {
+      const preflight = await runSponsoredSkillPreflight({
+        skill: active.skill,
+        ctx: stepChecks,
+        platform: this.deps.platform,
+        onFriction: (input) =>
+          this.reportFriction(active.proposalId, active.runToken, input),
+      })
+      if (!preflight.passed) {
+        active.stepResult = preflight.result
+        logger.info(
+          {
+            proposalId: active.proposalId,
+            diagnostic: sponsoredStepDiagnostic(preflight.result),
+            skillSource: active.skillSource,
+          },
+          '[sponsored-run] preflight failed',
+        )
+        await this.settle({ errorText: preflight.reason, aborted: false })
+        return null
+      }
+    }
+    const driveSteps =
+      active.skill && stepChecks
+        ? this.stepDriver(active, active.skill, stepChecks)
+        : undefined
     const agentId = (
       this.deps.agentId ??
       (() =>
@@ -1130,28 +1162,23 @@ export class SponsoredRun {
   }
 
   /**
-   * The step driver for a driven run, built before the turn's first segment
-   * so "what this run changed" is measured from here
-   * (`docs/ads/agentic/step-checks.md`). THE LOOP IS COMMON'S
-   * (`runSponsoredStepLoop`), the one Desktop and Cloud drive: the CLI
-   * supplies only the check context, the stop rule and where results go.
+   * The check context of a driven run (its preflight and its steps), built
+   * before the turn's first segment so "what this run changed" is measured
+   * from here (`docs/ads/agentic/step-checks.md`).
    *
-   * - Commands the checks run go through the turn's own
-   *   `run_terminal_command` override: the same sandbox broker and the exact
-   *   refusals the agent's shell has (declared installs, git, destructive
-   *   commands). A refused command is `unavailable`, which fails its check.
-   * - Fixes stop with less than {@link SPONSORED_STEP_FIX_MIN_GRANT_MS} left
-   *   before the run's local cutoff, or once the run is interrupted.
-   * - The result is held for the verdict (`settle`), which reports it.
+   * Commands the checks run go through the turn's own `run_terminal_command`
+   * override: the same sandbox broker and the exact refusals the agent's
+   * shell has (declared installs, git, destructive commands). A refused
+   * command is `unavailable`, which fails its check.
    *
    * Undefined when the context cannot be built: the run then goes ahead
    * undriven, as a free-text procedure, rather than not at all.
    */
-  private async stepDriver(
+  private async stepCheckContext(
     active: NonNullable<SponsoredRun['active']>,
     skill: SponsoredSkill,
     tools: SponsoredOverrideTools,
-  ): Promise<SponsoredTurnPlan['driveSteps']> {
+  ): Promise<SponsoredSkillCheckContext | undefined> {
     const runCommand = async (
       commandLine: string,
       timeoutSeconds: number,
@@ -1179,9 +1206,9 @@ export class SponsoredRun {
         }
       }
     }
-    let ctx: SponsoredSkillCheckContext
     try {
-      ctx = await (this.deps.stepCheckContext ?? sponsoredCliStepCheckContext)({
+      return await (this.deps.stepCheckContext ??
+        sponsoredCliStepCheckContext)({
         workspaceRoot: this.projectRoot,
         runCommand,
       })
@@ -1196,6 +1223,22 @@ export class SponsoredRun {
       )
       return undefined
     }
+  }
+
+  /**
+   * The step driver for a driven run. THE LOOP IS COMMON'S
+   * (`runSponsoredStepLoop`), the one Desktop and Cloud drive: the CLI
+   * supplies only the check context, the stop rule and where results go.
+   *
+   * - Fixes stop with less than {@link SPONSORED_STEP_FIX_MIN_GRANT_MS} left
+   *   before the run's local cutoff, or once the run is interrupted.
+   * - The result is held for the verdict (`settle`), which reports it.
+   */
+  private stepDriver(
+    active: NonNullable<SponsoredRun['active']>,
+    skill: SponsoredSkill,
+    ctx: SponsoredSkillCheckContext,
+  ): NonNullable<SponsoredTurnPlan['driveSteps']> {
     return async <State>(
       first: State,
       resume: (prompt: string, previous: State) => Promise<State | null>,
@@ -1393,7 +1436,10 @@ export class SponsoredRun {
     await this.report(authToken, {
       state: 'failed',
       failureReason,
-      diagnosticReason: `${how}; the turn recorded no file edits of its own`,
+      // A preflight that stopped the run before any edit is a step result
+      // too: its card states and checks go with this report.
+      diagnosticReason: `${how}; the turn recorded no file edits of its own${stepDiagnostic}`,
+      ...stepReport,
     })
     return null
   }

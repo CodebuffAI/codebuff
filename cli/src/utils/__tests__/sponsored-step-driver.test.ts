@@ -135,8 +135,11 @@ function project(): string {
 }
 
 /** A worktree the checks read, which the fake agent's fixes add files to. */
-function world(initial: string[] = []) {
-  const files = new Set(initial)
+function world(
+  initial: string[] = [],
+  contents: Record<string, string> = {},
+) {
+  const files = new Set([...initial, ...Object.keys(contents)])
   const commands: Array<{ commandLine: string; timeoutSeconds: number }> = []
   let runCommand:
     | ((
@@ -147,7 +150,7 @@ function world(initial: string[] = []) {
   const ctx: SponsoredSkillCheckContext = {
     files: () => [...files],
     changedFiles: () => [...files],
-    readFile: (path) => (files.has(path) ? '' : null),
+    readFile: (path) => (files.has(path) ? (contents[path] ?? '') : null),
     runScript: async () => 'missing',
     runCommand: async (argv, timeoutSeconds) =>
       runCommand!(argv.join(' '), timeoutSeconds),
@@ -363,7 +366,10 @@ describe('which runs the CLI drives', () => {
   test('a skill this build ships is driven from the bundled registry, with no server copy', async () => {
     const bundled = [...SPONSORED_SKILLS.values()][0]
     if (!bundled) return // A public build ships no skills.
-    const w = world()
+    // A Next.js project, which the bundled skills' preflights accept.
+    const w = world([], {
+      'package.json': JSON.stringify({ dependencies: { next: '15.0.0' } }),
+    })
     const f = fakes({
       procedure: renderSponsoredSkillProcedure(bundled),
       stepCheckContext: w.stepCheckContext,
@@ -590,6 +596,107 @@ describe('the CLI step loop', () => {
       process_type: 'SYNC',
       timeout_seconds: 30,
     })
+  })
+})
+
+describe('the CLI preflight', () => {
+  /** RAW_SKILL with a path tool its preflight checks for. */
+  function preflighted(os: string[]) {
+    const parsed = parseSponsoredSkill({
+      ...RAW_SKILL,
+      requirements: { ...RAW_SKILL.requirements, os },
+      tools: [
+        { name: 'acme', source: 'path', installHint: 'brew install acme' },
+      ],
+      preflight: [
+        {
+          id: 'acme-cli',
+          label: 'The acme CLI is installed',
+          kind: 'command_succeeds',
+          argv: ['acme', '--version'],
+        },
+      ],
+    })
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors))
+    return parsed.skill
+  }
+
+  async function begin(f: ReturnType<typeof fakes>) {
+    const task = sponsoredTaskEvidence([
+      { variant: 'user', content: 'How do I deploy this?' },
+    ])!
+    const consent = await f.service.consentFor(PROPOSAL, task)
+    if (!consent.ok) throw new Error(consent.message)
+    const accepted = await f.service.accept(PROPOSAL, consent.runId, task)
+    if (!accepted.ok) throw new Error('accept failed')
+    return f.service.startTurn()
+  }
+
+  test('a missing tool fails the run before the turn: no plan, a blocker and the reason reported', async () => {
+    const skill = preflighted(['darwin', 'linux'])
+    const w = world()
+    const f = fakes({
+      procedure: renderSponsoredSkillProcedure(skill),
+      skill,
+      stepCheckContext: w.stepCheckContext,
+      terminalCommand: () => [
+        {
+          type: 'json',
+          value: { stdout: '', stderr: 'acme: not found', exitCode: 127 },
+        },
+      ],
+    })
+    const plan = await begin(f)
+    // No plan: chat never starts the turn, so the agent never runs.
+    expect(plan).toBeNull()
+    expect(w.commands.map((c) => c.commandLine)).toEqual(['acme --version'])
+    await settle()
+    // A check command is not proof of compute: nothing reported `running`.
+    expect(f.reported.some((update) => update.state === 'running')).toBe(false)
+    const report = terminal(f)!
+    expect(report.state).toBe('failed')
+    expect(report.diagnosticReason).toContain('Preflight failed')
+    expect(report.diagnosticReason).toContain('The acme CLI is installed')
+    // The step result goes with it: every step not reached, the preflight named.
+    expect(report.diagnosticReason).toMatch(/preflight \S+ failed/)
+    expect(
+      (report as { steps?: unknown[] }).steps?.length,
+    ).toBe(skill.steps.length)
+    expect(f.friction).toHaveLength(1)
+    expect(f.friction[0]).toMatchObject({
+      blocking: true,
+      category: 'missing_toolchain',
+    })
+    expect(f.friction[0]!.detail).toContain('Install `acme`: brew install acme')
+    expect(f.service.state.phase).toBe('failed')
+  })
+
+  test('a skill for another OS fails without running its tool', async () => {
+    const skill = preflighted(['linux'])
+    const w = world()
+    const f = fakes({
+      procedure: renderSponsoredSkillProcedure(skill),
+      skill,
+      stepCheckContext: w.stepCheckContext,
+    })
+    // The fake machine is darwin.
+    expect(await begin(f)).toBeNull()
+    expect(w.commands).toEqual([])
+    await settle()
+    expect(f.friction[0]).toMatchObject({ category: 'project_mismatch' })
+  })
+
+  test('a passing preflight hands chat the plan as before', async () => {
+    const skill = preflighted(['darwin', 'linux'])
+    const w = world()
+    const f = fakes({
+      procedure: renderSponsoredSkillProcedure(skill),
+      skill,
+      stepCheckContext: w.stepCheckContext,
+    })
+    const plan = await begin(f)
+    expect(plan?.driveSteps).toBeDefined()
+    expect(f.friction).toEqual([])
   })
 })
 
