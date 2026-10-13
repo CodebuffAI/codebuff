@@ -56,6 +56,9 @@ export type AgentState = {
     model: string
     tokens: number
     estimatedTokens: number
+    /** Provider input tokens per estimated token in that request. Content
+     *  added since is scaled by it; absent on older anchors (scale 1). */
+    scale?: number
   }
 }
 

@@ -465,6 +465,7 @@ export function buildCancelledSessionState(params: {
       contextTokenCount: state.mainAgentState.contextTokenCount,
       previousHistory,
       nextHistory,
+      scale: state.mainAgentState.contextTokenBaseline?.scale,
     },
   )
   return state

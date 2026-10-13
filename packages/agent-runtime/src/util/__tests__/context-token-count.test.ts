@@ -73,7 +73,8 @@ describe('provider-anchored context size', () => {
     }
     const previousHistory = [...params.agentState.messageHistory]
     params.agentState.messageHistory.push(result)
-    const expected = 12_500 + countTokensMessages([result])
+    const scale = params.agentState.contextTokenBaseline!.scale!
+    const expected = Math.round(12_500 + countTokensMessages([result]) * scale)
     expect(estimateContextTokens(params)).toBe(expected)
     const persisted = JSON.parse(JSON.stringify(params.agentState))
     expect(estimateContextTokens({ ...params, agentState: persisted })).toBe(
@@ -84,8 +85,57 @@ describe('provider-anchored context size', () => {
         contextTokenCount: 12_500,
         previousHistory,
         nextHistory: persisted.messageHistory,
+        scale,
       }),
     ).toBe(expected)
+  })
+
+  test("scales what was added since the receipt by the receipt's input ratio", () => {
+    const agentState: Pick<
+      AgentState,
+      'messageHistory' | 'contextTokenCount' | 'contextTokenBaseline'
+    > = { messageHistory: [...HISTORY], contextTokenCount: 0 }
+    const params = {
+      agentState,
+      model: 'test-model',
+      systemPrompt: SYSTEM,
+      toolsForTokenCount: TOOLS,
+    }
+    const estimatedInputTokens = estimateContextTokens(params)
+    // The provider read the prompt at 1.4x the estimate, as Claude Haiku 5.5
+    // reads coding histories. Reasoning output must not move the ratio.
+    recordContextUsage({
+      agentState,
+      model: params.model,
+      usage: {
+        ...receipt,
+        inputTokens: Math.round(estimatedInputTokens * 1.4),
+        outputTokens: 5_000,
+      },
+      estimatedInputTokens,
+      estimatedOutputTokens: 0,
+    })
+    expect(agentState.contextTokenBaseline!.scale).toBeCloseTo(1.4, 2)
+    const before = estimateContextTokens(params)
+    const added = text('user', 'const x = 1;\n'.repeat(500))
+    agentState.messageHistory.push(added)
+    expect(estimateContextTokens(params) - before).toBeCloseTo(
+      countTokensMessages([added]) * 1.4,
+      -1,
+    )
+  })
+
+  test('clamps an implausible ratio, and an older anchor without one adds 1:1', () => {
+    const params = setup()
+    // setup()'s receipt is ~10x its tiny estimate: not a tokenizer.
+    expect(params.agentState.contextTokenBaseline!.scale).toBe(2.5)
+    const { scale: _, ...legacy } = params.agentState.contextTokenBaseline!
+    params.agentState.contextTokenBaseline = legacy
+    const added = text('user', 'more'.repeat(500))
+    params.agentState.messageHistory.push(added)
+    expect(estimateContextTokens(params)).toBe(
+      12_500 + countTokensMessages([added]),
+    )
   })
 
   test('does not use a different model’s receipt and forgets it after compaction', () => {
