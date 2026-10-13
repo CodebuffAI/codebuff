@@ -82,6 +82,14 @@ export type SponsoredAccept = {
   /** ISO-8601. After this the token stops being honoured upstream. */
   expiresAt: string
   computeGrant: SponsoredComputeGrant
+  /**
+   * The skill `procedure` renders, raw JSON, from servers that deliver skills
+   * (`common/src/ads/sponsored-skill-delivery.ts`). UNTRUSTED: used only when
+   * it renders `procedure` byte for byte (`selectSponsoredProcedureSkill`), so
+   * it can add step checks but never change the consented text. Absent from
+   * older servers.
+   */
+  skill?: unknown
 }
 
 export type SponsoredAcceptPreview = {

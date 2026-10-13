@@ -370,6 +370,7 @@ export const Chat = ({
           phase: sponsoredRunSnapshot.phase,
           changedFiles: sponsoredRunSnapshot.changedFiles,
           undone: sponsoredRunSnapshot.undone,
+          checkingStep: sponsoredRunSnapshot.checkingStep,
         }
       : null
 

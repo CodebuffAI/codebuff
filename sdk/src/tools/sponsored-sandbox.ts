@@ -242,6 +242,8 @@ export interface SponsoredLinkedWorktree {
 }
 
 export interface SponsoredSandboxOptions {
+  /** Trusted host PTY transport. Receives the already-contained argv and scrubbed environment. */
+  spawnProcess?: (launch: TerminalCommandSpawnRequest) => TerminalCommandProcess
   /** The worktree. The only tracked tree this run may write. */
   workspaceRoot: string
   /**
@@ -1740,11 +1742,9 @@ function spawnMac(
   /** Carved back out of the write roots; see `sponsoredMacProfile`. */
   denyWriteSubpaths: string[] = [],
   secretReadRoots: string[] = [],
+  spawnProcess?: SponsoredSandboxOptions['spawnProcess'],
 ): TerminalCommandProcess {
-  return processHandle(
-    spawn(
-      '/usr/bin/sandbox-exec',
-      [
+  const args = [
         '-p',
         sponsoredMacProfile(
           writeRoots,
@@ -1755,15 +1755,11 @@ function spawnMac(
         ),
         request.executable,
         ...request.args,
-      ],
-      {
-        cwd: request.cwd,
-        env,
-        detached: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    ),
-  )
+      ]
+  if (spawnProcess) return spawnProcess({ executable: '/usr/bin/sandbox-exec', args, cwd: request.cwd, env })
+  return processHandle(spawn('/usr/bin/sandbox-exec', args, {
+    cwd: request.cwd, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+  }))
 }
 
 /**
@@ -1880,6 +1876,7 @@ function spawnLinux(
   secretFiles: string[] = [],
   /** Names in `env` that are the run's connected credentials (COD-665). */
   credentialNames: ReadonlySet<string> = new Set(),
+  spawnProcess?: SponsoredSandboxOptions['spawnProcess'],
 ): TerminalCommandProcess {
   const bwrap = findBubblewrap()
   if (!bwrap) {
@@ -1949,6 +1946,7 @@ function spawnLinux(
   const envArgs = sponsoredLinuxEnvArgs(env, credentialNames)
   args.push(...envArgs.args)
   args.push(sponsoredLinuxRuntimePath(request.executable), ...request.args)
+  if (spawnProcess) return spawnProcess({ executable: bwrap, args, cwd: request.cwd, env: envArgs.spawnEnv as NodeJS.ProcessEnv })
   return processHandle(
     spawn(bwrap, args, {
       cwd: request.cwd,
@@ -2294,6 +2292,7 @@ export function createSponsoredTerminalBroker(
       serverGrant: options.serverGrant,
     }) === 'floor'
   ) {
+    if (options.spawnProcess) throw new Error('Sponsored interactive terminals require macOS or Linux containment.')
     return createWindowsFloorBroker(
       workspaceRoot,
       runtimeDir,
@@ -2373,6 +2372,7 @@ export function createSponsoredTerminalBroker(
           git.writeLiterals,
           denyWriteSubpaths,
           [workspaceRoot],
+          options.spawnProcess,
         )
       }
       if (platform === 'linux') {
@@ -2385,6 +2385,7 @@ export function createSponsoredTerminalBroker(
           denyWriteSubpaths,
           sponsoredSecretFiles(workspaceRoot),
           new Set(Object.keys(options.credentialEnv ?? {})),
+          options.spawnProcess,
         )
       }
       throw new Error(

@@ -105,7 +105,15 @@ export function sponsoredInPlaceVerdict(input: {
   ending: SponsoredTurnEnding
   editedFileCount: number
   modelRan?: boolean
+  /** Native CLI work: all driven steps passed, including account and command checks. */
+  verifiedNativeOutcome?: boolean
 }): SponsoredInPlaceVerdict {
+  if (
+    input.verifiedNativeOutcome &&
+    input.modelRan === true &&
+    input.ending === 'completed'
+  )
+    return 'delivered'
   if (input.editedFileCount > 0 && input.modelRan !== false) {
     return input.ending === 'completed' ? 'delivered' : 'partial_edits'
   }

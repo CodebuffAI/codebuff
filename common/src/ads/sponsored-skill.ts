@@ -194,6 +194,12 @@ export type SponsoredSkill = {
   requirements: SponsoredSkillRequirements
   packages: SponsoredSkillPackage[]
   tools: SponsoredSkillTool[]
+  /** Native Desktop tools this version needs. Omitted on older skills. */
+  desktop?: {
+    interactiveTerminal?: boolean
+    /** Exact HTTPS origins permitted for opening login links; no browser read/control. */
+    browserOrigins?: string[]
+  }
   /**
    * What the agent should know to adapt the steps to the repo it finds:
    * names, versions, syntax, traps, from the advertiser's docs. Facts, not
@@ -538,6 +544,54 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
       value.consent.summary,
       MAX_SKILL_SUMMARY_CHARS,
     )
+  }
+
+  if (value.desktop !== undefined) {
+    const desktop = value.desktop
+    if (
+      !isRecord(desktop) ||
+      Object.keys(desktop).some(
+        (key) => !['interactiveTerminal', 'browserOrigins'].includes(key),
+      )
+    ) {
+      errors.push({
+        path: 'desktop',
+        message: 'must declare only interactiveTerminal and browserOrigins',
+      })
+    } else {
+      if (
+        desktop.interactiveTerminal !== undefined &&
+        typeof desktop.interactiveTerminal !== 'boolean'
+      )
+        errors.push({
+          path: 'desktop.interactiveTerminal',
+          message: 'must be a boolean',
+        })
+      if (
+        desktop.browserOrigins !== undefined &&
+        (!Array.isArray(desktop.browserOrigins) ||
+          desktop.browserOrigins.length > 10 ||
+          desktop.browserOrigins.some((origin) => {
+            if (typeof origin !== 'string' || origin.length > 2048) return true
+            try {
+              const u = new URL(origin)
+              return (
+                u.protocol !== 'https:' ||
+                u.origin !== origin ||
+                !!u.username ||
+                !!u.password
+              )
+            } catch {
+              return true
+            }
+          }))
+      )
+        errors.push({
+          path: 'desktop.browserOrigins',
+          message:
+            'must be at most 10 exact HTTPS origins, without paths or credentials',
+        })
+    }
   }
 
   const requirements = value.requirements
@@ -1001,6 +1055,17 @@ function indent(body: string, spaces: number): string {
  * tracker and the grader (`parseSponsoredProcedureSteps`) count the same
  * steps the step driver runs.
  */
+export const SPONSORED_DESKTOP_TOOLS_DECLARATION =
+  'Desktop capabilities required (use a compatible Desktop build):'
+export function sponsoredProcedureNeedsDesktopTools(
+  procedure: string | null | undefined,
+): boolean {
+  return (
+    procedure?.split('\n').includes(SPONSORED_DESKTOP_TOOLS_DECLARATION) ===
+    true
+  )
+}
+
 export function renderSponsoredSkillProcedure(skill: SponsoredSkill): string {
   const lines: string[] = [
     `${SPONSORED_SKILL_DIRECTIVE} ${sponsoredSkillKey(skill)} ${sponsoredSkillSha256(skill)}`,
@@ -1019,6 +1084,21 @@ export function renderSponsoredSkillProcedure(skill: SponsoredSkill): string {
     'files go and how code is written. Each step is done when its checks pass, however you get there.',
     '',
   ]
+  if (skill.desktop) {
+    lines.push(SPONSORED_DESKTOP_TOOLS_DECLARATION)
+    if (skill.desktop.interactiveTerminal)
+      lines.push(
+        '- Use terminal_start with a declared npm tool name and argv for interactive CLI commands, then terminal_read / terminal_write. The terminal is private to this run and contained like other commands. Install only declared pinned packages with scripts disabled. Never use the user’s other terminals.',
+      )
+    if (skill.desktop.browserOrigins?.length)
+      lines.push(
+        `- Use preview_open to show CLI authentication links to the user on these origins only: ${skill.desktop.browserOrigins.join(', ')}. Preserve the CLI URL exactly, including OAuth state; do not append attribution parameters. The user signs in directly in the browser; call wait_for_cli_login to wait, then verify with the CLI. For this native CLI flow, use these tools instead of the static request_sponsored_signup link. Never request passwords or tokens in chat.`,
+      )
+    lines.push(
+      '- CLI login state lives in this run’s private HOME. Do not claim a global installation or login in the user’s regular shell.',
+      '',
+    )
+  }
   if (skill.knowledge.length) {
     lines.push('What to know:')
     for (const fact of skill.knowledge) lines.push(`- ${fact}`)
@@ -1136,7 +1216,9 @@ export function sponsoredProcedureTrackedLink(
 }
 
 /** {@link sponsoredProcedureTrackedLink} of the skill's rendered procedure. */
-export function sponsoredSkillTrackedLink(skill: SponsoredSkill): string | null {
+export function sponsoredSkillTrackedLink(
+  skill: SponsoredSkill,
+): string | null {
   return sponsoredProcedureTrackedLink(renderSponsoredSkillProcedure(skill))
 }
 

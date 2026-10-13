@@ -166,6 +166,15 @@ export type SponsoredStepDriverDeps = {
   /** False once the run is aborted or its compute grant is about to lapse. */
   canContinue: () => boolean
   maxFixesPerRun?: number
+  /** Progress only: the step about to be checked (a UI's "Step 2/4"). */
+  onStep?: (step: SponsoredStepProgress) => void
+}
+
+/** Which step the driver is on, for a progress line. Never affects the walk. */
+export type SponsoredStepProgress = {
+  number: number
+  total: number
+  title: string
 }
 
 /** `<id>@<version>`, as the registry keys it. */
@@ -212,6 +221,11 @@ export async function driveSponsoredSkillSteps(
   for (const [index, step] of deps.skill.steps.entries()) {
     const number = index + 1
     const base = { number, id: step.id, title: step.title, kind: step.kind }
+    try {
+      deps.onStep?.({ number, total, title: step.title })
+    } catch {
+      // Progress is display only; it never stops the walk.
+    }
     let outcome = await check(deps, step)
 
     if (step.kind === 'user') {
@@ -297,6 +311,8 @@ export type SponsoredStepLoopDeps<State> = {
   redact?: (text: string) => string
   /** A `report_friction` blocker, sent for each step left blocked. */
   onFriction?: (input: SponsoredFrictionInput) => void
+  /** Progress only (see {@link SponsoredStepDriverDeps.onStep}). */
+  onStep?: (step: SponsoredStepProgress) => void
 }
 
 /**
@@ -327,6 +343,7 @@ export async function runSponsoredStepLoop<State>(
       },
     },
     canContinue: deps.canContinue,
+    ...(deps.onStep ? { onStep: deps.onStep } : {}),
     prompt: async (text) => {
       const next = await deps.resume(text, state)
       if (next === null) return false

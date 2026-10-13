@@ -115,6 +115,17 @@ export type SponsoredDockRun = {
   phase: 'accepting' | 'queued' | 'running' | 'delivered' | 'failed'
   changedFiles: readonly string[]
   undone: boolean
+  /** The skill step the harness is checking now, for a driven run. */
+  checkingStep?: { number: number; total: number; title: string } | null
+}
+
+/** One line while a driven run's steps are checked: "Checking step 2/4: …". */
+export function sponsoredCheckingStepLine(
+  step: { number: number; total: number; title: string } | null | undefined,
+): string | null {
+  return step
+    ? `Checking step ${step.number}/${step.total}: ${step.title}`
+    : null
 }
 
 export const SponsoredProposalBlock: React.FC<{
@@ -195,6 +206,16 @@ export const SponsoredProposalBlock: React.FC<{
   const undone = run?.undone === true && (delivered || changedCount > 0)
   const inFlight =
     runPhase === 'accepting' || runPhase === 'queued' || runPhase === 'running'
+  // A driven skill's step checks, after the agent's turn (Desktop parity).
+  // The title is the skill's own, and sanitized like every row field.
+  const checkingLine = sponsoredCheckingStepLine(
+    run?.checkingStep
+      ? {
+          ...run.checkingStep,
+          title: sanitizeTerminalText(run.checkingStep.title),
+        }
+      : null,
+  )
   // FROM ACCEPT ONWARDS (COD-824), the same strings as Desktop's pill. This
   // machine's run phase leads the row, which catches up a poll later.
   const pill = sponsoredProgressPill({
@@ -454,6 +475,11 @@ export const SponsoredProposalBlock: React.FC<{
       {runPhase === 'running' && (
         <text style={{ fg: theme.muted, wrapMode: 'none' }}>
           {clip('Running in this conversation. Esc stops it.', inner)}
+        </text>
+      )}
+      {runPhase === 'running' && checkingLine && (
+        <text style={{ fg: theme.muted, wrapMode: 'none' }}>
+          {clip(checkingLine, inner)}
         </text>
       )}
 

@@ -255,4 +255,26 @@ describe('driveSponsoredSkillSteps', () => {
     expect(result.steps[0]!.status).toBe('blocked')
     expect(result.steps[0]!.checks[0]!.detail).toContain('disk gone')
   })
+
+  test('onStep reports each step as it is checked, and a throwing one never stops the walk', async () => {
+    const w = world(['src/client.ts', 'src/page.ts', 'dist/ok'])
+    const seen: string[] = []
+    const result = await driveSponsoredSkillSteps({
+      skill: skill(STEPS),
+      ctx: w.ctx,
+      prompt: w.prompt,
+      canContinue: () => true,
+      onStep: (progress) => {
+        seen.push(`${progress.number}/${progress.total} ${progress.title}`)
+        throw new Error('display broke')
+      },
+    })
+    expect(seen).toEqual([
+      '1/4 Do client',
+      '2/4 Do page',
+      '3/4 Do verify',
+      '4/4 Ask the user to login',
+    ])
+    expect(result.delivered).toBe(true)
+  })
 })

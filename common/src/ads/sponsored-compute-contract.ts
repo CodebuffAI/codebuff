@@ -18,6 +18,7 @@ import type { SPONSORED_IN_PLACE_VERSION } from './sponsored-in-place'
 export type SponsoredAcceptRequest = {
   /** Which kind of client accepts: `desktop` or `cli`. */
   surface: 'desktop' | 'cli'
+  nativeDesktopTools?: boolean
   /** The run id the surface minted before consent. */
   runId: string
   /** The hash of the exact procedure the user consented to. */

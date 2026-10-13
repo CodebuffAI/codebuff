@@ -89,6 +89,30 @@ import {
   sponsoredPartialEditsDiagnostic,
 } from '@codebuff/common/ads/sponsored-in-place'
 import type { SponsoredTurnEnding } from '@codebuff/common/ads/sponsored-in-place'
+import { sponsoredSkillDirective } from '@codebuff/common/ads/sponsored-skill'
+import {
+  SPONSORED_STEP_FIX_MIN_GRANT_MS,
+  captureSponsoredStepBaseline,
+  sponsoredStepCheckContext,
+  sponsoredStepCommandResult,
+} from '@codebuff/common/ads/sponsored-step-check-context'
+import {
+  runSponsoredStepLoop,
+  selectSponsoredProcedureSkill,
+  sponsoredStepCardStates,
+  sponsoredStepDiagnostic,
+} from '@codebuff/common/ads/sponsored-step-driver'
+import type { SponsoredSkill } from '@codebuff/common/ads/sponsored-skill'
+import type {
+  SponsoredSkillCheckContext,
+  SponsoredSkillCommandResult,
+} from '@codebuff/common/ads/sponsored-skill-checks'
+import type {
+  SponsoredSkillSource,
+  SponsoredStepDriveResult,
+  SponsoredStepProgress,
+} from '@codebuff/common/ads/sponsored-step-driver'
+import type { SponsoredProposalStep } from '@codebuff/common/ads/sponsored-proposal-view'
 import { readdirSync, readFileSync } from 'fs'
 import { randomUUID } from 'node:crypto'
 import { homedir, release } from 'node:os'
@@ -236,6 +260,13 @@ export type SponsoredRunSnapshot = {
   changedFiles: readonly string[]
   failureReason: string | null
   undone: boolean
+  /**
+   * The skill step the harness is checking right now, while a driven run's
+   * step checks run (`driveSteps`); null otherwise.
+   */
+  checkingStep: SponsoredStepProgress | null
+  /** A driven run's step states once its checks ran; empty otherwise. */
+  steps: readonly SponsoredProposalStep[]
 }
 
 const IDLE: SponsoredRunSnapshot = {
@@ -246,6 +277,8 @@ const IDLE: SponsoredRunSnapshot = {
   changedFiles: [],
   failureReason: null,
   undone: false,
+  checkingStep: null,
+  steps: [],
 }
 
 export type SponsoredRunOutcome =
@@ -281,6 +314,22 @@ export type SponsoredTurnPlan = {
    * reports `running`. Idempotent and cheap; never throws.
    */
   onModelEvent: () => void
+  /**
+   * THE STEP DRIVER, present only when the accepted procedure is exactly a
+   * sponsored skill's rendering (`selectSponsoredProcedureSkill`). Chat calls
+   * it after the turn's first segment completed: it checks each step with the
+   * skill's own checks and has the agent fix a failing one through `resume`,
+   * which runs one more segment of the SAME run (same agent, same tools, same
+   * grant) from `previous` and resolves null when that segment did not
+   * complete. Resolves the state of the last segment that completed. Never
+   * throws. `stop` is the chat turn's own abort (Esc): it interrupts the run,
+   * so a check command in flight stops now rather than at its timeout.
+   */
+  driveSteps?: <State>(
+    first: State,
+    resume: (prompt: string, previous: State) => Promise<State | null>,
+    stop?: AbortSignal,
+  ) => Promise<State>
 }
 
 /** How chat says the turn ended. */
@@ -326,6 +375,19 @@ export type SponsoredRunDeps = {
   target: () => Promise<SponsoredLocalTarget | null>
   /** Builds the tool overrides; injected so a test need not start a sandbox. */
   overrideTools?: (context: SponsoredToolContext) => SponsoredOverrideTools
+  /**
+   * The step checks' view of the project, built when the turn starts (so the
+   * "what this run changed" baseline is taken before the agent's first
+   * segment). Injected so a test need not walk a disk. Defaults to
+   * {@link sponsoredCliStepCheckContext}.
+   */
+  stepCheckContext?: (input: {
+    workspaceRoot: string
+    runCommand: (
+      commandLine: string,
+      timeoutSeconds: number,
+    ) => Promise<SponsoredSkillCommandResult>
+  }) => Promise<SponsoredSkillCheckContext>
   agentId?: () => string
 }
 
@@ -538,6 +600,17 @@ export class SponsoredRun {
      * never sees a verdict before the run it ends.
      */
     running: Promise<void> | null
+    /**
+     * The skill this run's procedure renders exactly, when there is one: its
+     * steps are checked after the turn (`driveSteps`). Null runs the
+     * procedure as free text, exactly as before.
+     */
+    skill: SponsoredSkill | null
+    skillSource: SponsoredSkillSource
+    /** The local cutoff the expiry timer aborts at; set when the turn starts. */
+    runDeadlineMs: number | null
+    /** What the step checks found, once they ran. Read by the verdict. */
+    stepResult: SponsoredStepDriveResult | null
   } | null = null
 
   private accepting = false
@@ -844,6 +917,42 @@ export class SponsoredRun {
       const advertiserName = sanitizeTerminalText(
         accepted.accept.advertiserName || proposal.advertiser_name,
       )
+      // THE SKILL, AS DESKTOP SELECTS IT: this build's registry first; else
+      // the skill the Accept sent, only if it renders the consented procedure
+      // byte for byte. The procedure the user consented to is what runs
+      // either way; a skill only adds checks after the turn.
+      const { skill, source: skillSource } = selectSponsoredProcedureSkill(
+        accepted.accept.procedure,
+        accepted.accept.skill,
+      )
+      const named = skill
+        ? null
+        : sponsoredSkillDirective(accepted.accept.procedure)
+      if (named) {
+        // Named a skill this build cannot run as accepted: the procedure
+        // still runs as free text, with no step checks.
+        logger.warn(
+          {
+            proposalId: proposal._id,
+            skill: `${named.id}@${named.version}`,
+            skillSha256: named.sha256,
+            procedureSha256: prepared.preview.procedureSha256,
+            serverSentSkill:
+              accepted.accept.skill !== undefined &&
+              accepted.accept.skill !== null,
+          },
+          '[sponsored-run] procedure names a skill this build does not match; steps are not driven',
+        )
+      } else if (skill) {
+        logger.info(
+          {
+            proposalId: proposal._id,
+            skill: `${skill.id}@${skill.version}`,
+            skillSource,
+          },
+          '[sponsored-run] accepted a skill',
+        )
+      }
       this.active = {
         proposalId: proposal._id,
         runId,
@@ -871,6 +980,10 @@ export class SponsoredRun {
         expiryTimer: null,
         settled: false,
         running: null,
+        skill,
+        skillSource,
+        runDeadlineMs: null,
+        stepResult: null,
       }
       this.deps.lastRun.write(runId)
       this.prepared = null
@@ -936,6 +1049,7 @@ export class SponsoredRun {
       grant.expiresAtMs,
       this.deps.now(),
     )
+    active.runDeadlineMs = runDeadlineMs
     active.expiryTimer = setTimeout(
       () => active.abort.abort('grant-expired'),
       Math.max(0, runDeadlineMs - this.deps.now()),
@@ -946,14 +1060,26 @@ export class SponsoredRun {
       runtimeDir: sponsoredRuntimeDir(this.projectRoot, active.runId),
       signal: active.abort.signal,
       recorder: active.recorder,
-      // The skill's pinned packages, from the procedure hash the grant pins;
-      // none for a legacy procedure, which refuses every install.
-      declaredPackages: sponsoredDeclaredPackagesForProcedureSha256(
-        grant.procedureSha256,
-      ),
+      // The skill's pinned packages, as Desktop takes them: a driven
+      // skill's own (it rendered the granted procedure byte for byte, so it
+      // is the skill the user consented to); otherwise from the procedure
+      // hash the grant pins; none for a legacy procedure, which refuses every
+      // install.
+      declaredPackages: active.skill
+        ? active.skill.packages
+        : sponsoredDeclaredPackagesForProcedureSha256(grant.procedureSha256),
     }
     // A sponsored grant names a plain model id, which the catalog root does
     // not admit, so a catalog-mode CLI runs it on that model's compiled root.
+    const overrideTools = beforeFirstToolCall(
+      (this.deps.overrideTools ?? sponsoredOverrideTools)(context),
+      () => {
+        if (!active.settled) this.computeStarted(active)
+      },
+    )
+    const driveSteps = active.skill
+      ? await this.stepDriver(active, active.skill, overrideTools)
+      : undefined
     const agentId = (
       this.deps.agentId ??
       (() =>
@@ -983,12 +1109,7 @@ export class SponsoredRun {
             ),
           ]
         : [],
-      overrideTools: beforeFirstToolCall(
-        (this.deps.overrideTools ?? sponsoredOverrideTools)(context),
-        () => {
-          if (!active.settled) this.computeStarted(active)
-        },
-      ),
+      overrideTools,
       // A signed one-run grant is the only route through sponsored metering.
       // No Freebuff session id rides beside it: the run is not the user's to
       // pay for, so it must not fall back to their free session when absent.
@@ -1004,6 +1125,133 @@ export class SponsoredRun {
       onModelEvent: () => {
         if (!active.settled) this.computeStarted(active)
       },
+      ...(driveSteps ? { driveSteps } : {}),
+    }
+  }
+
+  /**
+   * The step driver for a driven run, built before the turn's first segment
+   * so "what this run changed" is measured from here
+   * (`docs/ads/agentic/step-checks.md`). THE LOOP IS COMMON'S
+   * (`runSponsoredStepLoop`), the one Desktop and Cloud drive: the CLI
+   * supplies only the check context, the stop rule and where results go.
+   *
+   * - Commands the checks run go through the turn's own
+   *   `run_terminal_command` override: the same sandbox broker and the exact
+   *   refusals the agent's shell has (declared installs, git, destructive
+   *   commands). A refused command is `unavailable`, which fails its check.
+   * - Fixes stop with less than {@link SPONSORED_STEP_FIX_MIN_GRANT_MS} left
+   *   before the run's local cutoff, or once the run is interrupted.
+   * - The result is held for the verdict (`settle`), which reports it.
+   *
+   * Undefined when the context cannot be built: the run then goes ahead
+   * undriven, as a free-text procedure, rather than not at all.
+   */
+  private async stepDriver(
+    active: NonNullable<SponsoredRun['active']>,
+    skill: SponsoredSkill,
+    tools: SponsoredOverrideTools,
+  ): Promise<SponsoredTurnPlan['driveSteps']> {
+    const runCommand = async (
+      commandLine: string,
+      timeoutSeconds: number,
+    ): Promise<SponsoredSkillCommandResult> => {
+      try {
+        const raw = await tools.run_terminal_command({
+          command: commandLine,
+          process_type: 'SYNC',
+          timeout_seconds: timeoutSeconds,
+        })
+        // A refusal (`refusal()` below) carries only `errorMessage`: the
+        // command never ran, and the check fails with the reason.
+        const refused = (
+          raw as Array<{ value?: { errorMessage?: unknown } }> | undefined
+        )?.[0]?.value?.errorMessage
+        if (typeof refused === 'string') {
+          return { exitCode: 1, output: refused, unavailable: true }
+        }
+        return sponsoredStepCommandResult(raw)
+      } catch (error) {
+        return {
+          exitCode: 1,
+          output: error instanceof Error ? error.message : String(error),
+          unavailable: true,
+        }
+      }
+    }
+    let ctx: SponsoredSkillCheckContext
+    try {
+      ctx = await (this.deps.stepCheckContext ?? sponsoredCliStepCheckContext)({
+        workspaceRoot: this.projectRoot,
+        runCommand,
+      })
+    } catch (error) {
+      logger.warn(
+        {
+          proposalId: active.proposalId,
+          skill: `${skill.id}@${skill.version}`,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        '[sponsored-run] step checks unavailable; steps are not driven',
+      )
+      return undefined
+    }
+    return async <State>(
+      first: State,
+      resume: (prompt: string, previous: State) => Promise<State | null>,
+      stop?: AbortSignal,
+    ): Promise<State> => {
+      if (stop?.aborted || active.settled || active.abort.signal.aborted)
+        return first
+      // Check commands run under the run's own signal (the terminal
+      // override's), so the chat's Esc has to reach it.
+      const interrupt = () => active.abort.abort('interrupted: esc')
+      stop?.addEventListener('abort', interrupt, { once: true })
+      try {
+        const driven = await runSponsoredStepLoop(first, {
+          skill,
+          ctx,
+          resume,
+          canContinue: () =>
+            !active.settled &&
+            !active.abort.signal.aborted &&
+            (active.runDeadlineMs ?? 0) - this.deps.now() >
+              SPONSORED_STEP_FIX_MIN_GRANT_MS,
+          onFriction: (input) =>
+            this.reportFriction(active.proposalId, active.runToken, input),
+          onStep: (step) => {
+            if (!active.settled) this.set({ checkingStep: step })
+          },
+        })
+        active.stepResult = driven.result
+        if (!active.settled) {
+          this.set({
+            checkingStep: null,
+            steps: sponsoredStepCardStates(driven.result),
+          })
+        }
+        logger.info(
+          {
+            proposalId: active.proposalId,
+            diagnostic: sponsoredStepDiagnostic(driven.result),
+            skillSource: active.skillSource,
+          },
+          '[sponsored-run] step checks',
+        )
+        return driven.state
+      } catch (error) {
+        logger.warn(
+          {
+            proposalId: active.proposalId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          '[sponsored-run] step driver failed',
+        )
+        if (!active.settled) this.set({ checkingStep: null })
+        return first
+      } finally {
+        stop?.removeEventListener('abort', interrupt)
+      }
     }
   }
 
@@ -1083,10 +1331,21 @@ export class SponsoredRun {
     }${diagnosticCause(result.errorText)}`
     // No `modelRan`: every receipt here is one of the run's own tool edits, so
     // a model-less turn cannot have left one.
-    const verdict = sponsoredInPlaceVerdict({
+    let verdict = sponsoredInPlaceVerdict({
       ending,
       editedFileCount: files.length,
     })
+    // THE STEP CHECKS DECIDE COMPLETION when the skill has them, as on
+    // Desktop: a run whose agent step still fails its check left edits, but
+    // it did not deliver, whatever its report said.
+    const steps = active.stepResult
+    if (steps && !steps.delivered && verdict === 'delivered') {
+      verdict = 'partial_edits'
+    }
+    const stepReport = steps ? { steps: sponsoredStepCardStates(steps) } : {}
+    const stepDiagnostic = steps
+      ? `; ${sponsoredStepDiagnostic(steps)}; skill source ${active.skillSource}`
+      : ''
     // An edit is proof the turn spent compute, so `running` goes first even
     // if no tool call announced it: `delivered` is only legal from `running`.
     if (files.length > 0) this.computeStarted(active)
@@ -1097,19 +1356,31 @@ export class SponsoredRun {
     const authToken = this.deps.getToken() ?? ''
     if (verdict === 'delivered') {
       const outcomes = sponsoredOutcomesFromReceipts(active.procedure, changed)
-      this.set({ phase: 'delivered', changedFiles: files })
-      await this.report(authToken, { state: 'delivered', ...outcomes })
+      this.set({ phase: 'delivered', changedFiles: files, checkingStep: null })
+      await this.report(authToken, {
+        state: 'delivered',
+        ...outcomes,
+        ...stepReport,
+      })
       return sponsoredChangesBrief(active.advertiserName, files)
     }
     if (verdict === 'partial_edits') {
+      // A turn that COMPLETED is partial only because its step checks did
+      // not pass: that is a failure to finish, not an interruption.
       const failureReason = sponsoredCliPartialEditsFailureReason(
-        ending === 'error' ? 'failed' : 'interrupted',
+        ending === 'error' || ending === 'completed' ? 'failed' : 'interrupted',
       )
-      this.set({ phase: 'failed', changedFiles: files, failureReason })
+      this.set({
+        phase: 'failed',
+        changedFiles: files,
+        failureReason,
+        checkingStep: null,
+      })
       await this.report(authToken, {
         state: 'failed',
         failureReason,
-        diagnosticReason: sponsoredPartialEditsDiagnostic(how, files.length),
+        diagnosticReason: `${sponsoredPartialEditsDiagnostic(how, files.length)}${stepDiagnostic}`,
+        ...stepReport,
       })
       return sponsoredChangesBrief(active.advertiserName, files)
     }
@@ -1118,7 +1389,7 @@ export class SponsoredRun {
       : result.errorText
         ? 'The sponsored task failed before it changed anything. Nothing was changed in your project.'
         : 'The sponsored task finished without changing anything in your project.'
-    this.set({ phase: 'failed', failureReason })
+    this.set({ phase: 'failed', failureReason, checkingStep: null })
     await this.report(authToken, {
       state: 'failed',
       failureReason,
@@ -1959,6 +2230,39 @@ function lastRunStore(projectRoot: string): SponsoredRunDeps['lastRun'] {
     write: (runId) =>
       atomicPrivateWrite(directory, key, target, JSON.stringify({ runId })),
   }
+}
+
+/**
+ * The step checks' default view of the project: the sponsored rooted file
+ * system the run's own file tools use (so a check reads what the run could,
+ * and no symlink walks it out of the folder), and the shared worktree
+ * context (`sponsored-step-check-context.ts`) Desktop builds the same way.
+ * The baseline is taken HERE, before the turn's first segment: in the user's
+ * own checkout their uncommitted work is not the run's.
+ */
+export async function sponsoredCliStepCheckContext(input: {
+  workspaceRoot: string
+  runCommand: (
+    commandLine: string,
+    timeoutSeconds: number,
+  ) => Promise<SponsoredSkillCommandResult>
+}): Promise<SponsoredSkillCheckContext> {
+  const fs = createSponsoredRootedFileSystem({
+    workspaceRoot: input.workspaceRoot,
+  })
+  const baseline = await captureSponsoredStepBaseline(fs, input.workspaceRoot)
+  return sponsoredStepCheckContext({
+    fs,
+    workspaceRoot: input.workspaceRoot,
+    baseline,
+    runCommand: input.runCommand,
+    // The CLI never runs a sponsored task on Windows.
+    shell: 'posix',
+    // The CLI has no credential handoff or signup prompt yet: a skill's user
+    // step stays `needs_user`, as it reads today.
+    credentialNames: () => [],
+    signupConfirmed: () => false,
+  })
 }
 
 export const defaultSponsoredRunDeps = (

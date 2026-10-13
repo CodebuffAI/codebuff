@@ -104,6 +104,7 @@ export const sponsoredCapabilitySchema = z
         reason: sponsoredCapabilityReasonSchema.optional(),
         // Older Linux clients isolate networking; only updated clients report true.
         outboundNetwork: z.boolean().optional(),
+        nativeDesktopTools: z.boolean().optional(),
       })
       .strict(),
   })

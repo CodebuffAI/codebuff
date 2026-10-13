@@ -68,7 +68,10 @@ import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
 import type { PendingAttachment } from '../types/store'
 import type { ChatMessage } from '../types/chat'
-import type { SendMessageFn } from '../types/contracts/send-message'
+import type {
+  SendMessageFn,
+  SponsoredSend,
+} from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 import type { SendMessageTimerEvent } from '../utils/send-message-timer'
 import { STATE_SNAPSHOT_INTERRUPTION_MESSAGE } from '@codebuff/sdk'
@@ -719,34 +722,43 @@ export const useSendMessage = ({
         const previousRunStateForTurn = canResumePreviousRun
           ? previousRunStateRef.current
           : null
+        // A sponsored segment: the first one (`previous` null), or a step
+        // driver fix of the SAME run, resumed from its own last state.
+        const sponsoredRunConfig = (
+          plan: SponsoredSend['plan'],
+          prompt: string,
+          previous: RunState | null,
+        ) => ({
+          // The turn's first model event reports `running` (COD-665 V5).
+          ...withSponsoredModelEventTap(
+            createRunConfig({
+              logger,
+              agent: resolvedAgent,
+              prompt,
+              content: undefined,
+              // FRESH MEMORY. The sponsored run never sees the user's
+              // conversation beyond the task context in its prompt, and its
+              // own history is never written back (see below). A fix
+              // segment resumes the sponsored run's own state, never the
+              // conversation's.
+              previousRunState: previous,
+              agentDefinitions,
+              eventHandlerState,
+              signal: abortController.signal,
+              extraCodebuffMetadata: plan.extraCodebuffMetadata,
+            }),
+            plan.onModelEvent,
+          ),
+          cwd: plan.cwd,
+          // ONLY the run's own `report_friction`, never the user's
+          // custom tools: stripping a custom tool from `toolNames` only
+          // stops it being OFFERED -- the SDK dispatches a registered
+          // custom tool by name ahead of every builtin branch.
+          customToolDefinitions: plan.customToolDefinitions,
+          overrideTools: plan.overrideTools,
+        })
         const buildRunConfig = () => sponsored
-          ? {
-              // The turn's first model event reports `running` (COD-665 V5).
-              ...withSponsoredModelEventTap(
-                createRunConfig({
-                  logger,
-                  agent: resolvedAgent,
-                  prompt: effectivePrompt,
-                  content: undefined,
-                  // FRESH MEMORY. The sponsored run never sees the user's
-                  // conversation beyond the task context in its prompt, and its
-                  // own history is never written back (see below).
-                  previousRunState: null,
-                  agentDefinitions,
-                  eventHandlerState,
-                  signal: abortController.signal,
-                  extraCodebuffMetadata: sponsored.plan.extraCodebuffMetadata,
-                }),
-                sponsored.plan.onModelEvent,
-              ),
-              cwd: sponsored.plan.cwd,
-              // ONLY the run's own `report_friction`, never the user's
-              // custom tools: stripping a custom tool from `toolNames` only
-              // stops it being OFFERED -- the SDK dispatches a registered
-              // custom tool by name ahead of every builtin branch.
-              customToolDefinitions: sponsored.plan.customToolDefinitions,
-              overrideTools: sponsored.plan.overrideTools,
-            }
+          ? sponsoredRunConfig(sponsored.plan, effectivePrompt, null)
           : createRunConfig({
               logger,
               agent: resolvedAgent,
@@ -839,7 +851,7 @@ export const useSendMessage = ({
         // NEVER for a sponsored turn: nothing the user types may steer the
         // sponsor's run, so with no mailbox open it waits in the queue.
         if (!sponsored) activateSteering(runOwnerId)
-        const runState = pinByokConnection(
+        let runState = pinByokConnection(
           await runWithFreebuffCatalogStaleRetry({
             run: (attempt) => {
               if (attempt > 0) {
@@ -865,6 +877,45 @@ export const useSendMessage = ({
           }),
           selectedByok,
         )
+        // THE CHECKS DECIDE WHEN A SPONSORED SKILL IS DONE (Desktop parity,
+        // `docs/ads/agentic/step-checks.md`): a driven run's steps are
+        // checked here, still inside this turn, and a failing step goes back
+        // to the agent as another segment of the same run. A fix that fails
+        // ends the walk on the last completed state; it never fails the turn.
+        const driveSteps = sponsored?.plan.driveSteps
+        if (
+          sponsored &&
+          driveSteps &&
+          runState.output?.type !== 'error' &&
+          !abortController.signal.aborted
+        ) {
+          runState = await driveSteps<RunState>(
+            runState,
+            async (prompt, previous) => {
+              if (abortController.signal.aborted) return null
+              try {
+                const next = await client.run(
+                  sponsoredRunConfig(
+                    sponsored.plan,
+                    prompt,
+                    previous,
+                  ) as Parameters<typeof client.run>[0],
+                )
+                return next.output?.type === 'error' ? null : next
+              } catch (error) {
+                logger.info(
+                  {
+                    error:
+                      error instanceof Error ? error.message : String(error),
+                  },
+                  '[send-message] sponsored step fix did not complete',
+                )
+                return null
+              }
+            },
+            abortController.signal,
+          )
+        }
         if (sponsored && runState.output?.type === 'error') {
           sponsoredErrorText =
             runState.output.message ??

@@ -301,6 +301,40 @@ describe('every state, at every width', () => {
       setup.renderer.destroy()
     }
   })
+
+  test('a driven run shows the step its checks are on, and only while running', async () => {
+    const draw = async (phase: 'running' | 'delivered') => {
+      const setup = await createTestRenderer({ width: 60, height: 24 })
+      const root = createRoot(setup.renderer)
+      flushSync(() => {
+        root.render(
+          <SponsoredProposalBlock
+            block={blockFor(SPONSORED_ROW_FIXTURES.offered, {
+              runStarted: true,
+            })}
+            availableWidth={60}
+            run={{
+              phase,
+              changedFiles: [],
+              undone: false,
+              checkingStep: { number: 2, total: 4, title: 'Wire the client' },
+            }}
+          />,
+        )
+      })
+      try {
+        await setup.renderOnce()
+        return setup.captureCharFrame()
+      } finally {
+        flushSync(() => root.unmount())
+        setup.renderer.destroy()
+      }
+    }
+    expect(await draw('running')).toContain(
+      'Checking step 2/4: Wire the client',
+    )
+    expect(await draw('delivered')).not.toContain('Checking step')
+  })
 })
 
 describe('a run that failed after changing files (R7 partial edits)', () => {
