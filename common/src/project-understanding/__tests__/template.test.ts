@@ -1,17 +1,17 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  WORKSPACE_PROFILE_MAX_LIST_LENGTH,
-  WORKSPACE_PROFILE_MAX_VALUE_LENGTH,
-  buildWorkspaceProfileOutputSchema,
-  normalizeWorkspaceProfile,
-  workspaceProfileHasFindings,
-  workspaceProfileTemplateSchema,
+  PROJECT_UNDERSTANDING_MAX_LIST_LENGTH,
+  PROJECT_UNDERSTANDING_MAX_VALUE_LENGTH,
+  buildProjectUnderstandingOutputSchema,
+  normalizeProjectUnderstanding,
+  projectUnderstandingHasFindings,
+  projectUnderstandingTemplateSchema,
 } from '../template'
 
-import type { WorkspaceProfileTemplate } from '../template'
+import type { ProjectUnderstandingTemplate } from '../template'
 
-const TEMPLATE: WorkspaceProfileTemplate = {
+const TEMPLATE: ProjectUnderstandingTemplate = {
   version: 3,
   sections: [
     {
@@ -55,9 +55,9 @@ const ALL_UNKNOWN = {
   misc: { tools: [], monorepo: null },
 }
 
-describe('workspaceProfileTemplateSchema', () => {
+describe('projectUnderstandingTemplateSchema', () => {
   test('accepts a well-formed template', () => {
-    expect(workspaceProfileTemplateSchema.parse(TEMPLATE)).toEqual(TEMPLATE)
+    expect(projectUnderstandingTemplateSchema.parse(TEMPLATE)).toEqual(TEMPLATE)
   })
 
   test('rejects duplicate section and field keys', () => {
@@ -65,9 +65,9 @@ describe('workspaceProfileTemplateSchema', () => {
       ...TEMPLATE,
       sections: [TEMPLATE.sections[0], TEMPLATE.sections[0]],
     }
-    expect(workspaceProfileTemplateSchema.safeParse(dupSection).success).toBe(
-      false,
-    )
+    expect(
+      projectUnderstandingTemplateSchema.safeParse(dupSection).success,
+    ).toBe(false)
     const section = TEMPLATE.sections[1]
     const dupField = {
       ...TEMPLATE,
@@ -75,7 +75,7 @@ describe('workspaceProfileTemplateSchema', () => {
         { ...section, fields: [section.fields[0], section.fields[0]] },
       ],
     }
-    expect(workspaceProfileTemplateSchema.safeParse(dupField).success).toBe(
+    expect(projectUnderstandingTemplateSchema.safeParse(dupField).success).toBe(
       false,
     )
   })
@@ -85,7 +85,9 @@ describe('workspaceProfileTemplateSchema', () => {
       ...TEMPLATE,
       sections: [{ ...TEMPLATE.sections[1], key: 'size' }],
     }
-    expect(workspaceProfileTemplateSchema.safeParse(bad).success).toBe(false)
+    expect(projectUnderstandingTemplateSchema.safeParse(bad).success).toBe(
+      false,
+    )
   })
 
   test('rejects keys that are not snake_case', () => {
@@ -93,13 +95,15 @@ describe('workspaceProfileTemplateSchema', () => {
       ...TEMPLATE,
       sections: [{ ...TEMPLATE.sections[1], key: 'Misc-Section' }],
     }
-    expect(workspaceProfileTemplateSchema.safeParse(bad).success).toBe(false)
+    expect(projectUnderstandingTemplateSchema.safeParse(bad).success).toBe(
+      false,
+    )
   })
 })
 
-describe('buildWorkspaceProfileOutputSchema', () => {
+describe('buildProjectUnderstandingOutputSchema', () => {
   test('requires every section and field, with unknown as an option', () => {
-    const schema = buildWorkspaceProfileOutputSchema(TEMPLATE) as any
+    const schema = buildProjectUnderstandingOutputSchema(TEMPLATE) as any
     expect(schema.required).toEqual(['stack', 'misc'])
     expect(schema.properties.stack.required).toEqual([
       'language',
@@ -126,16 +130,16 @@ describe('buildWorkspaceProfileOutputSchema', () => {
   })
 })
 
-describe('normalizeWorkspaceProfile', () => {
+describe('normalizeProjectUnderstanding', () => {
   test('anything that is not an object is all-unknown', () => {
     for (const raw of [null, undefined, 'TypeScript', 42, ['x']]) {
-      expect(normalizeWorkspaceProfile(TEMPLATE, raw)).toEqual(ALL_UNKNOWN)
+      expect(normalizeProjectUnderstanding(TEMPLATE, raw)).toEqual(ALL_UNKNOWN)
     }
-    expect(workspaceProfileHasFindings(ALL_UNKNOWN)).toBe(false)
+    expect(projectUnderstandingHasFindings(ALL_UNKNOWN)).toBe(false)
   })
 
   test('matches options case-insensitively and drops what does not fit', () => {
-    const profile = normalizeWorkspaceProfile(TEMPLATE, {
+    const profile = normalizeProjectUnderstanding(TEMPLATE, {
       stack: {
         language: 'typescript',
         frameworks: ['react', '  Remix  ', 'REACT', 'unknown', '', 7],
@@ -152,23 +156,25 @@ describe('normalizeWorkspaceProfile', () => {
       },
       misc: { tools: ['Make', 'Just'], monorepo: true },
     })
-    expect(workspaceProfileHasFindings(profile)).toBe(true)
+    expect(projectUnderstandingHasFindings(profile)).toBe(true)
   })
 
   test('a single choice outside its options, or "unknown", is null', () => {
     expect(
-      normalizeWorkspaceProfile(TEMPLATE, { stack: { language: 'Rust' } }).stack
-        .language,
+      normalizeProjectUnderstanding(TEMPLATE, { stack: { language: 'Rust' } })
+        .stack.language,
     ).toBeNull()
     expect(
-      normalizeWorkspaceProfile(TEMPLATE, { stack: { language: 'unknown' } })
-        .stack.language,
+      normalizeProjectUnderstanding(TEMPLATE, {
+        stack: { language: 'unknown' },
+      }).stack.language,
     ).toBeNull()
   })
 
   test('booleans take yes/no or a real boolean; anything else is unknown', () => {
     const value = (monorepo: unknown) =>
-      normalizeWorkspaceProfile(TEMPLATE, { misc: { monorepo } }).misc.monorepo
+      normalizeProjectUnderstanding(TEMPLATE, { misc: { monorepo } }).misc
+        .monorepo
     expect(value('yes')).toBe(true)
     expect(value('no')).toBe(false)
     expect(value(false)).toBe(false)
@@ -178,7 +184,7 @@ describe('normalizeWorkspaceProfile', () => {
   })
 
   test('caps value length and list length', () => {
-    const profile = normalizeWorkspaceProfile(TEMPLATE, {
+    const profile = normalizeProjectUnderstanding(TEMPLATE, {
       misc: {
         tools: [
           'x'.repeat(500),
@@ -187,18 +193,18 @@ describe('normalizeWorkspaceProfile', () => {
       },
     })
     const tools = profile.misc.tools as string[]
-    expect(tools).toHaveLength(WORKSPACE_PROFILE_MAX_LIST_LENGTH)
-    expect(tools[0]).toHaveLength(WORKSPACE_PROFILE_MAX_VALUE_LENGTH)
+    expect(tools).toHaveLength(PROJECT_UNDERSTANDING_MAX_LIST_LENGTH)
+    expect(tools[0]).toHaveLength(PROJECT_UNDERSTANDING_MAX_VALUE_LENGTH)
   })
 
   test('a non-object section is all-unknown for that section only', () => {
-    const profile = normalizeWorkspaceProfile(TEMPLATE, {
+    const profile = normalizeProjectUnderstanding(TEMPLATE, {
       stack: ['React'],
       misc: { monorepo: 'no' },
     })
     expect(profile.stack).toEqual(ALL_UNKNOWN.stack)
     expect(profile.misc.monorepo).toBe(false)
     // A "no" is a finding.
-    expect(workspaceProfileHasFindings(profile)).toBe(true)
+    expect(projectUnderstandingHasFindings(profile)).toBe(true)
   })
 })

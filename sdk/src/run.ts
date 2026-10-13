@@ -34,6 +34,7 @@ import {
   isTransientNetworkError,
 } from '@codebuff/common/util/error'
 import { isSensitiveEnvFilePath } from '@codebuff/common/util/env-file-path'
+import { PROJECT_UNDERSTANDING_OUTSIDE_PROJECT_MESSAGE } from '@codebuff/common/project-understanding/non-text-files'
 import { cloneDeep } from 'lodash'
 
 import { executeComposioToolViaServer } from './composio'
@@ -54,7 +55,8 @@ import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
-import { getProjectPathLookupKeys } from './tools/path-utils'
+import { getProjectPathLookupKeys, resolveFilePath } from './tools/path-utils'
+import { createProjectFence } from './tools/project-confinement'
 import { getFiles, getImageFile } from './tools/read-files'
 import { readUrl } from './tools/read-url'
 import { runTerminalCommand } from './tools/run-terminal-command'
@@ -63,6 +65,7 @@ import type { TerminalCommandBroker } from './tools/run-terminal-command'
 import type { CustomToolDefinition } from './custom-tool'
 import type { CodebuffRequestHeadersProvider } from './impl/model-provider'
 import type { RunState } from './run-state'
+import type { ProjectFence } from './tools/project-confinement'
 import type { FileFilter } from './tools/read-files'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { FileReadWindow } from '@codebuff/common/types/contracts/client'
@@ -318,6 +321,29 @@ export type RunOptions = {
    *  know a new conversation's trace session before its first run returns.
    *  Ignored when `previousRun` carries one. Unset mints a random UUID. */
   traceSessionId?: string
+  /**
+   * Hold the SDK's own read tools to the project at `cwd`. Off by default:
+   * only the project-understanding agent sets it (docs/freebuff-project-understanding.md).
+   * When true:
+   *  - read_files refuses, per file, any path outside `cwd` as written OR
+   *    through a symlink (realpaths compared), with a
+   *    `[FILE_OUTSIDE_PROJECT]` status, and reads the rest;
+   *  - list_directory refuses a folder outside `cwd`, and glob a `cwd`
+   *    outside it, with a tool error the model can act on; glob also drops
+   *    matches that resolve outside through a symlinked folder;
+   *  - code_search is refused outright: its `cwd` and flags can name any path.
+   * It covers only the SDK's local handlers: an `overrideTools` handler owns
+   * its own policy. Write and terminal tools are untouched.
+   */
+  confineFileToolsToProject?: boolean
+  /**
+   * read_files refuses non-text files (images, PDFs, archives, office
+   * documents, media, fonts, binaries, databases: by extension, and any file
+   * with a NUL in its first 4 KB), and an image is never attached. Off by
+   * default: only the project-understanding agent sets it. Local reads only, like
+   * `confineFileToolsToProject`.
+   */
+  refuseNonTextFileReads?: boolean
 }
 
 /**
@@ -582,6 +608,8 @@ async function runOnce({
   terminalShell,
   projectKey,
   traceSessionId: traceSessionIdOption,
+  confineFileToolsToProject,
+  refuseNonTextFileReads,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
@@ -788,6 +816,14 @@ async function runOnce({
     }
   }
 
+  // Opt-in (the project-understanding agent): every other run leaves both unset and
+  // its tools behave exactly as before.
+  const projectFence: ProjectFence | undefined =
+    confineFileToolsToProject && cwd
+      ? createProjectFence({ projectRoot: cwd, fs })
+      : undefined
+  const refuseNonText = refuseNonTextFileReads === true
+
   const agentRuntimeImpl = getAgentRuntimeImpl({
     logger,
     traceWriter,
@@ -823,6 +859,7 @@ async function runOnce({
         apiKey,
         byok,
         signal,
+        projectFence,
       })
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
@@ -843,26 +880,59 @@ async function runOnce({
 
       return filteredTools
     },
-    requestFiles: ({ filePaths, fileWindows }) =>
-      readFiles({
-        filePaths,
-        fileWindows,
-        override: overrideTools?.read_files,
-        fileFilter,
-        cwd,
-        fs,
-      }),
+    requestFiles: async ({ filePaths, fileWindows }) => {
+      const read = (paths: string[]) =>
+        readFiles({
+          filePaths: paths,
+          fileWindows,
+          override: overrideTools?.read_files,
+          fileFilter,
+          cwd,
+          fs,
+          ...(refuseNonText ? { refuseNonText } : {}),
+        })
+      if (!projectFence || overrideTools?.read_files) return read(filePaths)
+      // confineFileToolsToProject: refuse each outside path, read the rest.
+      const refused = Object.create(null) as Record<string, string | null>
+      const inside: string[] = []
+      for (const filePath of filePaths) {
+        if (!filePath) continue
+        if (await projectFence.resolve(filePath)) {
+          inside.push(filePath)
+        } else {
+          const { relativePath } = resolveFilePath(
+            requireCwd(cwd, 'read_files'),
+            filePath,
+          )
+          refused[relativePath] =
+            `${FILE_READ_STATUS.OUTSIDE_PROJECT} ${PROJECT_UNDERSTANDING_OUTSIDE_PROJECT_MESSAGE}`
+        }
+      }
+      const loaded = inside.length > 0 ? await read(inside) : {}
+      return { ...refused, ...loaded }
+    },
     // Only a local read can return an image's bytes. An override reads a
     // remote workspace through the text-only contract, so it keeps images.
-    requestImageFile: overrideTools?.read_files
-      ? undefined
-      : ({ filePath }) =>
-          getImageFile({
-            filePath,
-            cwd: requireCwd(cwd, 'read_files'),
-            fs,
-            fileFilter,
-          }),
+    // refuseNonTextFileReads leaves images to the text read, which refuses
+    // them.
+    requestImageFile:
+      overrideTools?.read_files || refuseNonText
+        ? undefined
+        : async ({ filePath }) => {
+            const imageCwd = requireCwd(cwd, 'read_files')
+            if (projectFence && !(await projectFence.resolve(filePath))) {
+              return {
+                path: resolveFilePath(imageCwd, filePath).relativePath,
+                error: `${FILE_READ_STATUS.OUTSIDE_PROJECT} ${PROJECT_UNDERSTANDING_OUTSIDE_PROJECT_MESSAGE}`,
+              }
+            }
+            return getImageFile({
+              filePath,
+              cwd: imageCwd,
+              fs,
+              fileFilter,
+            })
+          },
     requestOptionalFile: async ({ filePath }) => {
       const files = await readFiles({
         filePaths: [filePath],
@@ -1144,6 +1214,7 @@ async function readFiles({
   fs,
   limitContent,
   enforceEnvPolicy = true,
+  refuseNonText,
 }: {
   filePaths: string[]
   fileWindows?: Record<string, FileReadWindow[]>
@@ -1155,6 +1226,8 @@ async function readFiles({
   fs: CodebuffFileSystem
   limitContent?: boolean
   enforceEnvPolicy?: boolean
+  /** RunOptions.refuseNonTextFileReads; local reads only. */
+  refuseNonText?: boolean
 }) {
   if (override) {
     // Windows are forwarded, not applied here: an override reads from a remote
@@ -1213,7 +1286,37 @@ async function readFiles({
     fileFilter,
     limitContent,
     enforceEnvPolicy,
+    ...(refuseNonText ? { refuseNonText } : {}),
   })
+}
+
+function confinedToolError(errorMessage: string): ToolResultOutput[] {
+  return [{ type: 'json', value: { errorMessage } }]
+}
+
+/** glob under confineFileToolsToProject: a symlinked folder inside the project
+ *  can point anywhere, and the project scan follows it, so a match is kept
+ *  only when its real path is inside the project too. */
+async function dropMatchesOutsideProject(
+  output: ToolResultOutput[],
+  fence: ProjectFence,
+): Promise<ToolResultOutput[]> {
+  return Promise.all(
+    output.map(async (part) => {
+      if (part.type !== 'json') return part
+      const value = part.value as { files?: unknown }
+      if (!value || !Array.isArray(value.files)) return part
+      const kept: string[] = []
+      for (const file of value.files) {
+        if (typeof file === 'string' && (await fence.resolve(file))) {
+          kept.push(file)
+        }
+      }
+      return kept.length === value.files.length
+        ? part
+        : { ...part, value: { ...(part.value as object), files: kept } }
+    }),
+  ) as Promise<ToolResultOutput[]>
 }
 
 async function handleToolCall({
@@ -1227,6 +1330,7 @@ async function handleToolCall({
   apiKey,
   byok,
   signal,
+  projectFence,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
@@ -1238,6 +1342,8 @@ async function handleToolCall({
   apiKey: string
   byok?: ResolvedByokConnection
   signal?: AbortSignal
+  /** RunOptions.confineFileToolsToProject: unset for every other run. */
+  projectFence?: ProjectFence
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
@@ -1361,12 +1467,33 @@ async function handleToolCall({
       // the host's, never the tool call's.
       const { url, max_chars } = input as { url: string; max_chars?: number }
       result = await readUrl({ url, max_chars, signal })
+    } else if (toolName === 'code_search' && projectFence) {
+      result = confinedToolError(
+        'code_search is not available in this run: it cannot be held to the project directory. Use glob and read_files instead.',
+      )
     } else if (toolName === 'code_search') {
       result = await codeSearch({
         projectPath: requireCwd(cwd, 'code_search'),
         ...input,
         signal,
       } as Parameters<typeof codeSearch>[0])
+    } else if (toolName === 'list_directory' && projectFence) {
+      const directoryPath = (input as { path: string }).path
+      const projectPath = requireCwd(cwd, 'list_directory')
+      const fullPath = await projectFence.resolve(directoryPath, {
+        allowRoot: true,
+      })
+      result = fullPath
+        ? (
+            await listDirectory({ directoryPath: fullPath, projectPath, fs })
+          ).map((part) =>
+            part.type === 'json' && 'files' in part.value
+              ? { ...part, value: { ...part.value, path: directoryPath } }
+              : part,
+          )
+        : confinedToolError(
+            `Failed to list directory: ${directoryPath} is outside the project. Only folders inside the project directory can be listed.`,
+          )
     } else if (toolName === 'list_directory') {
       result = await listDirectory({
         directoryPath: (input as { path: string }).path,
@@ -1379,13 +1506,26 @@ async function handleToolCall({
         cwd?: string
         max_results?: number
       }
-      result = await glob({
-        pattern: globInput.pattern,
-        projectPath: requireCwd(cwd, 'glob'),
-        cwd: globInput.cwd,
-        maxResults: globInput.max_results,
-        fs,
-      })
+      if (
+        projectFence &&
+        globInput.cwd !== undefined &&
+        !(await projectFence.resolve(globInput.cwd, { allowRoot: true }))
+      ) {
+        result = confinedToolError(
+          `Failed to search for files: cwd ${globInput.cwd} is outside the project. Only the project directory can be searched.`,
+        )
+      } else {
+        result = await glob({
+          pattern: globInput.pattern,
+          projectPath: requireCwd(cwd, 'glob'),
+          cwd: globInput.cwd,
+          maxResults: globInput.max_results,
+          fs,
+        })
+        if (projectFence) {
+          result = await dropMatchesOutsideProject(result, projectFence)
+        }
+      }
     } else if (toolName === 'run_file_change_hooks') {
       // No-op: SDK doesn't run file change hooks
       result = [

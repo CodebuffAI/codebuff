@@ -117,9 +117,9 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_ID = 'freebuff-desktop-thread'
 export const FREEBUFF_DESKTOP_AUTORUN_AGENT_ID = 'freebuff-desktop-autorun'
 
 /**
- * The root the workspace profiler runs under: a read-only agent that looks over
+ * The root the project-understanding agent runs under: a read-only agent that looks over
  * the project a Desktop session is working in and fills in the
- * backend's workspace-profile template (common/src/workspace-profile/). It
+ * backend's project-understanding template (common/src/project-understanding/). It
  * never edits files or runs commands.
  *
  * A first-party free-mode ROOT for the auto-run decider's reason: it runs
@@ -128,11 +128,17 @@ export const FREEBUFF_DESKTOP_AUTORUN_AGENT_ID = 'freebuff-desktop-autorun'
  * pinned to one cheap model, whatever the session's model is: see
  * isFreebuffHelperOnSessionModel.
  */
-export const FREEBUFF_WORKSPACE_PROFILER_AGENT_ID = 'freebuff-workspace-profiler'
+export const FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID = 'freebuff-project-understanding'
 
-/** The one model the workspace profiler runs, on every surface. */
-export const FREEBUFF_WORKSPACE_PROFILER_MODEL_ID =
-  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+/**
+ * The one model the project-understanding agent runs, on every surface: GPT-6
+ * Luna with reasoning off, served through OpenRouter on OpenAI's endpoints
+ * (flex, then standard). Not DeepSeek: the agent reads the user's project
+ * files, and those must not go to DeepSeek's own API. Luna is also the cheaper
+ * of the two (docs/freebuff-project-understanding.md).
+ */
+export const FREEBUFF_PROJECT_UNDERSTANDING_MODEL_ID =
+  FREEBUFF_GPT_6_LUNA_MODEL_ID
 
 /**
  * Suffix for the base3 desktop roots. The single-loop agent is a different
@@ -587,9 +593,9 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // The Desktop auto-run decider. Spawns nothing, but the hierarchy gate reads
   // this list for the ROOT itself, and a decision has no parent run to hang off.
   FREEBUFF_DESKTOP_AUTORUN_AGENT_ID,
-  // The workspace profiler. Spawns nothing, and like the decider it runs
+  // The project-understanding agent. Spawns nothing, and like the decider it runs
   // beside a turn with no parent run to hang off.
-  FREEBUFF_WORKSPACE_PROFILER_AGENT_ID,
+  FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID,
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
   FREEBUFF_ROOT_AGENT_IDS,
@@ -769,9 +775,9 @@ const FREEBUFF_LUNA_HELPER_AGENT_IDS: ReadonlySet<string> = new Set([
  * also a session model. The session gate binds every session-model request to
  * the session's own model, the limited tier refuses premium models, and
  * premium models draw on the premium rate budget; none of that is meant for a
- * file-picker spawned inside, say, a DeepSeek Flash session. Such a request is
- * treated like the Gemini helpers always were: it needs a live session, but
- * not a session on its model.
+ * file-picker (or the project-understanding agent) on GPT-6 Luna beside, say,
+ * a DeepSeek Flash session. Such a request is treated like the Gemini helpers
+ * always were: it needs a live session, but not a session on its model.
  */
 export function isFreebuffHelperOnSessionModel(
   fullAgentId: string,
@@ -782,11 +788,11 @@ export function isFreebuffHelperOnSessionModel(
   return (
     (FREEBUFF_LUNA_HELPER_AGENT_IDS.has(agentId) &&
       model === FREEBUFF_GPT_6_LUNA_MODEL_ID) ||
-    // The workspace profiler is a root, but it is the same kind of traffic:
-    // background work beside a session on whatever model that session runs,
-    // pinned to its own cheap model.
-    (agentId === FREEBUFF_WORKSPACE_PROFILER_AGENT_ID &&
-      model === FREEBUFF_WORKSPACE_PROFILER_MODEL_ID)
+    // The project-understanding agent is a root, but it is the same kind of
+    // traffic: background work beside a session on whatever model that session
+    // runs, pinned to its own model (GPT-6 Luna, like the file helpers above).
+    (agentId === FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID &&
+      model === FREEBUFF_PROJECT_UNDERSTANDING_MODEL_ID)
   )
 }
 
@@ -1030,11 +1036,12 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // the tab's own model, which is the one that tab's session was admitted with.
   // Pinning it to a single model instead would 403 every tab on any other one.
   [FREEBUFF_DESKTOP_AUTORUN_AGENT_ID]: FREEBUFF_DESKTOP_MODELS,
-  // The workspace profiler runs one model on every surface. Its requests must
-  // also look like the profiler (the completions route's helper check), so the
-  // id is not a free route onto DeepSeek V4 Flash for any other prompt.
-  [FREEBUFF_WORKSPACE_PROFILER_AGENT_ID]: new Set([
-    FREEBUFF_WORKSPACE_PROFILER_MODEL_ID,
+  // The project-understanding agent runs one model on every surface (GPT-6
+  // Luna). Its requests must also look like the project-understanding agent
+  // (the completions route's helper check), so the id is not a free route onto
+  // Luna, a premium model, for any other prompt.
+  [FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID]: new Set([
+    FREEBUFF_PROJECT_UNDERSTANDING_MODEL_ID,
   ]),
   // A Projects thread's subagent runs its root's model, so it allows the
   // root's set. This entry only lets it bill as the session it belongs to;
@@ -1204,8 +1211,8 @@ export const FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS = [
   // ("you never edit files or run commands"). Position 0 is the worst place to
   // say the wrong thing about who is reading.
   'You are Buffy, the auto-run agent behind Freebuff Desktop.',
-  // common/src/workspace-profile/agent.ts — the workspace profiler.
-  'You are Buffy, the workspace profiler behind Freebuff.',
+  // common/src/project-understanding/agent.ts — the project-understanding agent.
+  'You are Buffy, the project-understanding agent behind Freebuff.',
   // LEGACY — base2's opening before 92371caa8 (2026-07-07), for installs that
   // have not updated since.
   'You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents.',

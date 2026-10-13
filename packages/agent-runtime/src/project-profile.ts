@@ -1,4 +1,4 @@
-import { FREEBUFF_WORKSPACE_PROFILER_AGENT_ID } from '@codebuff/common/constants/free-agents'
+import { FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID } from '@codebuff/common/constants/free-agents'
 import {
   buildProjectProfileRequest,
   PROJECT_PROFILE_TOOL_NAME,
@@ -30,11 +30,11 @@ export function shouldOfferProjectProfileTool(params: {
   return (
     params.costMode === 'free' &&
     params.isRoot &&
-    // The workspace profiler reports its own, fuller profile, and the
+    // The project-understanding agent reports its own, fuller profile, and the
     // completions route holds it to its fixed tool set, which this tool is
     // not in.
     parseAgentId(params.agentId).agentId !==
-      FREEBUFF_WORKSPACE_PROFILER_AGENT_ID &&
+      FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID &&
     params.toolNames.includes('read_files') &&
     params.getProjectProfile !== undefined &&
     params.reportProjectProfile !== undefined

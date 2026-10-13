@@ -54,10 +54,10 @@ describe('shouldOfferProjectProfileTool', () => {
     ).toBe(false)
   })
 
-  test('skips the workspace profiler, which reports its own profile', () => {
+  test('skips the project-understanding agent, which reports its own profile', () => {
     for (const agentId of [
-      'freebuff-workspace-profiler',
-      'codebuff/freebuff-workspace-profiler@1.0.0',
+      'freebuff-project-understanding',
+      'codebuff/freebuff-project-understanding@1.0.0',
     ]) {
       expect(shouldOfferProjectProfileTool({ ...base, agentId })).toBe(false)
     }

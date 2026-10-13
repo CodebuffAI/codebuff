@@ -1,14 +1,14 @@
 /**
- * The workspace-profile template: the sections the workspace profiler fills in
- * about the project a session is working in (docs/freebuff-workspace-profile.md).
+ * The project-understanding template: the sections the project-understanding agent fills in
+ * about the project a session is working in (docs/freebuff-project-understanding.md).
  *
- * The backend owns the template and serves it with the "is a profile due"
+ * The backend owns the template and serves it with the "is a run due"
  * answer, so a section can be added or reworded with a web deploy and no
  * client release. A client only knows the shape below: sections of typed
  * fields. It builds the agent's output schema from whatever template it was
  * given, and the server checks the answer against the version it served.
  *
- * Every field may be left unknown (stored as `null`). The profiler fills in what it found
+ * Every field may be left unknown (stored as `null`). The project-understanding agent fills in what it found
  * evidence for and nothing else, so "unknown" is a real answer, not a failure.
  */
 import z from 'zod/v4'
@@ -20,24 +20,24 @@ import type { JsonObjectSchema, JsonSchema } from '../templates/initial-agents-d
  * language mix, filled in from the client's stats (`stats.ts`), never by the
  * model. Reserved, so no template section can take this key.
  */
-export const WORKSPACE_PROFILE_SIZE_SECTION = 'size'
+export const PROJECT_UNDERSTANDING_SIZE_SECTION = 'size'
 
 /** Longest value a free-text field keeps. Names, not sentences. */
-export const WORKSPACE_PROFILE_MAX_VALUE_LENGTH = 80
+export const PROJECT_UNDERSTANDING_MAX_VALUE_LENGTH = 80
 
 /** Most values a list field keeps. */
-export const WORKSPACE_PROFILE_MAX_LIST_LENGTH = 30
+export const PROJECT_UNDERSTANDING_MAX_LIST_LENGTH = 30
 
 /** How long a stored profile stays fresh. Past it (or when the backend's
  *  template is newer than the one the profile answered), the next session
- *  profiles the project again. */
-export const WORKSPACE_PROFILE_REPORT_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000
+ *  runs over the project again. */
+export const PROJECT_UNDERSTANDING_REPORT_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000
 
 const keySchema = z
   .string()
   .regex(/^[a-z][a-z0-9_]{0,47}$/, 'keys are snake_case')
 
-const optionSchema = z.string().min(1).max(WORKSPACE_PROFILE_MAX_VALUE_LENGTH)
+const optionSchema = z.string().min(1).max(PROJECT_UNDERSTANDING_MAX_VALUE_LENGTH)
 
 /**
  * - `choice`: one of `options`.
@@ -46,7 +46,7 @@ const optionSchema = z.string().min(1).max(WORKSPACE_PROFILE_MAX_VALUE_LENGTH)
  * - `names`: a list of short names (frameworks, test runners).
  * - `boolean`: yes or no.
  */
-export const workspaceProfileFieldSchema = z.discriminatedUnion('kind', [
+export const projectUnderstandingFieldSchema = z.discriminatedUnion('kind', [
   z.object({
     key: keySchema,
     kind: z.literal('choice'),
@@ -76,31 +76,31 @@ export const workspaceProfileFieldSchema = z.discriminatedUnion('kind', [
   }),
 ])
 
-export type WorkspaceProfileField = z.infer<typeof workspaceProfileFieldSchema>
+export type ProjectUnderstandingField = z.infer<typeof projectUnderstandingFieldSchema>
 
-export const workspaceProfileSectionSchema = z.object({
+export const projectUnderstandingSectionSchema = z.object({
   key: keySchema,
   title: z.string().min(1).max(120),
   guidance: z.string().max(600).optional(),
-  fields: z.array(workspaceProfileFieldSchema).min(1).max(20),
+  fields: z.array(projectUnderstandingFieldSchema).min(1).max(20),
 })
 
-export type WorkspaceProfileSection = z.infer<
-  typeof workspaceProfileSectionSchema
+export type ProjectUnderstandingSection = z.infer<
+  typeof projectUnderstandingSectionSchema
 >
 
-export const workspaceProfileTemplateSchema = z
+export const projectUnderstandingTemplateSchema = z
   .object({
     version: z.number().int().positive(),
-    sections: z.array(workspaceProfileSectionSchema).min(1).max(20),
+    sections: z.array(projectUnderstandingSectionSchema).min(1).max(20),
   })
   .superRefine((template, ctx) => {
     const sections = new Set<string>()
     for (const section of template.sections) {
-      if (section.key === WORKSPACE_PROFILE_SIZE_SECTION) {
+      if (section.key === PROJECT_UNDERSTANDING_SIZE_SECTION) {
         ctx.addIssue({
           code: 'custom',
-          message: `section key ${WORKSPACE_PROFILE_SIZE_SECTION} is reserved for the counted section`,
+          message: `section key ${PROJECT_UNDERSTANDING_SIZE_SECTION} is reserved for the counted section`,
         })
       }
       if (sections.has(section.key)) {
@@ -123,24 +123,24 @@ export const workspaceProfileTemplateSchema = z
     }
   })
 
-export type WorkspaceProfileTemplate = z.infer<
-  typeof workspaceProfileTemplateSchema
+export type ProjectUnderstandingTemplate = z.infer<
+  typeof projectUnderstandingTemplateSchema
 >
 
-/** What the profiler answers for a single-value field it has no evidence for.
+/** What the project-understanding agent answers for a single-value field it has no evidence for.
  *  Stored as `null`. */
 const UNKNOWN = 'unknown'
 
 /** A field's stored value; `null` is unknown. */
-export type WorkspaceProfileValue = string | string[] | boolean | null
+export type ProjectUnderstandingValue = string | string[] | boolean | null
 
 /** `{ [sectionKey]: { [fieldKey]: value } }`, every template field present. */
-export type WorkspaceProfile = Record<
+export type ProjectUnderstanding = Record<
   string,
-  Record<string, WorkspaceProfileValue>
+  Record<string, ProjectUnderstandingValue>
 >
 
-function fieldJsonSchema(field: WorkspaceProfileField): JsonSchema {
+function fieldJsonSchema(field: ProjectUnderstandingField): JsonSchema {
   const description = field.guidance
     ? `${field.label}. ${field.guidance}`
     : field.label
@@ -176,9 +176,9 @@ function fieldJsonSchema(field: WorkspaceProfileField): JsonSchema {
   }
 }
 
-/** The JSON schema the profiler's `set_output` call must satisfy. */
-export function buildWorkspaceProfileOutputSchema(
-  template: WorkspaceProfileTemplate,
+/** The JSON schema the project-understanding agent's `set_output` call must satisfy. */
+export function buildProjectUnderstandingOutputSchema(
+  template: ProjectUnderstandingTemplate,
 ): JsonObjectSchema {
   const properties: Record<string, JsonSchema> = {}
   for (const section of template.sections) {
@@ -204,7 +204,7 @@ function cleanName(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.replace(/\s+/g, ' ').trim()
   if (!trimmed) return null
-  return trimmed.slice(0, WORKSPACE_PROFILE_MAX_VALUE_LENGTH)
+  return trimmed.slice(0, PROJECT_UNDERSTANDING_MAX_VALUE_LENGTH)
 }
 
 function matchOption(options: readonly string[], value: string): string | null {
@@ -223,15 +223,15 @@ function cleanList(values: unknown, map: (value: string) => string | null) {
     if (value === null || seen.has(value.toLowerCase())) continue
     seen.add(value.toLowerCase())
     out.push(value)
-    if (out.length >= WORKSPACE_PROFILE_MAX_LIST_LENGTH) break
+    if (out.length >= PROJECT_UNDERSTANDING_MAX_LIST_LENGTH) break
   }
   return out
 }
 
 function normalizeField(
-  field: WorkspaceProfileField,
+  field: ProjectUnderstandingField,
   raw: unknown,
-): WorkspaceProfileValue {
+): ProjectUnderstandingValue {
   switch (field.kind) {
     case 'choice': {
       const name = cleanName(raw)
@@ -260,22 +260,22 @@ function normalizeField(
  * The client runs this before reporting and the server runs it again on what
  * arrives, so what is stored never depends on the client having done so.
  */
-export function normalizeWorkspaceProfile(
-  template: WorkspaceProfileTemplate,
+export function normalizeProjectUnderstanding(
+  template: ProjectUnderstandingTemplate,
   raw: unknown,
-): WorkspaceProfile {
+): ProjectUnderstanding {
   const answer =
     raw && typeof raw === 'object' && !Array.isArray(raw)
       ? (raw as Record<string, unknown>)
       : {}
-  const profile: WorkspaceProfile = {}
+  const profile: ProjectUnderstanding = {}
   for (const section of template.sections) {
     const rawSection = answer[section.key]
     const sectionAnswer =
       rawSection && typeof rawSection === 'object' && !Array.isArray(rawSection)
         ? (rawSection as Record<string, unknown>)
         : {}
-    const values: Record<string, WorkspaceProfileValue> = {}
+    const values: Record<string, ProjectUnderstandingValue> = {}
     for (const field of section.fields) {
       values[field.key] = normalizeField(field, sectionAnswer[field.key])
     }
@@ -286,7 +286,7 @@ export function normalizeWorkspaceProfile(
 
 /** Whether the profile says anything at all, so an all-unknown answer (the
  *  model gave up) is not stored as if it were a finding. */
-export function workspaceProfileHasFindings(profile: WorkspaceProfile): boolean {
+export function projectUnderstandingHasFindings(profile: ProjectUnderstanding): boolean {
   return Object.values(profile).some((section) =>
     Object.values(section).some((value) =>
       Array.isArray(value) ? value.length > 0 : value !== null,

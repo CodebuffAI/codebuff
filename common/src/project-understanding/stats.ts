@@ -1,14 +1,15 @@
 /**
- * The counted half of a workspace profile: file count, lines of code and the
+ * The counted half of a project understanding: file count, lines of code and the
  * language mix, computed by the client from the project's files rather than
- * estimated by the profiler's model. Counts and language names only — never a
+ * estimated by the project-understanding agent's model. Counts and language names only — never a
  * path or file content — so it is safe to send.
  */
 import z from 'zod/v4'
 
-import { WORKSPACE_PROFILE_SIZE_SECTION } from './template'
+import { isProjectUnderstandingNonTextPath } from './non-text-files'
+import { PROJECT_UNDERSTANDING_SIZE_SECTION } from './template'
 
-import type { WorkspaceProfile } from './template'
+import type { ProjectUnderstanding } from './template'
 
 type LanguageKind = 'code' | 'markup' | 'data' | 'prose'
 
@@ -174,9 +175,9 @@ export function countLines(content: string): number {
 }
 
 /** Most languages a profile lists, by lines. */
-export const WORKSPACE_STATS_MAX_LANGUAGES = 20
+export const PROJECT_STATS_MAX_LANGUAGES = 20
 
-export const workspaceStatsSchema = z.object({
+export const projectStatsSchema = z.object({
   fileCount: z.number().int().nonnegative(),
   /** The listing stopped at a cap, so the project has at least this many. */
   fileCountIsLowerBound: z.boolean(),
@@ -194,22 +195,22 @@ export const workspaceStatsSchema = z.object({
         lines: z.number().int().nonnegative(),
       }),
     )
-    .max(WORKSPACE_STATS_MAX_LANGUAGES),
+    .max(PROJECT_STATS_MAX_LANGUAGES),
 })
 
-export type WorkspaceStats = z.infer<typeof workspaceStatsSchema>
+export type ProjectStats = z.infer<typeof projectStatsSchema>
 
-export type WorkspaceStatsFile = {
+export type ProjectStatsFile = {
   path: string
   /** Lines in the file, when it was read; unread files count toward the file
    *  and language totals but not the line totals. */
   lines?: number
 }
 
-export function computeWorkspaceStats(params: {
-  files: readonly WorkspaceStatsFile[]
+export function computeProjectStats(params: {
+  files: readonly ProjectStatsFile[]
   fileCountIsLowerBound: boolean
-}): WorkspaceStats {
+}): ProjectStats {
   const byLanguage = new Map<
     string,
     { name: string; kind: LanguageKind; files: number; lines: number }
@@ -236,7 +237,7 @@ export function computeWorkspaceStats(params: {
   }
   const languages = [...byLanguage.values()]
     .sort((a, b) => b.lines - a.lines || b.files - a.files)
-    .slice(0, WORKSPACE_STATS_MAX_LANGUAGES)
+    .slice(0, PROJECT_STATS_MAX_LANGUAGES)
   return {
     fileCount: params.files.length,
     fileCountIsLowerBound: params.fileCountIsLowerBound,
@@ -249,20 +250,23 @@ export function computeWorkspaceStats(params: {
 
 /** The budget a client reads files under to count lines. Past it, files still
  *  count toward the totals but their lines do not. */
-export const WORKSPACE_STATS_READ_LIMITS = {
+export const PROJECT_STATS_READ_LIMITS = {
   maxFiles: 10_000,
   maxFileBytes: 1_000_000,
   maxTotalBytes: 100_000_000,
 } as const
 
-/** Whether a path is worth reading to count lines. */
+/** Whether a path is worth reading to count lines. Never a non-text file
+ *  (non-text-files.ts): those are counted by path, never opened. */
 export function shouldCountLines(filePath: string): boolean {
-  return languageForPath(filePath) !== null
+  return (
+    !isProjectUnderstandingNonTextPath(filePath) && languageForPath(filePath) !== null
+  )
 }
 
 /** The `size` section of a stored profile: the client's stats, keyed like the
  *  template's fields. */
-export type WorkspaceProfileSize = {
+export type ProjectUnderstandingSize = {
   file_count: number
   file_count_is_lower_bound: boolean
   test_file_count: number
@@ -272,12 +276,12 @@ export type WorkspaceProfileSize = {
 }
 
 /** What `workspace_profile.profile` holds: the template's sections as the
- *  profiler answered them, plus the counted `size` section. */
-export type StoredWorkspaceProfile = Record<string, Record<string, unknown>>
+ *  project-understanding agent answered them, plus the counted `size` section. */
+export type StoredProjectUnderstanding = Record<string, Record<string, unknown>>
 
-export function toWorkspaceProfileSize(
-  stats: WorkspaceStats,
-): WorkspaceProfileSize {
+export function toProjectUnderstandingSize(
+  stats: ProjectStats,
+): ProjectUnderstandingSize {
   return {
     file_count: stats.fileCount,
     file_count_is_lower_bound: stats.fileCountIsLowerBound,
@@ -293,12 +297,12 @@ export function toWorkspaceProfileSize(
  * client's counts. `size` is written last, so it is always the counts and never
  * anything the model's answer carried under that key.
  */
-export function buildStoredWorkspaceProfile(
-  answers: WorkspaceProfile,
-  stats: WorkspaceStats,
-): StoredWorkspaceProfile {
+export function buildStoredProjectUnderstanding(
+  answers: ProjectUnderstanding,
+  stats: ProjectStats,
+): StoredProjectUnderstanding {
   return {
     ...answers,
-    [WORKSPACE_PROFILE_SIZE_SECTION]: toWorkspaceProfileSize(stats),
+    [PROJECT_UNDERSTANDING_SIZE_SECTION]: toProjectUnderstandingSize(stats),
   }
 }

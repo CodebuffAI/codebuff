@@ -16,6 +16,11 @@ import {
   createFileReadLimiter,
   windowFileRead,
 } from '@codebuff/common/util/file-read-limits'
+import {
+  PROJECT_UNDERSTANDING_NON_TEXT_MESSAGE,
+  isProjectUnderstandingNonTextPath,
+  looksLikeBinaryContent,
+} from '@codebuff/common/project-understanding/non-text-files'
 
 import { resolveFilePath } from './path-utils'
 
@@ -50,6 +55,12 @@ export async function getFiles(params: {
    * checks for env templates.
    */
   fileFilter?: FileFilter
+  /**
+   * Refuse non-text files: by extension before reading, and by a NUL in the
+   * first 4 KB after. Off by default; only the project-understanding agent's run sets
+   * it (`RunOptions.refuseNonTextFileReads`).
+   */
+  refuseNonText?: boolean
 }) {
   const {
     filePaths,
@@ -59,6 +70,7 @@ export async function getFiles(params: {
     fileFilter,
     limitContent = true,
     enforceEnvPolicy = true,
+    refuseNonText = false,
   } = params
   // If the caller provides a filter, they own additional filtering decisions.
   // Otherwise the SDK also applies default gitignore checking.
@@ -85,6 +97,12 @@ export async function getFiles(params: {
 
     if (enforceEnvPolicy && isSensitiveEnvFilePath(relativePath)) {
       result[relativePath] = FILE_READ_STATUS.IGNORED
+      continue
+    }
+
+    if (refuseNonText && isProjectUnderstandingNonTextPath(relativePath)) {
+      result[relativePath] =
+        `${FILE_READ_STATUS.IGNORED} ${PROJECT_UNDERSTANDING_NON_TEXT_MESSAGE}`
       continue
     }
 
@@ -125,6 +143,11 @@ export async function getFiles(params: {
       }
 
       const content = await fs.readFile(fullPath, 'utf8')
+      if (refuseNonText && looksLikeBinaryContent(content)) {
+        result[relativePath] =
+          `${FILE_READ_STATUS.IGNORED} ${PROJECT_UNDERSTANDING_NON_TEXT_MESSAGE}`
+        continue
+      }
 
       const windows = fileWindows?.[filePath]
       const windowedContent =

@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  WORKSPACE_STATS_MAX_LANGUAGES,
-  buildStoredWorkspaceProfile,
-  computeWorkspaceStats,
+  PROJECT_STATS_MAX_LANGUAGES,
+  buildStoredProjectUnderstanding,
+  computeProjectStats,
   countLines,
   isTestPath,
   languageForPath,
   shouldCountLines,
-  workspaceStatsSchema,
+  projectStatsSchema,
 } from '../stats'
 
 describe('countLines', () => {
@@ -65,9 +65,9 @@ describe('isTestPath', () => {
   })
 })
 
-describe('computeWorkspaceStats', () => {
+describe('computeProjectStats', () => {
   test('totals files, test files, code lines and the language mix', () => {
-    const stats = computeWorkspaceStats({
+    const stats = computeProjectStats({
       fileCountIsLowerBound: false,
       files: [
         { path: 'src/index.ts', lines: 100 },
@@ -80,7 +80,7 @@ describe('computeWorkspaceStats', () => {
         { path: 'logo.png' },
       ],
     })
-    expect(workspaceStatsSchema.parse(stats)).toEqual(stats)
+    expect(projectStatsSchema.parse(stats)).toEqual(stats)
     expect(stats).toEqual({
       fileCount: 8,
       fileCountIsLowerBound: false,
@@ -97,7 +97,7 @@ describe('computeWorkspaceStats', () => {
   })
 
   test('an unread file of a counted language makes lines a floor', () => {
-    const stats = computeWorkspaceStats({
+    const stats = computeProjectStats({
       fileCountIsLowerBound: false,
       files: [{ path: 'a.ts', lines: 10 }, { path: 'b.ts' }],
     })
@@ -108,7 +108,7 @@ describe('computeWorkspaceStats', () => {
   })
 
   test('a capped listing makes both counts floors', () => {
-    const stats = computeWorkspaceStats({
+    const stats = computeProjectStats({
       fileCountIsLowerBound: true,
       files: [{ path: 'a.ts', lines: 10 }],
     })
@@ -144,23 +144,23 @@ describe('computeWorkspaceStats', () => {
       '.vue',
       '.svelte',
     ]
-    const stats = computeWorkspaceStats({
+    const stats = computeProjectStats({
       fileCountIsLowerBound: false,
       files: extensions.map((ext, i) => ({ path: `f${ext}`, lines: i + 1 })),
     })
-    expect(stats.languages).toHaveLength(WORKSPACE_STATS_MAX_LANGUAGES)
+    expect(stats.languages).toHaveLength(PROJECT_STATS_MAX_LANGUAGES)
     expect(stats.languages[0]).toEqual({
       name: 'Svelte',
       kind: 'code',
       files: 1,
       lines: extensions.length,
     })
-    expect(workspaceStatsSchema.safeParse(stats).success).toBe(true)
+    expect(projectStatsSchema.safeParse(stats).success).toBe(true)
   })
 })
 
-describe('buildStoredWorkspaceProfile', () => {
-  const stats = computeWorkspaceStats({
+describe('buildStoredProjectUnderstanding', () => {
+  const stats = computeProjectStats({
     files: [
       { path: 'src/a.ts', lines: 10 },
       { path: 'src/a.test.ts', lines: 4 },
@@ -170,7 +170,7 @@ describe('buildStoredWorkspaceProfile', () => {
 
   test('adds the counts as the size section beside the answers', () => {
     expect(
-      buildStoredWorkspaceProfile(
+      buildStoredProjectUnderstanding(
         { languages: { languages: ['TypeScript'] } },
         stats,
       ),
@@ -190,7 +190,7 @@ describe('buildStoredWorkspaceProfile', () => {
   test('size is always the counts, whatever the answers carried', () => {
     // A model can put anything in its answer; the stored size never comes from it.
     const answers = { size: { file_count: '999999' } }
-    const stored = buildStoredWorkspaceProfile(answers, stats)
+    const stored = buildStoredProjectUnderstanding(answers, stats)
     expect(stored.size).toMatchObject({ file_count: 2 })
   })
 })

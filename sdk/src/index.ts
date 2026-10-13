@@ -55,6 +55,8 @@ export {
 export * from './credentials'
 export * from './byok'
 export * from './chatgpt'
+export * from './project-understanding'
+export { resolveProjectKey } from './project-profile'
 export {
   getDefaultAgentDirs,
   listLocalAgentFiles,

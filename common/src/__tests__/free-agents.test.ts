@@ -30,7 +30,7 @@ import {
   FREEBUFF_DESKTOP_AUTORUN_AGENT_ID,
   FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
   FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL,
-  FREEBUFF_WORKSPACE_PROFILER_AGENT_ID,
+  FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID,
   FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL,
   FREE_MODE_AGENT_MODELS,
   FREE_TIER_AGENT_MODELS,
@@ -581,6 +581,33 @@ describe('free mode agent model allowlist', () => {
         FREEBUFF_GPT_6_LUNA_MODEL_ID,
       ),
     ).toBe(false)
+    // The project-understanding root on Luna is helper traffic too, and Luna
+    // is its one model: DeepSeek V4 Flash (its model before 2026-10-12) is
+    // neither allowed nor exempt.
+    expect(
+      isFreebuffHelperOnSessionModel(
+        FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID,
+        FREEBUFF_GPT_6_LUNA_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreeModeAllowedAgentModel(
+        FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID,
+        FREEBUFF_GPT_6_LUNA_MODEL_ID,
+      ),
+    ).toBe(true)
+    expect(
+      isFreebuffHelperOnSessionModel(
+        FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID,
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
+    ).toBe(false)
+    expect(
+      isFreeModeAllowedAgentModel(
+        FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID,
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      ),
+    ).toBe(false)
   })
 
   test('allows the tmux-cli subagent with its bundled model', () => {
@@ -800,8 +827,8 @@ describe('every freebuff root agent declares a prompt opening', () => {
   const CLOUD_PLANNER = 'You are Buffy, the Freebuff Cloud project planner.'
   const DESKTOP_AUTORUN =
     'You are Buffy, the auto-run agent behind Freebuff Desktop.'
-  const WORKSPACE_PROFILER =
-    'You are Buffy, the workspace profiler behind Freebuff.'
+  const PROJECT_UNDERSTANDING =
+    'You are Buffy, the project-understanding agent behind Freebuff.'
 
   /** Root agent id → the opening its system prompt starts with. */
   const PROMPT_FAMILY: Record<string, string> = {
@@ -900,9 +927,9 @@ describe('every freebuff root agent declares a prompt opening', () => {
     // onto base3's: base3 tells the model it is the coding agent, and this one
     // exists to say it is not.
     [FREEBUFF_DESKTOP_AUTORUN_AGENT_ID]: DESKTOP_AUTORUN,
-    // The workspace profiler (common/src/workspace-profile/agent.ts) is not a
+    // The project-understanding agent (common/src/project-understanding/agent.ts) is not a
     // coding agent either, and says so first.
-    [FREEBUFF_WORKSPACE_PROFILER_AGENT_ID]: WORKSPACE_PROFILER,
+    [FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID]: PROJECT_UNDERSTANDING,
   }
 
   test('no root agent is missing from the prompt-family map', () => {
