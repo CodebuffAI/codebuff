@@ -238,6 +238,26 @@ const BYOK_MODEL_REJECTION_PATTERNS: readonly RegExp[] = [
 
 const MAX_MODEL_ID_IN_MESSAGE = 120
 
+/** Only OpenRouter's explicit routing-policy refusals warrant account-settings advice.
+ * A generic "No endpoints found" can also mean a retired model or an outage. */
+function isOpenRouterSettingsRejection(baseUrl: string, body: string): boolean {
+  try {
+    const url = new URL(baseUrl)
+    if (url.protocol !== 'https:' || !['openrouter.ai', 'eu.openrouter.ai', 'us.openrouter.ai'].includes(url.hostname)) return false
+    const parsed: unknown = JSON.parse(body)
+    if (!parsed || typeof parsed !== 'object' || !('error' in parsed)) return false
+    const error = parsed.error
+    if (!error || typeof error !== 'object' || !('message' in error)) return false
+    const message = error.message
+    return typeof message === 'string' && (
+      /^No allowed providers are available for (?:the )?selected model\b/i.test(message) ||
+      /^No endpoints found matching your (?:data policy|privacy settings|provider preferences)\b/i.test(message)
+    )
+  } catch {
+    return false
+  }
+}
+
 /** A fixed, actionable message for a provider status. Never include upstream
  * response text: gateways commonly echo credential fragments in error bodies.
  * `modelRejected` is a classification of that text (isByokModelIdRejection),
@@ -247,10 +267,14 @@ export function getByokProviderErrorMessage(
   detail: {
     model?: string
     modelRejected?: boolean
+    openRouterSettingsRejected?: boolean
     /** The environment variable the key came from, a NAME and never a value. */
     credentialVariable?: string
   } = {},
 ): string {
+  if (status === 404 && detail.openRouterSettingsRejected) {
+    return 'OpenRouter settings leave no allowed providers for this model (HTTP 404). Check your allowed/ignored providers and data-policy / Zero Data Retention settings at https://openrouter.ai/settings/privacy. Allow a compatible provider or choose a model that meets your settings, then retry.'
+  }
   if (
     detail.modelRejected &&
     (status === 400 || status === 404 || status === 422)
@@ -503,13 +527,14 @@ export function getModelForRequest({
             errorText = undefined
           }
           if (!response.ok) {
+            if ([400, 404, 422].includes(response.status)) {
+              errorText ??= await response.text().catch(() => '')
+            }
             const modelRejected =
               response.status === 400 ||
               response.status === 404 ||
               response.status === 422
-                ? isByokModelIdRejection(
-                    errorText ?? (await response.text().catch(() => '')),
-                  )
+                ? isByokModelIdRejection(errorText ?? '')
                 : false
             const headers = new Headers({ 'content-type': 'application/json' })
             // Keep scheduling hints, but never copy arbitrary provider headers.
@@ -523,6 +548,8 @@ export function getModelForRequest({
                   message: getByokProviderErrorMessage(response.status, {
                     model: byok.model,
                     modelRejected,
+                    openRouterSettingsRejected: response.status === 404 &&
+                      isOpenRouterSettingsRejection(byokCompletionUrl(byok), errorText ?? ''),
                     credentialVariable: byokCredentialVariable(byok),
                   }),
                 },

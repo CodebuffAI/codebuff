@@ -201,6 +201,52 @@ describe('SDK delegated user headers', () => {
     expect(message).not.toContain('key-canary')
   })
 
+  test.each([
+    ['https://openrouter.ai/api/v1', 404, 'No allowed providers are available for the selected model.', true],
+    ['https://openrouter.ai/api/v1', 404, 'No endpoints found matching your data policy (Free model publication).', true],
+    ['https://eu.openrouter.ai/api/v1', 404, 'No endpoints found matching your privacy settings.', true],
+    ['https://us.openrouter.ai/api/v1', 404, 'No endpoints found matching your provider preferences.', true],
+    ['https://openrouter.ai/api/v1', 404, 'No endpoints found for acme/retired.', false],
+    ['https://openrouter.ai/api/v1', 404, 'No endpoints found that support tool use.', false],
+    ['https://openrouter.ai/api/v1', 404, 'acme/typo is not a valid model ID', false],
+    ['https://openrouter.ai/api/v1', 401, 'No allowed providers are available for the selected model.', false],
+    ['https://openrouter.ai.example.com/v1', 404, 'No allowed providers are available for the selected model.', false],
+  ] as const)('OpenRouter settings guidance: %s HTTP %i %s', async (baseUrl, status, upstreamMessage, settingsBlocked) => {
+    const canary = 'provider-body-secret-canary'
+    let attempts = 0
+    globalThis.fetch = mock(async () => {
+      attempts++
+      return Response.json({ error: { code: status, message: `${upstreamMessage} ${canary}` } }, { status })
+    }) as unknown as typeof fetch
+    const result = streamText({
+      model: getModelForRequest({
+        apiKey: 'ignored', model: 'ignored',
+        byok: { id: 'conn', revision: 1, name: 'custom', provider: 'openai-compatible', baseUrl, model: 'acme/model', credentialRef: 'connection:conn', createdAt: 'x', updatedAt: 'x', apiKey: 'key-canary' },
+      }),
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+    let message = ''
+    for await (const part of result.stream) {
+      if (part.type === 'error') message = String(part.error)
+    }
+    expect(attempts).toBe(1)
+    expect(message).toContain(`HTTP ${status}`)
+    expect(message).not.toContain(canary)
+    expect(message).not.toContain('key-canary')
+    if (settingsBlocked) {
+      expect(message).toContain('OpenRouter settings leave no allowed providers')
+      expect(message).toContain('allowed/ignored providers')
+      expect(message).toContain('https://openrouter.ai/settings/privacy')
+      expect(message).toContain('Zero Data Retention')
+      expect(message).not.toContain('Check the model ID')
+    } else {
+      expect(message).not.toContain('OpenRouter settings')
+      if (upstreamMessage.includes('not a valid model ID')) expect(message).toContain('does not recognise the model ID')
+      else if (status === 401) expect(message).toContain('rejected the API key')
+      else expect(message).toContain('Check the model ID and provider URL')
+    }
+  })
+
   test('a 401 on an environment-variable key names the variable, never the key', async () => {
     const key = 'synthetic-omniroute-key-canary'
     globalThis.fetch = mock(async () => new Response(
