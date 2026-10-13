@@ -133,10 +133,43 @@ const IMPLIED_FLAGS = new Set([
 /** Anything a shell would treat as more than one plain command. */
 const SHELL_METACHARACTERS = /[;&|<>`$(){}\n\r'"\\*?]/
 
+/**
+ * Each manager's own "run in this folder" flag. A subfolder install is
+ * rewritten to it rather than kept as `cd <dir> && …`, because the Windows
+ * floor runs PowerShell 5.1, which has no `&&`.
+ */
+const DIR_FLAGS: Readonly<Record<PackageManager, readonly string[]>> = {
+  npm: ['--prefix'],
+  pnpm: ['--dir', '-C'],
+  bun: ['--cwd'],
+}
+
+/**
+ * A leading `cd <dir> &&` (or `;`) the model adds to install into a
+ * subfolder: every agent wrote it first, and every one was refused until it
+ * retried without it (Respan bench, 2026-10-12).
+ */
+const LEADING_CD = /^\s*cd\s+(\S+)\s*(?:&&|;)\s*(.*)$/s
+
+/**
+ * `dir` as a relative path inside the project, `/`-separated, or null when it
+ * could leave it (absolute, home, a drive, `..`) or is not a plain name.
+ * `''` is the project root.
+ */
+export function sponsoredInstallSubdir(dir: string): string | null {
+  if (/^([\\/~]|[A-Za-z]:)/.test(dir)) return null
+  const segments = dir.split(/[\\/]+/).filter((s) => s !== '' && s !== '.')
+  if (segments.some((s) => s === '..' || !/^[A-Za-z0-9._@+-]+$/.test(s))) {
+    return null
+  }
+  return segments.join('/')
+}
+
 function canonicalInstall(
   manager: PackageManager,
   specs: string[],
   dev: boolean,
+  dir: string,
 ): string {
   const parts: string[] =
     manager === 'npm'
@@ -145,6 +178,7 @@ function canonicalInstall(
         ? ['pnpm', 'add', '--ignore-scripts', '--save-exact']
         : ['bun', 'add', '--ignore-scripts', '--exact']
   if (dev) parts.push(manager === 'bun' ? '--dev' : '--save-dev')
+  if (dir) parts.push(DIR_FLAGS[manager][0]!, dir)
   return [...parts, ...specs].join(' ')
 }
 
@@ -152,7 +186,7 @@ function declaredRefusal(
   declared: readonly SponsoredDeclaredPackage[],
 ): string {
   const specs = declared.map((pkg) => `${pkg.name}@${pkg.version}`).join(' ')
-  return `Refusing this install: a sponsored run may install only the packages its skill declares, at the declared versions, as one plain command (no \`cd\`, chaining or quoting; use the cwd argument). Allowed: \`npm install ${specs}\` (or \`pnpm add\` / \`bun add\`, optionally with --save-dev). Scripts are always skipped. Anything else, work with what the repository already has.`
+  return `Refusing this install: a sponsored run may install only the packages its skill declares, at the declared versions, as one plain command (a leading \`cd <subfolder> &&\` is fine; no other chaining or quoting). Allowed: \`npm install ${specs}\` (or \`pnpm add\` / \`bun add\`, optionally with --save-dev). Scripts are always skipped. Anything else, work with what the repository already has.`
 }
 
 /**
@@ -170,6 +204,14 @@ export function evaluateSponsoredInstallCommand(
     return { kind: 'refuse', message: SPONSORED_LOCAL_INSTALL_REFUSAL }
   }
   const refuse = { kind: 'refuse', message: declaredRefusal(declared) } as const
+
+  let dir: string | null = ''
+  const cd = LEADING_CD.exec(command)
+  if (cd) {
+    dir = sponsoredInstallSubdir(cd[1]!)
+    if (dir === null) return refuse
+    command = cd[2]!
+  }
   if (SHELL_METACHARACTERS.test(command)) return refuse
 
   const tokens = command.trim().split(/\s+/)
@@ -183,7 +225,17 @@ export function evaluateSponsoredInstallCommand(
   const specs: string[] = []
   const matched: SponsoredDeclaredPackage[] = []
   let dev = false
-  for (const token of tokens.slice(2)) {
+  const rest = tokens.slice(2)
+  for (let i = 0; i < rest.length; i++) {
+    const token = rest[i]!
+    if (DIR_FLAGS[manager].includes(token)) {
+      // One folder: a `cd` and a flag together, or two flags, is refused.
+      const flagDir = sponsoredInstallSubdir(rest[i + 1] ?? '/')
+      if (dir || flagDir === null) return refuse
+      dir = flagDir
+      i++
+      continue
+    }
     if (DEV_FLAGS.has(token)) {
       dev = true
       continue
@@ -205,5 +257,5 @@ export function evaluateSponsoredInstallCommand(
   if (specs.length === 0) return refuse
   // Declared dev packages land in devDependencies without the flag.
   if (matched.every((pkg) => pkg.dev)) dev = true
-  return { kind: 'allow', command: canonicalInstall(manager, specs, dev) }
+  return { kind: 'allow', command: canonicalInstall(manager, specs, dev, dir) }
 }
