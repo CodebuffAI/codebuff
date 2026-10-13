@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { getSdkEnv } from '../env'
 
 // Nix's store holds the executables AND their dynamic loaders/libraries. A
 // profile's bin directory alone is not a usable runtime. Only the store is
@@ -44,7 +45,7 @@ export function findBubblewrap(
   if (fixed) return fixed
 
   const realpath = dependencies.realpath ?? fs.realpathSync
-  const searchPath = dependencies.searchPath ?? process.env.PATH ?? ''
+  const searchPath = dependencies.searchPath ?? getSdkEnv().PATH ?? ''
   for (const directory of searchPath.split(':')) {
     if (!path.posix.isAbsolute(directory)) continue
     try {
