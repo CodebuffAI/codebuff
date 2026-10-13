@@ -11,6 +11,7 @@ import {
   LAB_BENCH,
   compareLabBatches,
   labBatchFacetBreakdown,
+  labBenchEntry,
   labBenchSpec,
 } from './agentic-ad-lab-bench'
 
@@ -67,6 +68,12 @@ function graded(b: LabBatch, tiers: Record<string, LabRunGrade['tier'][]>) {
 }
 
 describe('the bench', () => {
+  test('a repository GitHub renamed is still the bench entry under its old name', () => {
+    const entry = LAB_BENCH.find((e) => e.fullName === 'nextjs/saas-starter')!
+    expect(labBenchEntry('leerob/next-saas-starter', entry.commit)).toBe(entry)
+    expect(labBenchEntry('nextjs/saas-starter', entry.commit)).toBe(entry)
+    expect(labBenchEntry('leerob/next-saas-starter', 'a'.repeat(40))).toBeNull()
+  })
   test('is about 25 distinct repositories, each pinned to a full SHA the lab accepts', () => {
     expect(LAB_BENCH.length).toBe(25)
     expect(LAB_BENCH.length).toBeLessThanOrEqual(LAB_BATCH_MAX_REPOSITORIES)
@@ -105,7 +112,7 @@ describe('facet breakdown', () => {
   test('rolls each repository up under its stack, skipping unpinned repositories', () => {
     const tiers = {
       'obro79/Continuum': ['perfect', 'perfect'],
-      'leerob/next-saas-starter': ['perfect', 'partial'],
+      'nextjs/saas-starter': ['perfect', 'partial'],
       'satnaing/shadcn-admin': ['broken', 'broken'],
     } satisfies Record<string, LabRunGrade['tier'][]>
     const b = graded(batch(tiers), tiers)
@@ -137,12 +144,12 @@ describe('facet breakdown', () => {
 describe('comparing two batches', () => {
   const before = {
     'obro79/Continuum': ['perfect'],
-    'leerob/next-saas-starter': ['partial'],
+    'nextjs/saas-starter': ['partial'],
   } satisfies Record<string, LabRunGrade['tier'][]>
   test('passes when no repository gets worse', () => {
     const after = {
       'obro79/Continuum': ['perfect'],
-      'leerob/next-saas-starter': ['perfect'],
+      'nextjs/saas-starter': ['perfect'],
     } satisfies Record<string, LabRunGrade['tier'][]>
     const result = compareLabBatches(
       graded(batch(before), before),
@@ -157,11 +164,11 @@ describe('comparing two batches', () => {
   test('fails on one repository going down even when the average goes up', () => {
     const base = {
       'obro79/Continuum': ['perfect', 'perfect'],
-      'leerob/next-saas-starter': ['partial', 'partial'],
+      'nextjs/saas-starter': ['partial', 'partial'],
     } satisfies Record<string, LabRunGrade['tier'][]>
     const next = {
       'obro79/Continuum': ['perfect', 'broken'],
-      'leerob/next-saas-starter': ['perfect', 'perfect'],
+      'nextjs/saas-starter': ['perfect', 'perfect'],
     } satisfies Record<string, LabRunGrade['tier'][]>
     const result = compareLabBatches(
       graded(batch(base), base),

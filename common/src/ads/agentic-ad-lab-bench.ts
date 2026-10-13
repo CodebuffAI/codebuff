@@ -37,6 +37,11 @@ export type LabBenchRepository = {
   commit: string
   facets: LabBenchFacets
   why: string
+  /**
+   * The name it had before GitHub renamed or moved it. A lab that added it
+   * under that name still holds the bench repository.
+   */
+  formerly?: string
 }
 
 const repo = (
@@ -44,7 +49,14 @@ const repo = (
   commit: string,
   facets: LabBenchFacets,
   why: string,
-): LabBenchRepository => ({ fullName, commit, facets, why })
+  formerly?: string,
+): LabBenchRepository => ({
+  fullName,
+  commit,
+  facets,
+  why,
+  ...(formerly ? { formerly } : {}),
+})
 
 export const LAB_BENCH: readonly LabBenchRepository[] = [
   // The four pinned Supabase scenario repositories (evals/sponsored/scenarios).
@@ -115,7 +127,7 @@ export const LAB_BENCH: readonly LabBenchRepository[] = [
     'Large Next.js app on bun with drizzle; default branch is prod.',
   ),
   repo(
-    'leerob/next-saas-starter',
+    'nextjs/saas-starter',
     '6e33e58b1e553a41fe22e6b941a7229a002de361',
     {
       framework: 'nextjs',
@@ -126,6 +138,7 @@ export const LAB_BENCH: readonly LabBenchRepository[] = [
       ci: false,
     },
     'Popular SaaS starter: drizzle on Postgres, Stripe, its own auth.',
+    'leerob/next-saas-starter',
   ),
   repo(
     'vercel/nextjs-subscription-payments',
@@ -154,7 +167,7 @@ export const LAB_BENCH: readonly LabBenchRepository[] = [
     'Large Next.js app with a committed Supabase project and migrations.',
   ),
   repo(
-    'vercel/ai-chatbot',
+    'vercel/chatbot',
     'c2f8235e1f3ea903ad8b7f61447c4f74164b5c58',
     {
       framework: 'nextjs',
@@ -165,6 +178,7 @@ export const LAB_BENCH: readonly LabBenchRepository[] = [
       ci: true,
     },
     'AI app template: next-auth, drizzle, Playwright, packageManager field set.',
+    'vercel/ai-chatbot',
   ),
   repo(
     'ixartz/Next-js-Boilerplate',
@@ -384,6 +398,12 @@ export const LAB_BENCH: readonly LabBenchRepository[] = [
 export const labBenchSpec = (entry: LabBenchRepository) =>
   `${entry.fullName}@${entry.commit}`
 
+/** Whether a lab repository's name is this bench entry's, now or before a rename. */
+export const labBenchNamed = (entry: LabBenchRepository, fullName: string) =>
+  [entry.fullName, entry.formerly].some(
+    (name) => name?.toLowerCase() === fullName.toLowerCase(),
+  )
+
 export function labBenchEntry(
   fullName: string,
   commit: string | undefined,
@@ -391,9 +411,7 @@ export function labBenchEntry(
   if (!commit) return null
   return (
     LAB_BENCH.find(
-      (entry) =>
-        entry.fullName.toLowerCase() === fullName.toLowerCase() &&
-        entry.commit === commit,
+      (entry) => labBenchNamed(entry, fullName) && entry.commit === commit,
     ) ?? null
   )
 }
