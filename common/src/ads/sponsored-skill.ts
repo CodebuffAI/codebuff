@@ -1103,3 +1103,36 @@ export function sponsoredSkillConsentView(
     ),
   }
 }
+
+/**
+ * The link Desktop's sidebar sign-up opens and attributes
+ * (`freebuff-desktop/src/shared/sponsored-signup.ts`): the FIRST `https://`
+ * URL in the rendered procedure whose `bfcid` parameter is the `{bfcid}` slot
+ * (or its URL-encoded form). Null means the skill has no tracked link, so a
+ * run of it converts with no attribution: `{{advertiserLink}}` alone does not
+ * count, because it is text for the model, not a link Desktop opens. Mirrors
+ * `sponsoredSignupStep`: a first match Desktop would refuse (two bfcids,
+ * credentials, over 2,048 chars) is null too.
+ */
+export function sponsoredSkillTrackedLink(skill: SponsoredSkill): string | null {
+  const text = renderSponsoredSkillProcedure(skill)
+  for (const match of text.matchAll(/https:\/\/[^\s<>"'`]+/gi)) {
+    const raw = match[0].replace(/[.,;!?)\]]+$/, '')
+    try {
+      const url = new URL(raw)
+      const ids = url.searchParams.getAll('bfcid')
+      if (!ids.some((value) => /^\{bfcid\}$/i.test(value))) continue
+      // Desktop refuses (opens nothing for) the first match on these.
+      if (ids.length !== 1 || url.username || url.password || raw.length > 2048)
+        return null
+      return raw
+    } catch {
+      // Not a URL; keep looking.
+    }
+  }
+  return null
+}
+
+/** The authoring error for a skill with no tracked link, or null. */
+export const SPONSORED_SKILL_TRACKED_LINK_ERROR =
+  'needs a tracked link: the first sign-up or credential link (a user step’s credential getUrl, or a URL in its instructions) must be https://… with `bfcid={bfcid}` in its query, e.g. https://example.com/signup?utm_source=freebuff&utm_medium=paid&utm_campaign=<campaign>&bfcid={bfcid}. Desktop opens that link in the sidebar and swaps in the signed click id; without it the conversion has no attribution. `{{advertiserLink}}` does not count.'
