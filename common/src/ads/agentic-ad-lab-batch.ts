@@ -187,6 +187,23 @@ export const LAB_BATCH_PARALLEL_REPOSITORIES = 10
 /** A batch's runs, all repositories together. */
 export const LAB_BATCH_MAX_RUNS = 100
 
+/**
+ * How a batch answers a run's account step, which nobody is there to answer.
+ * `mock` says Yes and connects {@link LAB_MOCK_CREDENTIAL} for every credential
+ * the procedure declares, so the run continues past the step. Nothing checks
+ * the placeholder against the advertiser: it proves the handoff and what the
+ * agent does with a connected key, never that a real key works.
+ */
+export const LAB_BATCH_SIGNUPS = ['decline', 'confirm', 'mock'] as const
+export type LabBatchSignup = (typeof LAB_BATCH_SIGNUPS)[number]
+export const LAB_BATCH_SIGNUP_LABELS: Record<LabBatchSignup, string> = {
+  decline: 'Answer No (account steps stay undone)',
+  confirm: 'Answer Yes (browser sign-in only)',
+  mock: 'Mock (Yes, with a placeholder key)',
+}
+/** Not a secret and not a real key: what a `mock` batch connects. */
+export const LAB_MOCK_CREDENTIAL = 'freebuff-lab-mock-credential'
+
 export const labBatchInputSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
@@ -199,7 +216,7 @@ export const labBatchInputSchema = z
     repetitions: z.number().int().min(1).max(LAB_BATCH_MAX_REPETITIONS),
     environment: z.enum(LAB_ENVIRONMENT_KEYS),
     /** How the batch answers the run's signup question; no person is watching. */
-    signup: z.enum(['decline', 'confirm']),
+    signup: z.enum(LAB_BATCH_SIGNUPS),
   })
   .strict()
   .refine(
@@ -247,7 +264,7 @@ export type LabBatch = {
   adName: string
   procedureSha256: string
   environment: LabEnvironment
-  signup: 'decline' | 'confirm'
+  signup: LabBatchSignup
   repetitions: number
   /** `commit` is set when the repository was added pinned (`owner/name@sha`). */
   repositories: Array<{ projectId: string; fullName: string; commit?: string }>
