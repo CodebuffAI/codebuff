@@ -410,6 +410,11 @@ export interface FreebuffSubscriptionInfo {
   billingInterval?: 'monthly' | 'yearly'
   /** Stripe paid-through/renewal instant, distinct from monthly usage reset. */
   renewsAt?: string
+  /** Billing-page-only preview from Stripe; never inferred from offer eligibility. */
+  retentionDiscount?:
+    | { status: 'applied'; percentOff: number; appliesAt: string }
+    | { status: 'unavailable' }
+    | null
   /** Present only while subscribed. */
   usage?: FreebuffSubscriptionUsage
   /** Raw Stripe status of the live plan. */
