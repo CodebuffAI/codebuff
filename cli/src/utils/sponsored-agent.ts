@@ -53,6 +53,13 @@ import {
 } from '@codebuff/common/ads/sponsored-procedure-inputs'
 
 import { SPONSORED_FRICTION_TOOL_NAME } from '@codebuff/common/ads/sponsored-run-friction'
+import {
+  LAB_DEFERRED_SIGNUP_CREDENTIALS,
+  LAB_DEFERRED_SIGNUP_LINK,
+  LAB_NO_KEYS_IN_CHAT_BULLET,
+} from '@codebuff/common/ads/agentic-ad-lab-run'
+
+import { SPONSORED_SIGNUP_TOOL_NAME } from './sponsored-account-step'
 
 import type { SponsoredCapability } from '@codebuff/common/ads/sponsored-local-execution'
 import type { AgentDefinition } from '@codebuff/sdk'
@@ -101,6 +108,14 @@ export const SPONSORED_FRICTION_BULLET =
   '- When something gets in your way, call report_friction: blocking true for a step you cannot do (before you stop with steps undone), false for one you got past with a retry, a workaround or a guess. It only records the report for Freebuff; carry on as these rules say, and still tell the user what was done and what remains.'
 
 /**
+ * The one exception to "nobody answers questions": the account step, which
+ * the CLI shows the user and waits on (`sponsored-account-step.ts`). Only in
+ * the prompt when the tool is handed to the run.
+ */
+export const SPONSORED_SIGNUP_BULLET =
+  '- The one exception: when the account or API key the procedure needs blocks further progress, call request_sponsored_signup. Freebuff asks the user for it and waits for their answer.'
+
+/**
  * THE AUTHORISATION, first. MIRRORED from Desktop's `SPONSORED_TASK_FRAMING`
  * (`sponsored-agent.test.ts` pins the bytes): without it a section headed as
  * an advertiser's procedure beside the user's own messages reads as a vendor
@@ -143,6 +158,12 @@ export function buildSponsoredPrompt(
   procedure: string,
   taskContext: readonly string[] = [],
   runtimeInputs: SponsoredProcedureRuntimeInputs = {},
+  /**
+   * What the mid-run account step does (`sponsored-account-step.ts`): open
+   * the tracked signup `link`, or only ask for the declared `credentials`.
+   * The paragraphs are Desktop's, as the Lab mirrors them.
+   */
+  options: { deferredSignup?: 'link' | 'credentials' } = {},
 ): string {
   const renderedContext = taskContext
     .map((message, index) => `User message ${index + 1}:\n${message}`)
@@ -151,7 +172,14 @@ export function buildSponsoredPrompt(
     SPONSORED_TASK_FRAMING,
     `The approved procedure:\n${sponsoredProcedurePrompt(procedure, runtimeInputs)}`,
     `${SPONSORED_CONTEXT_HEADING}\n${renderedContext}`,
-    `How to carry it out here:\n${CLI_SPONSORED_GUIDANCE}`,
+    `How to carry it out here:\n${CLI_SPONSORED_GUIDANCE}${
+      options.deferredSignup ? `\n${LAB_NO_KEYS_IN_CHAT_BULLET}` : ''
+    }`,
+    ...(options.deferredSignup === 'link'
+      ? [LAB_DEFERRED_SIGNUP_LINK]
+      : options.deferredSignup === 'credentials'
+        ? [LAB_DEFERRED_SIGNUP_CREDENTIALS]
+        : []),
   ].join('\n\n')
 }
 
@@ -170,6 +198,8 @@ export function sponsoredAgentDefinition(options: {
   grant?: ReadonlySet<SponsoredCapability>
   /** Offer `report_friction` (registered by the caller as a custom tool). */
   reportFriction?: boolean
+  /** Offer `request_sponsored_signup`: the run has an account step. */
+  requestSignup?: boolean
 }): AgentDefinition {
   const {
     agentId,
@@ -177,6 +207,7 @@ export function sponsoredAgentDefinition(options: {
     isFreebuff,
     grant = SPONSORED_LOCAL_V1_GRANT,
     reportFriction = false,
+    requestSignup = false,
   } = options
   const root = createBase3CliRoot({
     ...(model ? { model } : {}),
@@ -195,10 +226,11 @@ export function sponsoredAgentDefinition(options: {
     toolNames: [
       ...sponsoredLocalToolNames(root.toolNames ?? [], grant),
       ...(reportFriction ? [SPONSORED_FRICTION_TOOL_NAME] : []),
+      ...(requestSignup ? [SPONSORED_SIGNUP_TOOL_NAME] : []),
     ],
     systemPrompt: `${root.systemPrompt}\n\n# Sponsored task\n\n${CLI_SPONSORED_GUIDANCE}${
       reportFriction ? `\n${SPONSORED_FRICTION_BULLET}` : ''
-    }`,
+    }${requestSignup ? `\n${SPONSORED_SIGNUP_BULLET}` : ''}`,
     // Nothing is committed by an in-place run; kept so a commit that somehow
     // happened anyway could not be attributed to the user.
     suppressCommitAttribution: true,

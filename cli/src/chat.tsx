@@ -248,6 +248,9 @@ export const Chat = ({
   // for as long as it holds the slot -- one slot, one ad -- and gives it back
   // once the user has moved on from a verdict (`dockReleased`).
   const sponsoredRunSnapshot = useSponsoredRunStore((state) => state.snapshot)
+  // A sponsored run waiting on the user's sign-in or key: its prompt takes
+  // the composer's place and the keyboard, exactly as ask_user does.
+  const sponsoredAccountAsking = sponsoredRunSnapshot?.account != null
   const dockProposal = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       for (const block of messages[i]!.blocks ?? []) {
@@ -371,6 +374,9 @@ export const Chat = ({
           changedFiles: sponsoredRunSnapshot.changedFiles,
           undone: sponsoredRunSnapshot.undone,
           checkingStep: sponsoredRunSnapshot.checkingStep,
+          runningSince: sponsoredRunSnapshot.runningSince,
+          needsYou: sponsoredRunSnapshot.account !== null,
+          steps: sponsoredRunSnapshot.steps,
         }
       : null
 
@@ -1905,6 +1911,7 @@ export const Chat = ({
     // chat's off for the span safe rather than a second overlap.
     disabled:
       askUserState !== null ||
+      sponsoredAccountAsking ||
       reviewMode ||
       queuePanelOpen ||
       todoPanelOpen ||
@@ -2079,7 +2086,7 @@ export const Chat = ({
     showReconnectionMessage,
     isRetrying,
     isCapacityWait,
-    isAskUserActive: askUserState !== null,
+    isAskUserActive: askUserState !== null || sponsoredAccountAsking,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
 
@@ -2120,6 +2127,7 @@ export const Chat = ({
   // already shut, so this fires exactly one `dock_collapsed`.
   const dockTakeoverActive =
     askUserState !== null ||
+    sponsoredAccountAsking ||
     reviewMode ||
     queuePanelOpen ||
     todoPanelOpen ||

@@ -13,11 +13,13 @@ import { InputModeBanner } from './input-mode-banner'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { OutOfCreditsBanner } from './out-of-credits-banner'
 import { PublishContainer } from './publish-container'
+import { SponsoredAccountPrompt } from './sponsored-account-prompt'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
 import { useEvent } from '../hooks/use-event'
-import { tryGetProjectRoot } from '../project-files'
+import { getProjectRoot, tryGetProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
+import { useSponsoredRunStore } from '../state/sponsored-run-store'
 import { shouldInterceptChatInputKey } from '../utils/chat-input-key-intercept'
 import {
   dispatchProfileSurveyInput,
@@ -26,6 +28,7 @@ import {
 import { readClipboardText } from '../utils/clipboard-image'
 import { getInputModeConfig } from '../utils/input-modes'
 import { recordTypedInput } from '../utils/input-profile'
+import { sponsoredRunFor } from '../utils/sponsored-run'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
@@ -148,6 +151,9 @@ export const ChatInputBar = ({
       }
     : baseModeConfig
   const askUserState = useChatStore((state) => state.askUserState)
+  const sponsoredAccountAsk = useSponsoredRunStore(
+    (state) => state.snapshot?.account ?? null,
+  )
   const hasAnyPreview = hasSuggestionMenu
 
   // In the home directory (or an ancestor) the file tree is only scanned a few
@@ -202,6 +208,22 @@ export const ChatInputBar = ({
     }
     onPaste(fallbackText)
   })
+
+  // A sponsored run waiting on the user's sign-in or key takes the composer's
+  // place, as ask_user does; the run continues once it is answered. Ahead of
+  // every other mode: the chat keyboard is off while it waits, so a banner
+  // drawn instead would leave nothing that can answer it.
+  if (sponsoredAccountAsk) {
+    return (
+      <SponsoredAccountPrompt
+        ask={sponsoredAccountAsk}
+        onAnswer={(answer) =>
+          sponsoredRunFor(getProjectRoot()).answerAccountStep(answer)
+        }
+        onInterrupt={onInterruptStream}
+      />
+    )
+  }
 
   if (feedbackMode) {
     return (

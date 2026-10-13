@@ -90,6 +90,9 @@ import {
 } from '@codebuff/common/ads/sponsored-in-place'
 import type { SponsoredTurnEnding } from '@codebuff/common/ads/sponsored-in-place'
 import { sponsoredSkillDirective } from '@codebuff/common/ads/sponsored-skill'
+import { declaredRunCredentials } from '@codebuff/common/ads/sponsored-run-credentials'
+import { saveSponsoredCredentialsToEnvFile } from '@codebuff/common/ads/sponsored-env-file'
+import { sponsoredSignupStep } from '@codebuff/common/ads/sponsored-signup-step'
 import {
   SPONSORED_STEP_FIX_MIN_GRANT_MS,
   captureSponsoredStepBaseline,
@@ -152,7 +155,15 @@ import {
   sponsoredAgentDefinition,
 } from './sponsored-agent'
 import { sponsoredFrictionTool } from './sponsored-friction-tool'
-import { sponsoredRuntimeDir } from './sponsored-git'
+import {
+  SPONSORED_ACCOUNT_STEP_MARGIN_MS,
+  SponsoredAccountStep,
+  SponsoredHeldCredentials,
+} from './sponsored-account-step'
+import { sponsoredSignupTool } from './sponsored-signup-tool'
+import { safeOpen } from './open-url'
+import { bunGitRunner, sponsoredRuntimeDir } from './sponsored-git'
+import type { GitRunner } from './sponsored-git'
 import {
   acceptSponsoredProposal,
   previewSponsoredProposal,
@@ -190,6 +201,10 @@ import type { SponsoredReceiptStore } from './sponsored-receipts'
 import type { StreamChunkEvent } from './sdk-event-handlers'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SponsoredInflightPort } from './sponsored-run-inflight'
+import type {
+  SponsoredAccountAnswer,
+  SponsoredAccountAsk,
+} from './sponsored-account-step'
 import { sponsoredComputeRunDeadlineMs } from '@codebuff/common/ads/sponsored-compute-contract'
 import type { SponsoredComputeGrant } from '@codebuff/common/ads/sponsored-compute-contract'
 import type { SponsoredLocalTarget } from '@codebuff/common/ads/sponsored-capability'
@@ -268,6 +283,13 @@ export type SponsoredRunSnapshot = {
   checkingStep: SponsoredStepProgress | null
   /** A driven run's step states once its checks ran; empty otherwise. */
   steps: readonly SponsoredProposalStep[]
+  /**
+   * The account step the run is waiting on the user for right now (the
+   * sign-in question or the masked key form); null otherwise. Never a value.
+   */
+  account: SponsoredAccountAsk | null
+  /** When this machine's turn started, for the card's elapsed time. */
+  runningSince: number | null
 }
 
 const IDLE: SponsoredRunSnapshot = {
@@ -280,6 +302,8 @@ const IDLE: SponsoredRunSnapshot = {
   undone: false,
   checkingStep: null,
   steps: [],
+  account: null,
+  runningSince: null,
 }
 
 export type SponsoredRunOutcome =
@@ -382,14 +406,20 @@ export type SponsoredRunDeps = {
    * segment). Injected so a test need not walk a disk. Defaults to
    * {@link sponsoredCliStepCheckContext}.
    */
-  stepCheckContext?: (input: {
-    workspaceRoot: string
-    runCommand: (
-      commandLine: string,
-      timeoutSeconds: number,
-    ) => Promise<SponsoredSkillCommandResult>
-  }) => Promise<SponsoredSkillCheckContext>
+  stepCheckContext?: (
+    input: SponsoredCliStepCheckInput,
+  ) => Promise<SponsoredSkillCheckContext>
   agentId?: () => string
+  /** Opens the tracked signup link in the user's browser. */
+  openUrl?: (url: string) => Promise<boolean>
+  /**
+   * Saves keys the user connected to the project's git-ignored env file
+   * (`sponsored-env-file.ts`); the file's name, or undefined when not saved.
+   */
+  saveCredentials?: (
+    workspace: string,
+    values: Readonly<Record<string, string>>,
+  ) => Promise<string | undefined>
 }
 
 function sameTarget(
@@ -612,6 +642,13 @@ export class SponsoredRun {
     runDeadlineMs: number | null
     /** What the step checks found, once they ran. Read by the verdict. */
     stepResult: SponsoredStepDriveResult | null
+    /**
+     * Keys the user connected for THIS run, in memory only: injected into
+     * its terminal commands and redacted from everything the model reads.
+     */
+    credentials: SponsoredHeldCredentials
+    /** The sign-in and key step, when the procedure needs an account. */
+    accountStep: SponsoredAccountStep | null
   } | null = null
 
   private accepting = false
@@ -985,6 +1022,8 @@ export class SponsoredRun {
         skillSource,
         runDeadlineMs: null,
         stepResult: null,
+        credentials: new SponsoredHeldCredentials(),
+        accountStep: null,
       }
       this.deps.lastRun.write(runId)
       this.prepared = null
@@ -1034,7 +1073,7 @@ export class SponsoredRun {
       })
       return null
     }
-    this.set({ phase: 'running' })
+    this.set({ phase: 'running', runningSince: this.deps.now() })
     // NO `running` REPORT YET (COD-665 V5). Upstream stamps `running_at` on
     // the first one and its stale sweep fails the row an hour and a half
     // after it, so it has to mark the start of the compute hour -- not the
@@ -1069,11 +1108,52 @@ export class SponsoredRun {
       declaredPackages: active.skill
         ? active.skill.packages
         : sponsoredDeclaredPackagesForProcedureSha256(grant.procedureSha256),
+      credentialEnv: () => active.credentials.env(),
     }
+    // THE ACCOUNT STEP, deferred as Desktop defers it: the turn starts now,
+    // and the agent calls `request_sponsored_signup` once the work that needs
+    // no account is done. A tracked signup link, declared keys, or a skill's
+    // user step each make one.
+    const declaredCredentials = declaredRunCredentials(active.procedure)
+    const signup = sponsoredSignupStep(
+      active.procedure,
+      active.runtimeInputs,
+      active.skill,
+    )
+    if (signup || declaredCredentials.length > 0) {
+      active.accountStep = new SponsoredAccountStep({
+        offerName: active.advertiserName,
+        signup,
+        credentials: declaredCredentials,
+        held: active.credentials,
+        openUrl: this.deps.openUrl ?? safeOpen,
+        show: (account) => {
+          if (!active.settled) this.set({ account })
+        },
+        save: (values) =>
+          (this.deps.saveCredentials ?? saveSponsoredCredentialsForProject)(
+            this.projectRoot,
+            values,
+          ),
+        deadlineMs: () =>
+          (active.runDeadlineMs ?? this.deps.now()) -
+          SPONSORED_ACCOUNT_STEP_MARGIN_MS,
+        now: this.deps.now,
+      })
+    }
+    const accountStep = active.accountStep
+    const deferredSignup = !accountStep
+      ? undefined
+      : signup
+        ? ('link' as const)
+        : ('credentials' as const)
     // A sponsored grant names a plain model id, which the catalog root does
     // not admit, so a catalog-mode CLI runs it on that model's compiled root.
-    const runTools = (this.deps.overrideTools ?? sponsoredOverrideTools)(
-      context,
+    // Redacted once, so the agent's results and the step checks' output both
+    // carry a held key's name, never its value.
+    const runTools = redactSponsoredOverrideTools(
+      (this.deps.overrideTools ?? sponsoredOverrideTools)(context),
+      active.credentials,
     )
     const overrideTools = beforeFirstToolCall(runTools, () => {
       if (!active.settled) this.computeStarted(active)
@@ -1127,20 +1207,31 @@ export class SponsoredRun {
         active.procedure,
         active.taskContext,
         active.runtimeInputs,
+        deferredSignup ? { deferredSignup } : {},
       ),
       agent: sponsoredAgentDefinition({
         agentId,
         model: grant.modelId,
         isFreebuff: IS_FREEBUFF,
         reportFriction: !!this.deps.reportFriction,
+        requestSignup: !!accountStep,
       }),
-      customToolDefinitions: this.deps.reportFriction
-        ? [
-            sponsoredFrictionTool((report) =>
-              this.reportFriction(active.proposalId, active.runToken, report),
-            ),
-          ]
-        : [],
+      customToolDefinitions: [
+        ...(this.deps.reportFriction
+          ? [
+              sponsoredFrictionTool((report) =>
+                this.reportFriction(active.proposalId, active.runToken, report),
+              ),
+            ]
+          : []),
+        ...(accountStep
+          ? [
+              sponsoredSignupTool(() =>
+                accountStep.request(active.abort.signal),
+              ),
+            ]
+          : []),
+      ],
       overrideTools,
       // A signed one-run grant is the only route through sponsored metering.
       // No Freebuff session id rides beside it: the run is not the user's to
@@ -1207,11 +1298,15 @@ export class SponsoredRun {
       }
     }
     try {
-      return await (this.deps.stepCheckContext ??
-        sponsoredCliStepCheckContext)({
-        workspaceRoot: this.projectRoot,
-        runCommand,
-      })
+      return await (this.deps.stepCheckContext ?? sponsoredCliStepCheckContext)(
+        {
+          workspaceRoot: this.projectRoot,
+          runCommand,
+          // A skill's user step passes on what the account step collected.
+          credentialNames: () => active.credentials.names,
+          signupConfirmed: () => active.accountStep?.signupConfirmed ?? false,
+        },
+      )
     } catch (error) {
       logger.warn(
         {
@@ -1348,11 +1443,25 @@ export class SponsoredRun {
     return this.settle(result)
   }
 
+  /**
+   * The user's answer to the account step the run is waiting on (the
+   * sign-in question or the key form). Returns why a key was refused, with
+   * the form still up; null otherwise, including when nothing is waiting.
+   */
+  answerAccountStep(answer: SponsoredAccountAnswer): string | null {
+    const step = this.active?.settled ? null : this.active?.accountStep
+    return step ? step.answer(answer) : null
+  }
+
   private async settle(result: SponsoredTurnResult): Promise<string | null> {
     const active = this.active
     if (!active || active.settled) return null
     active.settled = true
     if (active.expiryTimer) clearTimeout(active.expiryTimer)
+    // The keys lived for this run only; anything still asking ends here.
+    active.accountStep?.dispose()
+    active.credentials.forget()
+    if (this.snapshot.account) this.set({ account: null })
     const changed = active.recorder.changed()
     const files = changed.map((receipt) => receipt.path)
     const expired = active.abort.signal.reason === 'grant-expired'
@@ -1944,6 +2053,11 @@ export type SponsoredToolContext = {
    * (`sponsored-declared-installs.ts`). Absent refuses every install.
    */
   declaredPackages?: readonly SponsoredDeclaredPackage[]
+  /**
+   * The keys the user connected for this run, read at each command: they
+   * may connect one mid-turn. Injected by the broker after its scrub.
+   */
+  credentialEnv?: () => Readonly<Record<string, string>> | undefined
 }
 
 /**
@@ -1972,6 +2086,16 @@ export function sponsoredOverrideTools(
       (skip) =>
         logger.info(skip, '[sponsored-run] toolchain folder not granted'),
     ).roots,
+    // The keys the user connected (`sponsored-account-step.ts`), as exactly
+    // their declared variables. Every result is redacted on the way back
+    // (`redactSponsoredOverrideTools`).
+    ...(context.credentialEnv
+      ? {
+          get credentialEnv() {
+            return context.credentialEnv?.()
+          },
+        }
+      : {}),
   })
   // No broker: the file layer pins directories itself (COD-642).
   const rootedFs = createSponsoredRootedFileSystem({ workspaceRoot })
@@ -2212,6 +2336,68 @@ function beforeFirstToolCall<T extends object>(tools: T, first: () => void): T {
   return wrapped as T
 }
 
+/**
+ * Every tool result redacted of the keys the user connected for this run,
+ * as Desktop's `redactSponsoredToolResults`: the broker injects a value into
+ * a command's environment, and whatever the command prints comes back here
+ * before the model (or a step check's fix-up prompt) reads it. A thrown
+ * message is redacted too. Read at each call: a key may arrive mid-turn.
+ */
+export function redactSponsoredOverrideTools<T extends object>(
+  tools: T,
+  credentials: SponsoredHeldCredentials,
+): T {
+  const wrapped: Record<string, unknown> = {}
+  for (const [name, handler] of Object.entries(tools)) {
+    wrapped[name] =
+      typeof handler === 'function'
+        ? async (...args: unknown[]) => {
+            try {
+              return credentials.redactDeep(
+                await (handler as (...args: unknown[]) => unknown)(...args),
+              )
+            } catch (error) {
+              if (credentials.size === 0) throw error
+              throw new Error(
+                credentials.redact(
+                  error instanceof Error ? error.message : String(error),
+                ),
+              )
+            }
+          }
+        : handler
+  }
+  return wrapped as T
+}
+
+/**
+ * Save connected keys where the user's app reads them: the project's local
+ * env file, only when the project's own git rules ignore it, staged inside
+ * git's own directory (`sponsored-env-file.ts`, shared with Desktop). Never
+ * throws and never logs a value.
+ */
+export async function saveSponsoredCredentialsForProject(
+  workspace: string,
+  values: Readonly<Record<string, string>>,
+  git: GitRunner = bunGitRunner,
+): Promise<string | undefined> {
+  const outcome = await saveSponsoredCredentialsToEnvFile({
+    workspace,
+    values,
+    isIgnored: async (root, relative) =>
+      (await git(['check-ignore', '-q', '--', relative], root)).exitCode === 0,
+    stagingDir: async (root) => {
+      const dir = await git(['rev-parse', '--absolute-git-dir'], root)
+      return dir.exitCode === 0 ? dir.stdout.trim() || null : null
+    },
+  }).catch(() => ({ saved: false as const, reason: 'io' as const }))
+  logger.info(
+    outcome.saved ? { file: outcome.file } : { reason: outcome.reason },
+    '[sponsored-run] connected credentials env file',
+  )
+  return outcome.saved ? outcome.file : undefined
+}
+
 function fileToolPath(input: unknown): string | null {
   if (!input || typeof input !== 'object') return null
   const value = input as { path?: unknown; operation?: { path?: unknown } }
@@ -2286,13 +2472,21 @@ function lastRunStore(projectRoot: string): SponsoredRunDeps['lastRun'] {
  * The baseline is taken HERE, before the turn's first segment: in the user's
  * own checkout their uncommitted work is not the run's.
  */
-export async function sponsoredCliStepCheckContext(input: {
+export type SponsoredCliStepCheckInput = {
   workspaceRoot: string
   runCommand: (
     commandLine: string,
     timeoutSeconds: number,
   ) => Promise<SponsoredSkillCommandResult>
-}): Promise<SponsoredSkillCheckContext> {
+  /** The declared keys the user connected; a `credential_provided` check. */
+  credentialNames?: () => readonly string[]
+  /** Whether the user said they signed in; a `user_confirmed` check. */
+  signupConfirmed?: () => boolean
+}
+
+export async function sponsoredCliStepCheckContext(
+  input: SponsoredCliStepCheckInput,
+): Promise<SponsoredSkillCheckContext> {
   const fs = createSponsoredRootedFileSystem({
     workspaceRoot: input.workspaceRoot,
   })
@@ -2304,10 +2498,9 @@ export async function sponsoredCliStepCheckContext(input: {
     runCommand: input.runCommand,
     // The CLI never runs a sponsored task on Windows.
     shell: 'posix',
-    // The CLI has no credential handoff or signup prompt yet: a skill's user
-    // step stays `needs_user`, as it reads today.
-    credentialNames: () => [],
-    signupConfirmed: () => false,
+    // What the account step collected (`sponsored-account-step.ts`).
+    credentialNames: () => input.credentialNames?.() ?? [],
+    signupConfirmed: () => input.signupConfirmed?.() ?? false,
   })
 }
 

@@ -176,6 +176,8 @@ function fakes(options: {
   skill?: unknown
   stepCheckContext?: SponsoredRunDeps['stepCheckContext']
   terminalCommand?: (input: { command: string }) => unknown
+  advertiserLink?: string
+  extra?: Partial<SponsoredRunDeps>
 }) {
   const root = project()
   const procedureSha256 = sponsoredProcedureSha256(options.procedure)
@@ -216,6 +218,9 @@ function fakes(options: {
           allowanceUsdMicros: 500_000,
         },
         ...(options.skill !== undefined ? { skill: options.skill } : {}),
+        ...(options.advertiserLink
+          ? { advertiserLink: options.advertiserLink }
+          : {}),
       },
     }),
     reportState: async (_id, _token, update) => {
@@ -264,6 +269,9 @@ function fakes(options: {
     ...(options.stepCheckContext
       ? { stepCheckContext: options.stepCheckContext }
       : {}),
+    openUrl: async () => true,
+    saveCredentials: async () => undefined,
+    ...options.extra,
   }
   const service = new SponsoredRun(root, deps)
   const snapshots: SponsoredRunSnapshot[] = []
@@ -719,5 +727,156 @@ describe('sponsoredCliStepCheckContext', () => {
     ])
     expect(await ctx.readFile('acme.config.json')).toBe('{}\n')
     expect(ctx.credentialProvided('ACME_KEY')).toBe(false)
+  })
+})
+
+describe('the account step (sign-in and API key)', () => {
+  const KEY = 'acme_live_0123456789abcdef'
+  const DECLARES_KEY = [
+    'Wire up the Acme deploy hook.',
+    'requires-credential: env=ACME_API_KEY label="Acme API key" get_url=https://acme.example/keys',
+  ].join('\n')
+
+  function signupTool(plan: Awaited<ReturnType<typeof startDriven>>) {
+    return plan.customToolDefinitions.find(
+      (tool) => tool.toolName === 'request_sponsored_signup',
+    )
+  }
+
+  test('a procedure that needs no account gets no tool and no deferred step', async () => {
+    const f = fakes({ procedure: 'Wire up the Acme deploy hook.' })
+    const plan = await startDriven(f)
+    expect(signupTool(plan)).toBeUndefined()
+    expect(plan.agent.toolNames).not.toContain('request_sponsored_signup')
+    expect(plan.prompt).not.toContain('Account setup is deferred')
+  })
+
+  test('a declared key: the agent asks for it, the user connects it, commands get it and output never shows it', async () => {
+    const saved: Array<Readonly<Record<string, string>>> = []
+    const f = fakes({
+      procedure: DECLARES_KEY,
+      // A command that prints the key back, as a careless `env` would.
+      terminalCommand: () => [
+        { type: 'json', value: { stdout: `ACME_API_KEY=${KEY}`, exitCode: 0 } },
+      ],
+      extra: {
+        saveCredentials: async (_root, values) => {
+          saved.push(values)
+          return '.env.local'
+        },
+      },
+    })
+    const plan = await startDriven(f)
+    expect(plan.agent.toolNames).toContain('request_sponsored_signup')
+    expect(plan.prompt).toContain(
+      'Account setup is deferred. Even if the approved procedure lists getting an account or an API key first',
+    )
+    expect(f.contexts[0]!.credentialEnv?.()).toBeUndefined()
+
+    const result = signupTool(plan)!.execute({})
+    await settle()
+    expect(f.service.state.account).toMatchObject({
+      kind: 'credentials',
+      offerName: 'Acme Deploys',
+      credentials: [{ env: 'ACME_API_KEY', label: 'Acme API key' }],
+    })
+    expect(
+      f.service.answerAccountStep({
+        kind: 'credentials',
+        values: { ACME_API_KEY: KEY },
+      }),
+    ).toBeNull()
+    const [output] = (await result) as unknown as Array<{
+      value: { status: string; note: string }
+    }>
+    expect(output!.value.status).toBe('confirmed')
+    expect(output!.value.note).not.toContain(KEY)
+    expect(f.service.state.account).toBeNull()
+    expect(saved).toEqual([{ ACME_API_KEY: KEY }])
+
+    // Injected as exactly its declared variable, read at each command.
+    expect(f.contexts[0]!.credentialEnv?.()).toEqual({ ACME_API_KEY: KEY })
+    const ran = await plan.overrideTools.run_terminal_command({
+      command: 'env',
+      process_type: 'SYNC',
+    } as never)
+    expect(JSON.stringify(ran)).not.toContain(KEY)
+    expect(JSON.stringify(ran)).toContain('[redacted:ACME_API_KEY]')
+
+    // The key lives for this run only.
+    await f.service.settleTurn({ errorText: null, aborted: false })
+    expect(f.contexts[0]!.credentialEnv?.()).toBeUndefined()
+  })
+
+  test('a skill user step passes on what the account step collected', async () => {
+    const raw = {
+      ...RAW_SKILL,
+      id: 'acme-signed-in',
+      steps: [
+        {
+          id: 'account',
+          kind: 'user',
+          title: 'Sign in to Acme',
+          instructions: 'Sign in at https://acme.example/signup?bfcid={bfcid}',
+          checks: [
+            {
+              id: 'signed-in',
+              label: 'The user signed in',
+              kind: 'user_confirmed',
+            },
+          ],
+        },
+        RAW_SKILL.steps[0],
+      ],
+    }
+    const parsed = parseSponsoredSkill(raw)
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed))
+    let inputs: Parameters<
+      NonNullable<SponsoredRunDeps['stepCheckContext']>
+    >[0] | null = null
+    const w = world(['acme.config.json'])
+    const opened: string[] = []
+    const f = fakes({
+      procedure: renderSponsoredSkillProcedure(parsed.skill),
+      skill: raw,
+      advertiserLink: 'https://acme.example/?bfcid=bfc_test_1.p.s',
+      stepCheckContext: async (input) => {
+        inputs = input
+        return w.stepCheckContext(input)
+      },
+      extra: {
+        openUrl: async (url) => {
+          opened.push(url)
+          return true
+        },
+      },
+    })
+    const plan = await startDriven(f)
+    expect(plan.prompt).toContain(
+      'Account setup is deferred. Even if the approved procedure lists signup first',
+    )
+    const result = signupTool(plan)!.execute({})
+    await settle()
+    expect(opened).toEqual([
+      'https://acme.example/signup?bfcid=bfc_test_1.p.s',
+    ])
+    expect(f.service.state.account).toMatchObject({ kind: 'signin' })
+    expect(inputs!.signupConfirmed?.()).toBe(false)
+    f.service.answerAccountStep({ kind: 'signin', confirmed: true })
+    const [output] = (await result) as unknown as Array<{ value: { status: string } }>
+    expect(output!.value.status).toBe('confirmed')
+    expect(inputs!.signupConfirmed?.()).toBe(true)
+  })
+
+  test('a run that ends while asking stops asking', async () => {
+    const f = fakes({ procedure: DECLARES_KEY })
+    const plan = await startDriven(f)
+    const result = signupTool(plan)!.execute({})
+    await settle()
+    expect(f.service.state.account?.kind).toBe('credentials')
+    await f.service.settleTurn({ errorText: null, aborted: true })
+    const [output] = (await result) as unknown as Array<{ value: { status: string } }>
+    expect(output!.value.status).toBe('declined')
+    expect(f.service.state.account).toBeNull()
   })
 })

@@ -31,7 +31,10 @@ import {
 import { useTheme } from '../../hooks/use-theme'
 
 import type { SponsoredProposalContentBlock } from '../../types/chat'
-import type { SponsoredProposalMenuKey } from '@codebuff/common/ads/sponsored-proposal-view'
+import type {
+  SponsoredProposalMenuKey,
+  SponsoredProposalStep,
+} from '@codebuff/common/ads/sponsored-proposal-view'
 import type { KeyEvent } from '@opentui/core'
 
 /**
@@ -117,6 +120,37 @@ export type SponsoredDockRun = {
   undone: boolean
   /** The skill step the harness is checking now, for a driven run. */
   checkingStep?: { number: number; total: number; title: string } | null
+  /** When the turn started on this machine; the pill counts from it. */
+  runningSince?: number | null
+  /** The run is waiting on the user's sign-in or key, below the card. */
+  needsYou?: boolean
+  /** A driven run's step results, once its checks ran. */
+  steps?: readonly SponsoredProposalStep[]
+}
+
+/** How many changed files the finished card names before "and N more". */
+export const SPONSORED_CHANGED_FILES_SHOWN = 5
+
+/** The finished card's file list: the first few, then how many more. */
+export function sponsoredChangedFilesLines(files: readonly string[]): string[] {
+  const shown = files.slice(0, SPONSORED_CHANGED_FILES_SHOWN)
+  const rest = files.length - shown.length
+  return [
+    ...shown.map((file) => `  ${file}`),
+    ...(rest > 0 ? [`  and ${rest} more`] : []),
+  ]
+}
+
+/** Re-renders every second while `active`, for a live elapsed time. */
+function useSecondTick(active: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [active])
+  return now
 }
 
 /** One line while a driven run's steps are checked: "Checking step 2/4: …". */
@@ -216,15 +250,33 @@ export const SponsoredProposalBlock: React.FC<{
         }
       : null,
   )
-  // FROM ACCEPT ONWARDS (COD-824), the same strings as Desktop's pill. This
-  // machine's run phase leads the row, which catches up a poll later.
+  // THE STEPS: this machine's checked results once a driven run's checks
+  // ran (they are the verdict's), else the row's. Kept after the run ends,
+  // so the card still says which step passed and which needs the user.
+  const steps: readonly SponsoredProposalStep[] =
+    run?.steps && run.steps.length > 0
+      ? run.steps.map((step) => ({
+          ...step,
+          text: sanitizeTerminalText(step.text),
+        }))
+      : view.steps
+  const needsYou = run?.needsYou === true
+  const now = useSecondTick(runPhase === 'running' && !needsYou)
+  // FROM ACCEPT ONWARDS (COD-824), the same strings as Desktop's pill, with
+  // its "Needs you" and elapsed time. This machine's run phase leads the
+  // row, which catches up a poll later.
   const pill = sponsoredProgressPill({
     state:
       runPhase === 'accepting' || runPhase === 'queued'
         ? 'accepted'
         : (runPhase ?? view.state),
-    steps: view.steps,
+    steps,
     plan: view.offerPlan,
+    needsYou,
+    elapsedMs:
+      runPhase === 'running' && run?.runningSince
+        ? Math.max(0, now - run.runningSince)
+        : null,
   })
 
   const onMenuKey = useCallback(
@@ -449,18 +501,30 @@ export const SponsoredProposalBlock: React.FC<{
       )}
 
       {pill && (
-        <text style={{ fg: theme.muted, wrapMode: 'none' }}>
+        <text
+          style={{
+            fg: needsYou ? theme.warning : theme.muted,
+            wrapMode: 'none',
+          }}
+        >
           {clip(pill, inner)}
         </text>
       )}
-      {(runPhase === 'running' || view.state === 'running') &&
-        view.steps.length > 0 && (
+      {(runPhase === 'running' ||
+        view.state === 'running' ||
+        (run?.steps?.length ?? 0) > 0) &&
+        steps.length > 0 && (
           <box style={{ width: '100%', flexDirection: 'column' }}>
-            {view.steps.map((step) => (
+            {steps.map((step) => (
               <text
                 key={step.text}
                 style={{
-                  fg: step.state === 'needs_you' ? theme.warning : theme.muted,
+                  fg:
+                    step.state === 'needs_you'
+                      ? theme.warning
+                      : step.state === 'done'
+                        ? theme.success
+                        : theme.muted,
                   wrapMode: 'none',
                 }}
               >
@@ -472,7 +536,12 @@ export const SponsoredProposalBlock: React.FC<{
             ))}
           </box>
         )}
-      {runPhase === 'running' && (
+      {runPhase === 'running' && needsYou && (
+        <text style={{ fg: theme.warning, wrapMode: 'none' }}>
+          {clip('Waiting for you below. Esc there skips it.', inner)}
+        </text>
+      )}
+      {runPhase === 'running' && !needsYou && (
         <text style={{ fg: theme.muted, wrapMode: 'none' }}>
           {clip('Running in this conversation. Esc stops it.', inner)}
         </text>
@@ -484,15 +553,30 @@ export const SponsoredProposalBlock: React.FC<{
       )}
 
       {undoable && (
-        <text style={{ fg: theme.muted }}>
-          {`Changed ${changedCount === 1 ? '1 file' : `${changedCount} files`}. Nothing was committed.`}
-        </text>
+        <box style={{ width: '100%', flexDirection: 'column' }}>
+          <text style={{ fg: theme.muted }}>
+            {`Changed ${changedCount === 1 ? '1 file' : `${changedCount} files`}. Nothing was committed.`}
+          </text>
+          {sponsoredChangedFilesLines(
+            run!.changedFiles.map((file) => sanitizeTerminalText(file)),
+          ).map((line) => (
+            <text key={line} style={{ fg: theme.muted, wrapMode: 'none' }}>
+              {clip(line, inner)}
+            </text>
+          ))}
+          <text style={{ fg: theme.muted, wrapMode: 'none' }}>
+            {clip(
+              'Review them with git diff. /ads:undo puts them back.',
+              inner,
+            )}
+          </text>
+        </box>
       )}
       {undone && (
         <text style={{ fg: theme.muted }}>These changes were undone.</text>
       )}
       {view.state === 'failed' && (
-        <text style={{ fg: theme.muted }}>{view.failureReason}</text>
+        <text style={{ fg: theme.warning }}>{view.failureReason}</text>
       )}
       {/* A row from a build that still ran the worktree flow. Nothing here
           produces one any more, but a card must not misdescribe it. */}
