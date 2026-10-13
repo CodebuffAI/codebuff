@@ -6,6 +6,7 @@
 import path from 'path'
 
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
+import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import {
   FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE,
   FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
@@ -56,6 +57,8 @@ export interface ModelRequestParams {
   apiKey: string
   /** Model ID (OpenRouter format, e.g., "anthropic/claude-sonnet-4") */
   model: string
+  /** Freebuff requests use platform credentials, never an inherited provider key. */
+  costMode?: string
   /** End user represented by a trusted service-account request. */
   userId?: string
   /** Direct, run-scoped credential. Never stored on the model or in metadata. */
@@ -446,6 +449,7 @@ export function withCodebuffRequestHeaders(
 export function getModelForRequest({
   apiKey,
   model,
+  costMode,
   userId,
   byok,
   requestHeaders,
@@ -557,7 +561,9 @@ export function getModelForRequest({
     },
   }
 
-  const openrouterApiKey = getByokOpenrouterApiKeyFromEnv()
+  const openrouterApiKey = isFreeMode(costMode)
+    ? undefined
+    : getByokOpenrouterApiKeyFromEnv()
 
   return new OpenAICompatibleChatLanguageModel(model, {
     provider: 'codebuff',

@@ -165,6 +165,8 @@ export type PromptAiSdkFn = (
 
 export type PromptAiSdkStructuredInput<T> = {
   apiKey: string
+  /** Freebuff's 'free' mode uses platform provider credentials. */
+  costMode?: string
   runId: string
   messages: Message[]
   schema: z.ZodType<T>

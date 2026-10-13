@@ -241,6 +241,7 @@ export async function* promptAiSdkStream(
   const aiSDKModel = getModelForRequest({
     apiKey: params.apiKey,
     model: params.model,
+    costMode: params.costMode,
     userId: params.userId,
     byok: params.byok,
     requestHeaders: params.requestHeaders,
@@ -753,6 +754,7 @@ export async function promptAiSdk(
   const aiSDKModel = getModelForRequest({
     apiKey: params.apiKey,
     model: params.model,
+    costMode: params.costMode,
     userId: params.userId,
     byok: params.byok,
     requestHeaders: params.requestHeaders,
@@ -835,6 +837,7 @@ export async function promptAiSdkStructured<T>(
   const aiSDKModel = getModelForRequest({
     apiKey: params.apiKey,
     model: params.model,
+    costMode: params.costMode,
     userId: params.userId,
     byok: params.byok,
     requestHeaders: params.requestHeaders,

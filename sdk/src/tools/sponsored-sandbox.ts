@@ -73,6 +73,12 @@ import { ENV_TEMPLATE_FILE_PATTERNS } from '@codebuff/common/util/env-file-path'
 
 import { getSystemProcessEnv } from '../env'
 import { getBundledRgPath } from '../native/ripgrep'
+import {
+  findBubblewrap,
+  SPONSORED_LINUX_RUNTIME_ROOTS,
+  sponsoredLinuxRuntimePath,
+  sponsoredLinuxSearchPath,
+} from './sponsored-linux-runtime'
 import { INCLUDED_HIDDEN_DIRS, parseCodeSearchFlags } from './code-search'
 import {
   sameWindowsPath,
@@ -86,8 +92,7 @@ import type {
   TerminalCommandSpawnRequest,
 } from './run-terminal-command'
 
-/** Where `bwrap` is on the distributions we have seen it on. */
-const BWRAP_PATHS = ['/usr/bin/bwrap', '/bin/bwrap', '/usr/local/bin/bwrap']
+export { findBubblewrap } from './sponsored-linux-runtime'
 
 // Keep the capability probe and real commands on the same namespace policy.
 const LINUX_NAMESPACE_ARGS = [
@@ -96,10 +101,6 @@ const LINUX_NAMESPACE_ARGS = [
   '--share-net',
   '--new-session',
 ]
-
-export function findBubblewrap(): string | null {
-  return BWRAP_PATHS.find((candidate) => fs.existsSync(candidate)) ?? null
-}
 
 /**
  * Whether this machine can contain a sponsored run, and with what.
@@ -112,10 +113,11 @@ export function probeSponsoredContainment(
   dependencies: {
     exists: (pathname: string) => boolean
     execute: (command: string, args: string[]) => boolean
+    realpath?: (pathname: string) => string
+    searchPath?: string
   },
 ): SponsoredLocalContainment {
-  const bwrap =
-    platform === 'linux' ? BWRAP_PATHS.find(dependencies.exists) : undefined
+  const bwrap = platform === 'linux' ? findBubblewrap(dependencies) : undefined
   const containment = sponsoredLocalContainment(platform, {
     bwrapAvailable: Boolean(bwrap),
   })
@@ -142,7 +144,7 @@ export function probeSponsoredContainment(
   } else {
     command = bwrap!
     args = [...LINUX_NAMESPACE_ARGS]
-    for (const directory of ['/usr', '/bin', '/lib', '/lib64']) {
+    for (const directory of SPONSORED_LINUX_RUNTIME_ROOTS) {
       if (dependencies.exists(directory))
         args.push('--ro-bind', directory, directory)
     }
@@ -153,7 +155,11 @@ export function probeSponsoredContainment(
       '/dev',
       '--clearenv',
       '--',
-      '/bin/true',
+      // NixOS provides /bin/sh, but not /bin/true. Use a shell builtin so
+      // the probe needs no extra coreutils path or writable profile mount.
+      '/bin/sh',
+      '-c',
+      'exit 0',
     )
   }
   if (!dependencies.exists(command) || !dependencies.execute(command, args)) {
@@ -1886,15 +1892,7 @@ function spawnLinux(
   // exposes host loopback; Linux no longer provides network containment.
   // Filesystem, process and environment isolation still apply.
   const args = [...LINUX_NAMESPACE_ARGS]
-  for (const dir of [
-    '/usr',
-    '/bin',
-    '/sbin',
-    '/lib',
-    '/lib64',
-    '/etc',
-    '/opt',
-  ]) {
+  for (const dir of [...SPONSORED_LINUX_RUNTIME_ROOTS, '/etc', '/opt']) {
     if (fs.existsSync(dir)) args.push('--ro-bind', dir, dir)
   }
   // /etc/resolv.conf often points into /run (systemd-resolved), which is not
@@ -1950,7 +1948,7 @@ function spawnLinux(
   args.push('--chdir', request.cwd)
   const envArgs = sponsoredLinuxEnvArgs(env, credentialNames)
   args.push(...envArgs.args)
-  args.push(request.executable, ...request.args)
+  args.push(sponsoredLinuxRuntimePath(request.executable), ...request.args)
   return processHandle(
     spawn(bwrap, args, {
       cwd: request.cwd,
@@ -2342,6 +2340,9 @@ export function createSponsoredTerminalBroker(
       }
       if (platform === 'darwin' && env.PATH !== undefined) {
         env.PATH = macRunPath(env.PATH)
+      }
+      if (platform === 'linux' && env.PATH !== undefined) {
+        env.PATH = sponsoredLinuxSearchPath(env.PATH)
       }
       // The linked worktree's grant, or nothing at all for a workspace that is
       // its own repository. Computed per start rather than once in the closure

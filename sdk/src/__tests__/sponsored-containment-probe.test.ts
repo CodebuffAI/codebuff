@@ -2,6 +2,35 @@ import { describe, expect, test } from 'bun:test'
 import { probeSponsoredContainment } from '../tools/sponsored-sandbox'
 
 describe('sponsored runtime capability probe', () => {
+  test('probes a Nix profile without /bin/true and mounts its runtime read-only', () => {
+    const bwrap =
+      '/nix/store/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bubblewrap/bin/bwrap'
+    const paths = new Set([bwrap, '/nix/store', '/bin', '/bin/sh', '/usr'])
+    const calls: string[][] = []
+    const result = probeSponsoredContainment('linux', {
+      exists: (pathname) => paths.has(pathname),
+      searchPath: '/home/user/.nix-profile/bin',
+      realpath: (pathname) => {
+        expect(pathname).toBe('/home/user/.nix-profile/bin/bwrap')
+        return bwrap
+      },
+      execute: (command, args) => {
+        calls.push([command, ...args])
+        return true
+      },
+    })
+    expect(result).toEqual({ available: true, mechanism: 'bubblewrap' })
+    expect(calls).toHaveLength(1)
+    expect(calls[0]![0]).toBe(bwrap)
+    const at = calls[0]!.indexOf('/nix/store')
+    expect(calls[0]!.slice(at - 1, at + 2)).toEqual([
+      '--ro-bind',
+      '/nix/store',
+      '/nix/store',
+    ])
+    expect(calls[0]!.slice(-4)).toEqual(['--', '/bin/sh', '-c', 'exit 0'])
+  })
+
   test('an installed but unusable Linux namespace boundary refuses before an offer', () => {
     const calls: string[][] = []
     const result = probeSponsoredContainment('linux', {
