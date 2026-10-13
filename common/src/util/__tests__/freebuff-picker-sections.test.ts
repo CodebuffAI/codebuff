@@ -6,6 +6,7 @@ import {
 } from '../../constants/freebuff-model-ids'
 import {
   FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
@@ -35,17 +36,18 @@ describe('freebuffPickerPlacement', () => {
     expect(at(FREEBUFF_MIMO_V25_MODEL_ID)).toMatchObject({ section: 'optimized', recommended: true })
     expect(at(FREEBUFF_GLM_V53_FLASH_MODEL_ID).section).toBe('optimized')
     expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID).section).toBe('optimized')
-    for (const id of [
-      FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
-      FREEBUFF_GPT_6_LUNA_MODEL_ID,
-      FREEBUFF_MIMO_V26_PRO_MODEL_ID,
-      FREEBUFF_GPT_61_SOL_MODEL_ID,
-    ]) {
-      expect(at(id)).toEqual({ section: 'powerful', order: expect.any(Number) })
+    // Muse Spark 1.3 and GPT-6 Luna moved to Optimized on 2026-10-13.
+    for (const id of [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID, FREEBUFF_GPT_6_LUNA_MODEL_ID]) {
+      expect(at(id)).toEqual({ section: 'optimized', order: expect.any(Number) })
     }
+    expect(at(FREEBUFF_GEMINI_4_ARGON_MODEL_ID)).toEqual({ section: 'powerful', order: 1 })
+    expect(at(FREEBUFF_MIMO_V26_PRO_MODEL_ID)).toEqual({ section: 'powerful', order: expect.any(Number) })
+    // Gemini 3.8 Flash, then GPT-6.1 Sol, under Powerful's More.
     expect(at(FREEBUFF_GEMINI_38_FLASH_MODEL_ID)).toMatchObject({ section: 'powerful', more: true })
+    expect(at(FREEBUFF_GPT_61_SOL_MODEL_ID)).toMatchObject({ section: 'powerful', more: true })
+    expect(at(FREEBUFF_GEMINI_38_FLASH_MODEL_ID).order).toBeLessThan(at(FREEBUFF_GPT_61_SOL_MODEL_ID).order)
     // Not badged Recommended since 2026-10-07: Optimized's MiMo is the one pick.
-    expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID)).toEqual({ section: 'powerful', order: 5 })
+    expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID)).toEqual({ section: 'powerful', order: 20 })
   })
 
   test('every listed compiled model has an explicit place', () => {
@@ -56,7 +58,7 @@ describe('freebuffPickerPlacement', () => {
   test('the first placed name wins', () => {
     expect(
       freebuffPickerPlacement(['m-unknown', FREEBUFF_GPT_6_LUNA_MODEL_ID], none).section,
-    ).toBe('powerful')
+    ).toBe('optimized')
   })
 
   test('an unplaced row is inferred and tucked under More', () => {
@@ -83,15 +85,16 @@ describe('freebuffPickerSections', () => {
     expect(sections.map(({ section, models }) => [section.id, models])).toEqual([
       [
         'optimized',
-        [FREEBUFF_MIMO_V25_MODEL_ID, FREEBUFF_GLM_V53_FLASH_MODEL_ID, 'unplaced-cheap'],
+        [
+          FREEBUFF_MIMO_V25_MODEL_ID,
+          FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+          FREEBUFF_GPT_6_LUNA_MODEL_ID,
+          'unplaced-cheap',
+        ],
       ],
       [
         'powerful',
-        [
-          FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
-          FREEBUFF_GPT_6_LUNA_MODEL_ID,
-          FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-        ],
+        [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID, FREEBUFF_GEMINI_38_FLASH_MODEL_ID],
       ],
     ])
   })

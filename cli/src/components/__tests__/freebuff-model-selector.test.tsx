@@ -601,9 +601,10 @@ describe('FreebuffModelSelector tier layout', () => {
       cardLine('Solar Pro 4'),
       lines.findIndex((line) => line.startsWith('OPTIMIZED · Strongest')),
       cardLine('MiMo 2.6 Flash'),
+      // GPT-6 Luna sits in Optimized since 2026-10-13.
+      cardLine('GPT-6 Luna'),
       lines.findIndex((line) => line.startsWith('POWERFUL · Frontier')),
       ...(FREEBUFF_ENABLE_FAST_MODE_IN_UI ? [cardLine('DeepSeek V4.1 Flash Fast')] : []),
-      cardLine('GPT-6 Luna'),
     ]
     expect(order.every((at) => at >= 0)).toBe(true)
     expect(order).toEqual([...order].sort((a, b) => a - b))

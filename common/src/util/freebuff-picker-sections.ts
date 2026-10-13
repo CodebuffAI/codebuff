@@ -77,20 +77,21 @@ const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
     'mimo/mimo-v2.5': { section: 'optimized', order: 10, recommended: true }, // MiMo 2.6 Flash
     'z-ai/glm-5.3-flash': { section: 'optimized', order: 20 },
     'deepseek/deepseek-v4-flash': { section: 'optimized', order: 30 }, // V4.1 Flash
-    // Powerful
-    // Claude Haiku 5.5: first since 2026-10-07; its 100k-context row above
-    // it since 2026-10-12.
-    'm-5b6a604eb6': { section: 'powerful', order: 1 }, // Claude Haiku 5.5, 100k context
-    'm-79293c5b7d': { section: 'powerful', order: 2 }, // Claude Haiku 5.5
-    // DeepSeek V4.1 Flash Fast: no longer badged Recommended (2026-10-07).
-    'deepseek/deepseek-v4-flash-fast': { section: 'powerful', order: 5 },
-    'meta/muse-spark-1.3-contributor': { section: 'powerful', order: 10 },
-    'openai/gpt-6-luna': { section: 'powerful', order: 20 },
-    'mimo/mimo-v2.6-pro': { section: 'powerful', order: 30 },
-    'openai/gpt-6.1-sol': { section: 'powerful', order: 40 },
-    // Gemini 4 Argon (2026-10-13): above Sol.
-    'google/gemini-4-argon': { section: 'powerful', order: 35 },
-    'google/gemini-3.8-flash': { section: 'powerful', order: 50, more: true },
+    // Muse Spark 1.3 and GPT-6 Luna moved here from Powerful (2026-10-13).
+    // Placement only: both stay plan-only at limited access.
+    'meta/muse-spark-1.3-contributor': { section: 'optimized', order: 40 },
+    'openai/gpt-6-luna': { section: 'optimized', order: 50 },
+    // Powerful (2026-10-13): Gemini 4 Argon, then Claude Haiku 5.5's
+    // 100k-context row, then cheapest to dearest; Gemini 3.8 Flash and
+    // GPT-6.1 Sol under More, Gemini first.
+    'google/gemini-4-argon': { section: 'powerful', order: 1 },
+    'm-5b6a604eb6': { section: 'powerful', order: 2 }, // Claude Haiku 5.5, 100k context
+    'mimo/mimo-v2.6-pro': { section: 'powerful', order: 10 }, // 25
+    // 25, or 50 in DeepSeek's peak window, so after MiMo 2.6 Pro's flat 25.
+    'deepseek/deepseek-v4-flash-fast': { section: 'powerful', order: 20 },
+    'm-79293c5b7d': { section: 'powerful', order: 30 }, // Claude Haiku 5.5, 75
+    'google/gemini-3.8-flash': { section: 'powerful', order: 40, more: true },
+    'openai/gpt-6.1-sol': { section: 'powerful', order: 50, more: true },
   })
 
 /** The compiled place of one id, if it has one: the server's default. */

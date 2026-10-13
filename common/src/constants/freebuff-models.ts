@@ -14,7 +14,10 @@ import {
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
 import { SOLAR_PRO_4_OFFER, SOLAR_PROMOTIONAL } from './freebuff-solar-promo'
-import { GEMINI_4_ARGON_PROMOTIONAL } from './freebuff-sol-promo'
+import {
+  GEMINI_4_ARGON_PROMOTIONAL,
+  GPT_61_SOL_PROMOTIONAL,
+} from './freebuff-sol-promo'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -203,10 +206,10 @@ export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
  *  and a new id would strand all of them on a row that no longer exists. The
  *  upstream name is chosen in web/src/llm-api/mimo-request-body.ts. */
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
-/** MiMo 2.6 Pro (2026-09-21), paid-only on every surface, 30 Freebucks. Unlike the MiMo
+/** MiMo 2.6 Pro (2026-09-21), paid-only on every surface, 25 Freebucks. Unlike the MiMo
  *  row above it has its own id: it is a different, dearer model, and one wire
  *  id per entitlement is the rule (a Pro served under the Flash id would be a
- *  30-Freebuck model sold at 10). */
+ *  25-Freebuck model sold at 10). */
 export const FREEBUFF_MIMO_V26_PRO_MODEL_ID = mimoModels.mimoV26Pro
 /** GLM 5.2, served by CrofAI's direct OpenAI-compatible API (moved off
  *  Fireworks serverless 2026-07-29, at ~4x less than Fireworks' list price).
@@ -2562,8 +2565,9 @@ const GPT_61_SOL_MODEL = {
   efforts: EFFORTS_THROUGH_HIGH,
   defaultEffort: FREEBUFF_GPT_61_SOL_REASONING_EFFORT,
   isNew: true,
-  // No `promotional` since 2026-10-13: the promotional 100 ended and the row
-  // is at its regular 250 (FREEBUFF_GPT_61_SOL_MODEL_ID).
+  // PROMOTIONAL, by product decision: 100 at launch (2026-09-29), 250 since
+  // 2026-10-13, still labelled a promotion with its one session a day.
+  promotional: GPT_61_SOL_PROMOTIONAL,
   taglineTooltip:
     'On OpenAI flex capacity, with a standard-tier backup when it’s busy.',
 } as const satisfies FreebuffModelOption
