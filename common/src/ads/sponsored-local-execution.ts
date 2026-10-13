@@ -697,8 +697,26 @@ export function scrubSponsoredWindowsEnv(
 const INSTALL_COMMAND =
   /(^|[;&|]\s*)(npm|pnpm|yarn|bun|npx|pip|pip3|poetry|uv|cargo|gem|go|brew|apt|apt-get|dnf|yum|pacman|apk)\s+(?:(?:-\S+|--\S+)\s+)*(install|add|i|ci|get|sync|fetch)\b/i
 
+/**
+ * pip wherever it is the program that runs, and only there (never an argument,
+ * as in `echo pip install x`): `python -m pip install`,
+ * `py -m pip install`, `uv pip install`, `uv run pip install`, a venv's own
+ * `.venv/bin/pip install`. {@link INSTALL_COMMAND} only sees a manager at the
+ * start of a command, so before 2026-10-13 these ran unrefused.
+ */
+const PIP_INSTALL_COMMAND =
+  /(^|[;&|(]\s*)(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:(?:env|command|exec|sudo)\s+)*(?:(?:\S*[\\/])?(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*?-m\s+|uv(?:\.exe)?\s+(?:run\s+(?:(?:\S*[\\/])?python[0-9.]*(?:\.exe)?\s+-m\s+)?)?)?(?:\S*[\\/])?pip[0-9.]*(?:\.exe)?\s+(?:-\S+\s+)*(install|sync)\b/i
+
+/** uv with an option VALUE before its subcommand (`uv --directory api add`), which {@link INSTALL_COMMAND} reads past. */
+const UV_INSTALL_COMMAND =
+  /(^|[;&|]\s*)uv(?:\.exe)?(?:\s+-\S+(?:\s+[^-\s]\S*)?)*\s+(?:add|sync|pip\s+(?:install|sync))\b/i
+
 export function commandInstallsDependencies(command: string): boolean {
-  return INSTALL_COMMAND.test(command)
+  return (
+    INSTALL_COMMAND.test(command) ||
+    PIP_INSTALL_COMMAND.test(command) ||
+    UV_INSTALL_COMMAND.test(command)
+  )
 }
 
 export const SPONSORED_LOCAL_INSTALL_REFUSAL =

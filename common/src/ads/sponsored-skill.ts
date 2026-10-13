@@ -142,12 +142,46 @@ export type SponsoredSkillStep = {
   credential?: SponsoredRunCredential
 }
 
+/**
+ * A package the run may install.
+ * - `npm`: exact semver; installed pinned, with lifecycle scripts off.
+ * - `pypi`: exact PEP 440 release (`2.32.3`); installed wheel-only by pip or
+ *   uv, because building a source distribution runs the package's own code.
+ *   `dev` applies to `uv add` (a dev dependency); pip ignores it.
+ */
 export type SponsoredSkillPackage = {
-  ecosystem: 'npm'
+  ecosystem: SponsoredPackageEcosystem
   name: string
-  /** Exact version. Installed pinned, with lifecycle scripts off. */
+  /** Exact version. */
   version: string
   dev?: boolean
+}
+
+export const SPONSORED_PACKAGE_ECOSYSTEMS = ['npm', 'pypi'] as const
+export type SponsoredPackageEcosystem =
+  (typeof SPONSORED_PACKAGE_ECOSYSTEMS)[number]
+
+/** A PEP 508 project name, as written (any case, `-`, `_` or `.`). */
+export const PYPI_PACKAGE_NAME =
+  /^(?:[A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9._-]{0,98}[A-Za-z0-9])$/
+
+/**
+ * An exact PEP 440 public release: `2.32.3`, `1.0.0rc1`, `2.0.post1`. No
+ * epoch, local label, range, wildcard, extra or URL.
+ */
+export const PYPI_EXACT_VERSION =
+  /^(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))*(?:(?:a|b|rc)(?:0|[1-9]\d*))?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?$/
+
+/** PEP 503 normalized form: `Foo_Bar.baz` and `foo-bar-baz` are one project. */
+export function normalizePypiName(name: string): string {
+  return name.toLowerCase().replace(/[-_.]+/g, '-')
+}
+
+/** How a declared package reads in the procedure and at consent. */
+export function sponsoredPackageSpec(pkg: SponsoredSkillPackage): string {
+  return pkg.ecosystem === 'pypi'
+    ? `${pkg.name}==${pkg.version} (pip)`
+    : `${pkg.name}@${pkg.version}`
 }
 
 /**
@@ -214,6 +248,8 @@ export type SponsoredSkill = {
 }
 
 export const MAX_SKILL_STEPS = 12
+/** Same cap as `SPONSORED_DECLARED_PACKAGES_MAX`: a skill declaring more should be split. */
+export const MAX_SKILL_PACKAGES = 20
 export const MAX_SKILL_CHECKS_PER_STEP = 12
 export const MAX_SKILL_PREFLIGHT_CHECKS = 8
 export const MAX_SKILL_TITLE_CHARS = 100
@@ -650,9 +686,45 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
 
   const packages = Array.isArray(value.packages) ? value.packages : null
   if (!packages) errors.push({ path: 'packages', message: 'must be a list' })
+  if (packages && packages.length > MAX_SKILL_PACKAGES) {
+    errors.push({
+      path: 'packages',
+      message: `must declare at most ${MAX_SKILL_PACKAGES} packages`,
+    })
+  }
+  /** npm names only: `package_declared` reads package.json. */
   const packageNames = new Set<string>()
+  const pypiNames = new Set<string>()
   packages?.forEach((pkg, index) => {
     const path = `packages[${index}]`
+    if (isRecord(pkg) && pkg.ecosystem === 'pypi') {
+      if (typeof pkg.name !== 'string' || !PYPI_PACKAGE_NAME.test(pkg.name)) {
+        errors.push({
+          path,
+          message:
+            'must be { ecosystem: "pypi", name, version } with a PyPI project name',
+        })
+        return
+      }
+      if (
+        typeof pkg.version !== 'string' ||
+        !PYPI_EXACT_VERSION.test(pkg.version)
+      ) {
+        errors.push({
+          path: `${path}.version`,
+          message:
+            'must be an exact PEP 440 release such as 2.32.3, not a range, extra or URL',
+        })
+      }
+      if (pkg.dev !== undefined && typeof pkg.dev !== 'boolean') {
+        errors.push({ path: `${path}.dev`, message: 'must be a boolean' })
+      }
+      const normalized = normalizePypiName(pkg.name)
+      if (pypiNames.has(normalized))
+        errors.push({ path, message: `duplicate package ${pkg.name}` })
+      pypiNames.add(normalized)
+      return
+    }
     if (
       !isRecord(pkg) ||
       pkg.ecosystem !== 'npm' ||
@@ -661,7 +733,8 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
     ) {
       errors.push({
         path,
-        message: 'must be { ecosystem: "npm", name, version }',
+        message:
+          'must be { ecosystem: "npm", name, version } or { ecosystem: "pypi", name, version }',
       })
       return
     }
@@ -898,7 +971,9 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
     if (check.kind === 'package_declared' && !packageNames.has(check.name)) {
       errors.push({
         path: check.id,
-        message: `checks package ${check.name}, which the skill does not declare`,
+        message: pypiNames.has(normalizePypiName(check.name))
+          ? `checks package ${check.name}, a pypi package: package_declared reads package.json, so check a Python package with file_contains or command_succeeds`
+          : `checks package ${check.name}, which the skill does not declare`,
       })
     }
   }
@@ -1108,11 +1183,22 @@ export function renderSponsoredSkillProcedure(skill: SponsoredSkill): string {
   if (skill.packages.length || npmTools.length) {
     lines.push('Pinned installs (install exactly these, nothing else):')
     for (const pkg of skill.packages) {
-      lines.push(`- ${pkg.name}@${pkg.version}${pkg.dev ? ' (dev)' : ''}`)
+      // npm lines are unchanged byte for byte: shipped procedure hashes
+      // (`procedure_sha256`) are of this text.
+      lines.push(
+        pkg.ecosystem === 'pypi'
+          ? `- ${pkg.name}==${pkg.version} (pip${pkg.dev ? ', dev' : ''})`
+          : `- ${pkg.name}@${pkg.version}${pkg.dev ? ' (dev)' : ''}`,
+      )
     }
     for (const tool of npmTools) {
       lines.push(
         `- \`${tool.name}\` = npx --yes ${tool.package}@${tool.version}`,
+      )
+    }
+    if (skill.packages.some((pkg) => pkg.ecosystem === 'pypi')) {
+      lines.push(
+        'Python (pip) packages install from wheels only, one plain command: `pip install --only-binary=:all: <name>==<version>`, or `uv add --no-build <name>==<version>` in a uv project.',
       )
     }
     lines.push('')
@@ -1173,7 +1259,7 @@ export function sponsoredSkillConsentView(
       byUser: step.kind === 'user',
     })),
     installs: [
-      ...skill.packages.map((pkg) => `${pkg.name}@${pkg.version}`),
+      ...skill.packages.map(sponsoredPackageSpec),
       ...skill.tools.flatMap((tool) =>
         tool.source === 'npm' ? [`${tool.package}@${tool.version}`] : [],
       ),
