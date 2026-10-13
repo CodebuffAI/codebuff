@@ -866,6 +866,74 @@ describe('getFiles', () => {
       expect(result['src/big.ts']).toContain('showing lines 2500-2504 of 3000')
     })
   })
+
+  describe('refuseNonText: the project-understanding read policy', () => {
+    const bigJson = 'x'.repeat(150 * 1024)
+    const files = {
+      '/project/uv.lock': { content: 'version = 1\n' },
+      '/project/Cargo.lock': { content: '# lock\n' },
+      '/project/dist/index.js': { content: 'built()' },
+      '/project/node_modules/react/package.json': { content: '{}' },
+      '/project/public/app.min.js': { content: 'a()' },
+      '/project/fixtures.json': { content: bigJson },
+      '/project/pyproject.toml': { content: '[project]\nname = "app"\n' },
+    }
+    const paths = Object.keys(files).map((p) => p.slice('/project/'.length))
+
+    function countingFs() {
+      const fs = createMockFs({ files })
+      const reads: string[] = []
+      const readFile = fs.readFile.bind(fs)
+      ;(fs as any).readFile = async (
+        filePath: PathLike,
+        ...rest: unknown[]
+      ) => {
+        reads.push(String(filePath))
+        return (readFile as any)(filePath, ...rest)
+      }
+      return { fs, reads }
+    }
+
+    test('refuses lockfiles, generated files and oversized files without reading them', async () => {
+      const { fs, reads } = countingFs()
+      const result = await getFiles({
+        filePaths: paths,
+        cwd: '/project',
+        fs,
+        refuseNonText: true,
+      })
+      for (const lockfile of ['uv.lock', 'Cargo.lock']) {
+        expect(result[lockfile]).toStartWith(FILE_READ_STATUS.IGNORED)
+        expect(result[lockfile]).toContain('Lockfile')
+      }
+      for (const generated of [
+        'dist/index.js',
+        'node_modules/react/package.json',
+        'public/app.min.js',
+      ]) {
+        expect(result[generated]).toStartWith(FILE_READ_STATUS.IGNORED)
+        expect(result[generated]).toContain('Generated or dependency file')
+      }
+      expect(result['fixtures.json']).toStartWith(FILE_READ_STATUS.TOO_LARGE)
+      expect(result['fixtures.json']).toContain('too large to be a manifest')
+      expect(result['pyproject.toml']).toContain('name = "app"')
+      // Only the manifest was ever loaded: the oversized file was refused by its stat.
+      expect(reads).toEqual(['/project/pyproject.toml'])
+    })
+
+    test('off (every other caller): the same files are read as before', async () => {
+      const { fs, reads } = countingFs()
+      const result = await getFiles({ filePaths: paths, cwd: '/project', fs })
+      expect(result['uv.lock']).toBe('version = 1\n')
+      expect(result['dist/index.js']).toBe('built()')
+      expect(result['node_modules/react/package.json']).toBe('{}')
+      expect(result['public/app.min.js']).toBe('a()')
+      expect(result['fixtures.json']).not.toStartWith(
+        FILE_READ_STATUS.TOO_LARGE,
+      )
+      expect(reads).toHaveLength(paths.length)
+    })
+  })
 })
 
 describe('getImageFile', () => {

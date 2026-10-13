@@ -38,6 +38,8 @@ beforeEach(() => {
   writeFileSync(path.join(project, 'src', 'index.ts'), 'export const a = 1\n')
   writeFileSync(path.join(project, 'logo.png'), 'not really a png')
   writeFileSync(path.join(project, 'blob.dat'), 'abc\u0000def')
+  writeFileSync(path.join(project, 'uv.lock'), 'version = 1\n')
+  writeFileSync(path.join(project, 'big.json'), `"${'x'.repeat(150 * 1024)}"`)
   writeFileSync(path.join(outside, 'secret.txt'), 'SECRET')
   writeFileSync(path.join(outside, 'other.ts'), 'export {}')
   symlinkSync(path.join(outside, 'secret.txt'), path.join(project, 'link.txt'))
@@ -186,6 +188,18 @@ describe('refuseNonTextFileReads', () => {
       expect(files['package.json']).toBe('{"name":"app"}')
     })
   })
+
+  it('refuses lockfiles and files over 100 KB', async () => {
+    await withHooks({ refuseNonTextFileReads: true }, async (hooks) => {
+      const files = await hooks.requestFiles({
+        filePaths: ['uv.lock', 'big.json', 'package.json'],
+      })
+      expect(files['uv.lock']).toStartWith(FILE_READ_STATUS.IGNORED)
+      expect(files['uv.lock']).toContain('Lockfile')
+      expect(files['big.json']).toStartWith(FILE_READ_STATUS.TOO_LARGE)
+      expect(files['package.json']).toBe('{"name":"app"}')
+    })
+  })
 })
 
 describe('both options off (every other caller)', () => {
@@ -198,8 +212,12 @@ describe('both options off (every other caller)', () => {
           'link.txt',
           'logo.png',
           'blob.dat',
+          'uv.lock',
+          'big.json',
         ],
       })
+      expect(files['uv.lock']).toBe('version = 1\n')
+      expect(files['big.json']).toStartWith('"xxx')
       expect(files[path.join(outside, 'secret.txt')]).toBe('SECRET')
       expect(files['link.txt']).toBe('SECRET')
       expect(files['logo.png']).toBe('not really a png')

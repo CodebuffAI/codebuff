@@ -42,6 +42,10 @@ describe('languageForPath', () => {
     expect(languageForPath('package-lock.json')).toBeNull()
     expect(languageForPath('sub/bun.lock')).toBeNull()
     expect(languageForPath('Cargo.lock')).toBeNull()
+    // JSON and YAML lockfiles the agent's skip list knows are not counted as data
+    expect(languageForPath('npm-shrinkwrap.json')).toBeNull()
+    expect(languageForPath('src/App/packages.lock.json')).toBeNull()
+    expect(languageForPath('conda-lock.yml')).toBeNull()
     expect(languageForPath('dist/app.min.js')).toBeNull()
     expect(languageForPath('dist/app.js.map')).toBeNull()
     expect(languageForPath('logo.png')).toBeNull()

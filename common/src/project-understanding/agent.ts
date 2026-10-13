@@ -110,11 +110,12 @@ You never edit files, run commands or talk to the user. You read just enough of 
 
 How to work:
 - Start from what is already listed: the top-level directory and the manifest and config files found for you.
-- Read the files that settle a field: package manifests and lockfiles, build and deploy configuration (Dockerfile, docker-compose, vercel.json, netlify.toml, fly.toml, render.yaml, wrangler.toml, app.json/eas.json, serverless and Terraform files, CI workflows), database schemas and ORM configuration, and a README if one exists.
+- Read the files that settle a field: package manifests, build and deploy configuration (Dockerfile, docker-compose, vercel.json, netlify.toml, fly.toml, render.yaml, wrangler.toml, app.json/eas.json, serverless and Terraform files, CI workflows), database schemas and ORM configuration, and a README if one exists.
 - You get a few rounds of reading, then you must answer. Read in batches: put every file you want into one read_files call per round. Do not read source files to guess at a field; a manifest or config file is better evidence.
 - In a monorepo, read the root manifest and two or three representative packages, not every package. The glob results already tell you which packages, apps and tools exist.
 - Never read .env files or anything that holds secrets. An .env.example is fine.
 - Read only text files inside the project. Images, PDFs, archives, office documents, media, fonts, binaries and databases are refused, so do not ask for them.
+- Lockfiles, generated files (minified bundles, source maps, anything under node_modules, a virtualenv or a build folder) and files over 100 KB are not read either: their names are evidence enough.
 - Answer only from what you saw. When nothing you read settles a field, answer "unknown" (or [] for a list). A guess is worse than unknown.
 - Use the names offered for a field wherever one fits. Use official product names, never file paths, people's names or anything copied from the code.
 - Look for the project's own deployment. A dependency on a hosting SDK alone does not mean the app is deployed there.`

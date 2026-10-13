@@ -21,6 +21,7 @@ import {
   isProjectUnderstandingNonTextPath,
   looksLikeBinaryContent,
 } from '@codebuff/common/project-understanding/non-text-files'
+import { projectUnderstandingReadRefusal } from '@codebuff/common/project-understanding/skipped-files'
 
 import { resolveFilePath } from './path-utils'
 
@@ -56,9 +57,12 @@ export async function getFiles(params: {
    */
   fileFilter?: FileFilter
   /**
-   * Refuse non-text files: by extension before reading, and by a NUL in the
-   * first 4 KB after. Off by default; only the project-understanding agent's run sets
-   * it (`RunOptions.refuseNonTextFileReads`).
+   * Refuse what the project-understanding agent never reads: non-text files
+   * (by extension before reading, and by a NUL in the first 4 KB after), and
+   * lockfiles, generated files and files over 100 KB (by path, then by the
+   * stat's size, before reading; skipped-files.ts). Off by default; only the
+   * project-understanding agent's run sets it
+   * (`RunOptions.refuseNonTextFileReads`).
    */
   refuseNonText?: boolean
 }) {
@@ -105,6 +109,13 @@ export async function getFiles(params: {
         `${FILE_READ_STATUS.IGNORED} ${PROJECT_UNDERSTANDING_NON_TEXT_MESSAGE}`
       continue
     }
+    const pathRefusal = refuseNonText
+      ? projectUnderstandingReadRefusal(relativePath)
+      : null
+    if (pathRefusal) {
+      result[relativePath] = pathRefusal
+      continue
+    }
 
     // Apply file filter if provided
     const filterResult = fileFilter?.(relativePath)
@@ -139,6 +150,13 @@ export async function getFiles(params: {
         result[relativePath] =
           FILE_READ_STATUS.TOO_LARGE +
           ` [${(stats.size / (1024 * 1024)).toFixed(1)}MB exceeds 10MB limit. Use code_search or glob to find specific content.]`
+        continue
+      }
+      const sizeRefusal = refuseNonText
+        ? projectUnderstandingReadRefusal(relativePath, stats.size)
+        : null
+      if (sizeRefusal) {
+        result[relativePath] = sizeRefusal
         continue
       }
 

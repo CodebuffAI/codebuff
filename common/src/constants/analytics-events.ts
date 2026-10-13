@@ -479,7 +479,7 @@ export enum AnalyticsEvent {
   DESKTOP_AUTORUN_TOGGLED = 'desktop.autorun_toggled',
   DESKTOP_AUTORUN_SCOPE_SET = 'desktop.autorun_scope_set',
   // One per project understanding Desktop attempts, with its outcome (not_due,
-  // reported, …): services/project-understanding.ts.
+  // check_failed, reported, …): services/project-understanding.ts.
   DESKTOP_PROJECT_UNDERSTANDING = 'desktop.project_understanding',
   // One-shot per process: which codex CLI the Codex harness resolved (or why
   // none). Answers "is the packaged app finding users' codex?" in the field,

@@ -50,13 +50,21 @@ const dueResponseSchema = z.object({
   template: z.unknown().nullable(),
 })
 
+/** What the due check found. `check_failed` (a non-OK answer, a network
+ *  error, a body or template that does not parse) is not `not_due`: the
+ *  backend never said the project was up to date. */
+export type ProjectUnderstandingDueCheck =
+  | { status: 'due'; template: ProjectUnderstandingTemplate }
+  | { status: 'not_due' }
+  | { status: 'check_failed' }
+
 export type ProjectUnderstandingApi = {
-  /** The template when a run is due, `null` when it is not (or the
-   *  backend could not be asked). */
-  getDueTemplate: (params: {
+  /** Whether a run is due, with the template to fill when it is. May throw;
+   *  a throw counts as `check_failed`. */
+  checkDue: (params: {
     signal: AbortSignal
     logger: Logger
-  }) => Promise<ProjectUnderstandingTemplate | null>
+  }) => Promise<ProjectUnderstandingDueCheck>
   report: (params: {
     templateVersion: number
     profile: ProjectUnderstanding
@@ -81,7 +89,7 @@ export function createProjectUnderstandingClient(params: {
     ...(params.userId ? { [FREEBUFF_ACTING_USER_HEADER]: params.userId } : {}),
   }
   return {
-    getDueTemplate: async ({ signal, logger }) => {
+    checkDue: async ({ signal, logger }) => {
       const url = new URL(PROJECT_UNDERSTANDING_PATH, baseUrl)
       url.searchParams.set('project_key', params.projectKey)
       url.searchParams.set('surface', params.surface)
@@ -91,10 +99,19 @@ export function createProjectUnderstandingClient(params: {
           { status: response.status, metric: 'project_understanding_due_failed' },
           'Project understanding due check failed',
         )
-        return null
+        return { status: 'check_failed' }
       }
-      const body = dueResponseSchema.safeParse(await response.json())
-      if (!body.success || !body.data.due) return null
+      const body = dueResponseSchema.safeParse(
+        await response.json().catch(() => undefined),
+      )
+      if (!body.success) {
+        logger.warn(
+          { metric: 'project_understanding_due_invalid' },
+          'Project understanding due answer did not parse',
+        )
+        return { status: 'check_failed' }
+      }
+      if (!body.data.due) return { status: 'not_due' }
       const template = projectUnderstandingTemplateSchema.safeParse(
         body.data.template,
       )
@@ -103,9 +120,9 @@ export function createProjectUnderstandingClient(params: {
           { metric: 'project_understanding_template_invalid' },
           'Project understanding template did not parse',
         )
-        return null
+        return { status: 'check_failed' }
       }
-      return template.data
+      return { status: 'due', template: template.data }
     },
     report: async ({ templateVersion, profile, stats, signal, logger }) => {
       const response = await fetch(new URL(PROJECT_UNDERSTANDING_PATH, baseUrl), {
@@ -139,7 +156,10 @@ export type RunProjectUnderstandingAgent = (params: {
 }) => Promise<{ output?: { type: string; value?: unknown } } | undefined>
 
 export type ProjectUnderstandingOutcome =
+  /** The backend answered `due: false`. */
   | 'not_due'
+  /** The due check itself failed, so nothing ran (ProjectUnderstandingDueCheck). */
+  | 'check_failed'
   | 'reported'
   | 'no_output'
   | 'report_failed'
@@ -164,8 +184,21 @@ export async function understandProject(params: {
       ])
     : AbortSignal.timeout(PROJECT_UNDERSTANDING_TIMEOUT_MS)
   try {
-    const template = await api.getDueTemplate({ signal, logger })
-    if (!template) return 'not_due'
+    let due: ProjectUnderstandingDueCheck
+    try {
+      due = await api.checkDue({ signal, logger })
+    } catch (error) {
+      logger.warn(
+        {
+          error: getErrorObject(error),
+          metric: 'project_understanding_due_failed',
+        },
+        'Project understanding due check failed',
+      )
+      return 'check_failed'
+    }
+    if (due.status !== 'due') return due.status
+    const { template } = due
 
     const stats = await params.countFiles(signal)
     const run = await params.runAgent({

@@ -2,11 +2,14 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   PROJECT_UNDERSTANDING_ANSWER_NOW,
+  PROJECT_UNDERSTANDING_CONTINUATION,
   PROJECT_UNDERSTANDING_MAX_AGENT_STEPS,
+  PROJECT_UNDERSTANDING_OPENING,
   PROJECT_UNDERSTANDING_READING_ROUNDS,
   PROJECT_UNDERSTANDING_TOOL_NAMES,
   buildProjectUnderstandingAgent,
 } from '../agent'
+import { PROJECT_UNDERSTANDING_MAX_READ_BYTES } from '../skipped-files'
 
 import type { ProjectUnderstandingTemplate } from '../template'
 
@@ -36,6 +39,17 @@ describe('buildProjectUnderstandingAgent', () => {
     expect(PROJECT_UNDERSTANDING_MAX_AGENT_STEPS).toBeGreaterThan(
       PROJECT_UNDERSTANDING_READING_ROUNDS + 1,
     )
+  })
+
+  test('opens with the sentences the server pins, and says what is never read', () => {
+    expect(agent.systemPrompt).toStartWith(
+      `${PROJECT_UNDERSTANDING_OPENING} ${PROJECT_UNDERSTANDING_CONTINUATION}\n`,
+    )
+    // skipped-files.ts refuses these; the prompt says so, and never asks for a lockfile.
+    expect(agent.systemPrompt).toContain(
+      `Lockfiles, generated files (minified bundles, source maps, anything under node_modules, a virtualenv or a build folder) and files over ${PROJECT_UNDERSTANDING_MAX_READ_BYTES / 1024} KB are not read either: their names are evidence enough.`,
+    )
+    expect(agent.systemPrompt).not.toContain('manifests and lockfiles')
   })
 
   test('offers exactly the read-only tools the completions gate allows', () => {

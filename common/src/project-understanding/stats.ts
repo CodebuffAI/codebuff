@@ -7,6 +7,7 @@
 import z from 'zod/v4'
 
 import { isProjectUnderstandingNonTextPath } from './non-text-files'
+import { isProjectUnderstandingLockfile } from './skipped-files'
 import { PROJECT_UNDERSTANDING_SIZE_SECTION } from './template'
 
 import type { ProjectUnderstanding } from './template'
@@ -117,26 +118,6 @@ const BY_FILENAME: Readonly<Record<string, Language>> = {
   justfile: lang('Just'),
 }
 
-/** Lockfiles and generated bundles: real files, not code anyone wrote. */
-const UNCOUNTED_FILENAMES = new Set([
-  'package-lock.json',
-  'yarn.lock',
-  'pnpm-lock.yaml',
-  'bun.lock',
-  'bun.lockb',
-  'cargo.lock',
-  'poetry.lock',
-  'pipfile.lock',
-  'uv.lock',
-  'composer.lock',
-  'gemfile.lock',
-  'go.sum',
-  'podfile.lock',
-  'pubspec.lock',
-  'mix.lock',
-  'flake.lock',
-])
-
 // No node:path: this module also runs where Node's built-ins do not.
 function baseName(filePath: string): string {
   const normalized = filePath.replace(/\\/g, '/')
@@ -150,7 +131,8 @@ function extension(base: string): string {
 
 export function languageForPath(filePath: string): Language | null {
   const base = baseName(filePath)
-  if (UNCOUNTED_FILENAMES.has(base)) return null
+  // Lockfiles and generated bundles: real files, not code anyone wrote.
+  if (isProjectUnderstandingLockfile(base)) return null
   if (/\.min\.(js|css)$/.test(base) || base.endsWith('.map')) return null
   if (BY_FILENAME[base]) return BY_FILENAME[base]
   if (base.startsWith('dockerfile.')) return BY_FILENAME.dockerfile

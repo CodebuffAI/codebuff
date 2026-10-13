@@ -337,10 +337,14 @@ export type RunOptions = {
    */
   confineFileToolsToProject?: boolean
   /**
-   * read_files refuses non-text files (images, PDFs, archives, office
-   * documents, media, fonts, binaries, databases: by extension, and any file
-   * with a NUL in its first 4 KB), and an image is never attached. Off by
-   * default: only the project-understanding agent sets it. Local reads only, like
+   * read_files refuses what the project-understanding agent never reads:
+   * non-text files (images, PDFs, archives, office documents, media, fonts,
+   * binaries, databases: by extension, and any file with a NUL in its first
+   * 4 KB), so an image is never attached; and lockfiles, generated files
+   * (minified bundles, source maps, dependency and build folders) and text
+   * files over 100 KB, refused by path and by size before they are read
+   * (`common/src/project-understanding/skipped-files.ts`). Off by default:
+   * only the project-understanding agent sets it. Local reads only, like
    * `confineFileToolsToProject`.
    */
   refuseNonTextFileReads?: boolean
