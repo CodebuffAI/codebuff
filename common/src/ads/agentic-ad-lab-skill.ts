@@ -195,3 +195,18 @@ export function labSkillModuleSource(skill: SponsoredSkill): {
     lockLine: `'${key}': '${sponsoredSkillSha256(skill)}',`,
   }
 }
+
+/**
+ * A version's entry in `sponsored-skills/all.ts`: the name it is imported
+ * under and its import line.
+ */
+export function labSkillRegistryEntry(skill: SponsoredSkill): {
+  name: string
+  importLine: string
+} {
+  const name = `${skill.id.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())}_${skill.version.replace(/[^0-9A-Za-z]/g, '_')}`
+  return {
+    name,
+    importLine: `import { skill as ${name} } from './${skill.id}/${skill.version}'`,
+  }
+}
