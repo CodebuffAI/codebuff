@@ -90,6 +90,11 @@ export async function getProjectFileTree(params: {
   projectRoot: string
   maxFiles?: number
   fs: CodebuffFileSystem
+  /**
+   * Gitignore-style patterns skipped during the walk, on top of the defaults,
+   * so what they hide is never counted against `maxFiles`.
+   */
+  extraIgnore?: readonly string[]
 }): Promise<FileTreeNode[]> {
   const withDefaults = { maxFiles: DEFAULT_MAX_FILES, ...params }
   const { projectRoot, fs } = withDefaults
@@ -99,6 +104,7 @@ export async function getProjectFileTree(params: {
 
   const _start = Date.now()
   const defaultIgnore = createDefaultIgnore()
+  for (const pattern of params.extraIgnore ?? []) defaultIgnore.add(pattern)
 
   if (isShallowScanRoot(projectRoot)) {
     defaultIgnore.add('.*')
