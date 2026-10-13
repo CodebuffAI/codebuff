@@ -19,10 +19,6 @@ import {
   listMCPTools,
   callMCPTool,
 } from '@codebuff/common/mcp/client'
-import {
-  COMPOSIO_META_TOOL_NAMES,
-  isComposioMetaToolName,
-} from '@codebuff/common/constants/composio'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
@@ -37,7 +33,6 @@ import { isSensitiveEnvFilePath } from '@codebuff/common/util/env-file-path'
 import { PROJECT_UNDERSTANDING_OUTSIDE_PROJECT_MESSAGE } from '@codebuff/common/project-understanding/non-text-files'
 import { cloneDeep } from 'lodash'
 
-import { executeComposioToolViaServer } from './composio'
 import { byokModelLimits } from './byok'
 import type { ResolvedByokConnection } from './byok'
 import { getErrorStatusCode } from './error-utils'
@@ -698,10 +693,6 @@ async function runOnce({
     }
   }
 
-  for (const toolName of COMPOSIO_META_TOOL_NAMES) {
-    delete sessionState.fileContext.customToolDefinitions[toolName]
-  }
-
   let resolvePromise: (value: RunReturnType) => any = () => {}
   let _reject: (error: any) => any = () => {}
   const promise = new Promise<RunReturnType>((res, rej) => {
@@ -860,7 +851,6 @@ async function runOnce({
         fs,
         env: toolEnv,
         terminalCommandBroker,
-        apiKey,
         byok,
         signal,
         projectFence,
@@ -1331,7 +1321,6 @@ async function handleToolCall({
   fs,
   env,
   terminalCommandBroker,
-  apiKey,
   byok,
   signal,
   projectFence,
@@ -1343,7 +1332,6 @@ async function handleToolCall({
   fs: CodebuffFileSystem
   env?: Record<string, string>
   terminalCommandBroker?: TerminalCommandBroker
-  apiKey: string
   byok?: ResolvedByokConnection
   signal?: AbortSignal
   /** RunOptions.confineFileToolsToProject: unset for every other run. */
@@ -1540,15 +1528,6 @@ async function handleToolCall({
           },
         },
       ]
-    } else if (isComposioMetaToolName(toolName)) {
-      if (byok) {
-        throw new Error('Composio tools are unavailable in a direct BYOK run')
-      }
-      result = await executeComposioToolViaServer({
-        apiKey,
-        toolName,
-        input,
-      })
     } else {
       throw new Error(
         `Tool not implemented in SDK. Please provide an override or modify your agent to not use this tool: ${toolName}`,

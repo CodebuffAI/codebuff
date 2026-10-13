@@ -104,6 +104,14 @@ export class SitesClient {
           environment_busy:
             'An operation is running or needs reconciliation. Refresh deployment activity before trying again.',
           site_deleting: 'This site is being deleted.',
+          invalid_domain: 'Enter a subdomain such as www.example.com, without a URL or path. Root domains and platform domains are not supported.',
+          domain_claimed: 'This domain is already connected or being verified. Remove it from the other site or contact support to recover access.',
+          domain_limit: 'Remove the existing domain before connecting another.',
+          domain_not_ready: 'Wait for DNS and HTTPS verification before making this domain primary.',
+          domain_dns_unavailable: 'DNS could not be checked. Try again shortly.',
+          domain_dns_changed: 'Restore the active domain’s DNS or remove it to return to the Freebuff URL.',
+          domain_reconciliation_required: 'A provider registration needs reconciliation. Contact support before retrying.',
+          domains_not_configured: 'Custom-domain hosting is not configured for this deployment.',
         }
         const messages: Record<number, string> = {
           401: 'Sign in to Freebuff to use Sites.',
@@ -130,6 +138,14 @@ export class SitesClient {
         'Couldn’t reach Sites. Check your connection and try again.',
       )
     }
+  }
+  async domainAction(siteId: string, env: string, raw: unknown, requestId: string) {
+    const input = z.discriminatedUnion('action', [
+      z.strictObject({ action: z.literal('connect'), hostname: z.string().min(1).max(253) }),
+      z.strictObject({ action: z.enum(['verify', 'primary', 'remove']), domainId: uuid }),
+    ]).safeParse(raw)
+    if (!uuid.safeParse(siteId).success || !environment.safeParse(env).success || !key.safeParse(requestId).success || !input.success) throw invalid('Invalid domain request.')
+    return this.request(`/${siteId}/environments/${env}/domains`, 'POST', input.data, requestId)
   }
   async setPublished(
     siteId: string,
@@ -207,7 +223,7 @@ export class SitesClient {
       !(
         suffix.length === 0 ||
         (suffix.length === 1 &&
-          ['operations', 'analytics'].includes(suffix[0])) ||
+          ['operations', 'analytics', 'domains'].includes(suffix[0])) ||
         (suffix.length === 2 &&
           suffix[0] === 'auth' &&
           ['analytics', 'users'].includes(suffix[1])) ||

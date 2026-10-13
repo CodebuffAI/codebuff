@@ -52,6 +52,14 @@ const topics: Record<PageLabel, Topic[]> = {
     },
     { label: 'Sign out', keywords: 'log out logout' },
     {
+      label: 'GitHub',
+      keywords: 'connect authorize repository repos connection',
+    },
+    {
+      label: 'Discord',
+      keywords: 'connect community subscriber role connection',
+    },
+    {
       label: 'Sign-in methods',
       keywords: 'login password google github authentication',
       surface: 'web',
@@ -109,14 +117,22 @@ const topics: Record<PageLabel, Topic[]> = {
     { label: 'Bounties', keywords: 'submissions tasks rewards freebucks' },
     { label: 'Offers', keywords: 'earn rewards freebucks' },
   ],
-  Connections: [
+  Integrations: [
     {
-      label: 'GitHub',
-      keywords: 'connect authorize repository repos integration',
+      label: 'Connected apps',
+      keywords:
+        'connect apps accounts tools gmail email inbox slack notion linear posthog google calendar drive',
     },
-    { label: 'Discord', keywords: 'connect community account integration' },
   ],
-  'API Providers': [
+  'Model Providers': [
+    {
+      label: 'Claude Code',
+      keywords: 'claude anthropic subscription sign in setup-token api key cli install',
+    },
+    {
+      label: 'Codex',
+      keywords: 'codex openai chatgpt plan sign in api key cli install',
+    },
     {
       label: 'Provider API key',
       keywords:
@@ -184,8 +200,8 @@ const topics: Record<PageLabel, Topic[]> = {
   ],
   MCP: [
     {
-      label: 'Connectors',
-      keywords: 'model context protocol servers tools integrations stdio http',
+      label: 'Custom servers',
+      keywords: 'model context protocol servers tools connectors stdio http',
     },
   ],
   Updates: [

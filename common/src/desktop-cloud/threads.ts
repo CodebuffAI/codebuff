@@ -26,8 +26,8 @@ export type ThreadOutcome = (typeof THREAD_OUTCOMES)[number]
 
 /**
  * Who pays for a thread's model turns: Freebuff (its sessions and credits), or the user's own Codex
- * (ChatGPT) or Claude login, or their own API key. Only a local thread can be paid by a login; a cloud
- * thread is always Freebuff, because no login leaves the user's computer.
+ * (ChatGPT) or Claude login, or their own API key. A cloud thread runs Codex or Claude Code on the
+ * account's ChatGPT sign-in or saved Claude Code key (`./agents`); any other cloud thread is Freebuff.
  */
 export const THREAD_FUNDINGS = ['freebuff', 'codex', 'claude', 'byok'] as const
 export type ThreadFunding = (typeof THREAD_FUNDINGS)[number]

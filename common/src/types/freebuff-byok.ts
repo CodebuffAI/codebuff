@@ -14,9 +14,43 @@ export type AccountByokProvider = (typeof ACCOUNT_BYOK_PROVIDERS)[number]
  * accepted on create, only made by the sign-in flow (`/chatgpt/*`).
  */
 export const ACCOUNT_BYOK_CHATGPT_PROVIDER = 'chatgpt'
+/**
+ * Models on the API key saved for Claude Code (`anthropic`) or Codex
+ * (`openai`). Like ChatGPT's, these rows hold no key: each reads its agent's
+ * key when it runs, and goes when that key is removed. Never accepted on
+ * create, only made when the agent's key is saved.
+ */
+export const ACCOUNT_BYOK_AGENT_KEY_PROVIDERS = {
+  'claude-code': 'anthropic',
+  codex: 'openai',
+} as const
+export type AccountByokAgentKeyProvider =
+  (typeof ACCOUNT_BYOK_AGENT_KEY_PROVIDERS)[keyof typeof ACCOUNT_BYOK_AGENT_KEY_PROVIDERS]
+/** Where an agent-key row's requests go: each provider's OpenAI-compatible API. */
+export const ACCOUNT_BYOK_AGENT_KEY_BASE_URLS: Record<AccountByokAgentKeyProvider, string> = {
+  anthropic: 'https://api.anthropic.com/v1',
+  openai: 'https://api.openai.com/v1',
+}
 export type AccountByokConnectionProvider =
   | AccountByokProvider
   | typeof ACCOUNT_BYOK_CHATGPT_PROVIDER
+  | AccountByokAgentKeyProvider
+
+export function isAgentKeyProvider(
+  provider: string,
+): provider is AccountByokAgentKeyProvider {
+  return provider === 'anthropic' || provider === 'openai'
+}
+
+/** A row with no key of its own: it runs on a sign-in or an agent's key. */
+export function isKeylessProvider(provider: string) {
+  return provider === ACCOUNT_BYOK_CHATGPT_PROVIDER || isAgentKeyProvider(provider)
+}
+
+/** ChatGPT sign-in models are Codex's: older rows were named "… (ChatGPT)". */
+export function byokConnectionLabel(name: string) {
+  return name.replace(/ \(ChatGPT\)$/, ' (Codex)')
+}
 
 /** Most saved account providers one account may keep. */
 export const ACCOUNT_BYOK_MAX_CONNECTIONS = 20

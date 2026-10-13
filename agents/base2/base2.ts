@@ -1,5 +1,4 @@
 import { buildArray } from '@codebuff/common/util/array'
-import { COMPOSIO_META_TOOL_NAMES } from '@codebuff/common/constants/composio'
 import {
   FREEBUFF_GEMINI_THINKER_AGENT_ID,
   FREEBUFF_GEMINI_THINKER_INSTRUCTIONS_PROMPT,
@@ -26,7 +25,6 @@ import {
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
 
-const ENABLE_COMPOSIO_TOOLS = false
 /** base2 delegates deeper research to subagents; base3 has none, and carries
  *  web_search/read_url itself. */
 const BASE2_DEEPER_RESEARCH =
@@ -225,7 +223,6 @@ ${
       'glob',
       'render_ui',
       !noGravityIndex && 'gravity_index',
-      ENABLE_COMPOSIO_TOOLS && [...COMPOSIO_META_TOOL_NAMES],
     ),
     spawnableAgents: buildArray(
       !isMax && 'file-picker',
@@ -281,11 +278,6 @@ ${
 - **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
 - **Don't use set_output:** The set_output tool is for spawned subagents to report results. Don't use it yourself.
 ${SKILL_DISCOVERY_GUIDANCE}${
-      ENABLE_COMPOSIO_TOOLS
-        ? `
-- **External apps:** When Composio tools are available and the user asks to work with connected apps or services like Gmail, Google Calendar, GitHub, Slack, Linear, or Notion, use them to search for the right app tools, help the user connect their account (use the render_ui tool to show a button if the user needs to click a link), and execute the requested action.`
-        : ''
-    }${
       isDefault || isMax
         ? '\n- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.'
         : ''

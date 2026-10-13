@@ -5,12 +5,6 @@ import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
 import { handleCodeSearch } from './tool/code-search'
 import { handleCloudPlanReady } from './tool/cloud-plan-ready'
-import {
-  handleComposioGetToolSchemas,
-  handleComposioManageConnections,
-  handleComposioMultiExecute,
-  handleComposioSearchTools,
-} from './tool/composio'
 import { handleCreatePlan } from './tool/create-plan'
 import { handleEndTurn } from './tool/end-turn'
 import { handleFindFiles } from './tool/find-files'
@@ -64,10 +58,6 @@ export const codebuffToolHandlers: {
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
   cloud_plan_ready: handleCloudPlanReady,
-  composio_manage_connections: handleComposioManageConnections,
-  composio_multi_execute_tool: handleComposioMultiExecute,
-  composio_search_tools: handleComposioSearchTools,
-  composio_get_tool_schemas: handleComposioGetToolSchemas,
   create_plan: handleCreatePlan,
   end_turn: handleEndTurn,
   find_files: handleFindFiles,

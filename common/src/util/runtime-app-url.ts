@@ -3,7 +3,7 @@
  * / `NEXT_PUBLIC_CODEBUFF_APP_URL` read from `process.env` after the build).
  *
  * Every SDK call that carries the user's bearer token — model completions,
- * `/me`, agent runs, the registry, composio — is addressed to this URL, so a
+ * `/me`, agent runs, the registry — is addressed to this URL, so a
  * process that can set one env var for the CLI (a directory's `.envrc`, a
  * shared machine, CI) could point the whole credential-bearing plane, over
  * plain `http:`, at a host of its choosing. The override exists for remote

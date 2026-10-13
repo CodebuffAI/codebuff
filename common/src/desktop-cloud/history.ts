@@ -16,6 +16,8 @@ export type CloudHistoryRun = {
   chatId: string
   status: string
   model: string | null
+  /** Claude Code or Codex ran this turn (`./agents`); absent for the Freebuff agent and older servers. */
+  agent?: import('./agents').CloudCliAgent | null
   agentMode: 'plan' | 'build'
   effort: string | null
   promptPreview: string

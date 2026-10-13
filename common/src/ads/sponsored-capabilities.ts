@@ -110,10 +110,6 @@ export const SPONSORED_CAPABILITY_BY_TOOL: Readonly<
   read_docs: 'network',
   gravity_index: 'network',
   lookup_agent_info: 'network',
-  composio_manage_connections: 'network',
-  composio_multi_execute_tool: 'network',
-  composio_search_tools: 'network',
-  composio_get_tool_schemas: 'network',
 
   // human_in_loop
   ask_user: 'human_in_loop',
