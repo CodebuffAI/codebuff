@@ -1,3 +1,8 @@
+import {
+  desktopPlacementSource,
+  isWebDesktopPlacement,
+  webDesktopPlacement,
+} from '../ads/web-desktop-placements'
 /**
  * The placements ad rail — first-party text ads in our own inventory.
  *
@@ -14,6 +19,10 @@
 
 import { AD_CAMPAIGN_STATUSES } from './freebuff-ads'
 import { IOS_AD_PLACEMENTS, IOS_AD_SURFACE } from '../ads/ios-placements'
+import {
+  ANDROID_AD_PLACEMENTS,
+  ANDROID_AD_SURFACE,
+} from '../ads/android-placements'
 
 import type { AdCampaignStatus } from './freebuff-ads'
 
@@ -71,7 +80,6 @@ export const MAX_PLACEMENT_CREATIVES_PER_CAMPAIGN = 25
  * offers an advertiser.
  */
 export const PLACEMENT_PREVIEW_WIDTHS = [48, 80, 100] as const
-export type PlacementPreviewWidth = (typeof PLACEMENT_PREVIEW_WIDTHS)[number]
 
 /**
  * Days after a click within which saving the advertised service's env var
@@ -110,15 +118,82 @@ export const PLACEMENT_FORMATS = [
   'showcase',
   'spotlight',
   'intermission',
+  'partner',
+  'billboard',
 ] as const
 export type PlacementFormat = (typeof PLACEMENT_FORMATS)[number]
 
-/** The formats that are a sponsor break -- everything except `inline`. */
-export const SPONSOR_BREAK_FORMATS: readonly PlacementFormat[] =
-  PLACEMENT_FORMATS.filter((format) => format !== 'inline')
+/**
+ * The formats that are a sponsor break.
+ *
+ * NAMED, not derived as "everything except `inline`". The exclusion spelling
+ * was correct while the only alternative to inline was a break, and it made
+ * the next format added to the list a break by default -- `partner` would
+ * have inherited the hero requirement, the text-house refusal and the
+ * break-shaped copy limits without anybody writing a line saying so.
+ */
+export const SPONSOR_BREAK_FORMATS = [
+  'showcase',
+  'spotlight',
+  'intermission',
+] as const satisfies readonly PlacementFormat[]
+
+/**
+ * A format that IS a break, as a type.
+ *
+ * Was `Exclude<PlacementFormat, 'inline'>`, which is the exclusion spelling
+ * again and had the same failure: `partner` became a `SponsorBreakFormat` the
+ * moment it was added, so the console's break preview and its label map were
+ * asked for a partner entry they have no business having.
+ */
+export type SponsorBreakFormat = (typeof SPONSOR_BREAK_FORMATS)[number]
 
 export function isSponsorBreakFormat(format: PlacementFormat): boolean {
-  return format !== 'inline'
+  return (SPONSOR_BREAK_FORMATS as readonly PlacementFormat[]).includes(format)
+}
+
+/**
+ * PARTNER PLACEMENTS: a slot whose chrome belongs to one advertiser.
+ *
+ * Every other format draws OUR card with THEIR copy in it. A partner slot
+ * draws as a piece of the product -- a row in Desktop's skill picker, a pill
+ * above its composer, a single coloured line above the CLI's input or under
+ * its `/review` command -- in the advertiser's own colour, next to the
+ * feature it is about. That only reads as honest when exactly one advertiser
+ * can ever
+ * appear there, so the format carries an exclusivity fence the other four do
+ * not need: a partner placement is served by the first-party CPM leg alone,
+ * never by a paid network, never by the house floor, and never by a CPC
+ * backfill (`dropForeignPartnerFills`, and the rails' partner-only path).
+ *
+ * `available: false` on the slots keeps them out of self-serve targeting, so
+ * the deal that put an advertiser there is the only way in.
+ */
+export function isPartnerFormat(format: PlacementFormat): boolean {
+  return format === 'partner'
+}
+
+/**
+ * BILLBOARD PLACEMENTS: Desktop's full-bleed image units, the floating card
+ * over the project sidebar and the right panel's Ad tab.
+ *
+ * Competitive like a display ad, not one advertiser's chrome: any approved
+ * first-party campaign whose creative carries the slot's artwork may win it
+ * (`ad_placement_creative_asset`, shapes in `common/src/ads/billboard.ts`).
+ * But no paid network or text creative can draw one, so a billboard request
+ * shares the partner request's ROUTE -- the CPM leg alone, admitting
+ * per-conversion campaigns -- without sharing its exclusivity or its knob.
+ */
+export function isBillboardFormat(format: PlacementFormat): boolean {
+  return format === 'billboard'
+}
+
+/**
+ * Formats no paid network, CPC backfill or house floor may fill, served by
+ * the first-party CPM leg alone.
+ */
+export function isFirstPartyOnlyFormat(format: PlacementFormat): boolean {
+  return isPartnerFormat(format) || isBillboardFormat(format)
 }
 
 /**
@@ -172,9 +247,8 @@ export function isInterruptingBreakFormat(format: PlacementFormat): boolean {
  *    `CLI_CHAT_BATCH_PLACEMENT_IDS`. `getPlacementIds` prefers an explicit
  *    `placementId` over the surface, and every shipping client sends one, so
  *    the batch list is reached only by CLI builds predating the lazy per-slot
- *    auction. Measured: ~395 impressions/day across all eight and falling,
- *    against ~99k/day for `CLI-Chat-Inline`. Do not sell a decaying legacy
- *    path.
+ *    auction, a small and decaying share of `CLI-Chat-Inline`'s volume. Do
+ *    not sell a decaying legacy path.
  *
  * Keep this in step with `getPlacementIds` in the ads route AND with what
  * clients send. The three disagreeing is a campaign that silently never
@@ -189,10 +263,16 @@ export function isInterruptingBreakFormat(format: PlacementFormat): boolean {
  * leaving either out would route an advertiser's inventory straight past a
  * rendered surface.
  */
-export const PLACEMENT_SLOTS = [
+const ORIGINAL_PLACEMENT_SLOTS = [
   ...IOS_AD_PLACEMENTS.map(({ id }) => ({
     id,
     surface: IOS_AD_SURFACE,
+    available: true,
+    format: 'inline' as const,
+  })),
+  ...ANDROID_AD_PLACEMENTS.map(({ id }) => ({
+    id,
+    surface: ANDROID_AD_SURFACE,
     available: true,
     format: 'inline' as const,
   })),
@@ -267,6 +347,68 @@ export const PLACEMENT_SLOTS = [
     available: true,
     format: 'intermission',
   },
+  // The partner slots -- two in Desktop, two in the CLI. `available: false`
+  // is the exclusivity: the campaign-builder picker reads that flag, so none
+  // can be targeted from the console -- an operator puts a campaign on one,
+  // by agreement.
+  {
+    id: 'Desktop-Partner-Skill-Picker',
+    surface: 'cli_chat',
+    available: false,
+    format: 'partner',
+  },
+  {
+    id: 'Desktop-Partner-Composer-PR',
+    surface: 'cli_chat',
+    available: false,
+    format: 'partner',
+  },
+  // The CLI's two, drawn as a single branded ROW rather than a pill: a
+  // terminal has no images and no rounded corners, so the same deal renders
+  // as one line of the advertiser's colour across the width it is given.
+  {
+    id: 'CLI-Partner-Composer-PR',
+    surface: 'cli_chat',
+    available: false,
+    format: 'partner',
+  },
+  {
+    id: 'CLI-Partner-Slash-Review',
+    surface: 'cli_chat',
+    available: false,
+    format: 'partner',
+  },
+  // LAUNCH intent (`mentionsLaunchKeyword`): the composer pill in Desktop and
+  // the composer row in the CLI, for a partner whose product is what comes
+  // after the code ships -- the launch video, deck, site and posts. A second
+  // pair rather than a second advertiser on the PR pair, because a partner
+  // slot is one advertiser's chrome by construction.
+  {
+    id: 'Desktop-Partner-Composer-Launch',
+    surface: 'cli_chat',
+    available: false,
+    format: 'partner',
+  },
+  {
+    id: 'CLI-Partner-Composer-Launch',
+    surface: 'cli_chat',
+    available: false,
+    format: 'partner',
+  },
+  // Desktop's two billboards. `available: false` keeps them operator-placed
+  // until the console can upload billboard artwork.
+  {
+    id: 'Desktop-Billboard-Sidebar',
+    surface: 'cli_chat',
+    available: false,
+    format: 'billboard',
+  },
+  {
+    id: 'Desktop-Billboard-Panel',
+    surface: 'cli_chat',
+    available: false,
+    format: 'billboard',
+  },
   {
     id: 'Web-Chat-After-User-Message',
     surface: 'freebuff_web_chat',
@@ -285,6 +427,15 @@ export const PLACEMENT_SLOTS = [
     available: true,
     format: 'inline',
   },
+] as const
+
+/** Web copies share formats and campaign eligibility, but own their delivery IDs. */
+export const PLACEMENT_SLOTS = [
+  ...ORIGINAL_PLACEMENT_SLOTS,
+  ...ORIGINAL_PLACEMENT_SLOTS.flatMap(slot => {
+    const id = webDesktopPlacement(slot.id)
+    return id ? [{ ...slot, id, surface: 'freebuff_web_chat' as const }] : []
+  }),
 ] as const
 
 /**
@@ -350,6 +501,29 @@ export function isSponsorBreakPlacement(placementId: string): boolean {
 export function isInterruptingBreakPlacement(placementId: string): boolean {
   return isInterruptingBreakFormat(placementFormat(placementId))
 }
+
+/**
+ * Whether this placement id is one advertiser's own chrome. See
+ * {@link isPartnerFormat} for what that buys and what it costs.
+ *
+ * Reads the STATIC registry, so it is the right question at a request
+ * boundary and the wrong one for a slot an operator promoted in the Convex
+ * catalog. The serving fence resolves the catalog first
+ * (`resolveCatalogPlacementFormat`) and asks {@link isPartnerFormat}.
+ */
+export function isPartnerPlacement(placementId: string): boolean {
+  return isPartnerFormat(placementFormat(placementId))
+}
+
+/** Every partner slot in the registry, in catalog order. */
+export const PARTNER_PLACEMENT_IDS: readonly string[] = PLACEMENT_SLOTS.filter(
+  (slot) => slot.format === 'partner',
+).map((slot) => slot.id)
+
+/** Every billboard slot in the registry, in catalog order. */
+export const BILLBOARD_PLACEMENT_IDS: readonly string[] = PLACEMENT_SLOTS.filter(
+  (slot) => slot.format === 'billboard',
+).map((slot) => slot.id)
 
 /**
  * What a creative must look like to fill a SPONSOR BREAK.
@@ -456,9 +630,26 @@ const PLACEMENT_FORMAT_LABELS: Record<string, string> = {
   'Desktop-Showcase': 'Desktop — Showcase',
   'Desktop-Intermission': 'Desktop — Intermission',
   'Single-Ad-Unit-1': 'CLI — Dock',
+  // The splitter would render these "Desktop Partner Skill Picker", which
+  // names the id rather than the slot. An advertiser reading a breakdown row
+  // wants to know WHERE in the app they appeared.
+  'Desktop-Partner-Skill-Picker': 'Desktop — Skill picker',
+  'Desktop-Partner-Composer-PR': 'Desktop — Composer (PR intent)',
+  'CLI-Partner-Composer-PR': 'CLI — Composer (PR intent)',
+  'CLI-Partner-Slash-Review': 'CLI — Slash menu (/review)',
+  'Desktop-Partner-Composer-Launch': 'Desktop — Composer (launch intent)',
+  'CLI-Partner-Composer-Launch': 'CLI — Composer (launch intent)',
+  'Desktop-Billboard-Sidebar': 'Desktop — Sidebar billboard',
+  'Desktop-Billboard-Panel': 'Desktop — Right panel billboard',
 }
 
 export function placementSlotLabel(placementId: string): string {
+  if (placementId === 'Desktop-Partner-Skill-Picker:web')
+    return 'Web — Command menu'
+  if (isWebDesktopPlacement(placementId)) {
+    const sourceLabel = placementSlotLabel(desktopPlacementSource(placementId))
+    return sourceLabel.replace(/^Desktop(?: —)? /, 'Web — ')
+  }
   if (placementId === TRACKED_LINK_PLACEMENT_ID) return 'Tracked links'
   const formatted = PLACEMENT_FORMAT_LABELS[placementId]
   if (formatted) return formatted
@@ -536,6 +727,15 @@ export interface PlacementTotals {
    * the price actually charged.
    */
   deliverySpendCents: number
+  /**
+   * Delivery value of invoiced CPM impressions (COD-677): counted impressions
+   * at their frozen CPM. The IO is billed outside the product, so this is in
+   * neither figure above -- the ledger never sees it and the reconciliation
+   * between them must not either -- but it is what the advertiser used, so
+   * the console adds it to both when it shows spend and prices results.
+   * Absent means zero.
+   */
+  invoicedValueCents?: number
 }
 
 /**
@@ -770,9 +970,9 @@ export const OVERSHOOT_POLICY_COPY =
  * blunt -- it exists because comments in this package leaked real cost figures
  * once already -- so the phrasing moves here, never the pattern there.
  */
-export const PLACEMENT_DAILY_CAP_MIN_CENTS = 500
+export const PLACEMENT_DAILY_CAP_MIN_CENTS = 2_500
 export const PLACEMENT_DAILY_CAP_MAX_CENTS = 500_000
-export const PLACEMENT_DAILY_CAP_DEFAULT_CENTS = 2_500
+export const PLACEMENT_DAILY_CAP_DEFAULT_CENTS = 10_000
 
 /** Whole cents inside the bounds, which is exactly what the API accepts. */
 export function clampPlacementDailyCapCents(cents: number): number {

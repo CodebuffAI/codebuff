@@ -6,21 +6,45 @@
 import path from 'path'
 
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
+import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import {
   FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE,
   FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
 } from '@codebuff/common/constants/freebuff-errors'
 import { FREEBUFF_ACTING_USER_HEADER } from '@codebuff/common/constants/freebuff-models'
-import { isTransientNetworkError } from '@codebuff/common/util/error'
+import {
+  FREEBUFF_SSE_GZIP_RECOVERY_HEADER,
+  FREEBUFF_SSE_GZIP_RECOVERY_VALUE,
+} from '@codebuff/common/constants/sse-compression'
+import { FREEBUFF_GATE_CODES } from '@codebuff/common/types/freebuff-session'
+import { isAbortError, isFetchIdleTimeoutError, isTransientNetworkError } from '@codebuff/common/util/error'
 import {
   OpenAICompatibleChatLanguageModel,
   VERSION,
 } from '@codebuff/llm-providers/openai-compatible'
 import { APICallError } from 'ai'
 
+import {
+  byokReasoningReplayRetryBody,
+  byokReasoningRetryBody,
+  byokRequestTransform,
+} from './byok-request'
+import {
+  chatCompletionsJson,
+  chatCompletionsStream,
+  chatGptResponsesBody,
+} from './chatgpt-responses'
+import {
+  CHATGPT_BYOK_PROVIDER,
+  CHATGPT_CODEX_RESPONSES_URL,
+  CHATGPT_ORIGINATOR,
+  CHATGPT_SIGN_IN_AGAIN,
+  ChatGptAuthError,
+  chatGptAccountId,
+} from '../chatgpt'
 import { getWebsiteUrl } from '../constants'
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
-import { byokCompletionUrl } from '../byok'
+import { ByokConnectionStateError, byokCompletionUrl, byokCredentialVariable } from '../byok'
 import type { ResolvedByokConnection } from '../byok'
 
 import type { LanguageModel } from 'ai'
@@ -33,11 +57,34 @@ export interface ModelRequestParams {
   apiKey: string
   /** Model ID (OpenRouter format, e.g., "anthropic/claude-sonnet-4") */
   model: string
+  /** Freebuff requests use platform credentials, never an inherited provider key. */
+  costMode?: string
   /** End user represented by a trusted service-account request. */
   userId?: string
   /** Direct, run-scoped credential. Never stored on the model or in metadata. */
   byok?: ResolvedByokConnection
+  /** Host-supplied headers per backend request; see CodebuffRequestHeadersProvider. */
+  requestHeaders?: CodebuffRequestHeadersProvider
 }
+
+/**
+ * Extra headers for one request to the Codebuff backend's completions
+ * endpoint, computed as the request is about to go out. `body` is the exact
+ * string the AI SDK serialized (what goes on the wire), so a host can sign it;
+ * the provider is asked again for every retry. Never consulted for a BYOK run,
+ * whose requests go to the user's own provider.
+ *
+ * Returning nothing (or throwing) adds no headers. Freebuff's catalog clients
+ * use it for their catalog headers (docs/freebuff-model-catalog.md).
+ */
+export type CodebuffRequestHeadersProvider = (request: {
+  method: string
+  url: string
+  body: string | Uint8Array | undefined
+}) =>
+  | Record<string, string>
+  | undefined
+  | Promise<Record<string, string> | undefined>
 
 // Usage accounting type for OpenRouter/Codebuff backend responses
 type OpenRouterUsageAccounting = {
@@ -98,6 +145,18 @@ function requestUrlOf(input: Parameters<typeof globalThis.fetch>[0]): string {
       : input.url
 }
 
+/** Retain recovery classification, never provider messages, URLs or raw causes. */
+export function sanitizeByokTransportError(error: unknown): Error {
+  if (isAbortError(error)) return new DOMException('BYOK request aborted', 'AbortError')
+  const safe = new Error('BYOK provider stream failed')
+  if (isFetchIdleTimeoutError(error)) {
+    Object.assign(safe, { code: 'ETIMEDOUT' })
+  } else if (isTransientNetworkError(error)) {
+    Object.assign(safe, { code: 'ECONNRESET' })
+  }
+  return safe
+}
+
 /** Preserve streaming while removing a credential even when it crosses chunks. */
 export function redactProviderStream(
   body: ReadableStream<Uint8Array> | null,
@@ -135,19 +194,99 @@ export function redactProviderStream(
         const next = await reader.read()
         if (next.done) controller.close()
         else controller.enqueue(next.value)
-      } catch {
-        controller.error(new Error('BYOK provider stream failed'))
+      } catch (error) {
+        controller.error(sanitizeByokTransportError(error))
       }
     },
     cancel() { return reader.cancel().catch(() => {}) },
   })
 }
 
+/**
+ * Does this provider error body say the MODEL ID is wrong?
+ *
+ * A mistyped model is the most common BYOK 400/404, and the provider usually
+ * says so plainly — DeepSeek answers `The supported API model names are
+ * deepseek-flash, deepseek-v4-pro, but you passed deepseek/deepseek-v4-flash`,
+ * OpenAI and Groq `The model \`x\` does not exist`, OpenRouter `x is not a
+ * valid model ID`. Behind the fixed "request failed (HTTP 400). Check the
+ * provider settings" line a user cannot tell that from a malformed request
+ * (support email, 2026-09-23: a DeepSeek key that "always" failed on one model
+ * id and worked on another). The body is only CLASSIFIED here; its text never
+ * reaches the message, which is built from the connection's own model id.
+ */
+export function isByokModelIdRejection(body: string): boolean {
+  if (!body) return false
+  const text = body.slice(0, 16_384)
+  return BYOK_MODEL_REJECTION_PATTERNS.some((pattern) => pattern.test(text))
+}
+
+/** Each names the MODEL as what is wrong, so an unrelated 400 that merely
+ *  mentions a model elsewhere in its body is not reclassified. */
+const BYOK_MODEL_REJECTION_PATTERNS: readonly RegExp[] = [
+  /"code"\s*:\s*"model_not_found"/i,
+  // The model — optionally followed by ONE id token (bare, quoted or
+  // `models/…`) — is itself the subject: "The model `x` does not exist",
+  // "models/gemini-9 is not found", "Model not found". Anything between the id
+  // and the verdict means something else is what failed: "model x: image
+  // input is not supported" is a capability refusal on a valid id, and
+  // calling it a bad id would send the user to fix the wrong thing.
+  /\bmodels?\b\s*[:=]?\s*(?:`[^`\n]{1,120}`|'[^'\n]{1,120}'|\\?"[^"\n]{1,120}?\\?"|[\w./:@+-]{1,120})?\s+(?:is\s+|was\s+)?(?:does not exist|not exist|not found|not supported)\b/i,
+  /\b(?:invalid|unknown|no such|not a valid|unable to access) model\b/i,
+  /\bsupported (?:api )?model(?: name)?s? (?:are|is)\b/i,
+]
+
+const MAX_MODEL_ID_IN_MESSAGE = 120
+
+/** Only OpenRouter's explicit routing-policy refusals warrant account-settings advice.
+ * A generic "No endpoints found" can also mean a retired model or an outage. */
+function isOpenRouterSettingsRejection(baseUrl: string, body: string): boolean {
+  try {
+    const url = new URL(baseUrl)
+    if (url.protocol !== 'https:' || !['openrouter.ai', 'eu.openrouter.ai', 'us.openrouter.ai'].includes(url.hostname)) return false
+    const parsed: unknown = JSON.parse(body)
+    if (!parsed || typeof parsed !== 'object' || !('error' in parsed)) return false
+    const error = parsed.error
+    if (!error || typeof error !== 'object' || !('message' in error)) return false
+    const message = error.message
+    return typeof message === 'string' && (
+      /^No allowed providers are available for (?:the )?selected model\b/i.test(message) ||
+      /^No endpoints found matching your (?:data policy|privacy settings|provider preferences)\b/i.test(message)
+    )
+  } catch {
+    return false
+  }
+}
+
 /** A fixed, actionable message for a provider status. Never include upstream
- * response text: gateways commonly echo credential fragments in error bodies. */
-export function getByokProviderErrorMessage(status: number): string {
+ * response text: gateways commonly echo credential fragments in error bodies.
+ * `modelRejected` is a classification of that text (isByokModelIdRejection),
+ * and `model` is the connection's own configured id — both ours to show. */
+export function getByokProviderErrorMessage(
+  status: number,
+  detail: {
+    model?: string
+    modelRejected?: boolean
+    openRouterSettingsRejected?: boolean
+    /** The environment variable the key came from, a NAME and never a value. */
+    credentialVariable?: string
+  } = {},
+): string {
+  if (status === 404 && detail.openRouterSettingsRejected) {
+    return 'OpenRouter settings leave no allowed providers for this model (HTTP 404). Check your allowed/ignored providers and data-policy / Zero Data Retention settings at https://openrouter.ai/settings/privacy. Allow a compatible provider or choose a model that meets your settings, then retry.'
+  }
+  if (
+    detail.modelRejected &&
+    (status === 400 || status === 404 || status === 422)
+  ) {
+    const model = (detail.model ?? '').slice(0, MAX_MODEL_ID_IN_MESSAGE)
+    const named = model ? ` "${model}"` : ''
+    return `BYOK provider does not recognise the model ID${named} (HTTP ${status}). Use the exact model name from the provider's API model list and retry.`
+  }
   if (status === 401)
-    return 'BYOK provider rejected the API key (HTTP 401). Check or replace the key.'
+    return detail.credentialVariable
+      ? `BYOK provider rejected the API key in ${detail.credentialVariable} (HTTP 401). ${detail.credentialVariable} is set in this Freebuff process; check that it holds the key this endpoint expects, then restart Freebuff from that terminal.`
+      : 'BYOK provider rejected the API key (HTTP 401). Check or replace the key.'
   if (status === 403)
     return 'BYOK API key cannot access this model or account (HTTP 403). Choose an allowed model or use another key.'
   if (status === 402)
@@ -165,22 +304,62 @@ export const BYOK_CONNECTION_FAILURE_MESSAGE =
   'Could not connect to the BYOK provider. Check the provider URL and network connection, then retry.'
 
 /**
- * The per-turn spend breaker (HTTP 429, body `{ error: 'turn_spend_limit',
- * message }`) is final for THIS turn: its spend only grows, so the same run
- * id is refused again on every retry. Left to the AI SDK, which treats every
- * 429 as retryable, a capped turn asked four times over ~14s and then failed
- * as "Failed after 4 attempts. Last error: Too Many Requests" — which every
- * client read as an ordinary rate limit and answered with "wait a moment or
- * switch models", neither of which helps. Throwing a NON-retryable
- * APICallError stops the retry loop on the first refusal, and carrying the
- * body lets the runtime's error parser hand the server's own copy (and the
- * `turn_spend_limit` code) to the client unchanged.
+ * Refusals the server makes on purpose and repeats IDENTICALLY on a retry,
+ * each identified by its status AND its `error` code — never the status alone,
+ * since 409 and 429 are also ordinary, retryable answers.
+ *
+ * Left to the AI SDK, which treats every 409 and 429 as retryable, each of
+ * these was asked four times with backoff (~14s) and then failed as "Failed
+ * after 4 attempts. Last error: …". Throwing a NON-retryable APICallError
+ * stops the retry loop on the first refusal, and carrying the body lets the
+ * runtime's error parser hand the server's own copy and code to the client
+ * unchanged.
+ *
+ * - `turn_spend_limit` (429): the per-turn spend breaker is final for THIS
+ *   turn — its spend only grows, so the same run id is refused every time.
+ *   Clients read the retried failure as an ordinary rate limit and answered
+ *   it with "wait a moment or switch models", neither of which helps.
+ * - `session_superseded` (409): the start was refunded (the Desktop purchase
+ *   claim, or a refund that closed admission) or the session was taken over
+ *   by another instance. The row is gone, so every retry gets the same 409;
+ *   the user waited ~14s for the card that tells them to start a new session
+ *   (5,392 runs / 2,230 users in the 72h to 2026-10-05).
+ * - `model_at_capacity` (503): a queued free model had no slot within the
+ *   request's wait budget (web/.../model-queue.ts). Each retry re-enters the
+ *   queue and waits that budget again before the same refusal, so it is
+ *   surfaced at once — as its in-band form after the grace flush already is.
  */
-async function throwIfTurnSpendCapped(
+const FINAL_REFUSALS: readonly {
+  status: number
+  error: string
+  /** Used only when the body carries no `message` of its own. */
+  fallbackMessage: string
+}[] = [
+  {
+    status: 429,
+    error: FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE,
+    fallbackMessage: FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
+  },
+  {
+    status: FREEBUFF_GATE_CODES.session_superseded.status,
+    error: 'session_superseded',
+    fallbackMessage:
+      'This Freebuff session has ended. Start a new session to try again.',
+  },
+  {
+    status: 503,
+    error: 'model_at_capacity',
+    fallbackMessage:
+      'This model is at capacity right now. Please try again in a few minutes or pick another model.',
+  },
+]
+
+async function throwIfFinalRefusal(
   response: Response,
   url: string,
 ): Promise<void> {
-  if (response.status !== 429) return
+  // Only a status some refusal uses is worth reading the body for.
+  if (!FINAL_REFUSALS.some((r) => r.status === response.status)) return
   const text = await response
     .clone()
     .text()
@@ -191,12 +370,15 @@ async function throwIfTurnSpendCapped(
   } catch {
     return
   }
-  if (body?.error !== FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE) return
+  const refusal = FINAL_REFUSALS.find(
+    (r) => r.status === response.status && r.error === body?.error,
+  )
+  if (!refusal) return
   throw new APICallError({
     message:
-      typeof body.message === 'string' && body.message
+      typeof body?.message === 'string' && body.message
         ? body.message
-        : FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
+        : refusal.fallbackMessage,
     url,
     requestBodyValues: {},
     statusCode: response.status,
@@ -207,8 +389,8 @@ async function throwIfTurnSpendCapped(
 
 /**
  * Wrap global fetch so transient connection failures (socket closed/reset,
- * connection refused) are rethrown as retryable APICallErrors, and a capped
- * turn's 429 as a non-retryable one (see throwIfTurnSpendCapped).
+ * connection refused) are rethrown as retryable APICallErrors, and the
+ * server's final refusals as non-retryable ones (see FINAL_REFUSALS).
  *
  * Bun's fetch throws these as plain Errors ("The socket connection was closed
  * unexpectedly...", code ECONNRESET/ConnectionClosed), which the AI SDK does
@@ -224,7 +406,7 @@ function fetchWithRetryableNetworkErrors(
   return globalThis.fetch(...args).then(
     async (response) => {
       notifyCapacityDeferralFromResponse(response)
-      await throwIfTurnSpendCapped(response, url)
+      await throwIfFinalRefusal(response, url)
       return response
     },
     (error: unknown) => {
@@ -242,6 +424,48 @@ function fetchWithRetryableNetworkErrors(
   )
 }
 
+function plainHeaders(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) return {}
+  if (headers instanceof Headers) {
+    const out: Record<string, string> = {}
+    headers.forEach((value, key) => {
+      out[key] = value
+    })
+    return out
+  }
+  if (Array.isArray(headers)) return Object.fromEntries(headers)
+  return { ...(headers as Record<string, string>) }
+}
+
+/** `send`, with the host's extra headers merged in per request. */
+export function withCodebuffRequestHeaders(
+  provider: CodebuffRequestHeadersProvider,
+  send: (...args: Parameters<typeof globalThis.fetch>) => ReturnType<typeof globalThis.fetch>,
+): (...args: Parameters<typeof globalThis.fetch>) => ReturnType<typeof globalThis.fetch> {
+  return async (input, init) => {
+    const raw = init?.body
+    // Only a body whose exact bytes can be handed over; anything else (a
+    // stream) goes out without extra headers rather than with wrong ones.
+    if (raw != null && typeof raw !== 'string' && !(raw instanceof Uint8Array))
+      return send(input, init)
+    let extra: Record<string, string> | undefined
+    try {
+      extra = await provider({
+        method: (init?.method ?? 'GET').toUpperCase(),
+        url: requestUrlOf(input),
+        body: raw ?? undefined,
+      })
+    } catch {
+      extra = undefined
+    }
+    if (!extra || Object.keys(extra).length === 0) return send(input, init)
+    return send(input, {
+      ...init,
+      headers: { ...plainHeaders(init?.headers), ...extra },
+    })
+  }
+}
+
 /**
  * Get the model for a request: one that routes through the Codebuff backend,
  * which forwards to OpenRouter.
@@ -249,12 +473,16 @@ function fetchWithRetryableNetworkErrors(
 export function getModelForRequest({
   apiKey,
   model,
+  costMode,
   userId,
   byok,
+  requestHeaders,
 }: ModelRequestParams): LanguageModel {
+  if (byok?.provider === CHATGPT_BYOK_PROVIDER) return chatGptModel(byok)
   if (byok) {
     return new OpenAICompatibleChatLanguageModel(byok.model, {
       provider: 'byok',
+      transformRequestBody: byokRequestTransform(byok),
       url: () => byokCompletionUrl(byok),
       headers: () => ({
         Authorization: `Bearer ${byok.apiKey}`,
@@ -264,16 +492,69 @@ export function getModelForRequest({
       // invokes this again on retries and later tool-loop steps, so removing
       // or replacing a connection stops subsequent inference immediately.
       fetch: (async (...args: Parameters<typeof globalThis.fetch>) => {
+        // Revocation is a durable policy decision, never a transport retry.
         try {
           await byok.assertCurrent?.()
-          const response = await globalThis.fetch(
-            args[0],
-            { ...(args[1] ?? {}), redirect: 'error' },
+        } catch (error) {
+          // Only our typed state errors carry display-safe messages. Custom
+          // resolvers and filesystem errors may contain credentials or paths.
+          throw new Error(
+            error instanceof ByokConnectionStateError
+              ? error.message
+              : 'Could not verify the saved BYOK connection. Reselect the provider and retry. If the problem persists, fully quit and restart Freebuff.',
           )
+        }
+        try {
+          const send = (init: RequestInit | undefined) =>
+            globalThis.fetch(args[0], { ...(init ?? {}), redirect: 'error' })
+          let response = await send(args[1])
+          let body = args[1]?.body
+          let errorText: string | undefined
+          // A provider or model that refuses the picked reasoning effort, or
+          // replayed reasoning on assistant messages, still answers the task:
+          // once per field, without it, remembered for the connection so
+          // later steps do not send it again.
+          for (const retry of [
+            byokReasoningRetryBody,
+            byokReasoningReplayRetryBody,
+          ]) {
+            if (response.status !== 400 && response.status !== 422) break
+            errorText ??= await response.text().catch(() => '')
+            const retryBody = retry(byok, body, response.status, errorText)
+            if (retryBody === undefined) continue
+            body = retryBody
+            response = await send({ ...(args[1] ?? {}), body })
+            errorText = undefined
+          }
           if (!response.ok) {
+            if ([400, 404, 422].includes(response.status)) {
+              errorText ??= await response.text().catch(() => '')
+            }
+            const modelRejected =
+              response.status === 400 ||
+              response.status === 404 ||
+              response.status === 422
+                ? isByokModelIdRejection(errorText ?? '')
+                : false
+            const headers = new Headers({ 'content-type': 'application/json' })
+            // Keep scheduling hints, but never copy arbitrary provider headers.
+            for (const name of ['retry-after', 'retry-after-ms']) {
+              const value = response.headers.get(name)
+              if (value && /^\d+(?:\.\d+)?$/.test(value)) headers.set(name, value)
+            }
             return new Response(
-              JSON.stringify({ error: { message: getByokProviderErrorMessage(response.status) } }),
-              { status: response.status, headers: { 'content-type': 'application/json' } },
+              JSON.stringify({
+                error: {
+                  message: getByokProviderErrorMessage(response.status, {
+                    model: byok.model,
+                    modelRejected,
+                    openRouterSettingsRejected: response.status === 404 &&
+                      isOpenRouterSettingsRejection(byokCompletionUrl(byok), errorText ?? ''),
+                    credentialVariable: byokCredentialVariable(byok),
+                  }),
+                },
+              }),
+              { status: response.status, headers },
             )
           }
           return new Response(redactProviderStream(response.body, byok.apiKey), {
@@ -282,11 +563,21 @@ export function getModelForRequest({
               'content-type': response.headers.get('content-type') ?? 'text/event-stream',
             },
           })
-        } catch {
-          throw new Error(BYOK_CONNECTION_FAILURE_MESSAGE)
+        } catch (error) {
+          const safe = sanitizeByokTransportError(error)
+          if (args[1]?.signal?.aborted || isAbortError(safe)) {
+            throw new DOMException('BYOK request aborted', 'AbortError')
+          }
+          throw new APICallError({
+            message: BYOK_CONNECTION_FAILURE_MESSAGE,
+            url: 'byok-provider',
+            requestBodyValues: {},
+            cause: safe,
+            isRetryable: isTransientNetworkError(safe),
+          })
         }
       }) as typeof globalThis.fetch,
-      includeUsage: undefined,
+      includeUsage: true,
       supportsStructuredOutputs: true,
     })
   }
@@ -297,7 +588,9 @@ export function getModelForRequest({
     },
   }
 
-  const openrouterApiKey = getByokOpenrouterApiKeyFromEnv()
+  const openrouterApiKey = isFreeMode(costMode)
+    ? undefined
+    : getByokOpenrouterApiKeyFromEnv()
 
   return new OpenAICompatibleChatLanguageModel(model, {
     provider: 'codebuff',
@@ -306,6 +599,9 @@ export function getModelForRequest({
     headers: () => ({
       Authorization: `Bearer ${apiKey}`,
       'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff`,
+      // This build continues a turn whose gzip stream is cut mid-body, so the
+      // backend may gzip it (common/src/constants/sse-compression.ts).
+      [FREEBUFF_SSE_GZIP_RECOVERY_HEADER]: FREEBUFF_SSE_GZIP_RECOVERY_VALUE,
       ...(userId ? { [FREEBUFF_ACTING_USER_HEADER]: userId } : {}),
       ...(openrouterApiKey && { [BYOK_OPENROUTER_HEADER]: openrouterApiKey }),
     }),
@@ -351,8 +647,157 @@ export function getModelForRequest({
     },
     // Cast: Bun's fetch type also declares a `preconnect` helper, but the AI
     // SDK only ever invokes fetch as a plain function.
-    fetch: fetchWithRetryableNetworkErrors as typeof globalThis.fetch,
+    fetch: (requestHeaders
+      ? withCodebuffRequestHeaders(
+          requestHeaders,
+          fetchWithRetryableNetworkErrors,
+        )
+      : fetchWithRetryableNetworkErrors) as typeof globalThis.fetch,
     includeUsage: undefined,
+    supportsStructuredOutputs: true,
+  })
+}
+
+/**
+ * A fixed, actionable message for a ChatGPT-plan HTTP failure. The body is
+ * only classified, never shown: it can echo the request.
+ */
+export function getChatGptErrorMessage(
+  status: number,
+  detail: { model: string; body: string },
+): string {
+  const model = detail.model.slice(0, MAX_MODEL_ID_IN_MESSAGE)
+  if (status === 401) return CHATGPT_SIGN_IN_AGAIN
+  if (status === 429 || /usage_limit|rate_limit/i.test(detail.body))
+    return 'You have reached your ChatGPT plan’s usage limit. Wait for it to reset, or choose a Freebuff model to continue.'
+  if (status === 403)
+    return `Your ChatGPT plan cannot use "${model}" (HTTP 403). Choose another model or check your plan.`
+  if (
+    (status === 400 || status === 404) &&
+    (isByokModelIdRejection(detail.body) ||
+      /model.{0,80}(?:not supported|unsupported|not available|does not exist)/i.test(
+        detail.body.slice(0, 16_384),
+      ))
+  )
+    return `ChatGPT does not offer "${model}" on your plan (HTTP ${status}). Choose another model.`
+  if (status >= 500)
+    return `ChatGPT is temporarily unavailable (HTTP ${status}). Retry the task later.`
+  return `ChatGPT could not run this request (HTTP ${status}). Retry, or choose another model.`
+}
+
+/**
+ * The user's ChatGPT plan through the Codex backend. The request is the same
+ * Chat Completions body as any BYOK model, translated to the Responses API in
+ * this fetch; the access token is read per request, so a long run outlives
+ * the token it started with.
+ */
+function chatGptModel(byok: ResolvedByokConnection): LanguageModel {
+  const transform = byokRequestTransform(byok)
+  return new OpenAICompatibleChatLanguageModel(byok.model, {
+    provider: 'byok',
+    transformRequestBody: transform,
+    url: () => CHATGPT_CODEX_RESPONSES_URL,
+    headers: () => ({
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}/freebuff-chatgpt`,
+    }),
+    fetch: (async (...args: Parameters<typeof globalThis.fetch>) => {
+      const init = args[1] ?? {}
+      let token: string
+      try {
+        await byok.assertCurrent?.()
+        token = byok.accessToken ? await byok.accessToken() : byok.apiKey
+      } catch (error) {
+        throw new Error(
+          error instanceof ByokConnectionStateError ||
+            error instanceof ChatGptAuthError
+            ? error.message
+            : 'Could not use your ChatGPT sign-in. Sign in with ChatGPT again in API provider settings.',
+        )
+      }
+      let body: Record<string, unknown>
+      try {
+        body = JSON.parse(String(init.body ?? '{}')) as Record<string, unknown>
+      } catch {
+        throw new Error('Could not prepare the ChatGPT request.')
+      }
+      const streamed = body.stream === true
+      const accountId = chatGptAccountId(token)
+      try {
+        const response = await globalThis.fetch(CHATGPT_CODEX_RESPONSES_URL, {
+          method: 'POST',
+          signal: init.signal,
+          redirect: 'error',
+          headers: {
+            'content-type': 'application/json',
+            accept: 'text/event-stream',
+            authorization: `Bearer ${token}`,
+            originator: CHATGPT_ORIGINATOR,
+            'openai-beta': 'responses=experimental',
+            'user-agent': `ai-sdk/openai-compatible/${VERSION}/freebuff-chatgpt`,
+            ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
+          },
+          body: JSON.stringify(chatGptResponsesBody(body)),
+        })
+        if (!response.ok || !response.body) {
+          const text = await response.text().catch(() => '')
+          const message = getChatGptErrorMessage(response.status, {
+            model: byok.model,
+            body: text,
+          })
+          // A spent plan or a revoked sign-in answers the same on a retry.
+          if (
+            response.status === 401 ||
+            response.status === 403 ||
+            response.status === 429 ||
+            /usage_limit/i.test(text)
+          )
+            throw new APICallError({
+              message,
+              url: 'chatgpt',
+              requestBodyValues: {},
+              statusCode: response.status,
+              isRetryable: false,
+            })
+          const headers = new Headers({ 'content-type': 'application/json' })
+          for (const name of ['retry-after', 'retry-after-ms']) {
+            const value = response.headers.get(name)
+            if (value && /^\d+(?:\.\d+)?$/.test(value)) headers.set(name, value)
+          }
+          return new Response(JSON.stringify({ error: { message } }), {
+            status: response.ok ? 502 : response.status,
+            headers,
+          })
+        }
+        if (streamed)
+          return new Response(
+            redactProviderStream(chatCompletionsStream(response.body), token),
+            { status: 200, headers: { 'content-type': 'text/event-stream' } },
+          )
+        const completion = await chatCompletionsJson(response.body)
+        return new Response(
+          JSON.stringify(completion.json).split(token).join('[redacted]'),
+          {
+            status: completion.status,
+            headers: { 'content-type': 'application/json' },
+          },
+        )
+      } catch (error) {
+        if (error instanceof APICallError) throw error
+        const safe = sanitizeByokTransportError(error)
+        if (init.signal?.aborted || isAbortError(safe)) {
+          throw new DOMException('ChatGPT request aborted', 'AbortError')
+        }
+        throw new APICallError({
+          message:
+            'Could not connect to ChatGPT. Check your network connection, then retry.',
+          url: 'chatgpt',
+          requestBodyValues: {},
+          cause: safe,
+          isRetryable: isTransientNetworkError(safe),
+        })
+      }
+    }) as typeof globalThis.fetch,
+    includeUsage: true,
     supportsStructuredOutputs: true,
   })
 }

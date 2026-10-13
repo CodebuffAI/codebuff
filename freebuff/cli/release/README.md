@@ -17,9 +17,23 @@ cd ~/my-project
 freebuff
 ```
 
+### Older Intel Macs (without AVX2)
+
+The npm launcher automatically switches to the `darwin-x64-baseline` build if
+the standard Intel binary exits with an illegal-instruction error (`SIGILL`).
+To select that build before the first launch:
+
+```bash
+FREEBUFF_BINARY_TARGET=darwin-x64-baseline freebuff
+```
+
+For manual installation, download `freebuff-darwin-x64-baseline.tar.gz` from the
+[Freebuff CLI releases](https://github.com/CodebuffAI/codebuff-community/releases?q=freebuff-v)
+and keep the extracted `freebuff` binary and `tree-sitter.wasm` together.
+
 ## Why Freebuff?
 
-**Choice of leading models** — The regular CLI picker includes GLM 5.3 Flash, DeepSeek, GPT-5.6 Luna, MiMo, Solar Pro 4, and Muse Spark 1.2, with GLM 5.3 Flash selected by default.
+**Choice of leading models** — The regular CLI picker includes MiMo 2.6 Flash, GLM 5.3 Flash, DeepSeek, DeepSeek V4.1 Flash Fast, GPT-6 Luna, MiMo 2.6 Pro, Solar Mini 4, Solar Pro 4, Space Bunny Alpha, Gemini 3.8 Flash, Muse Spark 1.3, and GPT-6.1 Sol, with MiMo 2.6 Flash selected by default.
 
 **Fast** — 5–10× speed up. 3–5× tokens per second compared to Claude, plus context gathering in seconds.
 
@@ -29,17 +43,17 @@ freebuff
 
 **How can it be free?** Freebuff is supported by text ads.
 
-**What models do you use?** In full mode, the regular picker includes GLM 5.3 Flash, DeepSeek V4.1 Flash, GPT-5.6 Luna, MiMo 2.5, Solar Pro 4, and Muse Spark 1.2. Solar Pro 4 is a limited-time trial. Muse Spark 1.2 has a 1M-token context and is rate limited across all users, so at busy times it queues and then answers on DeepSeek V4 Flash instead of leaving you waiting. GLM 5.3 Flash is the CLI default, and it costs no session at all, so the default is always available no matter how much you have used. Limited mode uses GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo 2.5, and Solar Pro 4. Most models draw on your normal daily sessions rather than a separate limit; GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo 2.5, and Solar Pro 4 are unmetered at full access. Models may still serve from a quantized (Q8_0) build.
+**What models do you use?** In full mode, the regular picker includes MiMo 2.6 Flash, GLM 5.3 Flash, DeepSeek V4.1 Flash, DeepSeek V4.1 Flash Fast, GPT-6 Luna, MiMo 2.6 Pro, Solar Mini 4, Solar Pro 4, Space Bunny Alpha, Gemini 3.8 Flash, Muse Spark 1.3, and GPT-6.1 Sol. Space Bunny Alpha is a beta stealth model from an anonymous provider that retains prompts. Gemini 3.8 Flash and Muse Spark 1.3 require a paid plan: without one they are listed but locked, and selecting one opens the plans page. GPT-6.1 Sol is free in the US and needs a paid plan elsewhere; its price is a temporary promotion, and every account, paid or not, gets one session a day. GPT-6 Luna and MiMo 2.6 Pro are open to every full-access account. DeepSeek V4.1 Flash Fast is fast mode: the same model on DeepSeek's own API, splitting work across parallel subagents. Muse Spark 1.3 has a 1M-token context, and when it is busy or unavailable it answers on DeepSeek V4.1 Flash instead of leaving you waiting. MiMo 2.6 Flash is the CLI default, and GLM 5.3 Flash is the cheapest model to run. Limited mode uses MiMo 2.6 Flash, GLM 5.3 Flash, DeepSeek V4.1 Flash, Solar Mini 4, Solar Pro 4, and Space Bunny Alpha; the models a paid plan unlocks there are listed too, locked until you have one. Every model is paid for in Freebucks, one price per one-hour session, shown in the model picker. Models may still serve from a quantized (Q8_0) build.
 
 **Which countries is Freebuff available in?** All countries. Freebuff runs in "full" mode in the US, Canada, UK, EU, and other select countries, and in "limited" mode everywhere else (or while using a VPN). See [freebuff.com](https://freebuff.com) for the full list.
 
-**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo 2.5, and Solar Pro 4, with 6 one-hour sessions per day, and you can earn up to 7 by engaging with promoted posts on the Earn page.
+**What is limited mode?** Limited mode lets you use Freebuff outside the full-access countries, or while using a VPN. It includes GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo 2.6 Flash, Solar Mini 4, Solar Pro 4, and Space Bunny Alpha. The free limited-access allowance is 25 Freebucks a day, or 20 on a VPN or proxy, and each model's price per one-hour session is shown in the picker. Today's allowance is spent first, whichever model you pick, including GLM 5.3 Flash; Freebucks you earn on the Earn page go into your wallet and are used once today's allowance runs out.
 
 <!-- BEGIN GENERATED FREEBUFF DATA USE -->
 
 **Is my data used to train AI?** Only when a model or feature says data may be used for AI training. Freebuff or the provider may then keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products.
 
-**How is my data used and stored?** We use prompts, messages, agent traces, code, files, and repository data to provide Freebuff. We may analyze prompts and messages to personalize ads. We do not give separately uploaded files or connected repositories to advertising providers. Restricted partners may evaluate connected Cloud repositories or code used with models labeled “May use data for AI training,” but cannot otherwise use, broadly share, or train on it. See the Privacy Policy for retention, eligibility, and advertising choices.
+**How is my data used and stored?** We use prompts, messages, agent traces, code, files, and repository data to provide Freebuff. We may analyze prompts and messages to personalize ads. We do not give separately uploaded files or connected repositories to advertising providers. Restricted partners may evaluate connected Cloud repositories, but cannot otherwise use, broadly share, or train on them. See the Privacy Policy for retention, eligibility, and advertising choices.
 
 See the [Privacy Policy](https://freebuff.com/privacy-policy) for complete details.
 

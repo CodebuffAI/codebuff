@@ -144,6 +144,7 @@ export const DynamicAgentDefinitionSchema = z.object({
       ]),
     )
     .optional(),
+  maxOutputTokens: z.number().int().positive().optional(),
   providerOptions: z
     .object({
       order: z.array(z.string()).optional(),
@@ -196,6 +197,7 @@ export const DynamicAgentDefinitionSchema = z.object({
   inputSchema: InputSchemaObjectSchema,
   includeMessageHistory: z.boolean().default(false),
   inheritParentSystemPrompt: z.boolean().default(false),
+  completionCheck: z.boolean().optional(),
   windowedFileReads: z.boolean().optional(),
   suppressCommitAttribution: z.boolean().optional(),
   compactContext: z
@@ -204,6 +206,7 @@ export const DynamicAgentDefinitionSchema = z.object({
       z
         .object({
           maxContextLength: z.number().int().positive().optional(),
+          maxOutputTokens: z.number().int().positive().optional(),
           cacheExpiryMs: z.number().nullish(),
           cacheExpiryMinTokens: z.number().nullish(),
         })

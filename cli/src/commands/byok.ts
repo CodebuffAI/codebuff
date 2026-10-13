@@ -1,29 +1,88 @@
+import { useChatStore } from '../state/chat-store'
 import { getSystemMessage } from '../utils/message-history'
 import { startNewChat } from '../project-files'
 import { stopActiveRun } from '../utils/active-run'
 import {
   describeByokConnection,
   getCliByokStore,
+  closeByokSetup,
   isByokEnvironmentVariableName,
+  isByokSetupOpen,
+  openByokSetup,
   saveSelectedByokConnection,
   selectedByokConnection,
 } from '../utils/byok'
 
-import type { ByokConnection, ByokProvider } from '@codebuff/sdk'
+import {
+  BYOK_REASONING_EFFORTS,
+  isByokReasoningEffort,
+} from '@codebuff/common/constants/reasoning-effort'
+import { loadSettings, saveSettings } from '../utils/settings'
+
+import { normalizeByokBaseUrl } from '@codebuff/sdk'
+
+import type {
+  ByokConnection,
+  ByokProvider,
+  ByokValidationResult,
+} from '@codebuff/sdk'
 import type { RouterParams } from './command-registry'
 
-const usage = [
-  'BYOK uses your provider account directly. Keys are read from an environment variable and never stored in Freebuff.',
-  'Use the environment-variable NAME only, for example OPENROUTER_API_KEY. Never paste an API key into this command.',
-  'Usage:',
-  '/byok list',
-  '/byok add <name> <openrouter|openai-compatible> <model> <ENV_VAR> [base-url] [--context-window=N] [--max-output-tokens=N]',
-  '/byok update <name> <model> [base-url] [--context-window=N] [--max-output-tokens=N]',
-  '/byok validate <name>',
-  '/byok select <name>',
-  '/byok remove <name>',
-  '/byok off',
+export const BYOK_USAGE = [
+  'Use your own AI provider with BYOK. Freebuff saves the key variable name, not the key.',
+  '',
+  '**1. Set your API key in the terminal.**',
+  'Close Freebuff first. Use one command below. Replace `<your-provider-api-key>` with your key.',
+  "Bash / Zsh: `export PROVIDER_API_KEY='<your-provider-api-key>'`",
+  "Fish: `set -gx PROVIDER_API_KEY '<your-provider-api-key>'`",
+  "PowerShell: `$env:PROVIDER_API_KEY = '<your-provider-api-key>'`",
+  '',
+  '**2. Add your provider.**',
+  'Run `freebuff` in the same terminal. Then enter the command for your provider:',
+  'OpenRouter: `/byok add my-provider openrouter openai/gpt-oss-120b PROVIDER_API_KEY`',
+  'Ollama Cloud: `/byok add my-provider openai-compatible gpt-oss:120b PROVIDER_API_KEY https://ollama.com/v1`',
+  'Use `PROVIDER_API_KEY` as shown. Do not put your key in `/byok` commands.',
+  '',
+  '**3. Check the connection.**',
+  '`/byok validate my-provider`',
+  'Read the result before you continue. This check does not test whether the model can code.',
+  '',
+  '**4. Start a new chat with your provider.**',
+  '`/byok select my-provider`',
+  '',
+  '**Command reference**',
+  '`/byok list`',
+  '`/byok add <name> <openrouter|openai-compatible> <model> <ENV_VAR> [base-url] [--context-window=N] [--max-output-tokens=N]`',
+  '`/byok update <name> <model> [base-url [ENV_VAR]] [--context-window=N] [--max-output-tokens=N]`',
+  '`/byok validate <name>`',
+  '`/byok select <name>`',
+  '`/byok effort <default|low|medium|high>`',
+  '`/byok remove <name>`',
+  '`/byok off`',
 ].join('\n')
+
+/**
+ * Entry from a Freebuff wall (Freebucks spent, daily cap reached). Those
+ * screens have no input, so without this a user who ran out could never type
+ * `/byok` — the one route that does not need Freebucks at all.
+ */
+export function enterByokSetup(): void {
+  useChatStore
+    .getState()
+    .setMessages((messages) => [
+      ...messages,
+      getSystemMessage(
+        [
+          'Set up your own provider key (BYOK). BYOK runs never spend Freebucks.',
+          '',
+          BYOK_USAGE,
+          '',
+          'Add a connection, then `/byok select <name>` to start. `/byok off` returns to Freebuff.',
+        ].join('\n'),
+      ),
+    ])
+  openByokSetup()
+}
 
 function post(params: RouterParams, message: string): void {
   params.setMessages((messages) => [...messages, getSystemMessage(message)])
@@ -38,6 +97,48 @@ function post(params: RouterParams, message: string): void {
         : input,
   )
   params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+}
+
+/** Whether `baseUrl` is the connection's current endpoint; undefined when it cannot be normalized. */
+function sameEndpoint(connection: ByokConnection, baseUrl: string): boolean | undefined {
+  try {
+    return (
+      normalizeByokBaseUrl(connection.provider, baseUrl) ===
+      normalizeByokBaseUrl(connection.provider, connection.baseUrl)
+    )
+  } catch {
+    return undefined
+  }
+}
+
+/** How many listed ids a message shows; the rest are counted. */
+const AVAILABLE_MODELS_SHOWN = 20
+
+function statusSuffix(validation: ByokValidationResult): string {
+  return validation.statusCode ? ` (HTTP ${validation.statusCode})` : ''
+}
+
+/**
+ * A reachable endpoint whose `/models` does not list the configured id: the
+ * usual "model not found" on the first run. Named here, with what it does
+ * list, rather than at the first failed turn. Not a refusal: a proxy may
+ * route ids it does not list.
+ */
+function modelListNote(
+  connection: Pick<ByokConnection, 'name' | 'model'>,
+  validation: ByokValidationResult,
+): string {
+  if (!validation.ok || validation.modelListed !== false) return ''
+  const available = validation.availableModels ?? []
+  const shown = available.slice(0, AVAILABLE_MODELS_SHOWN)
+  const more =
+    available.length > shown.length
+      ? ` and ${available.length - shown.length} more`
+      : ''
+  const listing = shown.length
+    ? ` It lists: ${shown.map((id) => `\`${id}\``).join(', ')}${more}.`
+    : ''
+  return `\n\nWarning: \`${connection.model}\` is not in this endpoint's model list.${listing} Change it with \`/byok update ${connection.name} <model>\`, unless this proxy routes model ids it does not list.`
 }
 
 function connectionByName(connections: ByokConnection[], name: string): ByokConnection | undefined {
@@ -135,18 +236,82 @@ function splitLimitFlags(args: string[]): {
   return result
 }
 
+type ParsedByokCommand = {
+  action: string | undefined
+  parsedArgs: ReturnType<typeof splitLimitFlags>
+}
+
+function parseByokCommand(rawArgs: string): ParsedByokCommand | { error: string } {
+  const parsedTokens = tokenizeByokArguments(rawArgs)
+  if ('error' in parsedTokens) return parsedTokens
+  const tokens = parsedTokens.tokens
+  const action = tokens.shift()
+  return { action, parsedArgs: splitLimitFlags(tokens) }
+}
+
+/** Positional arguments an action accepts at most; undefined = a free-form name. */
+function maxPositionalArguments(action: string | undefined, args: string[]): number | undefined {
+  if (action === 'add') return args[1] === 'openrouter' ? 4 : 5
+  // `update <name> <model> [base-url [ENV_VAR]]`: the fourth word counts only
+  // when it is a variable name, so a split URL's tail ("http://localhost:⏎
+  // 20128/v1") is still an extra word to join rather than a bad ENV_VAR.
+  if (action === 'update') return args[3] !== undefined && isByokEnvironmentVariableName(args[3]) ? 4 : 3
+  if (action === 'effort') return 1
+  if (action === 'list' || action === 'off' || action === 'help') return 0
+  return undefined
+}
+
+/**
+ * A line break with no whitespace on either side: where a terminal or a
+ * document wrapped a long command mid-word ("http://localhost:20128/⏎v1").
+ * A break that replaced a space already tokenizes correctly.
+ */
+const BARE_LINE_BREAK = /(?<=\S)\r?\n(?=\S)/g
+
+/**
+ * The command with its pasted mid-word line breaks joined, when that is the
+ * ONLY reading that fits: the command has more arguments than its action
+ * takes, and there are exactly as many bare breaks as extra arguments, so
+ * every one of them must be a split word. Anything
+ * else (a break that may have been a space, too few breaks) stays as typed and
+ * is reported, never guessed.
+ */
+function joinSplitPaste(rawArgs: string, parsed: ParsedByokCommand): ParsedByokCommand | undefined {
+  const breaks = rawArgs.match(BARE_LINE_BREAK)?.length ?? 0
+  if (breaks === 0) return undefined
+  const joined = parseByokCommand(rawArgs.replace(BARE_LINE_BREAK, ''))
+  if ('error' in joined || joined.parsedArgs.error) return undefined
+  const max = maxPositionalArguments(joined.action, joined.parsedArgs.positional)
+  const before = parsed.parsedArgs.positional.length
+  const after = joined.parsedArgs.positional.length
+  if (max === undefined || before <= max) return undefined
+  return breaks === before - max && after === max ? joined : undefined
+}
+
+const PASTE_HINT =
+  'If you pasted this command, a line break may have split it: paste it again as one line.'
+
+function incompleteCommandMessage(usage: string, missing: string[]): string {
+  // Placeholders go in code spans: the chat renders Markdown, where a bare
+  // `<base-url>` reads as an HTML tag and disappears.
+  return `\`${usage}\` is missing ${missing.map((item) => `\`${item}\``).join(', ')}.\n${PASTE_HINT}\nRun \`/byok help\` for terminal setup and complete examples.`
+}
+
+const KEY_REFERENCE_HELP =
+  'The key reference must be an environment-variable name such as PROVIDER_API_KEY. Use the NAME only, without `$`, `${...}`, `$env:`, `env:` or `=value`. Correct the name and retry; if it was already exported before Freebuff started, no restart is needed. Run `/byok help` for shell setup examples.'
+
 export async function handleByokCommand(
   params: RouterParams,
   rawArgs: string,
 ): Promise<void> {
-  const parsedTokens = tokenizeByokArguments(rawArgs)
-  if ('error' in parsedTokens) {
-    post(params, parsedTokens.error)
+  let parsed = parseByokCommand(rawArgs)
+  if ('error' in parsed) {
+    post(params, parsed.error)
     return
   }
-  const tokens = parsedTokens.tokens
-  const action = tokens.shift()
-  const parsedArgs = splitLimitFlags(tokens)
+  const repaired = joinSplitPaste(rawArgs, parsed)
+  if (repaired) parsed = repaired
+  const { action, parsedArgs } = parsed
   const args = parsedArgs.positional
   const byokStore = getCliByokStore()
 
@@ -154,16 +319,29 @@ export async function handleByokCommand(
     if (looksLikeCredential(rawArgs)) {
       post(
         params,
-        'BYOK keys cannot be entered into the CLI. Export the key, then pass only its environment-variable name such as OPENROUTER_API_KEY.',
+        'BYOK keys cannot be entered into the CLI. Export the key, then pass only its environment-variable name such as OPENROUTER_API_KEY. Run `/byok help` for shell setup examples.',
       )
       return
     }
     if (!action || action === 'help') {
-      post(params, usage)
+      post(params, BYOK_USAGE)
       return
     }
     if (parsedArgs.error) {
       post(params, parsedArgs.error)
+      return
+    }
+    // For update, a fourth word that is not a variable name is not joinable
+    // paste debris (that was tried above); the ENV_VAR check below names it.
+    const maxArgs =
+      action === 'update' && args.length === 4 ? 4 : maxPositionalArguments(action, args)
+    if (maxArgs !== undefined && args.length > maxArgs) {
+      // Extra words used to be dropped silently: a URL split as
+      // "http://localhost:20128/⏎v1" saved the endpoint without /v1.
+      post(
+        params,
+        `Unexpected extra argument${args.length - maxArgs === 1 ? '' : 's'} for /byok ${action}: ${args.slice(maxArgs).join(' ')}\n${PASTE_HINT}`,
+      )
       return
     }
 
@@ -173,7 +351,7 @@ export async function handleByokCommand(
       post(
         params,
         connections.length === 0
-          ? 'No BYOK connections configured.\n\n' + usage
+          ? 'No BYOK connections configured.\n\n' + BYOK_USAGE
           : connections
               .map((connection) => `${selected?.id === connection.id && selected.revision === connection.revision ? '●' : '○'} ${describeByokConnection(connection)}`)
               .join('\n'),
@@ -184,16 +362,27 @@ export async function handleByokCommand(
     if (action === 'add') {
       const [name, providerValue, model, environmentVariable, baseUrl] = args
       const provider = providerValue && parseProvider(providerValue)
+      if (providerValue && !provider) {
+        post(params, `Unknown BYOK provider type: ${providerValue}. Use openrouter or openai-compatible.\n\n${BYOK_USAGE}`)
+        return
+      }
       if (!name || !provider || !model || !environmentVariable) {
-        post(params, usage)
+        const missing = [
+          !name && '<name>',
+          !provider && '<openrouter|openai-compatible>',
+          !model && '<model>',
+          !environmentVariable && '<ENV_VAR>',
+          provider === 'openai-compatible' && '<base-url>',
+        ].filter((item): item is string => Boolean(item))
+        post(params, incompleteCommandMessage('/byok add <name> <openrouter|openai-compatible> <model> <ENV_VAR> [base-url]', missing))
         return
       }
       if (!isByokEnvironmentVariableName(environmentVariable)) {
-        post(params, 'The key reference must be an environment-variable name such as OPENROUTER_API_KEY.')
+        post(params, KEY_REFERENCE_HELP)
         return
       }
       if (provider === 'openai-compatible' && !baseUrl) {
-        post(params, 'An OpenAI-compatible connection requires a base URL.\n\n' + usage)
+        post(params, `An OpenAI-compatible connection requires a base URL, e.g. http://localhost:20128/v1.\n${PASTE_HINT}`)
         return
       }
       if (provider === 'openrouter' && baseUrl) {
@@ -204,7 +393,7 @@ export async function handleByokCommand(
         try {
           new URL(baseUrl)
         } catch {
-          post(params, 'The OpenAI-compatible base URL is invalid.')
+          post(params, `The OpenAI-compatible base URL is invalid: ${baseUrl}${/[\r\n]/.test(rawArgs) ? `\n${PASTE_HINT}` : ''}`)
           return
         }
       }
@@ -228,16 +417,16 @@ export async function handleByokCommand(
         validation.ok
           ? connection.provider === 'openrouter'
             ? `Saved and authenticated ${describeByokConnection(connection)}. Select it with /byok select ${connection.name}.`
-            : `Saved ${describeByokConnection(connection)}. The endpoint is reachable; this model is unqualified until it completes a coding run. Select it with /byok select ${connection.name}.`
-          : `Saved ${describeByokConnection(connection)}, but validation failed: ${validation.message}\nCheck that ${environmentVariable} is exported, then run /byok validate ${connection.name}.`,
+            : `Saved ${describeByokConnection(connection)}. The endpoint is reachable${statusSuffix(validation)}; this model is unqualified until it completes a coding run. Select it with /byok select ${connection.name}.${modelListNote(connection, validation)}`
+          : `Saved ${describeByokConnection(connection)}, but it could not be validated: ${validation.message}\nThen run /byok validate ${connection.name}.`,
       )
       return
     }
 
     if (action === 'update') {
-      const [name, model, baseUrl] = args
+      const [name, model, baseUrl, environmentVariable] = args
       if (!name || !model) {
-        post(params, usage)
+        post(params, incompleteCommandMessage('/byok update <name> <model> [base-url [ENV_VAR]]', [!name && '<name>', '<model>'].filter((item): item is string => Boolean(item))))
         return
       }
       const connection = connectionByName(await byokStore.list(), name)
@@ -253,9 +442,32 @@ export async function handleByokCommand(
         try {
           new URL(baseUrl)
         } catch {
-          post(params, 'The OpenAI-compatible base URL is invalid.')
+          post(params, `The OpenAI-compatible base URL is invalid: ${baseUrl}${/[\r\n]/.test(rawArgs) ? `\n${PASTE_HINT}` : ''}`)
           return
         }
+      }
+      if (environmentVariable && !isByokEnvironmentVariableName(environmentVariable)) {
+        post(params, KEY_REFERENCE_HELP)
+        return
+      }
+      // A new endpoint receives the key, so the store refuses to carry the
+      // credential over implicitly. The CLI never offered a way to supply it,
+      // so fixing a base URL (e.g. adding a missing /v1) always failed with
+      // "requires explicitly supplying the credential again". Naming the
+      // environment variable in the command is that explicit supply.
+      const endpointChanges =
+        baseUrl !== undefined && sameEndpoint(connection, baseUrl) === false
+      if (endpointChanges && !environmentVariable) {
+        const current = connection.credentialRef.startsWith('env:')
+          ? connection.credentialRef.slice(4)
+          : undefined
+        post(
+          params,
+          current
+            ? `Changing the base URL sends ${current} to a new endpoint. Name the variable to confirm:\n\`/byok update ${connection.name} ${model} ${baseUrl} ${current}\``
+            : `Changing the base URL sends this connection's saved key to a new endpoint. Name an environment variable holding the key to use there:\n\`/byok update ${connection.name} ${model} ${baseUrl} <ENV_VAR>\``,
+        )
+        return
       }
       const updated = await byokStore.update({
         id: connection.id,
@@ -263,6 +475,7 @@ export async function handleByokCommand(
         patch: {
           model,
           ...(baseUrl ? { baseUrl } : {}),
+          ...(environmentVariable ? { credentialRef: `env:${environmentVariable}` } : {}),
           ...(parsedArgs.contextWindow !== undefined ? { contextWindow: parsedArgs.contextWindow } : {}),
           ...(parsedArgs.maxOutputTokens !== undefined ? { maxOutputTokens: parsedArgs.maxOutputTokens } : {}),
         },
@@ -278,7 +491,7 @@ export async function handleByokCommand(
     if (action === 'validate' || action === 'select' || action === 'remove') {
       const name = args.join(' ')
       if (!name) {
-        post(params, usage)
+        post(params, BYOK_USAGE)
         return
       }
       const connection = connectionByName(await byokStore.list(), name)
@@ -291,7 +504,7 @@ export async function handleByokCommand(
         post(params, validation.ok
           ? connection.provider === 'openrouter'
             ? `${describeByokConnection(connection)} has a verified credential. Model coding support remains unverified.`
-            : `${describeByokConnection(connection)} is reachable. Its model remains unqualified until it completes a coding run.`
+            : `${describeByokConnection(connection)} is reachable${statusSuffix(validation)}. Its model remains unqualified until it completes a coding run.${modelListNote(connection, validation)}`
           : `${describeByokConnection(connection)} is unavailable: ${validation.message}`)
         return
       }
@@ -303,7 +516,7 @@ export async function handleByokCommand(
         }
         saveSelectedByokConnection(connection)
         resetTranscriptForSourceChange(params)
-        post(params, `Using ${describeByokConnection(connection)} for new runs. Inference is direct, ad-free, and billed by your provider.`)
+        post(params, `Using ${describeByokConnection(connection)} for new runs. Inference is direct, ad-free, and billed by your provider.${modelListNote(connection, validation)}`)
         return
       }
       await byokStore.remove(connection)
@@ -315,7 +528,37 @@ export async function handleByokCommand(
       return
     }
 
+    if (action === 'effort') {
+      const [value] = args
+      if (!value) {
+        const current = loadSettings().byokReasoningEffort
+        post(
+          params,
+          `BYOK reasoning effort: ${current ?? 'default (the provider decides)'}. Change it with /byok effort <default|${BYOK_REASONING_EFFORTS.join('|')}>.`,
+        )
+        return
+      }
+      if (value !== 'default' && !isByokReasoningEffort(value)) {
+        post(params, `Unknown effort: ${value}. Use default, ${BYOK_REASONING_EFFORTS.join(', ')}.`)
+        return
+      }
+      const effort = value === 'default' ? undefined : value
+      saveSettings({ byokReasoningEffort: effort })
+      post(
+        params,
+        effort
+          ? `BYOK runs now ask for ${effort} reasoning effort. A provider that rejects it is retried without it.`
+          : 'BYOK runs use the provider default reasoning effort.',
+      )
+      return
+    }
+
     if (action === 'off') {
+      if (!selectedByokConnection() && isByokSetupOpen()) {
+        closeByokSetup()
+        post(params, 'BYOK setup closed.')
+        return
+      }
       if (!selectedByokConnection()) {
         post(params, 'BYOK is already off.')
         return
@@ -326,7 +569,7 @@ export async function handleByokCommand(
       return
     }
 
-    post(params, usage)
+    post(params, BYOK_USAGE)
   } catch (error) {
     post(params, error instanceof Error ? `BYOK error: ${error.message}` : 'BYOK error.')
   }

@@ -1,99 +1,97 @@
 /**
- * Accepting a sponsored proposal and running it here, in this terminal, on this
- * machine (COD-339).
+ * Accepting a sponsored proposal and running it here, IN PLACE, as a turn in
+ * this conversation (COD-339, ported to #3989's in-place flow).
  *
- * The whole of the CLI's execution half in one object: consent, the accept, the
- * worktree, the turn, every state report that follows, the interrupt, and the
- * two deliberate user actions afterwards (Create pull request, Remove
- * workspace). One file because it is one decision — "run an advertiser's
- * procedure against the user's repository" — and a decision spread across the
- * commands that happen to trigger it is a decision nobody can review.
+ * The whole of the CLI's execution half in one object: consent, the funded
+ * Accept, the turn's plan, the verdict, every state report that follows, the
+ * interrupt, and the undo. One file because it is one decision -- "run an
+ * advertiser's procedure against the user's working copy" -- and a decision
+ * spread across the commands that happen to trigger it is a decision nobody
+ * can review.
+ *
+ * ## In place, and what that gave up
+ *
+ * The run used to get a linked worktree, a branch, a commit and a pull request
+ * the user asked for. It now edits the folder the user is in, commits nothing,
+ * and is undone by `/ads:undo`. The trade is written down in the 2026-09-24
+ * amendment to `docs/freebuff-sponsored-local-execution.md`; this file carries
+ * it out: `.git` is read-only to the run (`readOnlyGitDir` on the SDK broker
+ * plus the git-subcommand refusal), secret-bearing files are unreadable, and
+ * every file-tool write is receipted so the undo can put it back
+ * (`sponsored-receipts.ts`).
  *
  * ## What it does NOT own
  *
- * The trust boundary. That is COD-336's, written down in
- * `docs/freebuff-sponsored-local-execution.md` and enforced in
- * `common/src/ads/sponsored-local-execution.ts` plus the SDK broker. This file
- * CONSUMES it: it asks whether this machine can contain a run, refuses when the
- * answer is no, and hands the SDK a run built from the local grant. It never
- * decides what a run may do.
+ * The trust boundary. That is COD-336's, enforced in
+ * `common/src/ads/sponsored-local-execution.ts`, `sponsored-capabilities.ts`
+ * and the SDK broker. This file CONSUMES it: it asks whether this machine can
+ * contain a run, refuses when the answer is no, and hands the SDK a run built
+ * from the local grant.
+ *
+ * Nor does it own the TURN. Chat runs it (`use-send-message.ts`), because only
+ * chat can put it in the transcript and hold the user's next message in the
+ * queue behind it. This object hands chat a plan (`startTurn`) and is told how
+ * it ended (`settleTurn`).
  *
  * ## Consent, and why a terminal draws it differently
  *
  * COD-336 decision item 4 requires per-run consent drawn by the ELECTRON MAIN
- * PROCESS, for the reason `docs/mcp-desktop/02-security.md` gives about
- * spawning: the orchestrator cannot be the authority for a decision about
- * itself. There is no Electron here and no second process to draw a window
+ * PROCESS. There is no Electron here and no second process to draw a window
  * from, so the terminal equivalent is an in-TUI confirmation naming the
- * advertiser, what the task will do, the target folder and the branch, which
- * the user can refuse.
+ * advertiser and what will happen, which the user can refuse. That is an
+ * ADAPTATION of the decision, not a re-opening of it: what item 4 buys is
+ * SUPERVISION, and the mechanism beside it is the same SDK broker Desktop
+ * uses. What does not transfer is the separate-process property, and a
+ * compromised CLI could equally just run the procedure, which is why that
+ * property was never load-bearing on a single-process surface.
  *
- * THAT IS AN ADAPTATION OF THE DECISION, NOT A RE-OPENING OF IT. What item 4
- * actually buys is SUPERVISION — §1 of the doc identifies it as the real delta,
- * and §5 D says a consent gate is "necessary, not sufficient" and must ship
- * beside a mechanism rather than instead of one. Both of those hold here: the
- * mechanism is the same SDK broker Desktop uses, and the gate is a thing the
- * user has to answer before any write happens anywhere. What does NOT transfer
- * is the separate-process property, and it is worth being honest that this is
- * weaker: a compromised CLI could draw a consent screen and ignore the answer.
- * A compromised CLI can also just run the procedure, which is why the property
- * was never load-bearing on a single-process surface.
+ * ## The order
  *
- * ## The order, and why it is that order
+ * preview -> consent -> accept -> (queue) -> turn -> verdict.
  *
- * consent -> accept -> worktree -> turn.
+ * The preview is a read, so the consent can show the exact reviewed procedure
+ * and bind its SHA-256 without changing any state. The Accept comes AFTER the
+ * consent because a Decline has to leave the proposal `offered`.
  *
- * Consent comes FIRST, before any network write, because a Decline has to leave
- * the proposal `offered`. Accepting first and then failing the row back would
- * be two writes to undo a decision the user had not made yet, and any crash
- * between them leaves a row saying a user accepted something they refused.
+ * ## Reporting
  *
- * The cost of that order is real and is the same cost Desktop pays: the accept
- * response is the only place the full procedure text exists, so the consent
- * cannot show it. It shows what the card already showed — the advertiser, the
- * headline and the body — plus the folder and the branch, which are the two
- * facts the card does NOT carry and the two that say what is about to happen to
- * this machine.
- *
- * ## Reporting is advisory, except where it is not
- *
- * Every `reportState` failure is swallowed. A run that committed to a branch
- * committed to a branch whether or not freebuff.com heard about it, and a user
- * whose review is blocked on a reporting round-trip is a user punished for our
- * network. The one exception is `landed`, which COD-396 gave a refusal a user
- * can be told about: the pull request exists and the row did not move.
- *
- * ## Billing (Owen, 2026-09-03)
- *
- * The run spends the user's own session and credits, like any other task. The
- * advertiser-pays metering (COD-119) has no server-side reader, so the
- * sponsored marker rides every turn awaiting it and the card says plainly what
- * is being spent. `freebuff_daily_usage` is not written by anything in this
- * file; the turn takes the ordinary path.
+ * `running` is advisory and swallowed, and sent on the turn's first MODEL
+ * EVENT -- text, reasoning, a tool call -- which is proof that its compute
+ * started, rather than when the turn is queued up. A TERMINAL report is persisted to a private outbox before it is sent and
+ * retried until it is delivered or refused outright: until it lands the row
+ * sits on `running` and its compute grant stays live. A run whose process
+ * died before writing one is found by the next launch through its in-flight
+ * record (`sponsored-run-inflight.ts`) and reported `failed` from there.
  */
 import {
-  SPONSORED_LOCAL_INSTALL_REFUSAL,
+  evaluateSponsoredInstallCommand,
+  sponsoredDeclaredPackagesForProcedureSha256,
+  type SponsoredDeclaredPackage,
+} from '@codebuff/common/ads/sponsored-declared-installs'
+import {
   SPONSORED_LOCAL_V1_GRANT,
-  commandInstallsDependencies,
   evaluateSponsoredLocalToolCall,
+  sponsoredCommandRefusal,
+  sponsoredGitRefusal,
   sponsoredLocalAvailability,
+  sponsoredRefusedCommand,
+  sponsoredRefusedGitSubcommand,
 } from '@codebuff/common/ads/sponsored-local-execution'
-import { evaluateSponsoredWritePath } from '@codebuff/common/ads/sponsored-capabilities'
+import {
+  evaluateSponsoredReadPath,
+  evaluateSponsoredWritePath,
+} from '@codebuff/common/ads/sponsored-capabilities'
 import type { SponsoredProcedureRuntimeInputs } from '@codebuff/common/ads/sponsored-procedure-inputs'
+import { sponsoredAdvertiserCtaHref } from '@codebuff/common/ads/sponsored-proposal-view'
+import { sanitizeTerminalText } from '@codebuff/common/util/terminal-safe-text'
 import {
-  sponsoredAdvertiserCtaHref,
-  sponsoredPullRequestHref,
-} from '@codebuff/common/ads/sponsored-proposal-view'
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync,
-} from 'fs'
-import { createHash, randomUUID } from 'node:crypto'
+  sponsoredInPlaceVerdict,
+  sponsoredPartialEditsDiagnostic,
+} from '@codebuff/common/ads/sponsored-in-place'
+import type { SponsoredTurnEnding } from '@codebuff/common/ads/sponsored-in-place'
+import { readdirSync, readFileSync } from 'fs'
+import { randomUUID } from 'node:crypto'
+import { homedir, release } from 'node:os'
 import path from 'path'
 
 import { applyPatchTool } from '../../../sdk/src/tools/apply-patch'
@@ -104,7 +102,6 @@ import { listDirectory } from '../../../sdk/src/tools/list-directory'
 import { getFiles } from '../../../sdk/src/tools/read-files'
 import { runTerminalCommand } from '../../../sdk/src/tools/run-terminal-command'
 import { createSponsoredRootedFileSystem } from '../../../sdk/src/tools/sponsored-rooted-filesystem'
-import { getConfigDir } from './config-dir'
 import {
   assertSponsoredReadPath,
   assertSponsoredWritePath,
@@ -112,47 +109,76 @@ import {
   sponsoredCodeSearchFlagsRefusal,
   sponsoredContainment,
 } from '../../../sdk/src/tools/sponsored-sandbox'
+import { sponsoredToolchainReadRoots } from '../../../sdk/src/tools/sponsored-toolchain'
+import { useSponsoredRunStore } from '../state/sponsored-run-store'
 import { getAuthToken } from './auth'
-import { getCodebuffClient } from './codebuff-client'
-import { IS_FREEBUFF } from './constants'
+import { getConfigDir } from './config-dir'
 import { getSystemProcessEnv } from './env'
-import { getAgentIdForMode } from './freebuff-agent-selection'
+import { IS_FREEBUFF } from './constants'
+import {
+  getAgentIdForMode,
+  getFreebuffCliAgentIdForModel,
+} from './freebuff-agent-selection'
+import { isFreebuffCatalogMode } from '../state/freebuff-catalog-store'
 import { logger } from './logger'
+import { atomicPrivateWrite, privateStateFile } from './private-state'
 import {
   buildSponsoredPrompt,
   sponsoredAgentDefinition,
 } from './sponsored-agent'
+import { sponsoredFrictionTool } from './sponsored-friction-tool'
+import { sponsoredRuntimeDir } from './sponsored-git'
 import {
   acceptSponsoredProposal,
+  previewSponsoredProposal,
+  reportSponsoredFriction,
   reportSponsoredRunState,
+  sponsoredProcedureSha256,
 } from './sponsored-proposal-api'
+import { sponsoredProposalLocalTarget } from './sponsored-proposal-target'
 import {
-  bunGitRunner,
-  createSponsoredWorktree,
-  firstLine,
-  gitdirUnmoved,
-  isGitRepository,
-  removeSponsoredWorktree,
-  sponsoredBranchFor,
-  sponsoredHead,
-  sponsoredRuntimeDir,
-  type GitRunner,
-  type SponsoredWorktree,
-} from './sponsored-worktree'
-import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
+  sponsoredCliPartialEditsFailureReason,
+  sponsoredInflightBaseDirectory,
+  sponsoredInflightKeys,
+  sponsoredInflightKeyStore,
+  sponsoredInflightPort,
+  sponsoredInflightPortFor,
+  sweepSponsoredInflightRuns,
+} from './sponsored-run-inflight'
+import {
+  SponsoredEditRecorder,
+  SponsoredReceiptRefusal,
+  changedReceipts,
+  readSponsoredLedger,
+  sponsoredOutcomesFromReceipts,
+  sponsoredReceiptStore,
+  undoSponsoredReceipts,
+} from './sponsored-receipts'
 
 import type {
+  SponsoredAcceptPreview,
+  SponsoredCliExecutionSurface,
   SponsoredProposal,
   SponsoredStateUpdate,
 } from './sponsored-proposal-api'
-import type { SponsoredLocalAvailability } from '@codebuff/common/ads/sponsored-local-execution'
+import type { SponsoredReceiptStore } from './sponsored-receipts'
+import type { StreamChunkEvent } from './sdk-event-handlers'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { SponsoredInflightPort } from './sponsored-run-inflight'
+import { sponsoredComputeRunDeadlineMs } from '@codebuff/common/ads/sponsored-compute-contract'
+import type { SponsoredComputeGrant } from '@codebuff/common/ads/sponsored-compute-contract'
+import type { SponsoredLocalTarget } from '@codebuff/common/ads/sponsored-capability'
+import type {
+  SponsoredLocalAvailability,
+  SponsoredLocalContainment,
+} from '@codebuff/common/ads/sponsored-local-execution'
 import type { FileReadWindow } from '@codebuff/common/types/contracts/client'
-import type { OverrideToolHandlers } from '@codebuff/sdk'
-
-/** The title, and therefore the branch slug. */
-export function sponsoredRunTitle(advertiserName: string): string {
-  return `Sponsored: ${advertiserName}`
-}
+import type { SponsoredFrictionInput } from '@codebuff/common/ads/sponsored-run-friction'
+import type {
+  AgentDefinition,
+  CustomToolDefinition,
+  OverrideToolHandlers,
+} from '@codebuff/sdk'
 
 /** How much of a turn's error text `diagnostic_reason` carries. */
 export const SPONSORED_DIAGNOSTIC_CAUSE_LIMIT = 200
@@ -183,72 +209,139 @@ export type SponsoredConsent = {
   advertiserName: string
   headline: string
   body: string
-  /** The checkout the run will be cut from. */
+  /** Exact reviewed procedure returned by the server preview. */
+  procedure: string
+  /** Whole user messages that established why this offer is relevant. */
+  taskContext: readonly string[]
+  /** The folder whose files the run will edit, in place. */
   folder: string
-  /** The exact branch that will be created, not "a branch". */
-  branch: string
 }
 
 export type SponsoredRunPhase =
   | 'idle'
   | 'accepting'
+  /** Accepted upstream; waiting for the conversation to be free. */
+  | 'queued'
   | 'running'
-  | 'committed'
-  | 'landed'
+  | 'delivered'
   | 'failed'
 
-/** What the transcript and the card read while a run is in flight or over. */
+/** What the transcript and the dock read while a run is in flight or over. */
 export type SponsoredRunSnapshot = {
   phase: SponsoredRunPhase
   proposalId: string | null
   advertiserName: string | null
-  branch: string | null
-  worktreePath: string | null
-  prUrl: string | null
+  runId: string | null
+  /** The files the run changed, once it has a verdict. */
+  changedFiles: readonly string[]
   failureReason: string | null
+  undone: boolean
 }
 
 const IDLE: SponsoredRunSnapshot = {
   phase: 'idle',
   proposalId: null,
   advertiserName: null,
-  branch: null,
-  worktreePath: null,
-  prUrl: null,
+  runId: null,
+  changedFiles: [],
   failureReason: null,
+  undone: false,
 }
 
 export type SponsoredRunOutcome =
   | { ok: true }
   | { ok: false; declined: true }
-  | { ok: false; message: string }
+  | {
+      ok: false
+      message: string
+      /**
+       * The procedure changed after review. The consent is shown again with
+       * the new text rather than the refusal being left on the card.
+       */
+      reviewAgain?: boolean
+    }
 
-export type SponsoredDeliveryOutcome =
-  | { ok: true; prUrl: string; recorded: boolean }
-  | { ok: false; message: string }
+/** Everything chat needs to run the sponsored turn. */
+export type SponsoredTurnPlan = {
+  runId: string
+  proposalId: string
+  advertiserName: string
+  prompt: string
+  agent: AgentDefinition
+  overrideTools: SponsoredOverrideTools
+  /** Exactly one when reporting: `report_friction`, bound to this run. */
+  customToolDefinitions: CustomToolDefinition[]
+  extraCodebuffMetadata: Record<string, string>
+  /** Aborted by an interrupt or by the grant expiring. Chat links its own to it. */
+  signal: AbortSignal
+  cwd: string
+  /**
+   * Chat calls this on the turn's model events (`withSponsoredModelEventTap`):
+   * the first one is proof the turn is spending the sponsor's compute, and
+   * reports `running`. Idempotent and cheap; never throws.
+   */
+  onModelEvent: () => void
+}
+
+/** How chat says the turn ended. */
+export type SponsoredTurnResult = {
+  errorText: string | null
+  aborted: boolean
+}
 
 /** Injected so every decision below is testable without a network or a checkout. */
 export type SponsoredRunDeps = {
+  preview: typeof previewSponsoredProposal
   accept: typeof acceptSponsoredProposal
   reportState: typeof reportSponsoredRunState
+  /** The agent's `report_friction`. Absent means the tool is not offered. */
+  reportFriction?: typeof reportSponsoredFriction
   getToken: () => string | null | undefined
-  git: GitRunner
-  /** Is this path on disk? Injected with `git`, for the same reason. */
-  exists: (path: string) => boolean
   platform: NodeJS.Platform
-  /** The SDK turn. Returns the error text, or null for a clean finish. */
-  runTurn: (context: SponsoredTurnContext) => Promise<string | null>
-  /** `gh`/`git` for delivery. Separate from `git` so a test can refuse a push. */
-  deliver: (
-    command: string,
-    args: string[],
-    options: { cwd: string; env: Record<string, string | undefined> },
-  ) => Promise<{ exitCode: number; stdout: string; stderr: string }>
+  containment: (platform: NodeJS.Platform) => SponsoredLocalContainment
+  /** `cli_macos` / `cli_linux` / `cli_wsl`; null where no run can happen. */
+  executionSurface: () => SponsoredCliExecutionSurface | null
   now: () => number
+  sleep: (ms: number) => Promise<void>
   terminalReports: {
     read: () => string | null
     write: (value: string) => void
   }
+  receipts: SponsoredReceiptStore
+  /**
+   * This project's in-flight records (`sponsored-run-inflight.ts`): written
+   * once the run is spending compute, removed once its terminal report is in
+   * the outbox, and swept at launch for a run whose process died without one.
+   * An outbox flusher for ANOTHER folder (`replayForeignOutboxes`) gets THAT
+   * folder's records, so the sweep reaches every folder. Absent means no
+   * record and no sweep.
+   */
+  inflight?: SponsoredInflightPort
+  /** The last run in this project, so `/ads:undo` survives a restart. */
+  lastRun: {
+    read: () => string | null
+    write: (runId: string) => void
+  }
+  /** Re-read this rooted identity before the paid accept. */
+  target: () => Promise<SponsoredLocalTarget | null>
+  /** Builds the tool overrides; injected so a test need not start a sandbox. */
+  overrideTools?: (context: SponsoredToolContext) => SponsoredOverrideTools
+  agentId?: () => string
+}
+
+function sameTarget(
+  left: SponsoredLocalTarget,
+  right: SponsoredLocalTarget,
+): boolean {
+  return (
+    left.kind === right.kind &&
+    (left.kind === 'repo'
+      ? left.repoFullName ===
+        (right as Extract<SponsoredLocalTarget, { kind: 'repo' }>).repoFullName
+      : left.workspaceId ===
+        (right as Extract<SponsoredLocalTarget, { kind: 'workspace' }>)
+          .workspaceId)
+  )
 }
 
 type DurableTerminalReport = {
@@ -258,6 +351,12 @@ type DurableTerminalReport = {
   attempts: number
   nextDueAt: number
   lastError: string | null
+  /**
+   * `exhausted` is only ever READ now: builds before the attempt cap was
+   * removed wrote it after eight transient failures and never sent the report
+   * again. It is resent like `pending`, because a report that was merely
+   * offline is still owed upstream.
+   */
   disposition?: 'pending' | 'exhausted' | 'permanent_refusal'
 }
 
@@ -270,46 +369,185 @@ function terminalReportPayload(update: SponsoredStateUpdate): string {
     failureReason: update.failureReason,
     diagnosticReason: update.diagnosticReason,
     head: update.head,
+    outcomes: update.outcomes,
   })
 }
 
-const TERMINAL_REPORT_STATES = new Set(['committed', 'failed', 'landed'])
+const TERMINAL_REPORT_STATES = new Set([
+  'delivered',
+  'committed',
+  'failed',
+  'landed',
+])
+/**
+ * The backoff ceiling, and the ONLY limit on a transient retry. There is no
+ * attempt cap: a terminal report is what ends the run upstream and revokes its
+ * compute grant, so giving up on one leaves the card on `running` forever. A
+ * report stops only when it is delivered or refused outright
+ * (`isPermanentReportRefusal`) -- the same rule Desktop's outbox keeps.
+ */
 const TERMINAL_REPORT_RETRY_MAX_MS = 5 * 60_000
-const TERMINAL_REPORT_MAX_ATTEMPTS = 8
 
-export type SponsoredTurnContext = {
-  prompt: string
-  worktree: SponsoredWorktree
-  runtimeDir: string
-  proposalId: string
-  signal: AbortSignal
+/**
+ * The funded Accept's retry schedule: Desktop's first four attempts
+ * (`freebuff-desktop/src/server/services/sponsored-run.ts`). The Accept is
+ * idempotent per run id within the token's TTL, so a retry after a lost
+ * response returns the same token rather than charging twice.
+ */
+export const ACCEPT_RETRY_DELAYS_MS = [1_000, 3_000, 9_000] as const
+
+/** A refusal worth asking again: nothing answered, or upstream was busy. */
+function retryableAcceptStatus(status: number): boolean {
+  return status === 0 || status === 408 || status === 429 || status >= 500
+}
+
+export type SponsoredTaskEvidence = {
+  /** A bounded identity, never sent as telemetry. */
+  identity: string
+  messages: readonly string[]
+}
+
+const SPONSORED_TASK_MESSAGES_MAX = 8
+const SPONSORED_TASK_CONTEXT_MAX = 8_192
+
+/**
+ * Retain whole user messages only. This is the context the terminal consent
+ * actually reviewed, and it is re-read before the paid acceptance.
+ */
+export function sponsoredTaskEvidence(
+  messages: readonly { variant: string; content: string }[],
+): SponsoredTaskEvidence | null {
+  const selected = messages
+    .filter((message) => message.variant === 'user')
+    .map((message) => message.content.trim())
+    .filter(Boolean)
+    .slice(-SPONSORED_TASK_MESSAGES_MAX)
+  if (
+    !selected.length ||
+    selected.at(-1)!.length > SPONSORED_TASK_CONTEXT_MAX
+  ) {
+    return null
+  }
+  const whole: string[] = []
+  let size = 0
+  for (let index = selected.length - 1; index >= 0; index -= 1) {
+    const message = selected[index]!
+    if (size + message.length > SPONSORED_TASK_CONTEXT_MAX) break
+    whole.unshift(message)
+    size += message.length
+  }
+  if (!whole.length) return null
+  return { messages: whole, identity: JSON.stringify(whole) }
 }
 
 /**
- * A sponsored run, from the Accept to the pull request.
+ * The note the conversation's OWN agent is handed on its next turn.
+ *
+ * The sponsored turn ran with fresh memory and wrote none back, so the agent
+ * the user is talking to has no idea these files moved. Mirrors Desktop's
+ * `sponsoredChangesBrief` (`freebuff-desktop/src/server/services/briefs.ts`).
+ */
+export function sponsoredChangesBrief(
+  advertiserName: string,
+  changedFiles: readonly string[],
+): string {
+  const shown = changedFiles.slice(0, SPONSORED_BRIEF_MAX_FILES)
+  const rest = changedFiles.length - shown.length
+  return [
+    '<sponsored_changes>',
+    `A sponsored task from ${advertiserName}, which the user accepted in this conversation, has just edited these files in the working copy. It ran with its own context; you did not see it happen.`,
+    'Read any of them before relying on what you remember about them. The user may keep or undo these changes.',
+    '',
+    ...shown.map((file) => `- ${file}`),
+    ...(rest > 0 ? [`- …and ${rest} more`] : []),
+    '</sponsored_changes>',
+  ].join('\n')
+}
+
+/** And the note after an undo, so the agent does not rely on the edits. */
+export function sponsoredUndoBrief(
+  advertiserName: string,
+  restored: readonly string[],
+): string {
+  const shown = restored.slice(0, SPONSORED_BRIEF_MAX_FILES)
+  const rest = restored.length - shown.length
+  return [
+    '<sponsored_changes>',
+    `The user undid the sponsored task from ${advertiserName}. These files were put back to what they were before it ran:`,
+    '',
+    ...shown.map((file) => `- ${file}`),
+    ...(rest > 0 ? [`- …and ${rest} more`] : []),
+    '</sponsored_changes>',
+  ].join('\n')
+}
+
+const SPONSORED_BRIEF_MAX_FILES = 20
+
+/** How many changed paths the transcript names before summarising the rest. */
+const SPONSORED_NOTICE_MAX_FILES = 6
+
+/**
+ * The transcript line that closes a sponsored turn: what it changed and how to
+ * take it back, or why nothing changed. Written for the user, from the same
+ * snapshot the dock draws.
+ */
+export function sponsoredVerdictNotice(snapshot: SponsoredRunSnapshot): string {
+  const who = snapshot.advertiserName ?? 'The sponsor'
+  if (snapshot.phase === 'delivered') {
+    const files = snapshot.changedFiles
+    const shown = files.slice(0, SPONSORED_NOTICE_MAX_FILES)
+    const rest = files.length - shown.length
+    return [
+      `${who} changed ${files.length === 1 ? '1 file' : `${files.length} files`} in this folder: ${shown.join(', ')}${rest > 0 ? `, and ${rest} more` : ''}.`,
+      'Nothing was committed. Review the changes with `git diff`, and undo them with /ads:undo.',
+    ].join('\n')
+  }
+  return snapshot.failureReason ?? 'The sponsored task did not finish.'
+}
+
+/**
+ * A sponsored run, from the Accept to its verdict and undo.
  *
  * ONE AT A TIME, process-wide. A terminal has one project and one user, and two
- * concurrent advertiser procedures in the same repository would race each
- * other's index. It is a field rather than a queue because the honest answer to
- * "accept a second one" is "not while this is running", said out loud.
+ * concurrent advertiser procedures in the same working copy would race each
+ * other's edits. It is a field rather than a queue because the honest answer
+ * to "accept a second one" is "not while this is running", said out loud.
  */
 export class SponsoredRun {
   private snapshot: SponsoredRunSnapshot = IDLE
   private readonly listeners = new Set<(s: SponsoredRunSnapshot) => void>()
 
-  /** Set for the whole life of a run: the accept, the turn, and the report. */
+  /** Set from the Accept until the verdict is reported. */
   private active: {
     proposalId: string
+    runId: string
     runToken: string
+    computeGrant: SponsoredComputeGrant
     advertiserName: string
-    worktree: SponsoredWorktree | null
+    procedure: string
+    taskContext: readonly string[]
+    runtimeInputs: SponsoredProcedureRuntimeInputs
+    recorder: SponsoredEditRecorder
     abort: AbortController
+    expiryTimer: ReturnType<typeof setTimeout> | null
     /** True once a terminal state has been reported. Interrupts read it. */
     settled: boolean
+    /**
+     * The `running` report, once the turn is known to be spending compute
+     * (`computeStarted`). Null until then; the outbox waits on it so upstream
+     * never sees a verdict before the run it ends.
+     */
+    running: Promise<void> | null
   } | null = null
 
   private accepting = false
-  private pushing = false
+  private prepared: {
+    proposalId: string
+    runId: string
+    preview: SponsoredAcceptPreview
+    task: SponsoredTaskEvidence
+    target: SponsoredLocalTarget
+  } | null = null
   private reportRetryTimer: ReturnType<typeof setTimeout> | null = null
   private terminalReportFlushChain: Promise<void> = Promise.resolve()
 
@@ -317,7 +555,36 @@ export class SponsoredRun {
     private readonly projectRoot: string,
     private readonly deps: SponsoredRunDeps,
   ) {
-    void this.flushTerminalReports(false)
+    void this.flushTerminalReports(false, true)
+  }
+
+  /**
+   * Send whatever an earlier process left in the outbox for this project.
+   *
+   * The constructor already does this, but the run is built lazily -- at the
+   * first Accept -- so a report a crashed or signed-out CLI could not deliver
+   * used to wait for the user's NEXT sponsored task in this folder, which may
+   * never come. Chat calls this on every signed-in mount instead: at launch,
+   * and again after a sign-in, since the chat surface only mounts once there
+   * is a session. Due-time respecting, so a mount inside a backoff window
+   * sends nothing early.
+   *
+   * Both also SWEEP the in-flight records first (`sponsored-run-inflight.ts`):
+   * a run whose process died before it could write any terminal report is
+   * given one here, in the same outbox, so it is sent in the same pass.
+   */
+  flushPendingReports(): void {
+    void this.flushTerminalReports(false, true)
+  }
+
+  /** The project this run was built for. */
+  get root(): string {
+    return this.projectRoot
+  }
+
+  /** Nothing being accepted, queued or running: safe to replace for another root. */
+  get idle(): boolean {
+    return !this.accepting && (this.active === null || this.active.settled)
   }
 
   // ------------------------------------------------------------- observation
@@ -345,32 +612,32 @@ export class SponsoredRun {
   /**
    * Can a sponsored run be contained on this machine?
    *
-   * UNLIKE DESKTOP there is no `no-consent-bridge` arm. That reason exists
-   * there because the consent window is drawn by a process that may not be
-   * running (`dev:web`, a bare orchestrator, the ui-shots harness); the CLI's
-   * confirmation is drawn by the same process that would run the task, so it is
-   * present exactly when the CLI is.
-   *
-   * Windows is `unavailable:windows-no-containment` and the copy says so, which
-   * is COD-336 item 3 as written: worse product on Windows is the honest trade,
-   * because a boundary that holds on one OS is not a boundary.
+   * UNLIKE DESKTOP there is no `no-consent-bridge` arm: the CLI's confirmation
+   * is drawn by the same process that would run the task, so it is present
+   * exactly when the CLI is. Windows is `unavailable:windows-no-containment`;
+   * the COD-642 floor is Desktop's arm and is never offered here.
    */
   availability(): SponsoredLocalAvailability {
-    return sponsoredLocalAvailability(sponsoredContainment(this.deps.platform))
+    return sponsoredLocalAvailability(this.deps.containment(this.deps.platform))
   }
 
   /**
    * What the consent screen will say, or a refusal.
    *
-   * Computed BEFORE the accept — every field on it is already on the card or
-   * derivable from this checkout — which is what lets a Decline write nothing
-   * at all. The branch is minted here and carried into `accept`, so the branch
-   * the screen NAMES is the branch that is cut: a screen saying "a branch will
-   * be created" without saying which one is not describing the decision it is
-   * asking about.
+   * Reads the exact reviewed procedure through the preview route -- a read, so
+   * a Decline afterwards writes nothing -- and binds its SHA-256 to a run id
+   * minted here and carried into `accept`.
+   *
+   * NO GIT PRECONDITION. The worktree flow required a clean tree and a
+   * committed HEAD, because it needed a clean BASELINE to cut a branch from.
+   * An in-place run edits the folder as the user left it, uncommitted edits
+   * included; the undo is what replaces the baseline.
    */
   async consentFor(
     proposal: SponsoredProposal,
+    task = sponsoredTaskEvidence([
+      { variant: 'user', content: 'Review this sponsored task.' },
+    ]),
   ): Promise<
     | { ok: true; consent: SponsoredConsent; runId: string }
     | { ok: false; message: string }
@@ -381,20 +648,63 @@ export class SponsoredRun {
         message: 'Sponsored tasks cannot run on this machine.',
       }
     }
-    if (this.active) {
+    if (this.active && !this.active.settled) {
       return { ok: false, message: 'A sponsored task is already running here.' }
     }
-    // A folder that is not a repository has no worktree to isolate the run in,
-    // and the card should never have offered an Accept for it -- the proposal
-    // is keyed to a GitHub remote. Checked anyway: the command is reachable
-    // without the card.
-    if (!(await isGitRepository(this.projectRoot, this.deps.git))) {
+    if (!task) {
+      return { ok: false, message: 'There is no task context to review.' }
+    }
+    const authToken = this.deps.getToken()
+    if (!authToken) {
       return {
         ok: false,
-        message: 'A sponsored task needs a git repository to work in.',
+        message: 'Sign in to Freebuff to review this sponsored task.',
       }
     }
-    const runId = crypto.randomUUID()
+    const surface = this.deps.executionSurface()
+    if (!surface) {
+      return {
+        ok: false,
+        message: 'Sponsored tasks cannot run on this machine.',
+      }
+    }
+    const target = await this.deps.target()
+    if (!target) {
+      return {
+        ok: false,
+        message:
+          'This project no longer has a stable sponsored-workspace identity.',
+      }
+    }
+    const preview = await this.deps.preview(
+      proposal._id,
+      authToken,
+      target,
+      surface,
+    )
+    if (!preview.ok) return { ok: false, message: preview.message }
+    if (preview.preview.target && !sameTarget(preview.preview.target, target)) {
+      return {
+        ok: false,
+        message:
+          'This sponsored task belongs to a different project. Review it again.',
+      }
+    }
+    // THE SAME RUN ID for a re-review of the same proposal and procedure. An
+    // Accept that timed out may already be durable upstream under the earlier
+    // id, and a fresh one would be refused as `accept_binding_changed` instead
+    // of replaying the first.
+    const reuse =
+      this.prepared?.proposalId === proposal._id &&
+      this.prepared.preview.procedureSha256 === preview.preview.procedureSha256
+    const runId = reuse ? this.prepared!.runId : randomUUID()
+    this.prepared = {
+      proposalId: proposal._id,
+      runId,
+      preview: preview.preview,
+      task,
+      target,
+    }
     return {
       ok: true,
       runId,
@@ -403,25 +713,24 @@ export class SponsoredRun {
         advertiserName: proposal.advertiser_name,
         headline: proposal.headline,
         body: proposal.body,
+        procedure: preview.preview.procedure,
+        taskContext: task.messages,
         folder: this.projectRoot,
-        branch: sponsoredBranchFor(
-          sponsoredRunTitle(proposal.advertiser_name),
-          runId,
-        ),
       },
     }
   }
 
   /**
-   * The user said yes. Accept upstream, cut the worktree, run it.
+   * The user said yes. Accept upstream, then wait for the conversation.
    *
-   * `runId` is the one minted for the consent screen, so the branch that was
-   * named is the branch that is cut. Passing a fresh one here would make the
-   * screen a description of a different run.
+   * The turn is NOT started here: chat starts it through `startTurn` once no
+   * other turn is running, so the user's own work is never interleaved with
+   * the advertiser's.
    */
   async accept(
     proposal: SponsoredProposal,
     runId: string,
+    task?: SponsoredTaskEvidence | null,
   ): Promise<SponsoredRunOutcome> {
     if (this.availability() !== 'available') {
       return {
@@ -432,7 +741,7 @@ export class SponsoredRun {
     // C-5: one accept per proposal. The card's `busy` flag covers the ordinary
     // double press; this covers a second command typed while the first is in
     // flight, which `busy` cannot see because it is set on a different tick.
-    if (this.accepting || this.active) {
+    if (this.accepting || (this.active && !this.active.settled)) {
       return {
         ok: false,
         message: 'A sponsored task is already being started.',
@@ -445,100 +754,134 @@ export class SponsoredRun {
         message: 'Sign in to Freebuff to accept a sponsored task.',
       }
     }
+    const prepared = this.prepared
+    if (
+      !prepared ||
+      prepared.proposalId !== proposal._id ||
+      prepared.runId !== runId
+    ) {
+      return {
+        ok: false,
+        message: 'Review this sponsored task again before accepting it.',
+      }
+    }
+    const surface = this.deps.executionSurface()
+    if (!surface) {
+      return {
+        ok: false,
+        message: 'Sponsored tasks cannot run on this machine.',
+      }
+    }
     this.accepting = true
+    // The context must still be available and exactly what the user reviewed.
+    if (!task || task.identity !== prepared.task.identity) {
+      this.prepared = null
+      this.accepting = false
+      return {
+        ok: false,
+        message:
+          'The task context changed after review. Review the sponsored task again.',
+      }
+    }
+    // Caught here rather than left to the caller: `accepting` is already set,
+    // and a throw past it would refuse every later Accept in this process.
+    const target = await this.deps.target().catch(() => null)
+    if (!target || !sameTarget(target, prepared.target)) {
+      this.prepared = null
+      this.accepting = false
+      return {
+        ok: false,
+        message:
+          'Your project identity changed after review. Review the sponsored task again.',
+      }
+    }
     this.set({
+      ...IDLE,
       phase: 'accepting',
       proposalId: proposal._id,
       advertiserName: proposal.advertiser_name,
-      branch: null,
-      worktreePath: null,
-      prUrl: null,
-      failureReason: null,
+      runId,
     })
     try {
-      // ACCEPT IS IDEMPOTENT within the run token's TTL (COD-396): a retry from
-      // the same caller returns the same payload with the same `runToken`. So
-      // `status: 0` -- the deliberate non-status for a request that never
-      // became an HTTP exchange at all -- is worth exactly one retry. Without
-      // it a dropped connection strands a proposal upstream may already have
-      // accepted, with a token nobody holds and no way to ask for it again.
-      // ONLY status 0: a 409 or a 422 is an answer, and retrying an answer is
-      // how one refusal becomes two.
-      let accepted = await this.deps.accept(proposal._id, authToken)
-      if (!accepted.ok && accepted.status === 0) {
-        accepted = await this.deps.accept(proposal._id, authToken)
+      const binding = {
+        runId,
+        procedureSha256: prepared.preview.procedureSha256,
+        target,
+        clientExecutionSurface: surface,
+      }
+      let accepted = await this.deps.accept(proposal._id, authToken, binding)
+      for (const delay of ACCEPT_RETRY_DELAYS_MS) {
+        if (accepted.ok || !retryableAcceptStatus(accepted.status)) break
+        await this.deps.sleep(delay)
+        accepted = await this.deps.accept(proposal._id, authToken, binding)
       }
       if (!accepted.ok) {
-        this.set({ phase: 'idle', proposalId: null, advertiserName: null })
+        this.set({ ...IDLE })
+        if (accepted.code === 'procedure_changed') {
+          this.prepared = null
+          return { ok: false, message: accepted.message, reviewAgain: true }
+        }
+        // A transport failure KEEPS the binding: the Accept may be durable
+        // upstream, and re-running `/ads:accept-proposal` replays it under the
+        // same run id rather than being refused as a different approval.
+        if (!retryableAcceptStatus(accepted.status)) this.prepared = null
         return { ok: false, message: accepted.message }
       }
 
-      // FROM HERE ON THE ROW IS ACCEPTED UPSTREAM. Anything that throws between
-      // the accept and a live run STRANDS it: the card sits on `accepted` with
-      // nothing behind it, forever, and no sweep finds it because there is no
-      // run to find. So the failure is reported here rather than thrown away.
-      const runToken = accepted.accept.runToken
-      let worktree: SponsoredWorktree
-      try {
-        worktree = await createSponsoredWorktree(
-          this.projectRoot,
-          runId,
-          sponsoredRunTitle(proposal.advertiser_name),
-          this.deps.git,
-        )
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Could not create a workspace.'
-        await this.reportWith(
-          proposal._id,
-          runToken,
-          authToken,
-          {
-            state: 'failed',
-            failureReason:
-              'The sponsored task could not be started on this machine. Nothing was changed in your project.',
-            diagnosticReason: `workspace-failed${diagnosticCause(message)}`,
-          },
-          runId,
-        )
-        this.set({ phase: 'failed', failureReason: message })
-        return { ok: false, message }
+      if (
+        sponsoredProcedureSha256(accepted.accept.procedure) !==
+        prepared.preview.procedureSha256
+      ) {
+        this.set({ ...IDLE })
+        this.prepared = null
+        return {
+          ok: false,
+          message: 'Freebuff returned a task different from the reviewed task.',
+        }
       }
 
+      // Repeated into terminal messages and the model's context below.
+      const advertiserName = sanitizeTerminalText(
+        accepted.accept.advertiserName || proposal.advertiser_name,
+      )
       this.active = {
         proposalId: proposal._id,
-        runToken,
-        advertiserName:
-          accepted.accept.advertiserName || proposal.advertiser_name,
-        worktree,
+        runId,
+        runToken: accepted.accept.runToken,
+        computeGrant: accepted.accept.computeGrant,
+        advertiserName,
+        procedure: accepted.accept.procedure,
+        taskContext: prepared.task.messages,
+        runtimeInputs: {
+          advertiserLink:
+            typeof accepted.accept.advertiserLink === 'string'
+              ? sponsoredAdvertiserCtaHref(accepted.accept.advertiserLink)
+              : null,
+        },
+        recorder: new SponsoredEditRecorder(
+          {
+            runId,
+            proposalId: proposal._id,
+            advertiserName,
+            projectRoot: this.projectRoot,
+          },
+          this.deps.receipts,
+        ),
         abort: new AbortController(),
+        expiryTimer: null,
         settled: false,
+        running: null,
       }
-      this.set({
-        phase: 'running',
-        branch: worktree.branch,
-        worktreePath: worktree.path,
-      })
-      // `running` is reported when the TURN is about to start, not at the
-      // accept: between the two sits worktree creation, and a card that said
-      // "running" through a failed create is a card that lied.
-      await this.report(authToken, { state: 'running' })
-
-      void this.execute(authToken, accepted.accept.procedure, {
-        advertiserLink:
-          typeof accepted.accept.advertiserLink === 'string'
-            ? sponsoredAdvertiserCtaHref(accepted.accept.advertiserLink)
-            : null,
-      })
+      this.deps.lastRun.write(runId)
+      this.prepared = null
+      this.set({ phase: 'queued', advertiserName })
       return { ok: true }
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : 'Could not start the sponsored task.'
-      this.set({ phase: 'failed', failureReason: message })
+      this.set({ ...IDLE, phase: 'failed', failureReason: message })
       return { ok: false, message }
     } finally {
       this.accepting = false
@@ -546,326 +889,396 @@ export class SponsoredRun {
   }
 
   /**
-   * The turn, and the verdict it earns.
+   * The plan for the turn.
    *
-   * COMMITTED IS DECIDED BY GIT, not by watching the run's tool calls. The
-   * question the card asks is "is there something for me to review", and the
-   * only honest answer to that is whether the branch tip moved off its base. A
-   * run that announced a commit it did not make, or made one through a path we
-   * were not watching, is answered correctly either way.
+   * Called by chat once the conversation is free, which is the moment chat
+   * CLAIMS the run: the local phase becomes `running` here, so the card stops
+   * saying "queued" and nothing starts the turn twice. The `running` REPORT
+   * waits for proof of compute (`computeStarted`).
+   *
+   * Null when there is nothing queued, or when the grant can no longer pay for
+   * a run -- in which case the run is failed here, since no turn will ever
+   * settle it.
    */
-  private async execute(
-    authToken: string,
-    procedure: string,
-    runtimeInputs: SponsoredProcedureRuntimeInputs = {},
-  ): Promise<void> {
+  async startTurn(): Promise<SponsoredTurnPlan | null> {
     const active = this.active
-    if (!active?.worktree) return
-    let errorText: string | null = null
-    try {
-      errorText = await this.deps.runTurn({
-        prompt: buildSponsoredPrompt(procedure, runtimeInputs),
-        worktree: active.worktree,
-        runtimeDir: sponsoredRuntimeDir(
-          this.projectRoot,
-          runIdOf(active.worktree),
-        ),
-        proposalId: active.proposalId,
-        signal: active.abort.signal,
-      })
-    } catch (error) {
-      errorText = error instanceof Error ? error.message : String(error)
+    if (!active || active.settled || this.snapshot.phase !== 'queued') {
+      return null
     }
-    // An abort has already reported its own terminal state; a turn that
-    // unwinds afterwards must not report a second one over it.
-    if (active.settled) return
-    const aborted = active.abort.signal.aborted
-    const head = await sponsoredHead(
-      active.worktree.path,
-      active.worktree.baseRef,
-      this.deps.git,
-      this.deps.exists,
-    )
+    const grant = active.computeGrant
     if (
-      !aborted &&
-      !errorText &&
-      head.head &&
-      head.head !== active.worktree.baseRef
+      grant.proposalId !== active.proposalId ||
+      grant.runId !== active.runId ||
+      !/^[a-f0-9]{64}$/.test(grant.procedureSha256) ||
+      grant.procedureSha256 !== sponsoredProcedureSha256(active.procedure) ||
+      grant.expiresAtMs <= this.deps.now()
     ) {
-      active.settled = true
-      await this.report(authToken, {
-        state: 'committed',
-        head: head.head,
-        branch: active.worktree.branch,
+      await this.settle({
+        errorText:
+          'The sponsored compute authorization is missing or expired. Nothing was started.',
+        aborted: false,
       })
-      this.set({ phase: 'committed' })
-      return
+      return null
     }
-    active.settled = true
-    // THE USER-FACING SENTENCE AND THE OPERATOR'S ARE DIFFERENT SENTENCES.
-    // "freebuff.com was unreachable" and "git could not open /dev/null on this
-    // Mac" reach the card as the same words and are entirely different bugs;
-    // `diagnosticReason` is where they stop being the same row.
-    const failureReason = aborted
-      ? 'The sponsored task was interrupted before it finished.'
-      : errorText
-        ? 'The sponsored task failed. Nothing was pushed to your repository.'
-        : 'The sponsored task finished without committing anything. Nothing was changed in your project.'
-    await this.report(authToken, {
-      state: 'failed',
-      ...(head.head ? { head: head.head } : {}),
-      failureReason,
-      diagnosticReason: `turn ${
-        aborted ? 'interrupted' : errorText ? 'error' : 'completed'
-      }${diagnosticCause(errorText)}; ${head.diagnostic}`,
-    })
-    this.set({ phase: 'failed', failureReason })
+    this.set({ phase: 'running' })
+    // NO `running` REPORT YET (COD-665 V5). Upstream stamps `running_at` on
+    // the first one and its stale sweep fails the row an hour and a half
+    // after it, so it has to mark the start of the compute hour -- not the
+    // wait for the conversation before it, nor a turn whose first model call
+    // is refused. It is sent on the turn's first model event, below.
+    // The grant stops paying at its expiry, and a run that outlives it would
+    // be billed to nobody. Aborted rather than left to fail request by request.
+    // Its HOUR starts now, not at Accept (COD-665): the grant arrives with only
+    // its start deadline, and the server brings it in to an hour from this
+    // turn's first call -- a moment after this, so the local cutoff is never
+    // the later of the two.
+    const runDeadlineMs = sponsoredComputeRunDeadlineMs(
+      grant.expiresAtMs,
+      this.deps.now(),
+    )
+    active.expiryTimer = setTimeout(
+      () => active.abort.abort('grant-expired'),
+      Math.max(0, runDeadlineMs - this.deps.now()),
+    )
+    active.expiryTimer.unref?.()
+    const context: SponsoredToolContext = {
+      workspaceRoot: this.projectRoot,
+      runtimeDir: sponsoredRuntimeDir(this.projectRoot, active.runId),
+      signal: active.abort.signal,
+      recorder: active.recorder,
+      // The skill's pinned packages, from the procedure hash the grant pins;
+      // none for a legacy procedure, which refuses every install.
+      declaredPackages: sponsoredDeclaredPackagesForProcedureSha256(
+        grant.procedureSha256,
+      ),
+    }
+    // A sponsored grant names a plain model id, which the catalog root does
+    // not admit, so a catalog-mode CLI runs it on that model's compiled root.
+    const agentId = (
+      this.deps.agentId ??
+      (() =>
+        isFreebuffCatalogMode()
+          ? getFreebuffCliAgentIdForModel(grant.modelId)
+          : getAgentIdForMode('LITE'))
+    )()
+    return {
+      runId: active.runId,
+      proposalId: active.proposalId,
+      advertiserName: active.advertiserName,
+      prompt: buildSponsoredPrompt(
+        active.procedure,
+        active.taskContext,
+        active.runtimeInputs,
+      ),
+      agent: sponsoredAgentDefinition({
+        agentId,
+        model: grant.modelId,
+        isFreebuff: IS_FREEBUFF,
+        reportFriction: !!this.deps.reportFriction,
+      }),
+      customToolDefinitions: this.deps.reportFriction
+        ? [
+            sponsoredFrictionTool((report) =>
+              this.reportFriction(active.proposalId, active.runToken, report),
+            ),
+          ]
+        : [],
+      overrideTools: beforeFirstToolCall(
+        (this.deps.overrideTools ?? sponsoredOverrideTools)(context),
+        () => {
+          if (!active.settled) this.computeStarted(active)
+        },
+      ),
+      // A signed one-run grant is the only route through sponsored metering.
+      // No Freebuff session id rides beside it: the run is not the user's to
+      // pay for, so it must not fall back to their free session when absent.
+      extraCodebuffMetadata: {
+        freebuff_sponsored_proposal_id: active.proposalId,
+        freebuff_sponsored_run_id: grant.runId,
+        freebuff_sponsored_procedure_sha256: grant.procedureSha256,
+        freebuff_sponsored_compute_token: grant.token,
+        freebuff_sponsored_surface: 'cli',
+      },
+      signal: active.abort.signal,
+      cwd: this.projectRoot,
+      onModelEvent: () => {
+        if (!active.settled) this.computeStarted(active)
+      },
+    }
   }
 
   /**
-   * Ctrl-C, a quit, or a signal, mid-run.
+   * The agent's `report_friction` (a blocker or friction it hit), posted in
+   * the background. The tool has already answered; a failure is only logged,
+   * because the report is telemetry and the run's outcome report does not depend on it.
+   */
+  private reportFriction(
+    proposalId: string,
+    runToken: string,
+    report: SponsoredFrictionInput,
+  ): void {
+    const authToken = this.deps.getToken()
+    if (!authToken || !this.deps.reportFriction) return
+    void this.deps
+      .reportFriction(proposalId, runToken, report, authToken)
+      .then((result) => {
+        if (!result.ok)
+          logger.info(
+            { proposalId, status: result.status },
+            '[sponsored-run] friction report not recorded',
+          )
+      })
+      .catch((error: unknown) =>
+        logger.info(
+          {
+            proposalId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          '[sponsored-run] friction report not recorded',
+        ),
+      )
+  }
+
+  /**
+   * The verdict, read off the run's own edit receipts
+   * (`sponsoredInPlaceVerdict`, shared with Desktop so the two cannot drift):
    *
-   * THE QUESTION WITH NO WEB EQUIVALENT. On Cloud the run is remote and closing
-   * the tab leaves it to finish; here it is a process on the user's machine
-   * that is going away, and the two things it must not leave behind are a row
-   * stuck on `running` forever and a directory the user cannot account for.
+   * - a turn that COMPLETED and changed files is `delivered`;
+   * - a turn that changed files and ended any other way -- interrupted, an
+   *   error, the grant expiring -- is `failed` as `partial_edits`. Half a
+   *   procedure is not the procedure, so it is not delivered; the copy says
+   *   the partial changes are still in the user's files and names
+   *   `/ads:undo`, and the conversation's own agent is still briefed on them;
+   * - a turn that changed nothing is `failed`, and says nothing changed.
    *
-   * So: abort the turn, report a TERMINAL state, and hand back a sentence the
-   * caller prints saying exactly what is on disk and how to remove it. The
-   * worktree is KEPT in every case — it is the user's checkout on the user's
-   * disk, and a process ending is not a reason to delete work.
+   * Returns the brief for the conversation's own agent, or null.
+   */
+  async settleTurn(result: SponsoredTurnResult): Promise<string | null> {
+    return this.settle(result)
+  }
+
+  private async settle(result: SponsoredTurnResult): Promise<string | null> {
+    const active = this.active
+    if (!active || active.settled) return null
+    active.settled = true
+    if (active.expiryTimer) clearTimeout(active.expiryTimer)
+    const changed = active.recorder.changed()
+    const files = changed.map((receipt) => receipt.path)
+    const expired = active.abort.signal.reason === 'grant-expired'
+    const ending: SponsoredTurnEnding = expired
+      ? 'grant_expired'
+      : result.aborted
+        ? 'interrupted'
+        : result.errorText
+          ? 'error'
+          : 'completed'
+    const how = `turn ${
+      expired
+        ? 'grant-expired'
+        : result.aborted
+          ? 'interrupted'
+          : result.errorText
+            ? 'error'
+            : 'completed'
+    }${diagnosticCause(result.errorText)}`
+    // No `modelRan`: every receipt here is one of the run's own tool edits, so
+    // a model-less turn cannot have left one.
+    const verdict = sponsoredInPlaceVerdict({
+      ending,
+      editedFileCount: files.length,
+    })
+    // An edit is proof the turn spent compute, so `running` goes first even
+    // if no tool call announced it: `delivered` is only legal from `running`.
+    if (files.length > 0) this.computeStarted(active)
+    // A terminal report is PERSISTED to the outbox whether or not a session
+    // token exists right now: the flush waits for one. Gating it on the token
+    // dropped a signed-out run's verdict, and its in-flight record would then
+    // be swept at the next launch as a failure it was not.
+    const authToken = this.deps.getToken() ?? ''
+    if (verdict === 'delivered') {
+      const outcomes = sponsoredOutcomesFromReceipts(active.procedure, changed)
+      this.set({ phase: 'delivered', changedFiles: files })
+      await this.report(authToken, { state: 'delivered', ...outcomes })
+      return sponsoredChangesBrief(active.advertiserName, files)
+    }
+    if (verdict === 'partial_edits') {
+      const failureReason = sponsoredCliPartialEditsFailureReason(
+        ending === 'error' ? 'failed' : 'interrupted',
+      )
+      this.set({ phase: 'failed', changedFiles: files, failureReason })
+      await this.report(authToken, {
+        state: 'failed',
+        failureReason,
+        diagnosticReason: sponsoredPartialEditsDiagnostic(how, files.length),
+      })
+      return sponsoredChangesBrief(active.advertiserName, files)
+    }
+    const failureReason = result.aborted
+      ? 'The sponsored task was interrupted before it changed anything. Nothing was changed in your project.'
+      : result.errorText
+        ? 'The sponsored task failed before it changed anything. Nothing was changed in your project.'
+        : 'The sponsored task finished without changing anything in your project.'
+    this.set({ phase: 'failed', failureReason })
+    await this.report(authToken, {
+      state: 'failed',
+      failureReason,
+      diagnosticReason: `${how}; the turn recorded no file edits of its own`,
+    })
+    return null
+  }
+
+  /**
+   * The turn is spending the sponsor's compute: record that this process owns
+   * the run, and report `running`. Once per run, never throws.
    *
-   * `settled` is set BEFORE the report, so the turn unwinding a moment later
-   * does not report a second terminal state over this one — which upstream
-   * would refuse 409 anyway, but only after the card had flickered.
+   * CALLED ON THE TURN'S FIRST MODEL EVENT (COD-665 V5), of any kind: text,
+   * reasoning, a tool call or its result, a subagent starting -- what Desktop
+   * reports on too. A model event is the first thing this process can see that
+   * only happens after chat claimed the run AND the server reserved compute
+   * for its first model call and answered it: a turn refused at that
+   * reservation streams nothing. A turn that only writes text still counts,
+   * so its row gets its `running_at`. The first tool call calls it too, as a
+   * backstop, and `settle` calls it for a run that left edits without
+   * announcing itself.
+   *
+   * The in-flight record is written BEFORE the report is sent, so a process
+   * killed mid-request still leaves the next launch something to sweep.
+   */
+  private computeStarted(active: NonNullable<SponsoredRun['active']>): void {
+    if (active.running) return
+    const inflight = this.deps.inflight
+    try {
+      inflight?.put({
+        version: 1,
+        proposalId: active.proposalId,
+        runId: active.runId,
+        runToken: active.runToken,
+        pid: inflight.pid,
+        startedAtMs: this.deps.now(),
+      })
+    } catch (error) {
+      logger.debug({ error }, '[sponsored-run] in-flight record failed')
+    }
+    const authToken = this.deps.getToken()
+    active.running = authToken
+      ? this.reportWith(
+          active.proposalId,
+          active.runToken,
+          authToken,
+          { state: 'running' },
+          active.runId,
+        ).then(
+          () => undefined,
+          () => undefined,
+        )
+      : Promise.resolve()
+    // Every later outbox flush waits for it, so no terminal report reaches
+    // upstream ahead of the `running` it ends -- while the terminal report is
+    // still PERSISTED at once, since a quit may not wait out this request.
+    const running = active.running
+    this.terminalReportFlushChain = this.terminalReportFlushChain.then(
+      () => running,
+    )
+  }
+
+  /**
+   * Ctrl-C, a quit, or a signal, while a run is queued or running.
+   *
+   * THE QUESTION WITH NO WEB EQUIVALENT. The run is a process on the user's
+   * machine that is going away, and it must not leave the proposal stuck on
+   * `running` forever. So: abort the turn and report a terminal state from the
+   * receipts, which are already on disk -- a report persisted to the outbox
+   * before anything is sent, so it survives the process ending.
    */
   async interrupt(
     reason: 'ctrl-c' | 'signal' | 'quit',
   ): Promise<{ interrupted: boolean; notice: string | null }> {
     const active = this.active
     if (!active || active.settled) return { interrupted: false, notice: null }
-    active.settled = true
-    active.abort.abort()
-    const authToken = this.deps.getToken()
-    if (authToken) {
-      await this.report(authToken, {
-        state: 'failed',
-        failureReason:
-          'The sponsored task was interrupted before it finished. Its workspace is still here.',
-        diagnosticReason: `interrupted: ${reason}`,
-      })
-    }
-    this.set({
-      phase: 'failed',
-      failureReason: 'The sponsored task was interrupted before it finished.',
-    })
-    const worktree = active.worktree
-    this.active = null
+    active.abort.abort(`interrupted: ${reason}`)
+    await this.settle({ errorText: null, aborted: true })
+    const files = this.snapshot.changedFiles
     return {
       interrupted: true,
-      notice: worktree
-        ? [
-            `The sponsored task from ${active.advertiserName} was interrupted.`,
-            `Its workspace is still on disk at ${worktree.path}, on branch ${worktree.branch}.`,
-            'Nothing was pushed. Remove it with /ads:remove-worktree, or keep it and look at what it did.',
-          ].join('\n')
-        : `The sponsored task from ${active.advertiserName} was interrupted before it created a workspace. Nothing was left behind.`,
+      notice:
+        files.length > 0
+          ? [
+              `The sponsored task from ${active.advertiserName} was interrupted.`,
+              `It had already changed ${files.length === 1 ? '1 file' : `${files.length} files`} in this folder. Undo them with /ads:undo.`,
+            ].join('\n')
+          : `The sponsored task from ${active.advertiserName} was interrupted before it changed anything.`,
     }
   }
 
   /**
-   * The one push in the whole flow, and it happens on an explicit user action.
+   * Put the run's files back.
    *
-   * `git push` then `gh pr create`, in that order and both explicit. `gh pr
-   * create` will push a missing branch on its own, interactively — which in a
-   * TUI is a prompt nobody sees rather than a push.
-   *
-   * NOT run through the sponsored broker. This is the USER's action with the
-   * USER's credentials, which is the entire reason the run itself could not do
-   * it: the broker exists to keep the advertiser's procedure away from `~/.ssh`
-   * and `gh auth`, and the point of the command is that the user decided to
-   * spend exactly one of those.
+   * Reads the ledger from disk rather than from memory, so an undo works after
+   * the CLI was closed and reopened in this folder. Skip-not-clobber: a file
+   * the user has changed since the run is named and left alone.
    */
-  async createPullRequest(): Promise<SponsoredDeliveryOutcome> {
-    const active = this.active
-    if (!active?.worktree) {
-      return {
-        ok: false,
-        message: 'There is no sponsored task to open a pull request for.',
-      }
-    }
-    const { worktree } = active
-    if (!this.deps.exists(worktree.path)) {
+  undo(): { ok: boolean; message: string; brief: string | null } {
+    if (this.active && !this.active.settled) {
       return {
         ok: false,
         message:
-          'The sponsored task’s workspace is gone, so there is nothing to open a pull request from.',
+          'The sponsored task is still working. Interrupt it before undoing its changes.',
+        brief: null,
       }
     }
-    // ONE PUSH AT A TIME.
-    if (this.pushing) {
+    const runId = this.active?.runId ?? this.deps.lastRun.read()
+    const ledger = runId ? readSponsoredLedger(this.deps.receipts, runId) : null
+    if (!ledger) {
       return {
         ok: false,
-        message: 'A pull request for this task is already being opened.',
+        message: 'No sponsored task has changed anything in this folder.',
+        brief: null,
       }
     }
-    const authToken = this.deps.getToken()
-    if (!authToken) {
+    if (changedReceipts(ledger).length === 0 && ledger.undoneAt === undefined) {
       return {
         ok: false,
-        message: 'Sign in to Freebuff to open a pull request.',
+        message: `The sponsored task from ${ledger.advertiserName} did not change any files.`,
+        brief: null,
       }
     }
-    this.pushing = true
-    try {
-      // THE GATE IS HERE, not only on the card. Recomputed the same way the
-      // turn's verdict was — by asking git whether the branch tip moved off its
-      // base — because a run's own account of itself is not evidence, and
-      // because between then and now the user could have removed the workspace.
-      const head = await sponsoredHead(
-        worktree.path,
-        worktree.baseRef,
-        this.deps.git,
-        this.deps.exists,
+    const result = undoSponsoredReceipts(ledger, this.deps.receipts)
+    if (result.alreadyUndone) {
+      return {
+        ok: false,
+        message: `The changes from ${ledger.advertiserName} were already undone.`,
+        brief: null,
+      }
+    }
+    // A partial undo leaves the rest owed, and the dock's Undo with it.
+    if (this.snapshot.runId === ledger.runId && result.skipped.length === 0)
+      this.set({ undone: true })
+    const lines = [
+      `Undid ${ledger.advertiserName}'s changes: ${result.restored.length} restored` +
+        (result.skipped.length > 0
+          ? `, ${result.skipped.length} skipped because they changed since: ${result.skipped.join(', ')}`
+          : '.'),
+    ]
+    if (result.skipped.length > 0) {
+      lines.push(
+        'Run /ads:undo again to restore those once they are back to what the sponsored task left.',
       )
-      if (!head.head || head.head === worktree.baseRef) {
-        return {
-          ok: false,
-          message:
-            'The sponsored task has not committed anything, so there is nothing to open a pull request from.',
-        }
-      }
-      // THE WORKTREE'S GITDIR POINTER IS ADVERTISER-WRITABLE. `<worktree>/.git`
-      // is a file inside the worktree saying where the real gitdir is, and the
-      // sandbox permits writing anywhere in the worktree — so a run can point it
-      // at a repository of its own, with its own remote and its own hooks, and
-      // the push below would go there.
-      if (
-        !(await gitdirUnmoved(this.projectRoot, worktree.path, this.deps.git))
-      ) {
-        return {
-          ok: false,
-          message:
-            'This workspace no longer points at your repository, so nothing was pushed.',
-        }
-      }
-      const env = noHooksEnv(this.projectRoot)
-      const push = await this.deps.deliver(
-        'git',
-        [
-          '-C',
-          worktree.path,
-          'push',
-          '--set-upstream',
-          'origin',
-          worktree.branch,
-        ],
-        { cwd: worktree.path, env },
-      )
-      if (push.exitCode !== 0) {
-        return {
-          ok: false,
-          message: firstLine(push.stderr) || 'Could not push the branch.',
-        }
-      }
-      const create = await this.deps.deliver(
-        'gh',
-        [
-          'pr',
-          'create',
-          '--head',
-          worktree.branch,
-          '--base',
-          worktree.sourceBranch,
-          '--title',
-          `${active.advertiserName}: sponsored change`,
-          '--body',
-          SPONSORED_PR_BODY,
-        ],
-        { cwd: worktree.path, env },
-      )
-      const printed = (create.stdout.match(/https:\/\/\S+/) ?? [])[0]
-      // Through the SHARED destination gate before it is reported or shown. The
-      // state route refuses a `landed` whose `prUrl` does not survive
-      // sanitization (422 `invalid_pr_url`) and the card refuses to render one
-      // either — so a URL that fails here is one we would report, be refused
-      // for, and then have nothing to print. Checking it on this side turns
-      // that into one honest failure instead of a round trip.
-      const prUrl = printed ? sponsoredPullRequestHref(printed) : null
-      if (create.exitCode !== 0 || !prUrl) {
-        return {
-          ok: false,
-          message:
-            firstLine(create.stderr) ||
-            (printed
-              ? 'A pull request was opened, but its address could not be verified.'
-              : 'Could not open a pull request.'),
-        }
-      }
-      // ONE retry, and only on a request that never completed. A 422 means
-      // upstream looked at this URL and refused it; sending the same URL again
-      // gets the same answer.
-      let landed = await this.reportResult(authToken, {
-        state: 'landed',
-        prUrl,
-        branch: worktree.branch,
-      })
-      if (landed && !landed.ok && landed.status === 0) {
-        landed = await this.reportResult(authToken, {
-          state: 'landed',
-          prUrl,
-          branch: worktree.branch,
-        })
-      }
-      this.set({ phase: 'landed', prUrl })
-      return { ok: true, prUrl, recorded: landed?.ok === true }
-    } finally {
-      this.pushing = false
     }
-  }
-
-  /**
-   * Remove the workspace the run left behind.
-   *
-   * Offered, never automatic. The commits survive it — they are on a branch in
-   * the user's shared object store, which is one of the three reasons the clone
-   * was rejected (#2725) — but the branch goes with it, so this is the user's
-   * call rather than ours.
-   */
-  async removeWorktree(): Promise<{ ok: boolean; message: string }> {
-    const active = this.active
-    const worktree = active?.worktree ?? null
-    if (!worktree) {
-      return {
-        ok: false,
-        message: 'There is no sponsored workspace to remove.',
-      }
-    }
-    if (this.snapshot.phase === 'running') {
-      return {
-        ok: false,
-        message:
-          'The sponsored task is still working. Interrupt it before removing its workspace.',
-      }
-    }
-    try {
-      await removeSponsoredWorktree(
-        this.projectRoot,
-        runIdOf(worktree),
-        worktree.branch,
-        this.deps.git,
+    if (result.shellCommands > 0) {
+      lines.push(
+        'Files created by the commands it ran are not tracked; check `git status` for anything left behind.',
       )
-      this.active = null
-      this.set({ phase: 'idle', worktreePath: null, branch: null })
-      return { ok: true, message: `Removed ${worktree.path} and its branch.` }
-    } catch (error) {
-      return {
-        ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Could not remove the workspace.',
-      }
+    }
+    lines.push(
+      'Undoing does not refund the sponsor; nothing is charged to you.',
+    )
+    return {
+      ok: true,
+      message: lines.join('\n'),
+      brief:
+        result.restored.length > 0
+          ? sponsoredUndoBrief(ledger.advertiserName, result.restored)
+          : null,
     }
   }
 
@@ -882,7 +1295,7 @@ export class SponsoredRun {
       active.runToken,
       authToken,
       update,
-      active.worktree ? runIdOf(active.worktree) : active.proposalId,
+      active.runId,
     )
   }
 
@@ -891,11 +1304,22 @@ export class SponsoredRun {
     runToken: string,
     authToken: string,
     update: SponsoredStateUpdate,
-    runId: string = proposalId,
+    runId: string,
   ) {
     if (!TERMINAL_REPORT_STATES.has(update.state)) {
+      // `running` is the only nonterminal report, and it must carry the SAME
+      // identity tuple a terminal report does: a funded Accept freezes
+      // `compute_run_id`, and Convex refuses a report without it as
+      // `invalid_report_identity`. The report id is derived from the run id,
+      // as Desktop derives it, so a replayed turn-start is an exact replay
+      // upstream rather than a conflict.
+      const identified = {
+        ...update,
+        reportId: `running:${runId}`,
+        runId,
+      }
       return this.deps
-        .reportState(proposalId, runToken, update, authToken)
+        .reportState(proposalId, runToken, identified, authToken)
         .catch((error) => {
           logger.debug({ error, update }, '[sponsored-run] state report failed')
           return { ok: false as const, status: 0, message: String(error) }
@@ -913,6 +1337,7 @@ export class SponsoredRun {
       pending.update.runId === runId &&
       terminalReportPayload(pending.update) === terminalReportPayload(update)
     ) {
+      this.releaseInflight(runId)
       return this.flushTerminalReports(true)
     }
     reports.push({
@@ -926,19 +1351,58 @@ export class SponsoredRun {
     })
     // Persist the terminal intent before waiting on any earlier HTTP request.
     this.writeTerminalReports(reports)
+    // Durable now: the outbox owns delivering it, so the boot sweep must not.
+    this.releaseInflight(runId)
     return this.flushTerminalReports(true)
   }
 
-  private async reportResult(authToken: string, update: SponsoredStateUpdate) {
-    const active = this.active
-    if (!active) return null
-    return this.reportWith(
-      active.proposalId,
-      active.runToken,
-      authToken,
-      update,
-      active.worktree ? runIdOf(active.worktree) : active.proposalId,
-    )
+  private releaseInflight(runId: string): void {
+    try {
+      this.deps.inflight?.remove(runId)
+    } catch (error) {
+      logger.debug({ error }, '[sponsored-run] in-flight release failed')
+    }
+  }
+
+  /**
+   * Give every run a dead process left without a verdict a `failed` report,
+   * in this outbox (`sweepSponsoredInflightRuns`). Runs inside the serialized
+   * flush, so the append cannot race another write to the outbox.
+   */
+  private sweepInflightRuns(): void {
+    const inflight = this.deps.inflight
+    if (!inflight) return
+    try {
+      sweepSponsoredInflightRuns({
+        inflight,
+        receipts: this.deps.receipts,
+        hasOutboxReport: (runId) =>
+          this.readTerminalReports().some(
+            (report) => report.update.runId === runId,
+          ),
+        tokenAvailable: Boolean(this.deps.getToken()),
+        now: this.deps.now(),
+        enqueue: (record, update) => {
+          const reports = this.readTerminalReports()
+          reports.push({
+            proposalId: record.proposalId,
+            runToken: record.runToken,
+            update: {
+              ...update,
+              reportId: randomUUID(),
+              runId: record.runId,
+            },
+            attempts: 0,
+            nextDueAt: this.deps.now(),
+            lastError: null,
+            disposition: 'pending',
+          })
+          this.writeTerminalReports(reports)
+        },
+      })
+    } catch (error) {
+      logger.debug({ error }, '[sponsored-run] in-flight sweep failed')
+    }
   }
 
   private readTerminalReports(): DurableTerminalReport[] {
@@ -956,10 +1420,11 @@ export class SponsoredRun {
     this.deps.terminalReports.write(JSON.stringify(reports))
   }
 
-  private flushTerminalReports(force: boolean) {
-    const result = this.terminalReportFlushChain.then(() =>
-      this.flushTerminalReportsSerial(force),
-    )
+  private flushTerminalReports(force: boolean, sweep = false) {
+    const result = this.terminalReportFlushChain.then(() => {
+      if (sweep) this.sweepInflightRuns()
+      return this.flushTerminalReportsSerial(force)
+    })
     this.terminalReportFlushChain = result.then(
       () => undefined,
       (error) => {
@@ -972,18 +1437,25 @@ export class SponsoredRun {
   private async flushTerminalReportsSerial(force: boolean) {
     let reports = this.readTerminalReports()
     let last = null
+    // EACH REPORT KEEPS ITS OWN SCHEDULE. With no attempt cap, stopping at the
+    // first report that is not due -- or that failed again -- would let one
+    // report that keeps failing hold every later one back forever, newer runs'
+    // included. So the pass continues past it, and one timer is set for
+    // whichever pending report is due first.
+    let retryAt: number | null = null
+    const retryNoLaterThan = (dueAt: number) => {
+      retryAt = retryAt === null ? dueAt : Math.min(retryAt, dueAt)
+    }
     for (const report of reports) {
-      if (report.disposition && report.disposition !== 'pending') continue
+      if (report.disposition === 'permanent_refusal') continue
       if (!force && report.nextDueAt > this.deps.now()) {
-        this.scheduleTerminalRetry(report.nextDueAt)
-        return last
+        retryNoLaterThan(report.nextDueAt)
+        continue
       }
       const authToken = this.deps.getToken()
       if (!authToken) {
-        this.scheduleTerminalRetry(
-          this.deps.now() + TERMINAL_REPORT_RETRY_MAX_MS,
-        )
-        return last
+        retryNoLaterThan(this.deps.now() + TERMINAL_REPORT_RETRY_MAX_MS)
+        break
       }
       last = await this.deps
         .reportState(
@@ -1013,11 +1485,6 @@ export class SponsoredRun {
           this.writeTerminalReports(reports)
           continue
         }
-        if (report.attempts >= TERMINAL_REPORT_MAX_ATTEMPTS) {
-          report.disposition = 'exhausted'
-          this.writeTerminalReports(reports)
-          continue
-        }
         report.disposition = 'pending'
         report.nextDueAt =
           this.deps.now() +
@@ -1026,14 +1493,15 @@ export class SponsoredRun {
             TERMINAL_REPORT_RETRY_MAX_MS,
           )
         this.writeTerminalReports(reports)
-        this.scheduleTerminalRetry(report.nextDueAt)
-        return last
+        retryNoLaterThan(report.nextDueAt)
+        continue
       }
       reports = reports.filter(
         (candidate) => candidate.update.reportId !== report.update.reportId,
       )
       this.writeTerminalReports(reports)
     }
+    if (retryAt !== null) this.scheduleTerminalRetry(retryAt)
     return last
   }
 
@@ -1063,52 +1531,6 @@ function isPermanentReportRefusal(status: number): boolean {
   )
 }
 
-/** The run id is the worktree's directory name — one place it is written down. */
-function runIdOf(worktree: SponsoredWorktree): string {
-  return path.basename(worktree.path)
-}
-
-/**
- * The environment the two delivery commands run with.
- *
- * The RUN's commands go through the sandbox broker, which builds its own
- * environment from an allowlist. These do NOT — this is the user's own action
- * with the user's own credentials, which is the entire reason the run could not
- * do it. So the environment is inherited, minus one thing: HOOKS.
- *
- * A `pre-push` hook is a script in a directory the advertiser's run could write,
- * executing on this machine as the user, triggered by a command that says
- * "create a pull request". The run's own commits are already made with hooks
- * disabled (COD-336 item 7); the delivery push was not.
- */
-export function noHooksEnv(
-  projectRoot: string,
-): Record<string, string | undefined> {
-  return {
-    // Through the CLI's own accessor rather than `process.env` directly, which
-    // `scripts/check-env-architecture.ts` refuses in this package. The point of
-    // that rule is that every environment read has one seam; this one INHERITS
-    // deliberately, and the two lines below are the whole of what it removes.
-    ...getSystemProcessEnv(),
-    GIT_CONFIG_COUNT: '1',
-    GIT_CONFIG_KEY_0: 'core.hooksPath',
-    // A directory we never create, under the app's own namespace in the PROJECT
-    // root — outside the worktree, and therefore outside everything the sandbox
-    // lets the run write. A path in the system temp directory would be
-    // creatable by anything else running as this user.
-    GIT_CONFIG_VALUE_0: path.join(projectRoot, '.freebuff', 'no-hooks'),
-  }
-}
-
-const SPONSORED_PR_BODY = [
-  'Opened from the Freebuff CLI at the repository owner’s request.',
-  '',
-  'The commits on this branch were written by a sponsored task an advertiser',
-  'authored and the repository owner accepted. They ran in an isolated worktree',
-  'with no access to the machine’s credentials, and nothing was pushed until the',
-  'owner asked for this pull request.',
-].join('\n')
-
 // --------------------------------------------------------------- the SDK turn
 
 /** The one shape a refused tool call takes, so every refusal reads the same. */
@@ -1117,19 +1539,12 @@ function refusal(message: string) {
 }
 
 /**
- * The write-tool guard: worktree bound, symlink resolved, then the path CLASSES
- * the pull request would not show.
- *
- * Two checks rather than one because they answer different questions. The first
- * is "does this land inside the worktree" and is answered against the
- * FILESYSTEM, which is the only thing that can see a symlink. The second is "is
- * this a file whose effect the user's review would never reach" — `.git`
- * internals, CI configuration, credential files — and is a lexical class check,
- * shared verbatim with Cloud and Desktop so all three refuse the same paths.
- *
- * The shell is NOT bounded here; it is bounded by the broker. That split is the
- * whole COD-336 argument: a path table is consulted by three tool names, and
- * `echo x > .git/hooks/pre-commit` is not one of them.
+ * The write-tool guard: workspace bound, symlink resolved, then the path
+ * CLASSES a review would not show -- `.git` internals, CI configuration,
+ * credential files. The class check is shared verbatim with Cloud and Desktop
+ * so all three refuse the same paths, and `.git` being refused here is half of
+ * what keeps an in-place run's history read-only (the sandbox's
+ * `readOnlyGitDir` is the other half, for the shell).
  */
 export function sponsoredWriteGuard(
   workspaceRoot: string,
@@ -1152,18 +1567,12 @@ export function sponsoredWriteGuard(
 /**
  * The read clamp, applied per tool before the tool runs.
  *
- * WHY IT EXISTS AT ALL is the whole of the COD-397 F1 finding: the OS sandbox
- * covers exactly ONE tool. It is a `TerminalCommandBroker`, so it is consulted
- * by `run_terminal_command` and by nothing else. `read_files`, `code_search`,
- * `list_directory` and `glob` execute in the CLI's own process, as the user,
- * with the user's whole environment — and the SDK resolves an absolute path
- * as-is (`sdk/src/tools/path-utils.ts`). So a procedure containing no shell
- * command at all could read the user's private keys and hand them to the
- * granted `read_url`.
- *
- * `glob` is clamped defensively: it is contained by construction today, and the
- * clamp means a future implementation that resolves `cwd` cannot widen the
- * boundary silently.
+ * Two questions, in order. Is it inside the workspace (the COD-397 F1 finding:
+ * the OS sandbox covers only the shell, and the file tools run in this process
+ * as the user)? And, because an in-place run reads the user's REAL folder
+ * rather than a checkout cut from a commit, is it a file that holds real
+ * secrets -- `.env.local`, a key, an `.npmrc` -- which a worktree could never
+ * have contained (`evaluateSponsoredReadPath`)?
  */
 export function sponsoredReadGuard(
   workspaceRoot: string,
@@ -1178,7 +1587,13 @@ export function sponsoredReadGuard(
   } catch (error) {
     return error instanceof Error ? error.message : String(error)
   }
-  return null
+  const classified = evaluateSponsoredReadPath(
+    path.isAbsolute(requestedPath)
+      ? requestedPath
+      : path.join(workspaceRoot, requestedPath),
+    { workspaceRoot },
+  )
+  return classified.allowed ? null : classified.message
 }
 
 /**
@@ -1201,27 +1616,62 @@ export type SponsoredOverrideTools = Required<
   >
 >
 
+export type SponsoredToolContext = {
+  /** The user's project root: an in-place run's workspace IS the checkout. */
+  workspaceRoot: string
+  runtimeDir: string
+  signal: AbortSignal
+  recorder: SponsoredEditRecorder
+  /**
+   * The packages the run's skill declares it may install
+   * (`sponsored-declared-installs.ts`). Absent refuses every install.
+   */
+  declaredPackages?: readonly SponsoredDeclaredPackage[]
+}
+
 /**
- * `overrideTools` for a sponsored turn.
+ * `overrideTools` for an in-place sponsored turn.
  *
  * Exported so the clamps can be asserted directly rather than only through a
  * live run: every entry here is a boundary, and a boundary that is only
  * exercised end-to-end is a boundary nobody tests.
  */
 export function sponsoredOverrideTools(
-  context: SponsoredTurnContext,
+  context: SponsoredToolContext,
 ): SponsoredOverrideTools {
-  const workspaceRoot = context.worktree.path
+  const workspaceRoot = context.workspaceRoot
   const processBroker = createSponsoredCodeSearchBroker({
     workspaceRoot,
     runtimeDir: context.runtimeDir,
-    linkedWorktree: context.worktree.linked,
+    // The workspace's own `.git` is inside the write root and must stay
+    // read-only to the run: no commit, no ref, and above all no `hooks/` or
+    // `config`, which an unsandboxed `git -C` would later execute as the user.
+    readOnlyGitDir: true,
+    // The user's own Node/npm/bun under their home folder, READ-ONLY, or the
+    // private HOME hides it and the run finds no Node (COD-825).
+    additionalReadRoots: sponsoredToolchainReadRoots(
+      getSystemProcessEnv(),
+      homedir(),
+      (skip) =>
+        logger.info(skip, '[sponsored-run] toolchain folder not granted'),
+    ).roots,
   })
-  const rootedFs = createSponsoredRootedFileSystem({
-    workspaceRoot,
-    runtimeDir: context.runtimeDir,
-    processBroker,
-  })
+  // No broker: the file layer pins directories itself (COD-642).
+  const rootedFs = createSponsoredRootedFileSystem({ workspaceRoot })
+  const recorded = async <T>(
+    requestedPath: string,
+    write: () => Promise<T>,
+  ) => {
+    try {
+      return await context.recorder.around(requestedPath, write)
+    } catch (error) {
+      // A write the undo could not reverse is refused, not performed.
+      if (error instanceof SponsoredReceiptRefusal) {
+        return refusal(error.message) as unknown as T
+      }
+      throw error
+    }
+  }
   return {
     read_files: async (input: {
       filePaths: string[]
@@ -1301,22 +1751,28 @@ export function sponsoredOverrideTools(
     },
     // The SDK routes both write_file and str_replace through this override.
     write_file: async (input: unknown) => {
-      const refused = sponsoredWriteGuard(workspaceRoot, fileToolPath(input))
+      const target = fileToolPath(input)
+      const refused = sponsoredWriteGuard(workspaceRoot, target)
       if (refused) return refusal(refused)
-      return changeFile({
-        parameters: input,
-        cwd: workspaceRoot,
-        fs: rootedFs,
-      })
+      return recorded(target!, () =>
+        changeFile({
+          parameters: input,
+          cwd: workspaceRoot,
+          fs: rootedFs,
+        }),
+      )
     },
     apply_patch: async (input: unknown) => {
-      const refused = sponsoredWriteGuard(workspaceRoot, fileToolPath(input))
+      const target = fileToolPath(input)
+      const refused = sponsoredWriteGuard(workspaceRoot, target)
       if (refused) return refusal(refused)
-      return applyPatchTool({
-        parameters: input,
-        cwd: workspaceRoot,
-        fs: rootedFs,
-      })
+      return recorded(target!, () =>
+        applyPatchTool({
+          parameters: input,
+          cwd: workspaceRoot,
+          fs: rootedFs,
+        }),
+      )
     },
     run_terminal_command: async (input: {
       command: string
@@ -1331,13 +1787,28 @@ export function sponsoredOverrideTools(
       if (!decision.allowed) return refusal(decision.message)
       // The one refusal here that is a PRODUCT decision rather than a
       // containment one: a postinstall script runs outside the tool loop
-      // entirely, so a run that installs is a run whose diff the user cannot
-      // review (COD-336 decision item 5).
-      if (commandInstallsDependencies(input.command)) {
-        return refusal(SPONSORED_LOCAL_INSTALL_REFUSAL)
-      }
+      // entirely (COD-336 decision item 5). Every install is refused unless
+      // the skill declared the package; a declared one runs as the canonical
+      // `--ignore-scripts` command, never the model's spelling.
+      const install = evaluateSponsoredInstallCommand(
+        input.command,
+        context.declaredPackages,
+      )
+      if (install.kind === 'refuse') return refusal(install.message)
+      const command = install.kind === 'allow' ? install.command : input.command
+      // An in-place run leaves its work uncommitted, so it may not move
+      // history or configuration. Answered as a sentence the model can act on;
+      // the sandbox also denies `.git` outright.
+      const refusedGit = sponsoredRefusedGitSubcommand(command)
+      if (refusedGit) return refusal(sponsoredGitRefusal(refusedGit))
+      // Destructive database commands and container lifecycle commands
+      // reach state outside the worktree that no sandbox covers (COD-665).
+      const refusedCommand = sponsoredRefusedCommand(command, process.platform)
+      if (refusedCommand)
+        return refusal(sponsoredCommandRefusal(refusedCommand))
+      context.recorder.noteShellCommand()
       return runTerminalCommand({
-        command: input.command,
+        command,
         process_type: input.process_type ?? 'SYNC',
         cwd: path.resolve(workspaceRoot, input.cwd ?? '.'),
         timeout_seconds: input.timeout_seconds ?? 30,
@@ -1354,6 +1825,76 @@ export function sponsoredOverrideTools(
   }
 }
 
+/**
+ * Whether an SDK event is the MODEL at work (COD-665 V5), matching what
+ * Desktop reports `running` on: non-empty text, reasoning, a tool call or its
+ * result, a subagent starting. `start` is the client's own announcement,
+ * before any request; `error`, `finish` and `download` say nothing about
+ * compute having been reserved.
+ */
+export function isSponsoredModelEvent(event: PrintModeEvent): boolean {
+  switch (event.type) {
+    case 'text':
+      return event.text.length > 0
+    case 'reasoning_delta':
+    case 'tool_call':
+    case 'tool_result':
+    case 'subagent_start':
+      return true
+    default:
+      return false
+  }
+}
+
+/** The same test for a streamed chunk: any non-empty text, reasoning included. */
+export function isSponsoredModelChunk(chunk: StreamChunkEvent): boolean {
+  return typeof chunk === 'string' ? chunk.length > 0 : chunk.chunk.length > 0
+}
+
+/**
+ * `config` with its event and chunk handlers tapped: every model event calls
+ * `onModelEvent` first (the plan's, which reports `running` once). A tap, not
+ * a replacement -- the transcript renders exactly what it did before.
+ */
+export function withSponsoredModelEventTap<
+  T extends {
+    handleEvent: (event: PrintModeEvent) => void
+    handleStreamChunk: (chunk: StreamChunkEvent) => void
+  },
+>(config: T, onModelEvent: () => void): T {
+  const { handleEvent, handleStreamChunk } = config
+  return {
+    ...config,
+    handleEvent: (event: PrintModeEvent) => {
+      if (isSponsoredModelEvent(event)) onModelEvent()
+      handleEvent(event)
+    },
+    handleStreamChunk: (chunk: StreamChunkEvent) => {
+      if (isSponsoredModelChunk(chunk)) onModelEvent()
+      handleStreamChunk(chunk)
+    },
+  }
+}
+
+/**
+ * `tools`, each of which first calls `first` -- the turn's first tool call is
+ * the CLI's proof that its compute started (`computeStarted`). `first` must
+ * not throw and is not awaited: the report it starts must never slow a tool.
+ */
+function beforeFirstToolCall<T extends object>(tools: T, first: () => void): T {
+  const wrapped: Record<string, unknown> = {}
+  for (const [name, handler] of Object.entries(tools)) {
+    wrapped[name] =
+      typeof handler === 'function'
+        ? (...args: unknown[]) => {
+            first()
+            return (handler as (...args: unknown[]) => unknown)(...args)
+          }
+        : handler
+  }
+  return wrapped as T
+}
+
 function fileToolPath(input: unknown): string | null {
   if (!input || typeof input !== 'object') return null
   const value = input as { path?: unknown; operation?: { path?: unknown } }
@@ -1361,66 +1902,32 @@ function fileToolPath(input: unknown): string | null {
   return typeof value.operation?.path === 'string' ? value.operation.path : null
 }
 
-/**
- * The real turn: the CLI's own client, pointed at the worktree, with the
- * narrowed agent and every clamp above.
- *
- * `customToolDefinitions` and `agentDefinitions` are BOTH empty, and neither is
- * redundant. Stripping a custom tool from `toolNames` only stops it being
- * OFFERED — the SDK dispatches a registered custom tool by name ahead of every
- * builtin branch — and a local `.agents/` definition is repository-authored
- * content that a sponsored run has no business loading.
- */
-export async function runSponsoredTurn(
-  context: SponsoredTurnContext,
-): Promise<string | null> {
-  const client = await getCodebuffClient()
-  if (!client) return 'Not signed in.'
-  const agentId = getAgentIdForMode('LITE')
-  try {
-    await client.run({
-      agent: sponsoredAgentDefinition({
-        agentId,
-        ...(IS_FREEBUFF ? { model: getSelectedFreebuffModel() } : {}),
-        isFreebuff: IS_FREEBUFF,
-      }),
-      prompt: context.prompt,
-      cwd: context.worktree.path,
-      signal: context.signal,
-      agentDefinitions: [],
-      customToolDefinitions: [],
-      overrideTools: sponsoredOverrideTools(context),
-      ...(IS_FREEBUFF ? { costMode: 'free' as const } : {}),
-      // The marker says the run is sponsored; where it is BILLED is the
-      // server's answer to give. HONEST LIMIT: no server route reads this field
-      // today. The metering that would route the cost to the advertiser's
-      // campaign is COD-119's and is not built, so a local sponsored run takes
-      // the ORDINARY path and the user's own session and credits pay for it —
-      // which is the decision (Owen, 2026-09-03), and which is what the card
-      // says. Sent regardless, so the day the metering is built there is
-      // nothing to remember to add here.
-      extraCodebuffMetadata: {
-        freebuff_sponsored_proposal_id: context.proposalId,
-      },
-      // A sponsored run is unattended, so its stream goes to the log rather
-      // than into the user's transcript: the card is the surface for it, and
-      // interleaving an advertiser's tool calls with the user's own answer is
-      // how the two stop being distinguishable.
-      handleEvent: () => {},
-    } as never)
-    return null
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error)
-  }
+/** The execution surface this machine reports; null where no run can happen. */
+export function cliExecutionSurface(
+  platform: NodeJS.Platform = process.platform,
+  osRelease: string = release(),
+): SponsoredCliExecutionSurface | null {
+  if (platform === 'darwin') return 'cli_macos'
+  if (platform !== 'linux') return null
+  return osRelease.toLowerCase().includes('microsoft') ? 'cli_wsl' : 'cli_linux'
 }
 
 function terminalReportStore(
   projectRoot: string,
 ): SponsoredRunDeps['terminalReports'] {
-  const canonicalRoot = realpathSync(projectRoot)
-  const repoKey = createHash('sha256').update(canonicalRoot).digest('hex')
-  const directory = path.join(getConfigDir(), 'sponsored-terminal-reports')
-  const target = path.join(directory, `${repoKey}.json`)
+  const { directory, key } = privateStateFile(
+    path.join(getConfigDir(), 'sponsored-terminal-reports'),
+    projectRoot,
+  )
+  return terminalReportFileStore(directory, key)
+}
+
+/** One project's outbox file, by its key. */
+function terminalReportFileStore(
+  directory: string,
+  key: string,
+): SponsoredRunDeps['terminalReports'] {
+  const target = path.join(directory, `${key}.json`)
   return {
     read: () => {
       try {
@@ -1429,73 +1936,163 @@ function terminalReportStore(
         return null
       }
     },
-    write: (value) => {
-      mkdirSync(directory, { recursive: true, mode: 0o700 })
-      const temporary = path.join(directory, `.${repoKey}.${randomUUID()}.tmp`)
+    write: (value) => atomicPrivateWrite(directory, key, target, value),
+  }
+}
+
+function lastRunStore(projectRoot: string): SponsoredRunDeps['lastRun'] {
+  const { directory, key, target } = privateStateFile(
+    path.join(getConfigDir(), 'sponsored-last-run'),
+    projectRoot,
+  )
+  return {
+    read: () => {
       try {
-        writeFileSync(temporary, value, {
-          encoding: 'utf8',
-          flag: 'wx',
-          mode: 0o600,
-        })
-        renameSync(temporary, target)
-      } catch (error) {
-        try {
-          unlinkSync(temporary)
-        } catch {}
-        throw error
+        const parsed = JSON.parse(readFileSync(target, 'utf8')) as {
+          runId?: unknown
+        }
+        return typeof parsed.runId === 'string' ? parsed.runId : null
+      } catch {
+        return null
       }
     },
+    write: (runId) =>
+      atomicPrivateWrite(directory, key, target, JSON.stringify({ runId })),
   }
 }
 
 export const defaultSponsoredRunDeps = (
   projectRoot: string,
 ): SponsoredRunDeps => ({
+  preview: previewSponsoredProposal,
   accept: acceptSponsoredProposal,
   reportState: reportSponsoredRunState,
+  reportFriction: reportSponsoredFriction,
   getToken: getAuthToken,
-  git: bunGitRunner,
-  exists: existsSync,
   platform: process.platform,
-  runTurn: runSponsoredTurn,
-  deliver: async (command, args, options) => {
-    try {
-      const proc = Bun.spawn([command, ...args], {
-        cwd: options.cwd,
-        env: options.env as Record<string, string>,
-        stdout: 'pipe',
-        stderr: 'pipe',
-      })
-      const [stdout, stderr, exitCode] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-        proc.exited,
-      ])
-      return { exitCode, stdout, stderr }
-    } catch (error) {
-      return {
-        exitCode: -1,
-        stdout: '',
-        stderr: error instanceof Error ? error.message : String(error),
-      }
-    }
-  },
+  containment: sponsoredContainment,
+  executionSurface: () => cliExecutionSurface(),
+  target: () => sponsoredProposalLocalTarget(),
   now: Date.now,
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   terminalReports: terminalReportStore(projectRoot),
+  receipts: sponsoredReceiptStore(),
+  inflight: sponsoredInflightPort(projectRoot),
+  lastRun: lastRunStore(projectRoot),
 })
 
 let instance: SponsoredRun | null = null
 
-/** The process's one sponsored run. Null until a project root exists. */
+/**
+ * The process's one sponsored run, for the project the CLI is in NOW.
+ *
+ * The project root can change mid-process -- switching to the git root, or the
+ * project picker (`index.tsx`, `process.chdir` + `setProjectRoot`) -- and a
+ * run pinned to the root it was first built for would review, accept and edit
+ * the folder the user just left. So an IDLE run for another root is replaced;
+ * one with a run in flight is kept, because its edits, its token and its
+ * terminal report all belong to the folder it started in.
+ */
 export function sponsoredRunFor(projectRoot: string): SponsoredRun {
-  if (!instance) {
+  if (!instance || (instance.root !== projectRoot && instance.idle)) {
     instance = new SponsoredRun(
       projectRoot,
       defaultSponsoredRunDeps(projectRoot),
     )
+    const mirror = (snapshot: SponsoredRunSnapshot) =>
+      useSponsoredRunStore.setState({ snapshot })
+    mirror(instance.state)
+    instance.subscribe(mirror)
   }
   return instance
+}
+
+/**
+ * Replay this project's outbox (see `flushPendingReports`). A run built here
+ * already replays from its constructor, so only an EXISTING one is asked
+ * again.
+ */
+export function replaySponsoredTerminalReports(projectRoot: string): void {
+  const before = instance
+  const run = sponsoredRunFor(projectRoot)
+  if (run === before) run.flushPendingReports()
+  if (foreignOutboxesReplayed) return
+  foreignOutboxesReplayed = true
+  try {
+    const { directory, key } = privateStateFile(
+      path.join(getConfigDir(), 'sponsored-terminal-reports'),
+      projectRoot,
+    )
+    const inflightBase = sponsoredInflightBaseDirectory()
+    replayForeignOutboxes(
+      directory,
+      key,
+      (terminalReports) => ({
+        ...defaultSponsoredRunDeps(projectRoot),
+        terminalReports,
+      }),
+      {
+        keys: sponsoredInflightKeys(inflightBase),
+        port: (folderKey) =>
+          sponsoredInflightPortFor(
+            sponsoredInflightKeyStore(inflightBase, folderKey),
+          ),
+      },
+    )
+  } catch (error) {
+    logger.debug({ error }, '[sponsored-run] foreign outbox replay failed')
+  }
+}
+
+/** Once per process: the other folders' files do not change under it. */
+let foreignOutboxesReplayed = false
+
+/**
+ * Replay every OTHER project's outbox too, and sweep its in-flight records.
+ *
+ * The outbox is keyed per project root, so a report stranded by a crash in
+ * folder A used to wait until the CLI was next opened in A -- which may never
+ * happen, leaving that row on `running` with its grant live. Every entry
+ * carries its own proposal id and run token, so any folder's CLI can deliver
+ * it. Each file gets its own flusher, which exists only to drain that file.
+ *
+ * The same goes for a run KILLED in folder A before it wrote any report: its
+ * in-flight record sits under A's key, and whether its pid is alive does not
+ * depend on which folder asks. So every folder with in-flight records gets a
+ * flusher too -- even one with no outbox file yet -- and its sweep enqueues
+ * the `failed` report into A's own outbox, which that flusher then drains.
+ */
+export function replayForeignOutboxes(
+  directory: string,
+  ownKey: string,
+  depsFor: (
+    terminalReports: SponsoredRunDeps['terminalReports'],
+  ) => SponsoredRunDeps,
+  inflight?: {
+    /** The folder keys that have in-flight records. */
+    keys: readonly string[]
+    port: (key: string) => SponsoredInflightPort
+  },
+): void {
+  const keys = new Set<string>()
+  try {
+    for (const name of readdirSync(directory)) {
+      const key = /^([0-9a-f]{64})\.json$/.exec(name)?.[1]
+      if (key) keys.add(key)
+    }
+  } catch {}
+  for (const key of inflight?.keys ?? []) {
+    if (/^[0-9a-f]{64}$/.test(key)) keys.add(key)
+  }
+  keys.delete(ownKey)
+  for (const key of keys) {
+    // The constructor sweeps that folder's records into that folder's outbox
+    // and drains it; nothing else is ever asked of it.
+    new SponsoredRun(directory, {
+      ...depsFor(terminalReportFileStore(directory, key)),
+      inflight: inflight?.port(key),
+    })
+  }
 }
 
 export function currentSponsoredRun(): SponsoredRun | null {

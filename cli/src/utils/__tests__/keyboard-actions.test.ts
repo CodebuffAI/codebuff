@@ -3,6 +3,7 @@ import { describe, test, expect } from 'bun:test'
 import {
   resolveChatKeyboardAction,
   createDefaultChatKeyboardState,
+  type ChatKeyboardAction,
   type ChatKeyboardState,
 } from '../keyboard-actions'
 
@@ -298,6 +299,40 @@ describe('resolveChatKeyboardAction', () => {
       expect(resolveChatKeyboardAction(downKey, state)).toEqual({
         type: 'history-down',
       })
+    })
+
+    // Regression (#4170 → 2026-09-30 report): the recalled entry made the
+    // draft non-empty, so every Up after the first resolved to `none`.
+    test.each<[string, ChatKeyboardAction['type'], ChatKeyboardAction['type']]>([
+      ['up', 'history-up', 'bash-history-up'],
+      ['down', 'history-down', 'bash-history-down'],
+    ])('%s keeps paging history from an unedited recalled entry', (name, type, bashType) => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        inputValue: 'recalled prompt',
+        cursorPosition: 'recalled prompt'.length,
+        lastEditDueToNav: true,
+        historyNavUpEnabled: true,
+        historyNavDownEnabled: true,
+      }
+      expect(resolveChatKeyboardAction(createKey({ name }), state).type).toBe(type)
+      expect(
+        resolveChatKeyboardAction(createKey({ name }), { ...state, inputMode: 'bash' }).type,
+      ).toBe(bashType)
+    })
+
+    test('left/right in a recalled entry still edit the text', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        inputValue: 'recalled prompt',
+        cursorPosition: 'recalled prompt'.length,
+        lastEditDueToNav: true,
+        historyNavUpEnabled: true,
+        historyNavDownEnabled: true,
+      }
+      for (const name of ['left', 'right']) {
+        expect(resolveChatKeyboardAction(createKey({ name }), state)).toEqual({ type: 'none' })
+      }
     })
 
     test('up arrow disabled when not enabled', () => {
@@ -656,5 +691,80 @@ describe('resolveChatKeyboardAction', () => {
         type: 'none',
       })
     })
+  })
+})
+
+describe('empty composer shortcuts', () => {
+  test('question mark opens help and left arrow opens chat history', () => {
+    expect(resolveChatKeyboardAction(createKey({ name: '?', sequence: '?', shift: true }), defaultState)).toEqual({ type: 'show-help' })
+    expect(resolveChatKeyboardAction(createKey({ name: 'left' }), defaultState)).toEqual({ type: 'open-chat-history' })
+  })
+  test.each(['?', 'left', 'right', 'up', 'down'])('%s stays in a nonempty composer, including at its edges', (name) => {
+    for (const inputValue of ['draft', ' ']) {
+      expect(resolveChatKeyboardAction(createKey({ name, sequence: name === '?' ? '?' : '' }), {
+        ...defaultState, inputValue, cursorPosition: 0, historyNavUpEnabled: true, historyNavDownEnabled: true,
+      })).toEqual({ type: 'none' })
+    }
+  })
+  test.each(['a', '!', 'h', '/'])('%s is ordinary input in an empty composer', (name) => {
+    expect(resolveChatKeyboardAction(createKey({ name, sequence: name }), defaultState)).toEqual({ type: 'none' })
+  })
+  test('does not steal keys from another input mode or modified arrows', () => {
+    expect(resolveChatKeyboardAction(createKey({ name: '?' }), { ...defaultState, inputMode: 'bash' })).toEqual({ type: 'none' })
+    expect(resolveChatKeyboardAction(createKey({ name: 'left', shift: true }), defaultState)).toEqual({ type: 'none' })
+  })
+})
+
+// Regression: an open menu always means a non-empty draft ("/" or "@" was
+// typed), so the non-empty-draft arrow guard must not sit above the menus.
+describe('menu arrows in the draft that opened the menu', () => {
+  test.each<[string, string, ChatKeyboardAction['type']]>([
+    ['/', 'down', 'slash-menu-down'],
+    ['/', 'up', 'slash-menu-up'],
+    ['/re', 'down', 'slash-menu-down'],
+  ])('%s + %s navigates the slash menu', (inputValue, name, type) => {
+    const state: ChatKeyboardState = {
+      ...defaultState,
+      inputValue,
+      cursorPosition: inputValue.length,
+      slashMenuActive: true,
+      slashMatchesLength: 5,
+      slashSelectedIndex: 2,
+    }
+    expect(resolveChatKeyboardAction(createKey({ name }), state).type).toBe(
+      type,
+    )
+  })
+
+  test.each<[string, ChatKeyboardAction['type']]>([
+    ['down', 'mention-menu-down'],
+    ['up', 'mention-menu-up'],
+  ])('@ + %s navigates the mention menu', (name, type) => {
+    const state: ChatKeyboardState = {
+      ...defaultState,
+      inputValue: '@',
+      cursorPosition: 1,
+      mentionMenuActive: true,
+      totalMentionMatches: 5,
+      agentSelectedIndex: 2,
+    }
+    expect(resolveChatKeyboardAction(createKey({ name }), state).type).toBe(
+      type,
+    )
+  })
+
+  test('left and right still edit a draft with an open menu', () => {
+    const state: ChatKeyboardState = {
+      ...defaultState,
+      inputValue: '/re',
+      cursorPosition: 2,
+      slashMenuActive: true,
+      slashMatchesLength: 5,
+    }
+    for (const name of ['left', 'right']) {
+      expect(resolveChatKeyboardAction(createKey({ name }), state)).toEqual({
+        type: 'none',
+      })
+    }
   })
 })

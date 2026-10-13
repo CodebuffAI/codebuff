@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 
 import { getAuthTokenDetails } from '../utils/auth'
+import { freebuffCliAttemptId } from '../utils/freebuff-session-identity'
+import {
+  forgetLiveFreebuffSession,
+  saveFreebuffSessionForRelaunch,
+} from '../utils/freebuff-session-relaunch'
 import {
   callFreebuffSession,
   holdsLiveFreebuffSlot,
@@ -46,6 +51,11 @@ export type FreebuffSessionFailure =
  */
 interface FreebuffSessionStore {
   session: FreebuffSessionResponse | null
+  /** A POST may commit without a reply. Exit must cancel that exact attempt. */
+  pendingAdmission: { instanceId: string; token: string } | null
+  setPendingAdmission: (
+    admission: { instanceId: string; token: string } | null,
+  ) => void
   lastRefund: number | null
   pendingRefund: { instanceId: string; token: string } | null
   refreshRefund: () => Promise<void>
@@ -53,6 +63,29 @@ interface FreebuffSessionStore {
     session?: FreebuffSessionResponse,
     signal?: AbortSignal,
   ) => Promise<void>
+  /**
+   * This process is being replaced by the launcher's update restart: keep the
+   * held slot instead of ending it on the way out. Every later `releaseSlot`
+   * is a no-op, which covers both exit paths — `exitCliCleanly` and the
+   * session hook's unmount cleanup that renderer teardown triggers.
+   *
+   * A multi-session CLI writes a launcher-scoped handoff and reclaims its exact
+   * instance. Legacy trials find a dead local owner and take over its row.
+   * Thus the user keeps the hour they just bought and never sees
+   * the model picker again. Ending it instead dropped them on the picker with
+   * the full price showing: the hour was still reusable server-side, but
+   * nothing said so, and some bought a different model or left.
+   */
+  keepSlotForRelaunch: () => void
+  /**
+   * The process is exiting for a reason outside the app (terminal closed,
+   * killed, launcher gone): keep an ACTIVE hour the way a crash does, so the
+   * next launch resumes it from the live record (multi-session) or the dead
+   * legacy owner record, instead of ending it. Anything not active (ended,
+   * nothing held, an admission still in flight) is released as before.
+   */
+  keepSlotForResume: () => void
+  slotKeptForRelaunch: boolean
   failure: FreebuffSessionFailure | null
 
   setSession: (session: FreebuffSessionResponse | null) => void
@@ -71,6 +104,8 @@ export const useFreebuffSessionStore = create<FreebuffSessionStore>(
     const releases = new Map<string, Promise<void>>()
     return {
       session: null,
+      pendingAdmission: null,
+      setPendingAdmission: (pendingAdmission) => set({ pendingAdmission }),
       lastRefund: null,
       pendingRefund: null,
       refreshRefund: async () => {
@@ -87,10 +122,47 @@ export const useFreebuffSessionStore = create<FreebuffSessionStore>(
         if (receipt.status === 'ended' && !receipt.freebucksRefundPending)
           set({ lastRefund: receipt.freebucksRefund ?? 0, pendingRefund: null })
       },
+      slotKeptForRelaunch: false,
+      keepSlotForRelaunch: () => {
+        const session = get().session
+        if (
+          freebuffCliAttemptId(
+            instanceOf(session) ?? get().pendingAdmission?.instanceId,
+          )
+        ) {
+          const token = getAuthTokenDetails().token
+          if (
+            session?.status !== 'active' ||
+            !token ||
+            !saveFreebuffSessionForRelaunch(
+              {
+                instanceId: session.instanceId,
+                model: session.model,
+              },
+              token,
+            )
+          )
+            return
+        }
+        set({ slotKeptForRelaunch: true })
+      },
+      keepSlotForResume: () => {
+        if (get().session?.status !== 'active') return
+        set({ slotKeptForRelaunch: true })
+      },
       releaseSlot: (target = get().session ?? undefined, signal) => {
-        if (!holdsLiveFreebuffSlot(target ?? null)) return Promise.resolve()
-        const instanceId = instanceOf(target)
-        const { token } = getAuthTokenDetails()
+        if (get().slotKeptForRelaunch) return Promise.resolve()
+        // Released on purpose: nothing is left for a later launch to resume.
+        forgetLiveFreebuffSession()
+        const pending = get().pendingAdmission
+        const instanceId = holdsLiveFreebuffSlot(target ?? null)
+          ? instanceOf(target)
+          : pending?.instanceId
+        if (!instanceId) return Promise.resolve()
+        const token =
+          pending?.instanceId === instanceId
+            ? pending.token
+            : getAuthTokenDetails().token
         if (!token || !instanceId) {
           return Promise.reject(
             new Error(
@@ -118,6 +190,8 @@ export const useFreebuffSessionStore = create<FreebuffSessionStore>(
                 'The server did not confirm that the session ended.',
               )
             }
+            if (get().pendingAdmission === pending)
+              set({ pendingAdmission: null })
             if (stillOwned())
               set({
                 lastRefund: result.freebucksRefund ?? null,
@@ -151,6 +225,7 @@ export const useFreebuffSessionStore = create<FreebuffSessionStore>(
       setSession: (session) =>
         set({
           session,
+          ...(session === null ? { pendingAdmission: null } : {}),
           ...(session === null || session.status === 'active'
             ? { lastRefund: null, pendingRefund: null }
             : {}),

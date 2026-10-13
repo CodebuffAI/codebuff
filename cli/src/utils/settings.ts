@@ -9,7 +9,10 @@ import {
   isFreebuffModelId,
   migrateSupersededFreebuffModelPreference,
 } from '@codebuff/common/constants/freebuff-models'
-import { isReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
+import {
+  isByokReasoningEffort,
+  isReasoningEffort,
+} from '@codebuff/common/constants/reasoning-effort'
 import {
   migrateSavedDefaultModel,
   type SavedModelStore,
@@ -20,7 +23,14 @@ import { AGENT_MODES } from './constants'
 import { logger } from './logger'
 
 import type { AgentMode } from './constants'
-import type { ReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
+import type {
+  ByokReasoningEffort,
+  ReasoningEffort,
+} from '@codebuff/common/constants/reasoning-effort'
+
+/** The admin config's key rule (lowercase, digits, `-`), loosened only in
+ *  length. A value that fails it cannot be a key the server minted. */
+const FREEBUFF_CATALOG_KEY_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/
 
 const DEFAULT_SETTINGS: Settings = {
   mode: 'DEFAULT' as const,
@@ -49,14 +59,27 @@ export interface Settings {
    *  absent from this map runs its catalog default, which is also what the
    *  server does when the client sends nothing. */
   freebuffReasoningEfforts?: Record<string, ReasoningEffort>
+  /** The server-catalog row the user last picked, by its public KEY
+   *  (docs/freebuff-model-catalog.md). Kept beside `freebuffModel` rather than
+   *  in it so neither mode loses the other's pick: fallback mode reads
+   *  `freebuffModel` exactly as before, and a pick made there clears this so
+   *  the newer pick wins when the catalog comes back. Never a handle. */
+  freebuffModelKey?: string
+  /** `freebuffReasoningEfforts` for catalog rows, keyed by row key. Separate
+   *  because the load-time ladder check below only knows compiled models: a
+   *  key would be dropped there. Checked against the row's ladder on read. */
+  freebuffCatalogReasoningEfforts?: Record<string, ReasoningEffort>
   /** The run-scoped BYOK connection selected in this CLI. Credentials remain
    * in the OS keychain or an explicitly named environment variable. */
   byokConnection?: {
     id: string
     revision: number
-    provider?: 'openrouter' | 'openai-compatible'
+    provider?: 'openrouter' | 'openai-compatible' | 'chatgpt'
     model?: string
   }
+  /** Reasoning effort for BYOK runs (`/byok effort`). Absent sends no
+   *  reasoning field, so the provider's own default applies. */
+  byokReasoningEffort?: ByokReasoningEffort
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
   alwaysUseALaCarte?: boolean
   /** @deprecated Use server-side fallbackToALaCarte setting instead */
@@ -183,6 +206,32 @@ const validateSettings = (parsed: unknown): Settings => {
     }
   }
 
+  // Catalog keys are opaque and the catalog is not known at load time, so
+  // only the shape is checked here; an unknown key falls to the catalog's
+  // recommendation when it is read.
+  if (
+    typeof obj.freebuffModelKey === 'string' &&
+    FREEBUFF_CATALOG_KEY_PATTERN.test(obj.freebuffModelKey)
+  ) {
+    settings.freebuffModelKey = obj.freebuffModelKey
+  }
+  if (
+    obj.freebuffCatalogReasoningEfforts &&
+    typeof obj.freebuffCatalogReasoningEfforts === 'object'
+  ) {
+    const efforts: Record<string, ReasoningEffort> = {}
+    for (const [key, effort] of Object.entries(
+      obj.freebuffCatalogReasoningEfforts as Record<string, unknown>,
+    )) {
+      if (!FREEBUFF_CATALOG_KEY_PATTERN.test(key)) continue
+      if (!isReasoningEffort(effort)) continue
+      efforts[key] = effort
+    }
+    if (Object.keys(efforts).length > 0) {
+      settings.freebuffCatalogReasoningEfforts = efforts
+    }
+  }
+
   const byokConnection = obj.byokConnection as Record<string, unknown> | null
   if (
     byokConnection &&
@@ -196,13 +245,18 @@ const validateSettings = (parsed: unknown): Settings => {
       id: byokConnection.id,
       revision: byokConnection.revision,
       ...(byokConnection.provider === 'openrouter' ||
-      byokConnection.provider === 'openai-compatible'
+      byokConnection.provider === 'openai-compatible' ||
+      byokConnection.provider === 'chatgpt'
         ? { provider: byokConnection.provider }
         : {}),
       ...(typeof byokConnection.model === 'string' && byokConnection.model
         ? { model: byokConnection.model }
         : {}),
     }
+  }
+
+  if (isByokReasoningEffort(obj.byokReasoningEffort)) {
+    settings.byokReasoningEffort = obj.byokReasoningEffort
   }
 
   // Validate alwaysUseALaCarte (legacy)
@@ -298,7 +352,41 @@ export const loadFreebuffModelPreference = (): string | undefined =>
  */
 export const saveFreebuffModelPreference = (model: string): void => {
   if (!isFreebuffModelId(model)) return
-  saveSettings({ freebuffModel: model })
+  // A compiled pick is the newest pick: drop any saved catalog key so the
+  // catalog, when it returns, migrates this id rather than restoring an
+  // older row.
+  saveSettings({ freebuffModel: model, freebuffModelKey: undefined })
+}
+
+/** The saved catalog row key, if any. Validated for shape only. */
+export const loadFreebuffModelKeyPreference = (): string | undefined =>
+  loadSettings().freebuffModelKey
+
+/** Persist a catalog-mode pick. `freebuffModel` is left alone, so fallback
+ *  mode still opens on the last compiled pick. */
+export const saveFreebuffModelKeyPreference = (key: string): void => {
+  if (!FREEBUFF_CATALOG_KEY_PATTERN.test(key)) return
+  saveSettings({ freebuffModelKey: key })
+}
+
+/** Every saved per-row effort, keyed by catalog key. */
+export const loadFreebuffCatalogReasoningEfforts = (): Record<
+  string,
+  ReasoningEffort
+> => loadSettings().freebuffCatalogReasoningEfforts ?? {}
+
+/** `saveFreebuffReasoningEffort` for a catalog row; same absence rule. */
+export const saveFreebuffCatalogReasoningEffort = (
+  key: string,
+  effort: ReasoningEffort | undefined,
+): void => {
+  const next = { ...(loadSettings().freebuffCatalogReasoningEfforts ?? {}) }
+  if (effort === undefined) {
+    delete next[key]
+  } else {
+    next[key] = effort
+  }
+  saveSettings({ freebuffCatalogReasoningEfforts: next })
 }
 
 /**

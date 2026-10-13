@@ -3,8 +3,8 @@
  * proposals served through the first-party placements rail.
  *
  * A sponsored proposal moves through a funnel that is longer than a display
- * ad's serve/view/click: it is offered, a user accepts it, an agent run makes
- * a PR, the PR lands and merges, and the advertiser may later observe
+ * ad's serve/view/click: it is offered, displayed, accepted, committed, may
+ * open and merge a PR, and the advertiser may later observe
  * downstream activation on their own side. Every stage below is recorded so
  * the next campaign can be priced from measured drop-off — but recording is
  * all most of them do.
@@ -35,7 +35,7 @@ export const AGENTIC_FUNNEL_EVENT_TYPES = [
   'accepted',
   /**
    * RETIRED 2026-09-09 (COD-516). Never had a producer, and `landed` already
-   * means "a pull request exists" everywhere it is read — `sponsoredDelivery.ts`
+   * means "a pull request was opened" everywhere it is read — `sponsoredDelivery.ts`
    * records the PR and only then calls the row `landed`, the off-Cloud state
    * route writes `landed` on a `pr_url`, and the shared view model renders the
    * link from `landed`. A second word for the same fact would put the same PR
@@ -46,7 +46,7 @@ export const AGENTIC_FUNNEL_EVENT_TYPES = [
    * `RETIRED_AGENTIC_FUNNEL_EVENT_TYPES`. Nothing may write it.
    */
   'pr_made',
-  /** The PR's branch landed (CI green, pushed). */
+  /** A pull request was opened. The stored name is retained for enum compatibility. */
   'landed',
   /** The PR was merged by the repo's owners. */
   'merged',
@@ -87,6 +87,24 @@ export const AGENTIC_FUNNEL_EVENT_TYPES = [
    * that is never opened does not mean the work was not done.
    */
   'run_committed',
+  /**
+   * The sponsored proposal card was actually visible on a supported surface.
+   *
+   * This is deliberately later than `proposal_offered`: the latter is a
+   * durable server decision while this records a card the owner could see.
+   * It is telemetry only and is never a billing trigger.
+   */
+  'proposal_displayed',
+  /**
+   * An IN-PLACE run left its work in the user's working copy and stopped
+   * there (the 2026-09-24 amendment in
+   * `freebuff-sponsored-local-execution.md`). The same buying stage as
+   * `run_committed` -- the work was done -- on a surface where there is no
+   * branch to commit it to, so it is a SEPARATE stage rather than a reuse:
+   * `run_committed` is read as "a commit exists that a pull request could be
+   * opened from", and for one of these rows no such commit does.
+   */
+  'run_delivered',
 ] as const
 
 export type AgenticFunnelEventType = (typeof AGENTIC_FUNNEL_EVENT_TYPES)[number]
@@ -99,9 +117,6 @@ export type AgenticFunnelEventType = (typeof AGENTIC_FUNNEL_EVENT_TYPES)[number]
  * funnel stage. Kept as data so the exclusion is asserted rather than trusted.
  */
 export const RETIRED_AGENTIC_FUNNEL_EVENT_TYPES = ['pr_made'] as const
-
-export type RetiredAgenticFunnelEventType =
-  (typeof RETIRED_AGENTIC_FUNNEL_EVENT_TYPES)[number]
 
 /**
  * The `accepted` event's idempotency key, derived from the PROPOSAL id.

@@ -4,8 +4,15 @@ import { ensureCliTestEnv } from '../../__tests__/test-utils'
 
 ensureCliTestEnv()
 
-const { acceptSponsoredProposal, fetchSponsoredProposal } =
-  await import('../sponsored-proposal-api')
+const {
+  acceptSponsoredProposal,
+  acknowledgeSponsoredProposalDisplay,
+  fetchSponsoredProposal,
+  previewSponsoredProposal,
+  reportSponsoredRunState,
+  sponsoredProcedureSha256,
+} = await import('../sponsored-proposal-api')
+const { getCliAdRequestUserAgent } = await import('../ad-client-identity')
 
 const originalFetch = globalThis.fetch
 
@@ -31,6 +38,14 @@ function respond(body: unknown, status = 200): void {
         headers: { 'content-type': 'application/json' },
       }),
   ) as unknown as typeof fetch
+}
+
+function binding() {
+  return {
+    runId: '00000000-0000-4000-8000-000000000001',
+    procedureSha256:
+      'e0398edf7222298cb1af685870a496350db33a54d32e766b8d94523f4848e304',
+  }
 }
 
 describe('fetchSponsoredProposal', () => {
@@ -73,11 +88,118 @@ describe('fetchSponsoredProposal', () => {
   })
 })
 
+describe('funded CLI procedure binding', () => {
+  test('carries the opaque target through preview and funded accept', async () => {
+    const calls: Request[] = []
+    const target = {
+      kind: 'workspace' as const,
+      workspaceId: '00000000-0000-4000-8000-000000000000',
+    }
+    const procedure = 'Create the local database foundation.'
+    const procedureSha256 = sponsoredProcedureSha256(procedure)
+    globalThis.fetch = mock(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push(new Request(input, init))
+        return new Response(
+          JSON.stringify(
+            calls.length === 1
+              ? { proposalId: 'proposal-1', procedure, procedureSha256, target }
+              : {
+                  proposalId: 'proposal-1',
+                  state: 'accepted',
+                  procedure,
+                  runToken: 'run-token',
+                  computeGrant: {
+                    token: 'scg_1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                    proposalId: 'proposal-1',
+                    runId: binding().runId,
+                    procedureSha256,
+                    modelId: 'model',
+                    expiresAtMs: Date.now() + 60_000,
+                    allowanceUsdMicros: 1,
+                  },
+                },
+          ),
+          { status: 200 },
+        )
+      },
+    ) as unknown as typeof fetch
+    expect(
+      (await previewSponsoredProposal('proposal-1', 'token', target)).ok,
+    ).toBe(true)
+    expect(
+      (
+        await acceptSponsoredProposal('proposal-1', 'token', {
+          runId: binding().runId,
+          procedureSha256,
+          target,
+        })
+      ).ok,
+    ).toBe(true)
+    expect(calls[0]!.url).toContain(`workspace=${target.workspaceId}`)
+    expect(await calls[1]!.json()).toMatchObject({ surface: 'cli', target })
+  })
+
+  test('previews the exact reviewed procedure before consent', async () => {
+    const procedure = 'Create the local database foundation.'
+    const procedureSha256 = sponsoredProcedureSha256(procedure)
+    respond({ proposalId: 'proposal-1', procedure, procedureSha256 })
+    expect(await previewSponsoredProposal('proposal-1', 'token')).toEqual({
+      ok: true,
+      preview: { proposalId: 'proposal-1', procedure, procedureSha256 },
+    })
+  })
+
+  test('rejects a grant that is not bound to the reviewed run', async () => {
+    const procedure = 'Wire up the Acme deploy hook.'
+    respond({
+      proposalId: 'proposal-1',
+      procedure,
+      runToken: 'run-token',
+      computeGrant: {
+        token: 'scg_1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        proposalId: 'proposal-1',
+        runId: '00000000-0000-4000-8000-000000000099',
+        procedureSha256: binding().procedureSha256,
+        modelId: 'freebuff/deepseek-v4-flash',
+        expiresAtMs: Date.now() + 60_000,
+        allowanceUsdMicros: 500_000,
+      },
+    })
+    expect(
+      await acceptSponsoredProposal('proposal-1', 'token', binding()),
+    ).toMatchObject({
+      ok: false,
+      status: 502,
+    })
+  })
+})
+
+describe('acknowledgeSponsoredProposalDisplay', () => {
+  test('posts to the stable proposal display endpoint with its bearer token', async () => {
+    const calls: Request[] = []
+    globalThis.fetch = mock(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push(new Request(input, init))
+        return new Response(JSON.stringify({ ok: true, recorded: true }), {
+          status: 200,
+        })
+      },
+    ) as unknown as typeof fetch
+    expect(
+      await acknowledgeSponsoredProposalDisplay('proposal-1', 'token'),
+    ).toBe(true)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.url).toContain('/api/v1/ads/proposal/proposal-1/display')
+    expect(calls[0]!.headers.get('authorization')).toBe('Bearer token')
+  })
+})
+
 describe('acceptSponsoredProposal renders a refusal, never a code', () => {
-  test('funded_accept_required becomes the sentence that names the remedy (COD-438)', async () => {
-    // The server refuses every unfunded off-Cloud Accept by this code, and
-    // the CLI cannot make a funded one. The user must read what to do, not
-    // the wire code the route answered with.
+  test('a refusal code becomes the sentence that names the remedy, and keeps its code', async () => {
+    // The user must read what to do, not the wire code the route answered
+    // with -- and in this surface's words, not Desktop's. The code rides
+    // beside it for the one decision the run service makes on it.
     respond(
       {
         error: 'funded_accept_required',
@@ -86,13 +208,38 @@ describe('acceptSponsoredProposal renders a refusal, never a code', () => {
       },
       409,
     )
-    const result = await acceptSponsoredProposal('proposal-1', 'token')
+    const result = await acceptSponsoredProposal(
+      'proposal-1',
+      'token',
+      binding(),
+    )
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.status).toBe(409)
     expect(result.message).not.toContain('funded_accept_required')
-    expect(result.message).toContain('Freebuff Desktop')
+    expect(result.message).toContain('Update Freebuff')
+    expect(result.message).not.toContain('Desktop')
     expect(result.message.endsWith('.')).toBe(true)
+    expect(result.code).toBe('funded_accept_required')
+  })
+
+  test('the Accept says this build runs in place, and names its surface', async () => {
+    const bodies: unknown[] = []
+    globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)))
+      return new Response(JSON.stringify({ error: 'invalid_state' }), {
+        status: 409,
+      })
+    }) as unknown as typeof fetch
+    await acceptSponsoredProposal('proposal-1', 'token', {
+      ...binding(),
+      clientExecutionSurface: 'cli_linux',
+    })
+    expect(bodies[0]).toMatchObject({
+      surface: 'cli',
+      inPlaceExecutionVersion: 1,
+      clientExecutionSurface: 'cli_linux',
+    })
   })
 
   test("an unknown code yields upstream's own sentence when it sent one", async () => {
@@ -100,7 +247,11 @@ describe('acceptSponsoredProposal renders a refusal, never a code', () => {
       { error: 'some_future_refusal', message: 'Open it in the web app.' },
       409,
     )
-    const result = await acceptSponsoredProposal('proposal-1', 'token')
+    const result = await acceptSponsoredProposal(
+      'proposal-1',
+      'token',
+      binding(),
+    )
     expect(result).toMatchObject({
       ok: false,
       status: 409,
@@ -110,7 +261,11 @@ describe('acceptSponsoredProposal renders a refusal, never a code', () => {
 
   test('an unknown code with no sentence falls back to a sentence of ours', async () => {
     respond({ error: 'some_future_refusal' }, 422)
-    const result = await acceptSponsoredProposal('proposal-1', 'token')
+    const result = await acceptSponsoredProposal(
+      'proposal-1',
+      'token',
+      binding(),
+    )
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.message).toBe('Freebuff refused this sponsored task.')
@@ -118,11 +273,71 @@ describe('acceptSponsoredProposal renders a refusal, never a code', () => {
 
   test('genuine prose in `error` is still shown as-is', async () => {
     respond({ error: 'Proposal not found' }, 404)
-    const result = await acceptSponsoredProposal('proposal-1', 'token')
+    const result = await acceptSponsoredProposal(
+      'proposal-1',
+      'token',
+      binding(),
+    )
     expect(result).toMatchObject({
       ok: false,
       status: 404,
       message: 'Proposal not found',
     })
+  })
+})
+
+describe('every proposal request names this CLI build (I3)', () => {
+  test('call, callDetailed, getDetailed and the proposal read all send the product User-Agent', async () => {
+    const seen: Array<{ url: string; userAgent: string | null }> = []
+    globalThis.fetch = mock(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        seen.push({
+          url: String(input),
+          userAgent: new Headers(init?.headers).get('user-agent'),
+        })
+        return new Response(JSON.stringify({ proposal: null }), {
+          status: 200,
+        })
+      },
+    ) as unknown as typeof fetch
+    // `fetchSponsoredProposal`
+    await fetchSponsoredProposal('acme/deploys', 'token')
+    // `call`
+    await acknowledgeSponsoredProposalDisplay('proposal-1', 'token')
+    // `getDetailed`
+    await previewSponsoredProposal('proposal-1', 'token')
+    // `callDetailed`, through both of its callers
+    await acceptSponsoredProposal('proposal-1', 'token', binding())
+    await reportSponsoredRunState(
+      'proposal-1',
+      'run-token',
+      { state: 'running', runId: binding().runId },
+      'token',
+    )
+    expect(seen).toHaveLength(5)
+    const userAgent = getCliAdRequestUserAgent()
+    expect(userAgent).toMatch(/^(Freebuff|Codebuff)-CLI\//)
+    for (const request of seen) expect(request.userAgent).toBe(userAgent)
+  })
+})
+
+describe('the Accept refusals added with COD-665', () => {
+  test.each([
+    ['sponsor_funding_refused', 'The sponsor could not fund this task'],
+    ['accept_expired', 'too much time has passed since it was accepted'],
+  ])('%s becomes a sentence, and keeps its code', async (code, sentence) => {
+    respond({ error: code }, 409)
+    const result = await acceptSponsoredProposal(
+      'proposal-1',
+      'token',
+      binding(),
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.status).toBe(409)
+    expect(result.code).toBe(code)
+    expect(result.message).toContain(sentence)
+    expect(result.message).not.toContain(code)
+    expect(result.message).toContain('Nothing in your project changed.')
   })
 })

@@ -1,5 +1,3 @@
-import { globalStopSequence } from './constants'
-
 import type { AgentTemplate } from './templates/types'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
@@ -29,6 +27,8 @@ export const getAgentStreamFromTemplate = (params: {
   signal: AbortSignal
   template: AgentTemplate
   tools: ToolSet
+  toolChoice?: 'required'
+  maxOutputTokens?: number
   userId: string | undefined
   userInputId: string
   cacheDebugCorrelation?: string
@@ -40,6 +40,7 @@ export const getAgentStreamFromTemplate = (params: {
   onCacheDebugUsageReceived?: (usage: CacheDebugUsageData) => void
   onUsageReceived?: (usage: ModelUsageData) => void
   onUsageIncomplete?: () => void
+  onFinishReason?: (finishReason: string) => void
 
   onCostCalculated?: (credits: number) => Promise<void>
   promptAiSdkStream: PromptAiSdkStreamFn
@@ -67,6 +68,7 @@ export const getAgentStreamFromTemplate = (params: {
     onCacheDebugUsageReceived,
     onUsageReceived,
     onUsageIncomplete,
+    onFinishReason,
 
     sendAction,
     onCostCalculated,
@@ -90,14 +92,19 @@ export const getAgentStreamFromTemplate = (params: {
     includeCacheControl,
     logger,
     localAgentTemplates,
-    maxOutputTokens: undefined,
+    // The agent's own cap is a ceiling a caller can lower, never raise.
+    maxOutputTokens:
+      params.maxOutputTokens !== undefined &&
+      template.maxOutputTokens !== undefined
+        ? Math.min(params.maxOutputTokens, template.maxOutputTokens)
+        : (params.maxOutputTokens ?? template.maxOutputTokens),
+    toolChoice: params.toolChoice,
     maxRetries: 3,
     messages,
     model,
     runId,
     signal: params.signal,
     spawnableAgents: template.spawnableAgents,
-    stopSequences: [globalStopSequence],
     tools,
     userId,
     userInputId,
@@ -106,6 +113,7 @@ export const getAgentStreamFromTemplate = (params: {
     onCacheDebugUsageReceived,
     onUsageReceived,
     onUsageIncomplete,
+    onFinishReason,
 
     onCostCalculated,
     sendAction,

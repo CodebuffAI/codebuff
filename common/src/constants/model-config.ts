@@ -1,3 +1,8 @@
+import {
+  CLAUDE_OPUS_4_6_MODEL_ID,
+  CLAUDE_SONNET_4_6_MODEL_ID,
+} from './anthropic'
+
 // Allowed model prefixes for validation
 export const ALLOWED_MODEL_PREFIXES = [
   'anthropic',
@@ -35,10 +40,6 @@ export type OpenAIModel = (typeof openaiModels)[keyof typeof openaiModels]
 
 export const openrouterModels = {
   openrouter_claude_sonnet_4_5: 'anthropic/claude-sonnet-4.5',
-  openrouter_claude_sonnet_4: 'anthropic/claude-4-sonnet-20250522',
-  openrouter_claude_opus_4: 'anthropic/claude-opus-4.1',
-  openrouter_claude_3_5_haiku: 'anthropic/claude-3.5-haiku-20241022',
-  openrouter_claude_3_5_sonnet: 'anthropic/claude-3.5-sonnet-20240620',
   openrouter_gpt4o: 'openai/gpt-4o-2024-11-20',
   openrouter_gpt5: 'openai/gpt-5.1',
   openrouter_gpt5_chat: 'openai/gpt-5.1-chat',
@@ -75,6 +76,13 @@ export const mimoModels = {
   mimoV25: 'mimo/mimo-v2.5',
   mimoV25ProDirect: 'mimo-v2.5-pro',
   mimoV25Pro: 'mimo/mimo-v2.5-pro',
+  // MiMo 2.6 Flash has NO wire id of its own: it is served under `mimoV25`,
+  // which every released client, allowlist and fallback already names — the
+  // same move as DeepSeek V4.1 under the undated V4 Flash id. This is only the
+  // upstream name Xiaomi's API (and OpenRouter's `xiaomi/` slug) calls it.
+  mimoV26FlashDirect: 'mimo-v2.6-flash',
+  mimoV26ProDirect: 'mimo-v2.6-pro',
+  mimoV26Pro: 'mimo/mimo-v2.6-pro',
 } as const
 export type MimoModel = (typeof mimoModels)[keyof typeof mimoModels]
 
@@ -128,12 +136,15 @@ export const models = {
 export const shortModelNames = {
   'gemini-2.5-pro': models.openrouter_gemini2_5_pro_preview,
   'flash-2.5': models.openrouter_gemini2_5_flash,
-  'opus-4': models.openrouter_claude_opus_4,
   'sonnet-4.5': models.openrouter_claude_sonnet_4_5,
-  'sonnet-4': models.openrouter_claude_sonnet_4,
-  'sonnet-3.7': models.openrouter_claude_sonnet_4,
-  'sonnet-3.6': models.openrouter_claude_3_5_sonnet,
-  'sonnet-3.5': models.openrouter_claude_3_5_sonnet,
+  // Retired; the models in RETIRED_CLAUDE_MODEL_ALIASES serve them. Those stay
+  // out of `models`: adding one would make isExplicitlyDefinedModel true and
+  // change the SDK's provider routing for every live request to it.
+  'opus-4': CLAUDE_OPUS_4_6_MODEL_ID,
+  'sonnet-4': CLAUDE_SONNET_4_6_MODEL_ID,
+  'sonnet-3.7': CLAUDE_SONNET_4_6_MODEL_ID,
+  'sonnet-3.6': CLAUDE_SONNET_4_6_MODEL_ID,
+  'sonnet-3.5': CLAUDE_SONNET_4_6_MODEL_ID,
   'gpt-4.1': models.gpt4_1,
   'o3-mini': models.o3mini,
   o3: models.o3,

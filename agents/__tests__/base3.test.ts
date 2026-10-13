@@ -1,27 +1,43 @@
+import { isFreebuffLimitedOfferModelId } from '@codebuff/common/constants/freebuff-models'
 import {
   FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL,
   hasFreebuffRootSystemPromptOpening,
 } from '@codebuff/common/constants/free-agents'
-import { compactionPolicyForModel } from '@codebuff/common/constants/compaction-policy'
-import { SUPPORTED_FREEBUFF_MODELS } from '@codebuff/common/constants/freebuff-models'
+import {
+  compactionPolicyForModel,
+  LEAN_COMPACTION_POLICY,
+} from '@codebuff/common/constants/compaction-policy'
+import {
+  TURN_ENDING_NOTE,
+  TURN_ENDING_RULE,
+} from '@codebuff/common/constants/turn-ending-rule'
+import {
+  FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  SUPPORTED_FREEBUFF_MODELS,
+} from '@codebuff/common/constants/freebuff-models'
 import { describe, test, expect } from 'bun:test'
 
 import base3, { createBase3, createBase3CliRoot } from '../base3'
 import base3Evals from '../base3-evals'
+import base3FastFreeDeepseekFlash from '../base3-fast-free-deepseek-flash'
 import base3FreeDeepseek from '../base3-free-deepseek'
 import base3FreeDeepseekFlash from '../base3-free-deepseek-flash'
 import base3FreeDeepseekFlashEvals from '../base3-free-deepseek-flash-evals'
-import base3FreeFable from '../base3-free-fable'
 import base3FreeGlm from '../base3-free-glm'
 import base3FreeGlmV53Flash from '../base3-free-glm-5-3-flash'
 import base3FreeLuna from '../base3-free-luna'
+import base3FreeLuna6 from '../base3-free-luna-6'
+import base3FreeGpt61Sol from '../base3-free-gpt-6-1-sol'
 import base3FreeMimo from '../base3-free-mimo'
+import base3FreeMimo26Pro from '../base3-free-mimo-2-6-pro'
 import base3FreeMinimaxM3 from '../base3-free-minimax-m3'
 import base3FreeMuseSpark from '../base3-free-muse-spark'
 import base3FreeMuseSpark13 from '../base3-free-muse-spark-1-3'
 import base3FreeOxAlpha from '../base3-free-ox-alpha'
 import base3FreeGemini38Flash from '../base3-free-gemini-3-8-flash'
 import base3FreeSolarPro4 from '../base3-free-solar-pro4'
+import base3FreeSolarMini4 from '../base3-free-solar-mini4'
+import base3FreeSpaceBunnyAlpha from '../base3-free-space-bunny-alpha'
 import base3Lite from '../base3-lite'
 
 /**
@@ -50,24 +66,35 @@ const CLI_ROOTS = [
   base3FreeDeepseekFlash,
   base3FreeMinimaxM3,
   base3FreeMimo,
+  base3FreeMimo26Pro,
   base3FreeGlm,
   base3FreeGlmV53Flash,
   base3FreeLuna,
-  base3FreeFable,
+  base3FreeLuna6,
+  base3FreeGpt61Sol,
   base3FreeOxAlpha,
   base3FreeSolarPro4,
+  base3FreeSolarMini4,
+  base3FreeSpaceBunnyAlpha,
   base3FreeGemini38Flash,
   base3FreeMuseSpark,
   base3FreeMuseSpark13,
 ]
 
+/**
+ * Every root the CLI map names, including the one that is NOT a single loop:
+ * the base3-FAST root (agents/base3-fast.ts) fans out to parallel workers by
+ * design and is pinned by agents/__tests__/base3-fast.test.ts. It joins the
+ * registration checks below and stays out of the no-subagents loop.
+ */
+const ALL_CLI_ROOTS = [...CLI_ROOTS, base3FastFreeDeepseekFlash]
+
 describe('base3 CLI roots', () => {
   test('keeps the efficiency flags the runtime reads', () => {
-    // 17 since Muse Spark 1.2 was restored beside the withdrawn 1.3 root (the
-    // paused id stays a recognised pick for binaries already shipped). The
+    // Fable 5.1 deliberately runs base2 for the trace campaign. The
     // count is asserted so a root added without the flags below cannot slip in
     // unnoticed.
-    expect(CLI_ROOTS.length).toBe(17)
+    expect(CLI_ROOTS.length).toBe(21)
     for (const agent of CLI_ROOTS) {
       // Windowed reads + the 100-entry glob cap + search-first tool wording.
       expect(agent.windowedFileReads).toBe(true)
@@ -81,9 +108,12 @@ describe('base3 CLI roots', () => {
       // Single loop: no subagents at all, which is what the harness IS.
       expect(agent.spawnableAgents ?? []).toEqual([])
       expect(agent.toolNames ?? []).not.toContain('spawn_agents')
-      // No per-turn instructions prompt: re-injecting one after every user
-      // message breaks the prompt cache the harness is built to keep warm.
-      expect(agent.instructionsPrompt).toBeUndefined()
+      // No per-turn instructions but Muse Spark 1.3's turn-ending note.
+      expect(agent.instructionsPrompt).toBe(
+        agent.model === FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID
+          ? TURN_ENDING_NOTE
+          : undefined,
+      )
     }
   })
 
@@ -114,8 +144,8 @@ describe('base3 CLI roots', () => {
   })
 
   test('opens with a prompt the free-mode gate accepts', () => {
-    // The appendix is appended, never prepended: the chat-completions gate
-    // requires a canonical opening at byte 0, so prepending 403s every turn.
+    // The appendix is appended, never prepended: the canonical opening must
+    // stay first.
     for (const agent of CLI_ROOTS) {
       expect(hasFreebuffRootSystemPromptOpening(agent.systemPrompt!)).toBe(true)
       expect(
@@ -125,21 +155,21 @@ describe('base3 CLI roots', () => {
   })
 
   test('every Freebuff root is pinned to the model its id is registered under', () => {
-    const byId = new Map(CLI_ROOTS.map((a) => [a.id, a]))
+    const byId = new Map(ALL_CLI_ROOTS.map((a) => [a.id, a]))
     for (const [model, agentId] of Object.entries(
       FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL,
     )) {
-      // A root whose model disagrees with the allowlist 403s with
-      // free_mode_invalid_agent_model on every request.
+      // A root whose model disagrees with the allowlist cannot run.
       expect(byId.get(agentId)?.model).toBe(model)
     }
   })
 
   test('ships a root for every model the picker offers', () => {
     for (const model of SUPPORTED_FREEBUFF_MODELS) {
+      if (isFreebuffLimitedOfferModelId(model.id)) continue
       const agentId = FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL[model.id]
       expect(agentId).toBeDefined()
-      expect(CLI_ROOTS.some((a) => a.id === agentId)).toBe(true)
+      expect(ALL_CLI_ROOTS.some((a) => a.id === agentId)).toBe(true)
     }
   })
 
@@ -157,6 +187,23 @@ describe('base3 CLI roots', () => {
       'list_directory',
       'write_todos',
     ])
+  })
+
+  test('noWeb drops web_search and read_url and nothing else', () => {
+    // The eval harness withholds the web from BOTH arms: the evaluated
+    // repositories are public, and a search result quoting their current
+    // code is the answer key (2026-10-04: 36% of base3's search results in
+    // the bench cited the repository under evaluation).
+    const withWeb = createBase3CliRoot({ noAskUser: true })
+    const withoutWeb = createBase3CliRoot({ noAskUser: true, noWeb: true })
+    expect(withWeb.toolNames).toContain('web_search')
+    expect(withWeb.toolNames).toContain('read_url')
+    expect(withoutWeb.toolNames).toEqual(
+      withWeb.toolNames!.filter(
+        (name) => name !== 'web_search' && name !== 'read_url',
+      ),
+    )
+    expect(withoutWeb.systemPrompt).toBe(withWeb.systemPrompt)
   })
 
   test('noAskUser drops the human tools from the prompt as well as the toolset', () => {
@@ -183,10 +230,57 @@ describe('base3 CLI roots', () => {
     )
   })
 
+  // Freebuff users reported models refusing work because they were "running
+  // out of time" after deadline wording reached every root's system prompt.
+  // Only a host that supplies `deadlineAt` may talk about time.
+  test('never tells the model it is short on time', () => {
+    const prompts = [
+      ...ALL_CLI_ROOTS.map((root) => root.systemPrompt!),
+      createBase3().systemPrompt!,
+      createBase3(undefined, { supportsBackgroundCommands: false })
+        .systemPrompt!,
+    ]
+    for (const prompt of prompts) {
+      expect(prompt).not.toMatch(
+        /deadline|time runs low|reserve time|minimal working result|remaining budget/i,
+      )
+    }
+  })
+
+  // docs/freebuff-muse-spark.md: Muse Spark ended turns on "let me check…".
+  test('states that a message without a tool call ends the turn', () => {
+    for (const prompt of [
+      createBase3().systemPrompt!,
+      ...ALL_CLI_ROOTS.map((root) => root.systemPrompt!),
+    ]) {
+      expect(prompt).toContain(TURN_ENDING_RULE)
+    }
+  })
+
   test('brands Freebuff roots as Freebuff, and Codebuff roots as Codebuff', () => {
     expect(base3FreeDeepseek.systemPrompt).toContain('Freebuff')
     expect(base3FreeDeepseek.systemPrompt).not.toContain('/usage')
     // Codebuff's paid modes explain credits; Freebuff has none to explain.
     expect(base3.systemPrompt).toContain('/usage')
+  })
+})
+
+describe('a lean compaction policy', () => {
+  const { lean: _, ...runtimePolicy } = LEAN_COMPACTION_POLICY
+  const lean = createBase3('anthropic/claude-haiku-5.5', {
+    compaction: LEAN_COMPACTION_POLICY,
+  })
+  const plain = createBase3('anthropic/claude-haiku-5.5', {
+    compaction: runtimePolicy,
+  })
+
+  test('adds the context-budget section, naming where compaction fires', () => {
+    expect(lean.systemPrompt).toContain('# Context budget')
+    expect(lean.systemPrompt).toContain('past ~88k tokens')
+    expect(plain.systemPrompt).not.toContain('# Context budget')
+  })
+
+  test('keeps `lean` out of compactContext, whose schema is strict', () => {
+    expect(lean.compactContext).toEqual(runtimePolicy)
   })
 })

@@ -1,8 +1,7 @@
-import {
-  freebucksPeakCopy,
-  isFreebucksPeakModel,
-} from '@codebuff/common/util/freebuff-peak-price'
+import { freebucksOffPeakCopy } from '@codebuff/common/util/freebuff-off-peak-price'
+import { isFreebucksPeakModel } from '@codebuff/common/util/freebuff-peak-price'
 import { watchFreebucksPriceChanges } from '@codebuff/common/util/freebuff-price-changes'
+import { freebucksListPriceFor } from '@codebuff/common/util/freebuff-price-order'
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
 import React, {
@@ -26,6 +25,10 @@ import {
   sortModelsByPrice,
 } from '../utils/freebucks'
 import { safeOpen } from '../utils/open-url'
+import {
+  FREEBUFF_PLAN_REQUIRED_LABEL,
+  FREEBUFF_PLAN_REQUIRED_LINE,
+} from '@codebuff/common/util/freebuff-model-selection'
 
 /** Where a wall sends the reader — the same destination as the landing
  *  screen's upgrade line, so the two cannot point at different pages. */
@@ -33,23 +36,22 @@ const FREEBUCKS_PLANS_URL = 'https://freebuff.com/plans'
 
 import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
+  FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_REWARD_MODEL_ID,
   getFreebuffDeploymentAvailabilityLabel,
-  getFreebuffModelUnavailableLabel,
-  getFreebuffModel,
-  getFreebuffModelSupersededBy,
   getFreebuffModelsForAccessTier,
-  getRecommendedFreebuffModelId,
-  isFreebuffRewardModelId,
-  isFreebuffModelAvailable,
-  isFreebuffPremiumModelId,
-  isSupportedFreebuffModelId,
 } from '@codebuff/common/constants/freebuff-models'
 import {
   formatFreebuffRowQuota,
   getFreebuffSectionQuotas,
   getFreebuffModelMeter,
 } from '@codebuff/common/util/freebuff-session-pools'
+import {
+  FREEBUFF_PICKER_SECTIONS,
+  freebuffPickerSections,
+  freebuffRowPlacement,
+  type FreebuffPickerSectionId,
+} from '@codebuff/common/util/freebuff-picker-sections'
 import {
   getLimitedModelOffers,
   getRateLimitsByModel,
@@ -64,9 +66,11 @@ import {
   freebuffFreeWindowsSummary,
   freebuffPlanSummary,
 } from '@codebuff/common/util/freebuff-plan-summary'
+import { compiledFreebuffModelIdOfRow } from '@codebuff/common/util/freebuff-catalog-compiled-model'
 
 import { startFreebuffSession } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
+import { useFreebuffModelDirectory } from '../state/freebuff-catalog-store'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
@@ -75,11 +79,7 @@ import {
   freebuffModelNavigationDirectionForKey,
   nextFreebuffModelId,
 } from '../utils/freebuff-model-navigation'
-import { formatSessionUnits } from '../utils/format-session-units'
-import {
-  formatFreebuffPremiumResetCountdown,
-  getFreebuffPremiumResetAt,
-} from '../utils/freebuff-premium-reset'
+import { formatFreebuffPremiumResetCountdown } from '../utils/freebuff-premium-reset'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
 import type {
@@ -87,42 +87,22 @@ import type {
   FreebuffModelOption,
 } from '@codebuff/common/constants/freebuff-models'
 import type { FreebuffReferralFocusTarget } from './freebuff-referral-banner'
+import type { FreebuffCatalogBadge } from '@codebuff/common/types/freebuff-model-catalog'
 import type {
   BoxRenderable,
   KeyEvent,
   ScrollBoxRenderable,
 } from '@opentui/core'
 
-// The picker opens collapsed to a single hero card so a new user can start with
-// one Enter press without reading six boxes. The hero is the DEFAULT pick, not
-// a recommendation — the ' RECOMMENDED ' badge and every supersedes nudge were
-// removed on 2026-08-21, leaving list ORDER as the only steer. The "see all models"
-// toggle reveals the rest, grouped into the same product/availability tiers.
-//
-// Section grouping (expanded view): every model row, including the recommended
-// one, keeps its tier so it is obvious which quota it consumes. The premium
-// models share one daily session quota while the unlimited ones have none.
-// Putting the tier on a section header lets each row drop its redundant
-// "Premium"/"Unlimited" chip. The PREMIUM header carries the shared quota
-// inline — "N of M used · resets in …" — once any session is spent (turning
-// amber when exhausted, the moment its rows grey out). When collapsed there's
-// no PREMIUM header, so the parent keeps a below-picker counter for the
-// collapsed state (and for the limited tier, which has no premium section).
-// The full-access hero is DeepSeek V4 Pro (DEFAULT_FREEBUFF_MODEL_ID) as of
-// 2026-08-21, so it draws on the premium pool and flips to the unlimited MiMo
-// once that empties — the hero must always be joinable. Pro is also the only
-// premium row open at every hour, which is why it holds this slot: V4 Flash now
-// closes for the ten-hour peak window. The limited tier's hero is MiMo 2.5,
-// with DeepSeek V4 Flash as its one other row. UNLIMITED needs no
-// annotation. Empty sections are filtered so a model set with no premium (or no
-// unlimited) entries doesn't render an orphan header.
-//
-// `label` may be empty: limited-tier users only see the constrained model set,
-// so the "LIMITED" header would just leak the internal tier name without
-// organizing anything. Renderer treats an empty label as "no header row".
+// The picker opens collapsed to a single hero card (the default pick) so a new
+// user can start with one Enter press. "See all models" reveals every row in
+// Desktop's sections (freebuff-picker-sections.ts), each header followed by the
+// section's purpose as `hint`. A time-boxed offer section, when the server
+// sends one, leads in both views.
 type Section = {
-  key: 'premium' | 'unlimited' | 'limited' | 'offer' | 'metered'
+  key: 'offer' | FreebuffPickerSectionId
   label: string
+  hint?: string
   models: readonly FreebuffModelOption[]
 }
 
@@ -132,6 +112,14 @@ const TOGGLE_ID = '__freebuff_toggle__'
 
 /** Joins the parts of a row's second line (see `rowDetails`). */
 const DETAIL_SEPARATOR = ' · '
+
+/** One chip on a row's second line. `highlight` draws it in the accent colour
+ *  — a price a catalog discount moved. */
+type RowDetail = { text: string; warn: boolean; highlight?: boolean }
+
+/** A catalog pill as it is drawn after the tagline. */
+const badgeSuffix = (badge: FreebuffCatalogBadge): string =>
+  `${DETAIL_SEPARATOR}${badge.label}`
 
 // There used to be a right-aligned "Press Enter ↵" cue on the focused row, with
 // its width reserved in the line-1 budget below. Both are gone: the cue was
@@ -164,6 +152,12 @@ const DETAIL_SEPARATOR = ' · '
  * keeps the focused control scrolled into view.
  */
 interface FreebuffModelSelectorProps {
+  /** Selection only; admission and any spending consent happen on send. */
+  onSelectModel?: (model: string) => void
+  onCancel?: () => void
+  selectedModelOverride?: string
+  initialView?: 'model' | 'reasoning'
+
   /** Session admission boundary; defaults to the CLI session controller. */
   startSession?: (model: string) => Promise<void>
   /** Max vertical rows the picker may occupy. When the rendered rows exceed
@@ -222,6 +216,10 @@ export function freebuffCliOfferedModelIds(
 
 export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   maxHeight,
+  onSelectModel,
+  onCancel,
+  selectedModelOverride,
+  initialView = 'model',
   onExpandedChange,
   belowToggle,
   nowMs,
@@ -229,20 +227,37 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   startSession = startFreebuffSession,
 }) => {
   const theme = useTheme()
+  // Every model question goes through the directory: the compiled catalog in
+  // fallback mode (exactly the pre-catalog picker), the server catalog in
+  // catalog mode, where every row id below is a catalog KEY.
+  // docs/freebuff-model-catalog.md
+  const directory = useFreebuffModelDirectory()
+  const catalog = directory.catalog
   // contentMaxWidth (not terminalWidth) is the real budget — the parent
   // landing screen wraps this picker in a `maxWidth: contentMaxWidth`
   // box (capped at 80 cols), so a wide terminal doesn't actually let us
   // sprawl the buttons across it.
   const { contentMaxWidth } = useTerminalDimensions()
-  const selectedModel = useFreebuffModelStore((s) => s.selectedModel)
+  const storedModel = useFreebuffModelStore((s) => s.selectedModel)
+  const selectedModel = selectedModelOverride ?? storedModel
   const setSelectedModel = useFreebuffModelStore((s) => s.setSelectedModel)
-  // Subscribed, not read imperatively: `/reasoning` can change a row's effort
+  // Subscribed, not read imperatively: the reasoning submenu can change a row's effort
   // while the picker is unmounted, and the width maths below memoizes on this
   // value. Reading the store outside React would leave the memo stale and
   // truncate the row it just widened.
   const reasoningEffortByModel = useFreebuffModelStore(
     (s) => s.reasoningEffortByModel,
   )
+  const [reasoningModel, setReasoningModel] = useState<string | null>(() =>
+    initialView === 'reasoning' && directory.efforts(selectedModel)?.length
+      ? selectedModel
+      : null,
+  )
+  const [reasoningIndex, setReasoningIndex] = useState(() => {
+    const current =
+      reasoningEffortByModel[selectedModel] ?? directory.defaultEffort(selectedModel)
+    return Math.max(0, directory.efforts(selectedModel)?.indexOf(current!) ?? 0)
+  })
   const session = useFreebuffSessionStore((s) => s.session)
   const accessTier =
     (session && 'accessTier' in session ? session.accessTier : undefined) ??
@@ -283,6 +298,21 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // accounts it meters, so there is no client-side role check here that could
   // drift from what is actually charged.
   const freebucks = freebucksOf(session)
+  // A paid-only row on an account without a plan: drawn LOCKED rather than
+  // hidden, with no price, and Enter opens the plans page. The server refuses
+  // the admission anyway; this is only what the picker shows.
+  //
+  // `freebucks` carries the server's per-viewer verdict
+  // (`planRequiredModelIds`), which is what makes the US-or-paid rows lockable
+  // here at all: the CLI is never told its country. Declared after the
+  // balance it reads. The tier is the fallback when no verdict arrived: the
+  // limited catalog lists its plan rows to a planless account (2026-09-30),
+  // and they must stay locked when the balance is unavailable too.
+  const planRequired = useCallback(
+    (modelId: string) =>
+      directory.planRequired(modelId, hasPaidSubscription, freebucks, accessTier),
+    [directory, hasPaidSubscription, freebucks, accessTier],
+  )
   const balanceUnavailable = freebucks === null
   // The plan the daily pool was sized from. `planId` is the server's own
   // verdict, so the name cannot disagree with the number beside it.
@@ -300,12 +330,39 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // CHEAPEST FIRST once metered — the same order Web and Desktop use. Off
     // the meter this returns the catalog untouched, so the recommended-first
     // ordering everyone currently sees is unchanged.
-    () =>
-      sortModelsByPrice(
-        getFreebuffModelsForAccessTier(accessTier, hasPaidSubscription),
+    () => {
+      const models = directory.pickerModels(accessTier, hasPaidSubscription)
+      // A catalog may list a limited-offer row among its rows; it is drawn
+      // once, in the offer section below, like the compiled offer rows are.
+      const offered = catalog
+        ? new Set(getLimitedModelOffers(session).map((offer) => offer.model))
+        : null
+      return sortModelsByPrice(
+        offered?.size ? models.filter((m) => !offered.has(m.id)) : models,
         freebucks,
-      ),
-    [accessTier, hasPaidSubscription, freebucks],
+      )
+    },
+    [directory, catalog, session, accessTier, hasPaidSubscription, freebucks],
+  )
+  // The server's sections and each row's place in them (catalog mode); the
+  // compiled layout only when the server sent none. A catalog row's id is its
+  // key; compiled placements name the compiled model it replaces.
+  const pickerSections = catalog?.sections ?? FREEBUFF_PICKER_SECTIONS
+  const placementOf = useCallback(
+    (model: FreebuffModelOption) => {
+      const row = directory.row(model.id)
+      return freebuffRowPlacement(
+        row?.placement,
+        pickerSections,
+        [row ? compiledFreebuffModelIdOfRow(row) : undefined, model.id],
+        {
+          premium: directory.isPremium(model.id),
+          locked: planRequired(model.id),
+          price: freebucks?.prices[model.id],
+        },
+      )
+    },
+    [directory, planRequired, freebucks, pickerSections],
   )
   // Capacity-limited models the SERVER decided to offer on this response. The
   // client has no catalog of its own for these on purpose: when the wave's pool
@@ -320,13 +377,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const offers = useMemo(
     () =>
       getLimitedModelOffers(session).filter((offer) =>
-        isSupportedFreebuffModelId(offer.model),
+        directory.isKnown(offer.model),
       ),
-    [session],
+    [session, directory],
   )
   const offerModels = useMemo(
-    () => offers.map((offer) => getFreebuffModel(offer.model)),
-    [offers],
+    () => offers.map((offer) => directory.get(offer.model)),
+    [offers, directory],
   )
   const offerByModelId = useMemo(
     () => new Map(offers.map((offer) => [offer.model, offer])),
@@ -344,10 +401,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   )
   const taglineFor = useCallback(
     (model: FreebuffModelOption) =>
-      isFreebucksPeakModel(freebucks, model.id)
+      model.id === FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID ||
+      isFreebucksPeakModel(freebucks, model.id) ||
+      freebucks?.offPeak?.[model.id] ||
+      // The promotion's own pill says it; the notice would repeat it.
+      model.promotional ||
+      directory.row(model.id)?.badges.some((b) => b.kind === 'promotional')
         ? model.tagline
         : (freebucks?.priceNotices?.[model.id] ?? model.tagline),
-    [freebucks],
+    [freebucks, directory],
   )
   const referral = getReferralInfo(session)
   const meterFor = useCallback(
@@ -361,7 +423,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         legacyRemaining:
           accessTier === 'limited' &&
           !hasPaidSubscription &&
-          isFreebuffRewardModelId(model)
+          directory.isReward(model)
             ? (referral?.weeklySessionsRemaining ?? 0)
             : undefined,
       }),
@@ -371,6 +433,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       accessTier,
       hasPaidSubscription,
       referral?.weeklySessionsRemaining,
+      directory,
     ],
   )
   // Present only while a promo runs; absent renders the banner exactly as it
@@ -381,7 +444,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // rows describe their price and balance instead of a pool they do not use.
   const premiumSectionQuotas = getFreebuffSectionQuotas(
     availableModels
-      .filter((m) => isFreebuffPremiumModelId(m.id))
+      .filter((m) => directory.isPremium(m.id))
       .map((m) => m.id),
     Object.fromEntries(
       availableModels.flatMap((model) => {
@@ -398,15 +461,6 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // "unlimited". No snapshot means no pool, so no counter.
   const premiumLimit = sharedRateLimit?.limit ?? null
   const premiumExhausted = premiumLimit !== null && premiumUsed >= premiumLimit
-  // The pool resets daily on a Pacific-day boundary regardless of usage, so the
-  // countdown is meaningful even at zero used. Gated on the pool existing for
-  // the same reason as the count above: no pool, nothing to reset.
-  const premiumResetCountdown = sharedRateLimit
-    ? formatFreebuffPremiumResetCountdown(
-        getFreebuffPremiumResetAt({ rateLimitsByModel, nowMs: now }),
-        now,
-      )
-    : null
 
   /**
    * THE contents of a row's second line, in draw order — the one place that
@@ -422,8 +476,20 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
    * off the first frame.
    */
   const rowDetails = useCallback(
-    (model: FreebuffModelOption): { text: string; warn: boolean }[] => {
-      const details: { text: string; warn: boolean }[] = []
+    (model: FreebuffModelOption): RowDetail[] => {
+      // A locked row says only why it is locked. No price: a Freebucks figure
+      // beside a row Freebucks cannot open reads as the way in.
+      if (planRequired(model.id)) {
+        return [
+          {
+            text:
+              directory.row(model.id)?.lockedLabel ??
+              FREEBUFF_PLAN_REQUIRED_LABEL,
+            warn: true,
+          },
+        ]
+      }
+      const details: RowDetail[] = []
       // THE PRICE LEADS LINE 2, and on the meter it is often the only thing
       // on it.
       //
@@ -439,33 +505,48 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // on the other two surfaces.
       const rowPrice = freebucksPriceFor(freebucks, model.id)
       if (rowPrice !== undefined) {
+        // Only the price that will be charged. The regular price is NOT
+        // shown beside it: many terminals ignore the strikethrough attribute,
+        // and "10 0 Freebucks/hr" then reads as two prices. A row a catalog
+        // discount moved is drawn in the accent colour instead.
         details.push({
           text: freebucksPriceLabel(rowPrice),
           warn: (freebucks?.balance ?? 0) < rowPrice,
+          highlight: freebucksListPriceFor(freebucks, model.id) !== undefined,
         })
+        // At peak, when the off-peak price is back, so a user can wait for it.
+        // On the clock `freebucks` was resolved with, not `now`, which can lag.
+        const resumes = freebucksOffPeakCopy(freebucks, model.id)?.resumes
+        if (resumes) {
+          details.push({
+            text: `${freebucksPriceLabel(resumes.price)} from ${resumes.at}`,
+            warn: false,
+          })
+        }
+      }
+      // A section's own pick.
+      if (placementOf(model).recommended) {
+        details.push({ text: 'Recommended', warn: false, highlight: true })
+      }
+      // Beside the price it qualifies, in the warning colour. The terminal has
+      // no tooltip to hold the catalog's full sentence, so the row carries its
+      // short form; line 2 is sized from these details, so it cannot truncate.
+      if (model.priceWarning) {
+        details.push({ text: 'Price subject to change', warn: true })
+      }
+      if (model.dealEndingSoon) {
+        details.push({ text: model.dealEndingSoon.short, warn: true })
+      }
+      if (model.promotional) {
+        details.push({ text: model.promotional.short, warn: true })
       }
       if (model.warning) details.push({ text: model.warning, warn: true })
-      // PEAK PRICING as its own detail chip, in the reader's zone. Line 1
-      // keeps the row's tagline (the server's prose notice is the same fact
-      // and is dropped for a peaked row, see taglineFor); the price above
-      // already moved, and this is the why and the when.
-      if (freebucks?.peak && isFreebucksPeakModel(freebucks, model.id)) {
-        const base = (rowPrice ?? 0) - freebucks.peak.surcharge
-        details.push({
-          text: freebucksPeakCopy({
-            peak: freebucks.peak,
-            basePrice: base,
-            now,
-          }).tooltip,
-          warn: true,
-        })
-      }
       if (model.availability === 'deployment_hours') {
         // Carries both the in-hours and out-of-hours signal, so a row with
         // hours never also needs the closed note below.
         details.push({ text: deploymentAvailabilityLabel, warn: false })
       } else {
-        const closed = getFreebuffModelUnavailableLabel(model.id, new Date(now))
+        const closed = directory.unavailableLabel(model.id, new Date(now))
         if (closed) details.push({ text: closed, warn: true })
       }
       // A row on a stricter pool than its section carries its own count,
@@ -498,6 +579,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       premiumSectionQuotas,
       meterFor,
       freebucks,
+      planRequired,
+      directory,
+      placementOf,
     ],
   )
   const rowDetailsText = useCallback(
@@ -510,9 +594,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
 
   const isJoinable = useCallback(
     (modelId: string) => {
-      if (!isFreebuffModelAvailable(modelId, new Date(now))) return false
+      if (!directory.isAvailable(modelId, new Date(now))) return false
       // An offer row is on screen only while the shared pool has capacity, so
-      // what's left to check is the caller's own daily ceiling. It travels on
+      // what's left to check is the caller's campaign allowance. It travels on
       // the offer payload rather than in `rateLimitsByModel`, which the server
       // deliberately keeps free of these models so the 30s poll doesn't pay for
       // a quota nobody is using.
@@ -524,19 +608,35 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         Date.parse(session.expiresAt) > (nowMs ?? Date.now())
       )
         return true
+      // After the active-session check: a session already running on the row
+      // stays joinable; only STARTING one needs the plan.
+      if (planRequired(modelId)) return false
       return meterFor(modelId).canStart
     },
-    [now, nowMs, session, offerByModelId, meterFor],
+    [now, nowMs, session, offerByModelId, meterFor, planRequired, directory],
   )
 
   const recommendedModel = useMemo(() => {
-    const id = getRecommendedFreebuffModelId(accessTier, { premiumExhausted })
+    const id = directory.recommendedModelId(accessTier, { premiumExhausted })
     const preferred =
       availableModels.find((m) => m.id === id) ?? availableModels[0]!
-    return isJoinable(preferred.id)
-      ? preferred
+    if (isJoinable(preferred.id)) return preferred
+    // The catalog names its own step-down row; the compiled catalog has none
+    // beyond the recommendation above, which already stepped down.
+    const stepDown = catalog
+      ? availableModels.find((m) => m.id === directory.fallbackModelId)
+      : undefined
+    return stepDown && isJoinable(stepDown.id)
+      ? stepDown
       : (availableModels.find((model) => isJoinable(model.id)) ?? preferred)
-  }, [accessTier, availableModels, premiumExhausted, isJoinable])
+  }, [
+    accessTier,
+    availableModels,
+    premiumExhausted,
+    isJoinable,
+    directory,
+    catalog,
+  ])
 
   // "A better model exists" footnote for a row. The CLI has no in-row button to
   // switch with, so it shows the notice only — the replacement is always
@@ -549,16 +649,21 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
    * `freebucksRowIntent`.
    */
   const rowIntent = useCallback(
-    (modelId: string) =>
-      freebucksRowIntent(
-        freebucks,
-        modelId,
+    (modelId: string): ReturnType<typeof freebucksRowIntent> => {
+      const activeModelId =
         session?.status === 'active' &&
-          Date.parse(session.expiresAt) > (nowMs ?? Date.now())
+        Date.parse(session.expiresAt) > (nowMs ?? Date.now())
           ? session.model
-          : undefined,
-      ),
-    [freebucks, session, nowMs],
+          : undefined
+      // A locked row takes the WALL's path: first Enter explains, second
+      // opens the plans page, and nothing ever starts a session. Not for the
+      // row a session is already on, which the meter allows as usual.
+      if (modelId !== activeModelId && planRequired(modelId)) {
+        return { kind: 'paywall', price: 0, walletSpend: 0 }
+      }
+      return freebucksRowIntent(freebucks, modelId, activeModelId)
+    },
+    [freebucks, session, nowMs, planRequired],
   )
 
   /**
@@ -581,10 +686,10 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const isPricedOut = useCallback(
     (modelId: string) =>
       !isJoinable(modelId) &&
-      isFreebuffModelAvailable(modelId, new Date(now)) &&
+      directory.isAvailable(modelId, new Date(now)) &&
       !offerByModelId.has(modelId) &&
       rowIntent(modelId).kind === 'paywall',
-    [isJoinable, now, offerByModelId, rowIntent],
+    [isJoinable, now, offerByModelId, rowIntent, directory],
   )
 
   /** Whether pressing the row does anything at all — starts a session, asks a
@@ -616,8 +721,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
    */
   const upgradeOfferFor = useCallback(
     (model: FreebuffModelOption) => {
-      // OFF THE WIRE, never derived here. The copy is built from Freebucks
-      // constants the CLI cannot hold (they are export-excluded), and who is
+      // OFF THE WIRE, never derived here. The copy is built from
+      // server-provided Freebucks values, and who is
       // offered what is the server's verdict — tier, plan, plans audience —
       // so `freebucks.upgrade` is absent for everyone it does not apply to.
       const upgrade = freebucks?.upgrade
@@ -631,6 +736,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     (model: FreebuffModelOption): string | undefined => {
       if (pendingAsk !== model.id) return undefined
       const intent = rowIntent(model.id)
+      if (intent.kind === 'paywall' && planRequired(model.id)) {
+        return `${FREEBUFF_PLAN_REQUIRED_LINE} Enter opens plans.`
+      }
       if (intent.kind === 'paywall') {
         // On the row the limited-tier offer discounts, say what a plan does
         // rather than what is missing. Kept about as short as the line it
@@ -638,11 +746,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         // CTA line under it already carries "Get 7x usage for $5".
         const offer = upgradeOfferFor(model)
         if (offer) {
-          // The first clause of the server's copy ("DeepSeek V4.1 Flash drops
-          // to 15 Freebucks on a plan"): the whole tooltip is a sentence and a
-          // half, and this line sizes the card and is clipped, never wrapped.
-          const lead = offer.tooltip.split(' — ')[0] ?? offer.tooltip
-          return `${lead}. Enter opens plans.`
+          return `${offer.tooltip.replace(/\.$/, '')}. Enter opens plans.`
         }
         return `Not enough ${FREEBUCKS_LABEL} — ${freebucksPriceLabel(
           intent.price,
@@ -668,7 +772,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       }
       return undefined
     },
-    [pendingAsk, rowIntent, freebucks, activeSessionModel, upgradeOfferFor],
+    [
+      pendingAsk,
+      rowIntent,
+      freebucks,
+      activeSessionModel,
+      upgradeOfferFor,
+      planRequired,
+    ],
   )
 
   const supersededNoticeFor = useCallback(
@@ -678,12 +789,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // replacement. Gated here rather than at the render so the width math and
       // the height estimate below stay in agreement with what is drawn.
       model.id === selectedModel
-        ? getFreebuffModelSupersededBy(
+        ? directory.supersededBy(
             model.id,
             availableModels.map((m) => m.id),
           )?.notice
         : undefined,
-    [availableModels, selectedModel],
+    [availableModels, selectedModel, directory],
   )
   const upgradeLineFor = useCallback(
     (model: FreebuffModelOption): string | undefined => {
@@ -711,15 +822,13 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   const isLanding = session?.status === 'none' || !session
   const [expanded, setExpanded] = useState(
     () =>
+      Boolean(onSelectModel) ||
       !canCollapse ||
       !isLanding ||
       (selectedModel !== recommendedModel.id && isJoinable(selectedModel)),
   )
-  // Limited mode has no labeled tier section, so moving its recommendation
-  // inside that section would only move the existing inter-card spacing above
-  // the entire list. Keep its original standalone recommendation; full-access
-  // expanded views put every row beneath a quota-bearing section header.
-  const showStandaloneRecommended = !expanded || accessTier === 'limited'
+  // Expanded, every row sits beneath a section header, the hero included.
+  const showStandaloneRecommended = !expanded
   // The session snapshot arrives asynchronously. If it changes the picker
   // from full access (collapsible) to limited access (only two rows), force
   // the list open before notifying the parent; otherwise the toggle disappears
@@ -741,6 +850,31 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // saved/active pick (the recommended hero for a new user, since that's the
   // default selection; their own model when expanded for a returning user).
   const [focusedId, setFocusedId] = useState<string>(() => selectedModel)
+
+  /**
+   * The focused catalog row's hover text, one line each: the terminal has no
+   * hover, so what Desktop shows in a tooltip is printed under the row the
+   * cursor is on. Wrapped rather than measured into the card width, so a long
+   * sentence cannot widen every card. Always empty in fallback mode.
+   */
+  const tooltipLinesFor = useCallback(
+    (model: FreebuffModelOption): string[] => {
+      if (!catalog || model.id !== focusedId) return []
+      const row = directory.row(model.id)
+      if (!row) return []
+      const schedule = freebucksOffPeakCopy(freebucks, model.id)?.tooltip
+      return [
+        ...(row.taglineTooltip ? [row.taglineTooltip] : []),
+        ...(schedule ? [schedule] : []),
+        // The pill's label is on the row just above; its tooltip alone.
+        ...row.badges.flatMap((badge) => (badge.tooltip ? [badge.tooltip] : [])),
+        ...(row.access === 'locked' && row.lockedTooltip
+          ? [row.lockedTooltip]
+          : []),
+      ]
+    },
+    [catalog, directory, focusedId, freebucks],
+  )
 
   // The referral banner contributes its GLM/copy actions to the selector's
   // navigation order. Keeping them local avoids a global focus bridge now that
@@ -765,43 +899,17 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   }, [])
   // The standing catalog's tier sections. Expanded-only; the offer section
   // below is added on top and is visible in both states.
-  const catalogSections = useMemo(() => {
-    if (!expanded) return [] as readonly Section[]
-    if (accessTier === 'limited') {
-      return [
-        { key: 'limited', label: '', models: otherModels },
-      ] satisfies readonly Section[]
-    }
-    // ONE FLAT LIST on the meter, like Web and Desktop.
-    //
-    // PREMIUM / UNLIMITED name which POOL metered a row, and on Freebucks
-    // there is one meter and every row carries a price. Keeping the split puts
-    // a "0 of 4 used" pool header above rows that are charged to something
-    // else entirely — two meters for one account, which is the arrangement
-    // that lies outright. Ordering is by price now, so the list is already
-    // sorted by the only thing those headers were standing in for.
-    if (freebucks) {
-      return [
-        { key: 'metered', label: '', models: availableModels },
-      ] satisfies readonly Section[]
-    }
-    return (
-      [
-        {
-          key: 'premium',
-          label: 'PREMIUM',
-          models: availableModels.filter((m) => isFreebuffPremiumModelId(m.id)),
-        },
-        {
-          key: 'unlimited',
-          label: 'UNLIMITED',
-          models: availableModels.filter(
-            (m) => !isFreebuffPremiumModelId(m.id),
-          ),
-        },
-      ] satisfies readonly Section[]
-    ).filter((section) => section.models.length > 0)
-  }, [expanded, accessTier, availableModels, otherModels, freebucks])
+  const catalogSections = useMemo((): readonly Section[] => {
+    if (!expanded) return []
+    return freebuffPickerSections(availableModels, placementOf, pickerSections).map(
+      ({ section, models }): Section => ({
+        key: section.id,
+        label: section.label.toUpperCase(),
+        hint: section.tooltip,
+        models,
+      }),
+    )
+  }, [expanded, availableModels, placementOf, pickerSections])
 
   // Every section that gets drawn, in draw order. THE single source for the
   // render, the navigation order and the height estimate — those three must
@@ -869,9 +977,9 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     // Keep an earned banner pick too when an older catalog omits that row.
     const selectionIsStartable =
       (renderedModelIds.includes(selectedModel) ||
-        isFreebuffRewardModelId(selectedModel)) &&
+        directory.isReward(selectedModel)) &&
       isJoinable(selectedModel)
-    if (isLanding && !selectionIsStartable) {
+    if (!onSelectModel && isLanding && !selectionIsStartable) {
       setSelectedModel(recommendedModel.id)
       // The cursor moves too: the focus effect above only rescues an
       // out-of-RANGE focus, and the row we just refused is still in range.
@@ -879,37 +987,46 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     }
   }, [
     renderedModelIds,
+    onSelectModel,
     isLanding,
     isJoinable,
     recommendedModel.id,
     selectedModel,
     setSelectedModel,
+    directory,
   ])
 
-  // What the row advertises as this model's reasoning: the user's `/reasoning`
-  // pick when they made one, otherwise the effort the server pins from the
-  // catalog. ONE function for both the width maths and the render — they were
-  // separate strings before the picker gained an override, and a row whose
-  // suffix outgrows what the width maths budgeted for is a truncated row.
-  //
-  // A model with a LADDER but no pinned `reasoningEffort` (Fable 5) still shows
-  // nothing until the user picks: its default is the provider's own, and
-  // spending row width to restate it pushed the "see all models" toggle off a
-  // short terminal. The suffix appears the moment it carries information the
-  // user did not already have.
+  // Share the suffix between width calculations and rendering.
   const reasoningSuffixFor = useCallback(
     (model: FreebuffModelOption): string => {
       const chosen = reasoningEffortByModel[model.id]
       if (chosen && model.efforts?.includes(chosen)) {
-        // The '*' marks a rung the USER chose, so a pick is distinguishable
-        // from the catalog default without a second line.
-        return ` · Reasoning: ${chosen}*`
+        return ` • ${chosen}`
       }
-      return model.reasoningEffort
-        ? ` · Reasoning: ${model.reasoningEffort}`
-        : ''
+      const effort = (onSelectModel ? directory.defaultEffort(model.id) : null) ?? model.reasoningEffort
+      return effort ? ` • ${effort}` : ''
     },
-    [reasoningEffortByModel],
+    [reasoningEffortByModel, onSelectModel, directory],
+  )
+
+  /**
+   * A catalog row's pills, drawn after the tagline on line 1 the way the
+   * compiled NEW and TEST flags are. Generic on purpose: the label is the
+   * server's text, so a new kind of pill needs no release. Empty in fallback
+   * mode, which draws its compiled flags itself.
+   */
+  const badgesFor = useCallback(
+    (model: FreebuffModelOption): readonly FreebuffCatalogBadge[] =>
+      directory.badges(model.id),
+    [directory],
+  )
+  const badgesSuffixLen = useCallback(
+    (model: FreebuffModelOption) =>
+      badgesFor(model).reduce(
+        (total, badge) => total + badgeSuffix(badge).length,
+        0,
+      ),
+    [badgesFor],
   )
 
   const BUTTON_CHROME = 4 // 2 border + 2 padding
@@ -981,7 +1098,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
         (m.isNew ? newSuffixLen : 0) +
-        (m.experimental ? testSuffixLen : 0)
+        (m.experimental ? testSuffixLen : 0) +
+        badgesSuffixLen(m)
       const compactLabelLen = (m: FreebuffModelOption) =>
         2 +
         m.displayName.length +
@@ -990,7 +1108,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         reasoningSuffixLen(m) +
         multimodalSuffixLen(m) +
         (m.isNew ? newSuffixLen : 0) +
-        (m.experimental ? testSuffixLen : 0)
+        (m.experimental ? testSuffixLen : 0) +
+        badgesSuffixLen(m)
 
       // Line 2, or 0 for a row with no details. Centered in the card rather
       // than indented under line 1's details column — the notice is a footnote
@@ -1042,6 +1161,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       rowDetailsText,
       supersededNoticeFor,
       askLineFor,
+      badgesSuffixLen,
     ])
 
   // A row spends a second line whenever it has details to put there — no longer
@@ -1068,7 +1188,12 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // frame after an Enter is one row short and the toggle is clipped —
       // the same failure the plan line caused before it was counted.
       (askLineFor(m) ? 1 : 0) +
-      (upgradeLineFor(m) ? 1 : 0)
+      (upgradeLineFor(m) ? 1 : 0) +
+      tooltipLinesFor(m).reduce(
+        (rows, line) =>
+          rows + Math.max(1, Math.ceil(line.length / Math.max(1, buttonInnerWidth))),
+        0,
+      )
     if (showStandaloneRecommended) {
       y += rowHeight(recommendedModel)
     }
@@ -1110,6 +1235,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     freeWindows,
     freebucks,
     askLineFor,
+    tooltipLinesFor,
+    buttonInnerWidth,
   ])
 
   // When a referral exists, start at the parent's full allowance until the
@@ -1144,10 +1271,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     if (focusedId === extraTargetIds.at(-1)) {
       sb.scrollTop = Math.max(0, sb.scrollHeight - sb.viewport.height)
     }
-  }, [focusedId, contentHeight, needsScroll, extraTargetIds])
+  }, [focusedId, contentHeight, needsScroll, extraTargetIds, reasoningModel])
 
   const pick = useCallback(
     (modelId: string) => {
+      if (onSelectModel) {
+        onSelectModel(modelId)
+        return
+      }
       if (admissionPending.current) return
       if (modelId === committedModelId) return
       // Priced-out rows fall through on purpose: the branches below raise the
@@ -1167,24 +1298,33 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         // cannot cover it and the server would refuse. Enter opens the plans
         // page instead, which is the only action that changes the answer.
         setPendingAsk(null)
-        void safeOpen(FREEBUCKS_PLANS_URL)
+        // A catalog names where its locked rows go; every other wall (and
+        // fallback mode) keeps the CLI's own plans page.
+        void safeOpen(
+          (planRequired(modelId) ? directory.plansUrl : undefined) ??
+            FREEBUCKS_PLANS_URL,
+        )
         return
       }
       setPendingAsk(null)
       // Two Enter events can arrive before React commits the pending state.
       admissionPending.current = true
       setPending(modelId)
-      startSession(
-        modelId,
-        intent.kind === 'confirm'
-          ? (intent.walletSpend ?? 'session')
-          : undefined,
-      ).finally(() => {
+      startSession(modelId).finally(() => {
         admissionPending.current = false
         setPending(null)
       })
     },
-    [committedModelId, isPressable, startSession, rowIntent, pendingAsk],
+    [
+      committedModelId,
+      isPressable,
+      startSession,
+      rowIntent,
+      pendingAsk,
+      onSelectModel,
+      planRequired,
+      directory,
+    ],
   )
 
   const toggleExpanded = useCallback(() => {
@@ -1207,6 +1347,37 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         if (keyboardSuspended) return
         if (pending) return
         const name = key.name ?? ''
+        if (reasoningModel) {
+          key.preventDefault?.()
+          key.stopPropagation?.()
+          const efforts = directory.efforts(reasoningModel) ?? []
+          if (name === 'escape') setReasoningModel(null)
+          else if (name === 'up' || name === 'down') {
+            const delta = name === 'up' ? -1 : 1
+            setReasoningIndex((i) => (i + delta + efforts.length) % efforts.length)
+          } else if (isPlainEnterKey(key) && efforts[reasoningIndex]) {
+            useFreebuffModelStore.getState().setReasoningEffort(reasoningModel, efforts[reasoningIndex])
+            setReasoningModel(null)
+          }
+          return
+        }
+        if (onCancel && name === 'escape') {
+          key.preventDefault?.()
+          key.stopPropagation?.()
+          onCancel()
+          return
+        }
+        if (onSelectModel && name === 'tab') {
+          key.preventDefault?.()
+          key.stopPropagation?.()
+          const efforts = directory.efforts(focusedId)
+          if (efforts?.length) {
+            const current = reasoningEffortByModel[focusedId] ?? directory.defaultEffort(focusedId)
+            setReasoningIndex(Math.max(0, efforts.indexOf(current!)))
+            setReasoningModel(focusedId)
+          }
+          return
+        }
         const direction = freebuffModelNavigationDirectionForKey(key)
         // Use the shared Enter detector so the keypad Enter and the niche
         // Linux terminals that send \n (linefeed) for Enter also commit; a
@@ -1250,6 +1421,11 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       },
       [
         keyboardSuspended,
+        reasoningModel,
+        reasoningIndex,
+        reasoningEffortByModel,
+        onSelectModel,
+        onCancel,
         pending,
         pick,
         toggleExpanded,
@@ -1258,6 +1434,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         isPressable,
         navIds,
         extraTargets,
+        directory,
       ],
     ),
   )
@@ -1350,16 +1527,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     const imagesSuffix = model.multimodal ? ' · Images' : ''
 
     const reasoningSuffix = reasoningSuffixFor(model)
+    const badges = badgesFor(model)
+    const tooltipLines = tooltipLinesFor(model)
 
     return (
       <Button
         key={model.id}
         id={model.id}
-        // NO ' RECOMMENDED ' title as of 2026-08-21. The collapsed view still
-        // opens on one card so a new user can start with a single Enter, but
-        // that card is a STARTING POSITION rather than an endorsement — the
-        // catalog no longer names a recommended model, and ordering is the only
-        // steer left. Re-adding a title here re-adds the recommendation.
+        // NO ' RECOMMENDED ' border title (removed 2026-08-21). A section's
+        // own pick says Recommended on line 2 instead (2026-10-04).
         titleAlignment={undefined}
         onClick={() => {
           setFocusedId(model.id)
@@ -1384,18 +1560,18 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             fg={fgColor}
             attributes={isFocused ? TextAttributes.BOLD : TextAttributes.NONE}
           >
-            {model.displayName}
+            {model.displayName + reasoningSuffix}
           </span>
           {compactNames ? (
             <span fg={mutedColor}>
-              {' · ' + taglineFor(model) + reasoningSuffix + imagesSuffix}
+              {' · ' + taglineFor(model) + imagesSuffix}
             </span>
           ) : (
             <span fg={mutedColor}>
-              {namePadding + taglineFor(model) + reasoningSuffix + imagesSuffix}
+              {namePadding + taglineFor(model) + imagesSuffix}
             </span>
           )}
-          {model.isNew && (
+          {model.newBadge && (
             <span fg={theme.primary} attributes={TextAttributes.BOLD}>
               {' · NEW'}
             </span>
@@ -1408,6 +1584,28 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
               {' · TEST'}
             </span>
           )}
+          {/* Catalog pills. A warning tone reads as a caveat and a `new` kind
+              as an invitation, matching TEST and NEW above; any other kind or
+              tone is neutral, as the contract requires of unknown ones. */}
+          {badges.map((badge, index) => (
+            <span
+              key={`${index}-${badge.label}`}
+              fg={
+                badge.tone === 'warning'
+                  ? warningColor
+                  : badge.kind === 'new'
+                    ? theme.primary
+                    : mutedColor
+              }
+              attributes={
+                badge.tone === 'warning' || badge.kind === 'new'
+                  ? TextAttributes.BOLD
+                  : TextAttributes.NONE
+              }
+            >
+              {badgeSuffix(badge)}
+            </span>
+          ))}
         </text>
         {details.length > 0 && (
           <text>
@@ -1415,7 +1613,20 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             {details.map((detail, index) => (
               <React.Fragment key={`${index}-${detail.text}`}>
                 {index > 0 && <span fg={mutedColor}>{DETAIL_SEPARATOR}</span>}
-                <span fg={detail.warn ? warningColor : mutedColor}>
+                <span
+                  fg={
+                    detail.warn
+                      ? warningColor
+                      : detail.highlight
+                        ? theme.primary
+                        : mutedColor
+                  }
+                  attributes={
+                    detail.highlight && !detail.warn
+                      ? TextAttributes.BOLD
+                      : TextAttributes.NONE
+                  }
+                >
                   {detail.text}
                 </span>
               </React.Fragment>
@@ -1447,25 +1658,19 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             <span fg={theme.primary}>{upgradeLine}</span>
           </text>
         )}
+        {tooltipLines.map((line, index) => (
+          <text key={`tooltip-${index}`} style={{ wrapMode: 'word' }}>
+            <span fg={mutedColor}>{line}</span>
+          </text>
+        ))}
       </Button>
     )
   }
 
-  // Scarcity, on the LIMITED TRIAL header rather than on the row — same
-  // treatment the shared premium quota gets, so counts live in one predictable
-  // place and the rows stay narrow. Two facts, in the order they matter: how
-  // much of the wave is left for everyone, and (only once the user has spent
-  // theirs) when they personally get another. `offers` is homogeneous — one
-  // pool, one per-user ceiling — so the first entry speaks for all of them.
+  // All offers share a campaign pool and per-user allowance. Put the personal
+  // refusal first so narrow terminals cannot clip why a trial is locked.
   const offerSummary = offers[0]
   const offerUserExhausted = !!offerSummary && offerSummary.userRemaining <= 0
-  const offerUserResetAt = offerSummary
-    ? new Date(offerSummary.userResetAt)
-    : null
-  const offerUserResetCountdown =
-    offerUserResetAt && Number.isFinite(offerUserResetAt.getTime())
-      ? formatFreebuffPremiumResetCountdown(offerUserResetAt, now)
-      : null
 
   const sectionsContent = renderedSections.map((section) => (
     <box
@@ -1483,28 +1688,15 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       {section.label && (
         <text style={{ fg: theme.muted, wrapMode: 'none' }}>
           {section.label}
-          {section.key === 'premium' && premiumLimit !== null && (
-            <span fg={premiumExhausted ? theme.secondary : theme.muted}>
-              {' '}
-              · {formatSessionUnits(premiumUsed)} of {premiumLimit} used
-            </span>
-          )}
-          {section.key === 'premium' && premiumResetCountdown && (
-            <span fg={theme.muted}> · resets in {premiumResetCountdown}</span>
+          {section.hint && <span fg={theme.muted}> · {section.hint}</span>}
+          {section.key === 'offer' && offerUserExhausted && (
+            <span fg={theme.secondary}> · trial used</span>
           )}
           {section.key === 'offer' && offerSummary && (
             <span fg={theme.primary}>
               {' '}
-              · {offerSummary.remaining} of {offerSummary.total} sessions left
-            </span>
-          )}
-          {section.key === 'offer' && offerUserExhausted && (
-            <span fg={theme.secondary}>
-              {' '}
-              · you've used yours
-              {offerUserResetCountdown
-                ? `, resets in ${offerUserResetCountdown}`
-                : ''}
+              · {offerSummary.remaining} of {offerSummary.total} sessions left ·
+              1 per user
             </span>
           )}
         </text>
@@ -1548,6 +1740,27 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       </text>
     </Button>
   ) : null
+
+  if (reasoningModel) {
+    const model = directory.get(reasoningModel)
+    const efforts = directory.efforts(reasoningModel) ?? []
+    return (
+      <box style={{ flexDirection: 'column', paddingLeft: 1 }}>
+        <text style={{ fg: theme.foreground }}>{`${model.displayName} • Reasoning`}</text>
+        <text style={{ fg: theme.muted }}>↑↓ choose · Enter save · Esc back</text>
+        {efforts.map((effort, index) => (
+          <Button key={effort} onClick={() => {
+            useFreebuffModelStore.getState().setReasoningEffort(reasoningModel, effort)
+            setReasoningModel(null)
+          }}>
+            <text style={{ fg: index === reasoningIndex ? theme.primary : theme.foreground }}>
+              {`${index === reasoningIndex ? '›' : ' '} ${effort}${effort === directory.defaultEffort(reasoningModel) ? ' (default)' : ''}`}
+            </text>
+          </Button>
+        ))}
+      </box>
+    )
+  }
 
   // Scrollbox clamped to the rows the parent can spare. When everything fits
   // it shrinks to the content height and no scrollbar shows, so tall
@@ -1661,7 +1874,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         )}
         {toggleContent}
         {belowToggle}
-        {referral && (
+        {referral && !onSelectModel && (
           <FreebuffReferralBanner
             width={buttonOuterWidth}
             referral={referral}

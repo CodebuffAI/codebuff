@@ -1,9 +1,18 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 
-import { handleByokCommand } from '../byok'
+import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test'
+
+import { enterByokSetup, handleByokCommand } from '../byok'
+import * as auth from '../../utils/auth'
+import { loadSettings } from '../../utils/settings'
+import { useChatStore } from '../../state/chat-store'
 import {
+  isByokSetupOpen,
   resetCliByokStoreForTests,
   setCliByokStoreForTests,
+  useByokSelectionStore,
 } from '../../utils/byok'
 
 import type { RouterParams } from '../command-registry'
@@ -37,7 +46,33 @@ const createParams = (inputValue: string) => {
   return { params, messages, history }
 }
 
-afterEach(() => resetCliByokStoreForTests())
+afterEach(() => {
+  resetCliByokStoreForTests()
+  useByokSelectionStore.setState({ selected: undefined, setupOpen: false })
+  useChatStore.getState().setMessages([])
+})
+
+describe('BYOK setup from a Freebuff wall', () => {
+  test('opens setup and explains the commands in the chat', () => {
+    useByokSelectionStore.setState({ selected: undefined, setupOpen: false })
+    enterByokSetup()
+    expect(isByokSetupOpen()).toBe(true)
+    const text = useChatStore
+      .getState()
+      .messages.map((message) => message.content)
+      .join('\n')
+    expect(text).toContain('/byok add')
+    expect(text).toContain('never spend Freebucks')
+  })
+
+  test('/byok off closes setup when nothing is selected', async () => {
+    useByokSelectionStore.setState({ selected: undefined, setupOpen: true })
+    const { params, messages } = createParams('/byok off')
+    await handleByokCommand(params, 'off')
+    expect(isByokSetupOpen()).toBe(false)
+    expect(messages.join('\n')).toContain('BYOK setup closed.')
+  })
+})
 
 describe('/byok', () => {
   test('never saves setup arguments with an unrecognized credential format to history', async () => {
@@ -140,5 +175,34 @@ describe('/byok', () => {
 
     expect(messages.join('\n')).toContain('unmatched quote')
     expect(list).not.toHaveBeenCalled()
+  })
+})
+
+describe('/byok effort', () => {
+  test('persists a BYOK rung, reports it, and default clears it', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'freebuff-byok-effort-'))
+    const configDir = spyOn(auth, 'getConfigDir').mockReturnValue(dir)
+    try {
+      const high = createParams('/byok effort high')
+      await handleByokCommand(high.params, 'effort high')
+      expect(loadSettings().byokReasoningEffort).toBe('high')
+      expect(high.messages.join('\n')).toContain('high reasoning effort')
+
+      const shown = createParams('/byok effort')
+      await handleByokCommand(shown.params, 'effort')
+      expect(shown.messages.join('\n')).toContain('BYOK reasoning effort: high')
+
+      const bogus = createParams('/byok effort max')
+      await handleByokCommand(bogus.params, 'effort max')
+      expect(bogus.messages.join('\n')).toContain('Unknown effort: max')
+      expect(loadSettings().byokReasoningEffort).toBe('high')
+
+      const reset = createParams('/byok effort default')
+      await handleByokCommand(reset.params, 'effort default')
+      expect(loadSettings().byokReasoningEffort).toBeUndefined()
+    } finally {
+      configDir.mockRestore()
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

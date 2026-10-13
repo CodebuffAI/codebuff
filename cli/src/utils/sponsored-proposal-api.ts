@@ -1,7 +1,23 @@
+import type { SponsoredProposalStep } from '@codebuff/common/ads/sponsored-proposal-view'
+import {
+  AGENTIC_OFFER_PATH,
+  agenticOfferResponseSchema,
+} from '@codebuff/common/ads/agentic-offer'
+import { SPONSORED_IN_PLACE_VERSION } from '@codebuff/common/ads/sponsored-in-place'
+import { sanitizeTerminalStrings } from '@codebuff/common/util/terminal-safe-text'
 import { normalizeRepoFullName } from '@codebuff/common/ads/sponsored-proposal-target'
+import type {
+  AgenticOfferRequest,
+  AgenticOfferResponse,
+} from '@codebuff/common/ads/agentic-offer'
+import type { SponsoredLocalTarget } from '@codebuff/common/ads/sponsored-capability'
+import type { SponsoredComputeGrant } from '@codebuff/common/ads/sponsored-compute-contract'
+import type { SponsoredFrictionInput } from '@codebuff/common/ads/sponsored-run-friction'
+import { createHash } from 'node:crypto'
 
 import { FREEBUFF_WEB_URL } from '../login/constants'
 
+import { getCliAdRequestUserAgent } from './ad-client-identity'
 import { logger } from './logger'
 
 import type { SponsoredProposalRow } from '@codebuff/common/ads/sponsored-proposal-view'
@@ -65,15 +81,41 @@ export type SponsoredAccept = {
   runToken: string
   /** ISO-8601. After this the token stops being honoured upstream. */
   expiresAt: string
+  computeGrant: SponsoredComputeGrant
 }
 
-/** One transition, exactly as the state route takes it (COD-396). */
+export type SponsoredAcceptPreview = {
+  proposalId: string
+  procedure: string
+  procedureSha256: string
+  /** Present for foundation offers; absent preserves outstanding legacy offers. */
+  target?: SponsoredLocalTarget
+}
+
+/**
+ * The execution surface this machine reports, as the Accept route pairs it with
+ * the row (`acceptClientSurfacePairsWithRow`). The CLI never runs on Windows
+ * (`sponsored-cli-capability.ts`), so there is no `cli_windows`.
+ */
+export type SponsoredCliExecutionSurface = 'cli_macos' | 'cli_linux' | 'cli_wsl'
+
+/**
+ * One transition, exactly as the state route takes it (COD-396).
+ *
+ * `delivered` is the IN-PLACE terminal state (#3989): the run's edits are in
+ * the working copy and nothing was committed. It is the only success this CLI
+ * reports now; `committed` and `landed` stay in the type because the state
+ * route still speaks them and an older outbox entry may carry one.
+ */
 export type SponsoredStateUpdate = {
-  state: 'running' | 'committed' | 'failed' | 'landed'
+  state: 'running' | 'delivered' | 'committed' | 'failed' | 'landed'
   reportId?: string
   runId?: string
   head?: string
-  steps?: { text: string; state: 'pending' | 'active' | 'done' }[]
+  /** Diff-verified outcomes, read from the run's own edit receipts. */
+  outcomes?: string[]
+  outcomeFiles?: Record<string, string[]>
+  steps?: SponsoredProposalStep[]
   branch?: string
   prUrl?: string
   /** The sentence the CARD shows. Written for the user, not for us. */
@@ -98,9 +140,23 @@ export type SponsoredWriteResult =
 
 export type SponsoredAcceptResult =
   | { ok: true; accept: SponsoredAccept }
-  | { ok: false; status: number; message: string }
+  | { ok: false; status: number; message: string; code?: string | null }
 
 const REQUEST_TIMEOUT_MS = 10_000
+/**
+ * The funded Accept's own timeout, longer than every other call here: it
+ * settles a charge and mints a grant before it answers, and a timeout that
+ * fires first turns a success into a retry. Desktop uses the same figure.
+ */
+const ACCEPT_TIMEOUT_MS = 30_000
+const SHA256 = /^[a-f0-9]{64}$/
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const COMPUTE_TOKEN = /^scg_1_[A-Za-z0-9_-]{43}$/
+
+export function sponsoredProcedureSha256(procedure: string): string {
+  return createHash('sha256').update(procedure, 'utf8').digest('hex')
+}
 
 /**
  * The freebuff.com origin these calls go to.
@@ -117,6 +173,17 @@ function baseUrl(): string {
   return FREEBUFF_WEB_URL.replace(/\/+$/, '')
 }
 
+/**
+ * The product User-Agent, on EVERY proposal request (COD-665 I3), the same one
+ * the agentic offer and the display auction send. The Accept route records
+ * the client version from it (`acceptance.client_version`), which is how a
+ * run's funnel row says which build ran it; without it a CLI run was
+ * indistinguishable from any other caller.
+ */
+function productHeaders(): { 'user-agent': string } {
+  return { 'user-agent': getCliAdRequestUserAgent() }
+}
+
 async function call<T>(
   method: string,
   path: string,
@@ -128,6 +195,7 @@ async function call<T>(
       method,
       headers: {
         authorization: `Bearer ${authToken}`,
+        ...productHeaders(),
         ...(payload === undefined
           ? {}
           : { 'content-type': 'application/json' }),
@@ -157,18 +225,29 @@ export async function fetchSponsoredProposal(
   repoFullName: string,
   authToken: string,
 ): Promise<SponsoredProposalFetchResult> {
-  const repo = normalizeRepoFullName(repoFullName)
-  if (!repo) return { status: 'unavailable' }
+  const workspace = /^workspace:([0-9a-f-]{36})$/i.exec(repoFullName)?.[1]
+  const repo = workspace ? null : normalizeRepoFullName(repoFullName)
+  if (!repo && !workspace) return { status: 'unavailable' }
 
-  const path = `/api/v1/ads/proposal?repo=${encodeURIComponent(repo)}`
+  // `surface=cli`: only rows minted for THIS surface. A Desktop open on the
+  // same repository has its own row, and accepting that one from here is a
+  // 409 `accept_surface_mismatch` -- so it is never shown here at all. A
+  // server older than the filter ignores the parameter.
+  const path = workspace
+    ? `/api/v1/ads/proposal?workspace=${encodeURIComponent(workspace)}&surface=cli`
+    : `/api/v1/ads/proposal?repo=${encodeURIComponent(repo!)}&surface=cli`
   try {
     const response = await fetch(`${baseUrl()}${path}`, {
       method: 'GET',
-      headers: { authorization: `Bearer ${authToken}` },
+      headers: { authorization: `Bearer ${authToken}`, ...productHeaders() },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
     if (!response.ok) return { status: 'unavailable' }
-    const result = (await response.json()) as { proposal?: unknown }
+    // The row's advertiser-written text is drawn in the terminal and repeated
+    // into run messages: strip escape sequences at the source.
+    const result = sanitizeTerminalStrings(await response.json()) as {
+      proposal?: unknown
+    }
     if (result?.proposal === null) return { status: 'absent' }
     if (!isSponsoredProposal(result?.proposal)) {
       return { status: 'unavailable' }
@@ -213,6 +292,7 @@ const SPONSORED_PROPOSAL_STATES = new Set([
   'offered',
   'accepted',
   'running',
+  'delivered',
   'committed',
   'landed',
   'failed',
@@ -253,6 +333,24 @@ export async function reportSponsoredProposal(
 }
 
 /**
+ * Best-effort acknowledgement from a mounted terminal card. This is telemetry
+ * only; a failed request never changes the transcript or a user's controls.
+ */
+export async function acknowledgeSponsoredProposalDisplay(
+  proposalId: string,
+  authToken: string,
+): Promise<boolean> {
+  return (
+    (await call(
+      'POST',
+      `/api/v1/ads/proposal/${encodeURIComponent(proposalId)}/display`,
+      authToken,
+      {},
+    )) !== null
+  )
+}
+
+/**
  * A standing channel preference: one advertiser refused, or the whole channel
  * turned off. Exactly one per call — they are different weights of answer, and
  * a request that did both would leave no record of which the user chose.
@@ -270,9 +368,10 @@ async function callDetailed<T>(
   path: string,
   authToken: string,
   payload: unknown,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
 ): Promise<
   | { ok: true; status: number; value: T }
-  | { ok: false; status: number; message: string }
+  | { ok: false; status: number; message: string; code: string | null }
 > {
   let response: Response
   try {
@@ -281,14 +380,59 @@ async function callDetailed<T>(
       headers: {
         authorization: `Bearer ${authToken}`,
         'content-type': 'application/json',
+        ...productHeaders(),
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     })
   } catch (error) {
     logger.debug({ error, path }, '[sponsored-proposal] request failed')
     // STATUS 0: never reached the server, so the caller may retry it. See
     // `SponsoredWriteResult`.
+    return {
+      ok: false,
+      status: 0,
+      message: 'Could not reach Freebuff.',
+      code: null,
+    }
+  }
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      ...(await upstreamRefusal(response)),
+    }
+  }
+  try {
+    return {
+      ok: true,
+      status: response.status,
+      value: (await response.json()) as T,
+    }
+  } catch {
+    // A 2xx whose body is not JSON is still a write that landed. Only the
+    // accept needs the body, and it checks its own fields below.
+    return { ok: true, status: response.status, value: {} as T }
+  }
+}
+
+/** Read the immutable procedure before showing terminal consent. */
+async function getDetailed<T>(
+  path: string,
+  authToken: string,
+): Promise<
+  | { ok: true; status: number; value: T }
+  | { ok: false; status: number; message: string }
+> {
+  let response: Response
+  try {
+    response = await fetch(`${baseUrl()}${path}`, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${authToken}`, ...productHeaders() },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+  } catch (error) {
+    logger.debug({ error, path }, '[sponsored-proposal] request failed')
     return { ok: false, status: 0, message: 'Could not reach Freebuff.' }
   }
   if (!response.ok) {
@@ -305,9 +449,11 @@ async function callDetailed<T>(
       value: (await response.json()) as T,
     }
   } catch {
-    // A 2xx whose body is not JSON is still a write that landed. Only the
-    // accept needs the body, and it checks its own fields below.
-    return { ok: true, status: response.status, value: {} as T }
+    return {
+      ok: false,
+      status: 502,
+      message: 'Freebuff did not return the reviewed task.',
+    }
   }
 }
 
@@ -319,8 +465,21 @@ async function callDetailed<T>(
  * `not_offered` — and "409" is not.
  */
 async function upstreamMessage(response: Response): Promise<string> {
+  return (await upstreamRefusal(response)).message
+}
+
+/**
+ * The refusal's machine code beside its sentence. The run service needs the
+ * code for exactly one decision: `procedure_changed` is answered by showing the
+ * new task, where every other refusal is shown and left.
+ */
+async function upstreamRefusal(
+  response: Response,
+): Promise<{ code: string | null; message: string }> {
+  let code: string | null = null
   try {
-    const body = (await response.json()) as {
+    // The message is shown in the terminal verbatim: no escape sequences.
+    const body = sanitizeTerminalStrings(await response.json()) as {
       error?: unknown
       message?: unknown
     }
@@ -332,35 +491,89 @@ async function upstreamMessage(response: Response): Promise<string> {
     // terminal. A known code gets our sentence, an unknown one gets whatever
     // prose came with it, and only genuine prose in `error` is shown as-is.
     if (error) {
+      if (looksLikeMachineCode(error)) code = error
       const mapped = PROPOSAL_ERROR_SENTENCES[error]
-      if (mapped) return mapped
-      if (!looksLikeMachineCode(error)) return error
-      if (written) return written
+      if (mapped) return { code, message: mapped }
+      if (!looksLikeMachineCode(error)) return { code, message: error }
+      if (written) return { code, message: written }
     } else if (written) {
-      return written
+      return { code, message: written }
     }
   } catch {
     // fall through
   }
-  return response.status === 401
-    ? 'Sign in to Freebuff to accept a sponsored task.'
-    : 'Freebuff refused this sponsored task.'
+  return {
+    code,
+    message:
+      response.status === 401
+        ? 'Sign in to Freebuff to accept a sponsored task.'
+        : 'Freebuff refused this sponsored task.',
+  }
 }
 
 /**
- * The accept route's refusal codes, as sentences a person can act on.
+ * The accept and state routes' refusal codes, as sentences a person can act on.
  *
- * `funded_accept_required` is the one this CLI will actually meet: the only
- * Accept off Cloud is the funded Desktop one (COD-438), and a CLI Accept
- * carries no compute binding, so the server refuses it by name. The card
- * renders the refusal and keeps both buttons; nothing is started.
+ * THE SAME KEYS as Desktop's map (`freebuff-desktop/src/server/services/
+ * proposals.ts`), in this surface's words: where Desktop says "update Freebuff
+ * Desktop", a terminal says "update Freebuff". Before the funded codes were
+ * mapped every one of them reached the terminal as "Freebuff refused this
+ * sponsored task."
  */
 const PROPOSAL_ERROR_SENTENCES: Record<string, string> = {
-  funded_accept_required:
-    'Sponsored tasks can be accepted in Freebuff Desktop. Nothing was started.',
+  campaign_missing:
+    'This sponsored task is no longer available. Nothing was started.',
+  campaign_not_serving:
+    'This sponsored task is not cleared to run right now. Nothing was started.',
+  empty_procedure:
+    'This sponsored task has nothing to do yet. Nothing was started.',
   invalid_state: 'This proposal is no longer on offer.',
   cloud_keyed:
     'This proposal belongs to a Freebuff Cloud project. Open it in the web app.',
+  funded_accept_required:
+    'Update Freebuff to accept sponsored tasks. Nothing was started.',
+  invalid_transition:
+    'This sponsored task has already finished, so it could not be updated.',
+  report_conflict:
+    'This sponsored task’s result was already recorded, so it was not recorded again.',
+  campaign_not_runnable:
+    'This sponsored task is not available to run right now. Nothing was started.',
+  unfunded_impression: 'This sponsored offer has expired. Nothing was started.',
+  offer_procedure_unavailable:
+    'This sponsored task is no longer available. Nothing was started.',
+  procedure_changed:
+    'This sponsored task changed after you reviewed it. Review the updated task to continue. Nothing was started.',
+  accept_target_mismatch:
+    'This sponsored task was offered for a different project. Nothing was started.',
+  accept_surface_mismatch:
+    'This sponsored task was offered in a different Freebuff app. Nothing was started.',
+  execution_surface_mismatch:
+    'This sponsored task was offered for a different kind of computer. Nothing was started.',
+  execution_surface_unavailable:
+    'Sponsored tasks can’t be started here yet. Nothing was started.',
+  unsupported_surface:
+    'Sponsored tasks can’t be started here yet. Nothing was started.',
+  client_update_required:
+    'Update Freebuff to accept this sponsored task. Nothing was started.',
+  invalid_binding:
+    'This sponsored task no longer matches what you approved. Nothing was started.',
+  accept_binding_changed:
+    'This sponsored task was already started from another window or device. Nothing new was started.',
+  accept_identity_conflict:
+    'This sponsored task was already started with a different approval. Nothing new was started.',
+  acceptance_evidence_missing:
+    'Freebuff could not finish starting this sponsored task. Try again in a moment.',
+  sponsor_billing_failed:
+    'Freebuff could not finish starting this sponsored task. Try again in a moment.',
+  sponsor_funding_unavailable:
+    'Freebuff could not finish starting this sponsored task. Try again in a moment.',
+  // Both permanent: the Accept is refused, and asking again changes nothing.
+  sponsor_funding_refused:
+    'The sponsor could not fund this task, so it was not started. Nothing in your project changed.',
+  accept_expired:
+    'This sponsored task can no longer be started: too much time has passed since it was accepted. Nothing in your project changed.',
+  compute_grant_persistence_failed:
+    'Freebuff could not finish starting this sponsored task. Try again in a moment.',
 }
 
 /** `snake_case` or a bare lowercase word: how the routes spell a code. */
@@ -369,11 +582,15 @@ function looksLikeMachineCode(said: string): boolean {
 }
 
 /**
- * Accept a repo-keyed proposal for a LOCAL run (COD-396).
+ * Accept a repo- or workspace-keyed proposal for a LOCAL, IN-PLACE run
+ * (COD-396, #3989).
  *
  * `surface: 'cli'` is not decoration: the upstream mutation branches on it to
  * decide that NOTHING is spawned server-side, and the accept route rejects any
- * value that is not `desktop` or `cli`.
+ * value that is not `desktop` or `cli`. `inPlaceExecutionVersion: 1` says this
+ * build runs the accepted offer as a turn in the current conversation, editing
+ * the working copy with no worktree or commit -- the grant, the target and the
+ * terminal vocabulary all differ on it, so it is sent on every Accept.
  *
  * IDEMPOTENT within the token's TTL, which is what makes a retry after a lost
  * response safe — the same payload with the same `runToken` comes back, no
@@ -383,19 +600,47 @@ function looksLikeMachineCode(said: string): boolean {
 export async function acceptSponsoredProposal(
   proposalId: string,
   authToken: string,
+  binding?: {
+    runId: string
+    procedureSha256: string
+    target?: SponsoredLocalTarget
+    clientExecutionSurface?: SponsoredCliExecutionSurface
+  },
 ): Promise<SponsoredAcceptResult> {
+  if (
+    !binding ||
+    !UUID.test(binding.runId) ||
+    !SHA256.test(binding.procedureSha256)
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      message:
+        'Review this sponsored task in the terminal before accepting it.',
+    }
+  }
   const attempt = await callDetailed<SponsoredAccept>(
     `/api/v1/ads/proposal/${encodeURIComponent(proposalId)}/accept`,
     authToken,
-    { surface: 'cli' },
+    {
+      surface: 'cli',
+      ...binding,
+      inPlaceExecutionVersion: SPONSORED_IN_PLACE_VERSION,
+    },
+    ACCEPT_TIMEOUT_MS,
   )
   if (!attempt.ok) {
-    return { ok: false, status: attempt.status, message: attempt.message }
+    return {
+      ok: false,
+      status: attempt.status,
+      message: attempt.message,
+      code: attempt.code,
+    }
   }
   // A 200 missing either field the run cannot proceed without is a REFUSAL,
   // not a run with an empty procedure: `callDetailed` degrades an unparseable
   // 2xx to `{}`, which is right for a write and exactly wrong here.
-  if (!attempt.value?.procedure || !attempt.value?.runToken) {
+  if (!isFundedAccept(attempt.value, proposalId, binding)) {
     return {
       ok: false,
       status: 502,
@@ -407,8 +652,88 @@ export async function acceptSponsoredProposal(
 }
 
 /**
- * Report where a local run has got to (`accepted → running → committed|failed`,
- * `accepted → failed`, `committed → landed`).
+ * The server's exact reviewed procedure. GET is deliberately separate from
+ * accept: the user sees these bytes before a funded acceptance is recorded.
+ */
+export async function previewSponsoredProposal(
+  proposalId: string,
+  authToken: string,
+  target?: SponsoredLocalTarget,
+  clientExecutionSurface?: SponsoredCliExecutionSurface,
+): Promise<
+  | { ok: true; preview: SponsoredAcceptPreview }
+  | { ok: false; status: number; message: string }
+> {
+  const query = [
+    ...(target
+      ? [
+          target.kind === 'repo'
+            ? `repo=${encodeURIComponent(target.repoFullName)}`
+            : `workspace=${encodeURIComponent(target.workspaceId)}`,
+        ]
+      : []),
+    ...(clientExecutionSurface
+      ? [`clientExecutionSurface=${encodeURIComponent(clientExecutionSurface)}`]
+      : []),
+  ]
+  const attempt = await getDetailed<SponsoredAcceptPreview>(
+    `/api/v1/ads/proposal/${encodeURIComponent(proposalId)}/accept${
+      query.length ? `?${query.join('&')}` : ''
+    }`,
+    authToken,
+  )
+  if (!attempt.ok) return attempt
+  const preview = attempt.value
+  if (
+    !preview ||
+    preview.proposalId !== proposalId ||
+    typeof preview.procedure !== 'string' ||
+    !preview.procedure ||
+    typeof preview.procedureSha256 !== 'string' ||
+    !SHA256.test(preview.procedureSha256) ||
+    sponsoredProcedureSha256(preview.procedure) !== preview.procedureSha256
+  ) {
+    return {
+      ok: false,
+      status: 502,
+      message: 'Freebuff returned an invalid reviewed task.',
+    }
+  }
+  return { ok: true, preview }
+}
+
+function isFundedAccept(
+  value: SponsoredAccept | undefined,
+  proposalId: string,
+  binding: { runId: string; procedureSha256: string },
+): value is SponsoredAccept {
+  const grant = value?.computeGrant
+  return Boolean(
+    value &&
+    value.proposalId === proposalId &&
+    typeof value.procedure === 'string' &&
+    value.procedure &&
+    sponsoredProcedureSha256(value.procedure) === binding.procedureSha256 &&
+    typeof value.runToken === 'string' &&
+    grant &&
+    typeof grant.token === 'string' &&
+    COMPUTE_TOKEN.test(grant.token) &&
+    grant.proposalId === proposalId &&
+    grant.runId === binding.runId &&
+    grant.procedureSha256 === binding.procedureSha256 &&
+    typeof grant.modelId === 'string' &&
+    Boolean(grant.modelId) &&
+    Number.isSafeInteger(grant.expiresAtMs) &&
+    grant.expiresAtMs > Date.now() &&
+    Number.isSafeInteger(grant.allowanceUsdMicros) &&
+    grant.allowanceUsdMicros > 0,
+  )
+}
+
+/**
+ * Report where a local run has got to (`accepted → running → delivered|failed`,
+ * `accepted → failed`; the worktree flow's `committed → landed` is still
+ * accepted upstream but no longer sent from here).
  *
  * Signed with the run token as well as the session bearer: the token is scoped
  * to this one accepted proposal, so a bug elsewhere in the CLI cannot report
@@ -432,6 +757,63 @@ export async function reportSponsoredRunState(
   return attempt.ok
     ? { ok: true, status: attempt.status }
     : { ok: false, status: attempt.status, message: attempt.message }
+}
+
+/**
+ * A blocker or friction the run's agent hit (`report_friction`). Telemetry:
+ * the caller logs a failure and moves on.
+ */
+export async function reportSponsoredFriction(
+  proposalId: string,
+  runToken: string,
+  report: SponsoredFrictionInput,
+  authToken: string,
+): Promise<SponsoredWriteResult> {
+  const attempt = await callDetailed<unknown>(
+    `/api/v1/ads/proposal/${encodeURIComponent(proposalId)}/friction`,
+    authToken,
+    { runToken, ...report },
+  )
+  return attempt.ok
+    ? { ok: true, status: attempt.status }
+    : { ok: false, status: attempt.status, message: attempt.message }
+}
+
+/**
+ * Ask the agentic offer route whether this turn earns a sponsored offer.
+ *
+ * Once per user-typed turn, beside the turn and never in front of it. The
+ * response names WHAT was offered and nothing about how to draw it: a proposal
+ * is then read through `GET /api/v1/ads/proposal` like every other proposal.
+ * Every failure -- transport, a non-2xx, a body the contract does not accept --
+ * is null, which the caller treats exactly as `none`.
+ *
+ * Sends the same product User-Agent as the display auction
+ * (`ad-client-identity.ts`).
+ */
+export async function requestAgenticOffer(
+  body: AgenticOfferRequest,
+  authToken: string,
+  userAgent: string,
+): Promise<AgenticOfferResponse | null> {
+  try {
+    const response = await fetch(`${baseUrl()}${AGENTIC_OFFER_PATH}`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${authToken}`,
+        'content-type': 'application/json',
+        'user-agent': userAgent,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+    if (!response.ok) return null
+    const parsed = agenticOfferResponseSchema.safeParse(await response.json())
+    return parsed.success ? parsed.data : null
+  } catch (error) {
+    logger.debug({ error }, '[sponsored-proposal] agentic offer failed')
+    return null
+  }
 }
 
 export async function setSponsoredProposalPrefs(

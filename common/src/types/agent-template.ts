@@ -114,6 +114,8 @@ export type AgentTemplate<
   displayName: string
   model: Model
   reasoningOptions?: OpenRouterReasoningOptions
+  /** Ceiling on output tokens per model call; see AgentDefinition. */
+  maxOutputTokens?: number
   providerOptions?: OpenRouterProviderRoutingOptions
 
   mcpServers: Record<string, MCPConfig>
@@ -134,11 +136,14 @@ export type AgentTemplate<
   includeMessageHistory: boolean
   inheritParentSystemPrompt: boolean
   windowedFileReads?: boolean
+  /** One final verification opportunity after tool work, within the existing step budget. */
+  completionCheck?: boolean
   suppressCommitAttribution?: boolean
   compactContext?:
     | boolean
     | {
         maxContextLength?: number
+        maxOutputTokens?: number
         cacheExpiryMs?: number | null
         cacheExpiryMinTokens?: number | null
       }

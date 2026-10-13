@@ -1,10 +1,12 @@
+import { withTimeoutOr } from '@codebuff/common/util/promise'
+import { flushAdEngagementOnExit } from '../ads/use-ad-engagement'
 import { flushAnalytics } from './analytics'
 import { IS_FREEBUFF } from './constants'
 import { stopEngagementTracking } from './engagement'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { drainClientLogs } from './log-shipper'
 import { settleInterruptedSponsoredRun } from './sponsored-run-exit'
-import { withTimeout } from './terminal-color-detection'
+import { flushSurveyEventsOnExit } from './survey-events'
 
 const EXIT_CLEANUP_TIMEOUT_MS = 1_000
 
@@ -14,6 +16,14 @@ type ExitCliDependencies = {
   stopEngagementTracking: () => void
   flushAnalytics: () => Promise<void>
   drainClientLogs: () => Promise<void>
+  /**
+   * Send every live ad engagement record (COD-757) as `window_close`. A
+   * transcript ad stays mounted all session, so without this its record
+   * depended on a checkpoint having already gone out.
+   */
+  flushAdEngagement: () => Promise<void>
+  /** Survey funnel pings (COD-837): an open survey reports `abandoned`. */
+  flushSurveyEvents?: () => Promise<void>
   endFreebuffSession: () => Promise<void>
   /**
    * Bring a sponsored run to a TERMINAL state, and say what it left behind.
@@ -60,6 +70,19 @@ export function createExitCliCleanly(deps: ExitCliDependencies) {
       const sponsored = Promise.resolve()
         .then(deps.settleSponsoredRun)
         .catch(() => null)
+      // Also STARTED BEFORE THE TEARDOWN: tearing the renderer down unmounts
+      // every ad card, which stamps each live record with a pending `unmount`
+      // exit that `closeAll` then keeps, so a quit would never read as
+      // `window_close`. Called synchronously so `closeAll` runs now; only the
+      // transport is awaited below.
+      let adEngagement: Promise<void>
+      try {
+        adEngagement = Promise.resolve(deps.flushAdEngagement()).catch(
+          () => {},
+        )
+      } catch {
+        adEngagement = Promise.resolve()
+      }
       try {
         deps.cleanupLocal()
       } catch {
@@ -74,6 +97,10 @@ export function createExitCliCleanly(deps: ExitCliDependencies) {
       const remoteTasks = [
         Promise.resolve().then(deps.flushAnalytics),
         Promise.resolve().then(deps.drainClientLogs),
+        adEngagement,
+        Promise.resolve()
+          .then(deps.flushSurveyEvents)
+          .catch(() => {}),
         sponsored.then((notice) => {
           if (notice) deps.writeNotice(notice)
         }),
@@ -99,6 +126,8 @@ export const exitCliCleanly = createExitCliCleanly({
   stopEngagementTracking,
   flushAnalytics,
   drainClientLogs,
+  flushAdEngagement: () => flushAdEngagementOnExit(),
+  flushSurveyEvents: flushSurveyEventsOnExit,
   endFreebuffSession: () => useFreebuffSessionStore.getState().releaseSlot(),
   settleSponsoredRun: settleInterruptedSponsoredRun,
   // `process.stdout.write`, not the logger and not the renderer: the renderer is
@@ -112,7 +141,7 @@ export const exitCliCleanly = createExitCliCleanly({
     }
   },
   waitForRemoteCleanup: async (tasks) => {
-    await withTimeout(
+    await withTimeoutOr(
       Promise.allSettled(tasks),
       EXIT_CLEANUP_TIMEOUT_MS,
       undefined,

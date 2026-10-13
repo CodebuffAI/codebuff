@@ -1,3 +1,9 @@
+import {
+  freebuffChatModel,
+  openFreebuffModelPicker,
+  openFreebuffReasoningPicker,
+} from '../state/freebuff-chat-store'
+import { getFreebuffModelDirectory } from '../state/freebuff-catalog-store'
 import { safeOpen } from '../utils/open-url'
 
 import {
@@ -6,9 +12,8 @@ import {
   handleProposalAccept,
   handleProposalDismiss,
   handleProposalMenu,
-  handleProposalPullRequest,
-  handleProposalRemoveWorktree,
   handleProposalNeverAdvertiser,
+  handleProposalUndo,
   handleProposalReport,
   handleProposalsOff,
 } from './ads'
@@ -21,8 +26,12 @@ import {
   collectProcessDiagnostics,
   formatProcessDiagnostics,
 } from './process-diagnostics'
-import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs, buildSkillPrompt } from './prompt-builders'
-import { handleReasoningCommand } from './reasoning'
+import {
+  buildInterviewPrompt,
+  buildPlanPrompt,
+  buildReviewPromptFromArgs,
+  buildSkillPrompt,
+} from './prompt-builders'
 import { runBashCommand } from './router'
 import { handleUsageCommand } from './usage'
 import { handleByokCommand } from './byok'
@@ -34,7 +43,11 @@ import { useChatStore } from '../state/chat-store'
 import { stopActiveRun } from '../utils/active-run'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
-import { AGENT_MODES, END_SESSION_MESSAGE, IS_FREEBUFF } from '../utils/constants'
+import {
+  AGENT_MODES,
+  END_SESSION_MESSAGE,
+  IS_FREEBUFF,
+} from '../utils/constants'
 import { exitCliCleanly } from '../utils/exit-cleanly'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import { capturePendingAttachments } from '../utils/pending-attachments'
@@ -82,6 +95,7 @@ export type CommandResult = {
   openChatHistory?: boolean
   openReviewScreen?: boolean
   openQueuePanel?: boolean
+  openTodoPanel?: boolean
   preSelectAgents?: string[]
 } | void
 
@@ -200,6 +214,7 @@ const FREEBUFF_ONLY_COMMANDS = new Set([
   'byok',
   'plan',
   'end-session',
+  'model',
   'dashboard',
   // Freebuff-only because the ladder it reads is the FREEBUFF catalog's, and
   // the metadata it sets is honored only for free-mode traffic
@@ -271,19 +286,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
     },
   }),
   defineCommand({
-    name: 'ads:pull-request',
-    handler: async (params) => {
-      const message = await handleProposalPullRequest()
-      params.setMessages((prev) => [...prev, getSystemMessage(message)])
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  }),
-  defineCommand({
-    name: 'ads:remove-worktree',
-    handler: async (params) => {
-      const message = await handleProposalRemoveWorktree()
-      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+    name: 'ads:undo',
+    handler: (params) => {
+      handleProposalUndo()
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
@@ -291,7 +296,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
   defineCommand({
     name: 'ads:report-proposal',
     handler: async (params) => {
-      const message = await handleProposalReport(useChatStore.getState().messages)
+      const message = await handleProposalReport(
+        useChatStore.getState().messages,
+      )
       params.setMessages((prev) => [...prev, getSystemMessage(message)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
@@ -300,7 +307,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
   defineCommand({
     name: 'ads:never-advertiser',
     handler: async (params) => {
-      const message = await handleProposalNeverAdvertiser(useChatStore.getState().messages)
+      const message = await handleProposalNeverAdvertiser(
+        useChatStore.getState().messages,
+      )
       params.setMessages((prev) => [...prev, getSystemMessage(message)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
@@ -735,36 +744,50 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
-  // /reasoning (freebuff-only) — read or set the thinking level for the
-  // selected model. Takes effect on the NEXT message: the effort rides
-  // codebuff_metadata on each request, so nothing about the live session has to
-  // be restarted for a change to land.
+  defineCommand({
+    name: 'todo',
+    aliases: ['todos'],
+    handler: (params) => {
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      return { openTodoPanel: true }
+    },
+  }),
   defineCommandWithArgs({
     name: 'byok',
     aliases: ['provider'],
     handler: handleByokCommand,
   }),
-  defineCommandWithArgs({
-    name: 'reasoning',
-    aliases: ['effort', 'think'],
-    handler: (params, args) => {
-      const { message } = handleReasoningCommand(args)
-      params.setMessages((prev) => [
-        ...prev,
-        getUserMessage(params.inputValue.trim()),
-        getSystemMessage(message),
-      ])
+  defineCommand({
+    name: 'model',
+    handler: (params) => {
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
+      openFreebuffModelPicker()
     },
   }),
-  // /end-session (freebuff-only) — end the active session early and drop back
-  // to the model picker. The hook flips status to 'none', which unmounts
-  // <Chat> and mounts <FreebuffLandingScreen>, where the user picks a model
-  // and hits Enter to start a new session.
+  defineCommand({
+    name: 'reasoning',
+    aliases: ['effort', 'think'],
+    handler: (params) => {
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      const model = freebuffChatModel()
+      const directory = getFreebuffModelDirectory()
+      if (!directory.efforts(model)?.length) {
+        params.setMessages((prev) => [
+          ...prev,
+          getSystemMessage(
+            `${directory.get(model).displayName} does not offer adjustable reasoning. Use /model to choose another model.`,
+          ),
+        ])
+        return
+      }
+      openFreebuffReasoningPicker()
+    },
+  }),
   defineCommand({
     name: 'end-session',
-    aliases: ['model'],
     handler: (params) => {
       params.setMessages((prev) => [
         ...prev,
@@ -773,7 +796,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
       ])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
-      returnToFreebuffLanding({ resetChat: true }).catch(() => {
+      returnToFreebuffLanding().catch(() => {
         // The hook surfaces poll errors via the session store; nothing to do
         // here beyond letting the chat history reflect the attempt.
       })
@@ -824,13 +847,21 @@ function createSkillCommand(skillName: string): CommandDefinition {
           getSystemMessage(`Skill not found: ${skillName}`),
         ])
         params.saveToHistory(params.inputValue.trim())
-        params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+        params.setInputValue({
+          text: '',
+          cursorPosition: 0,
+          lastEditDueToNav: false,
+        })
         return
       }
 
       const trimmed = params.inputValue.trim()
       params.saveToHistory(trimmed)
-      params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+      params.setInputValue({
+        text: '',
+        cursorPosition: 0,
+        lastEditDueToNav: false,
+      })
 
       // Bare invocation: like /interview, drop into an input mode so the
       // user can add instructions before the skill is sent. Enter with an

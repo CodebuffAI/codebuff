@@ -6,18 +6,25 @@ const execAsync = promisify(exec)
 import { withTimeout } from '@codebuff/common/util/promise'
 
 import { withTestRepo } from '../subagents/test-repo-utils'
+import { benchToolOverrides } from './tool-overrides'
 import { ClaudeRunner } from './runners/claude'
 import { CodebuffRunner } from './runners/codebuff'
 import { CodexRunner } from './runners/codex'
 import { OpenCodeRunner } from './runners/opencode'
 
-import type { Runner, AgentStep } from './runners/runner'
-import type { EvalCommitV2, FinalCheckOutput } from './types'
+import type { Runner, AgentStep, ContextLogEntry } from './runners/runner'
+import type { EvalCommitV2, FileDiff, FinalCheckOutput } from './types'
 import type { CodebuffClient } from '@codebuff/sdk'
 
 export type { AgentStep }
 
 export type ExternalAgentType = 'claude' | 'codex' | 'opencode'
+
+/** What an agent run reads from a task: no commit sha, spec or diffs. */
+export type AgentTask = Pick<
+  EvalCommitV2,
+  'id' | 'parentSha' | 'prompt' | 'supplementalFiles'
+> & { fileDiffs: Pick<FileDiff, 'path' | 'status'>[] }
 
 export async function runAgentOnCommit({
   client,
@@ -33,7 +40,7 @@ export async function runAgentOnCommit({
 }: {
   client: CodebuffClient
   agentId: string
-  commit: EvalCommitV2
+  commit: AgentTask
   repoUrl: string
   initCommand?: string
   env?: Record<string, string>
@@ -44,10 +51,16 @@ export async function runAgentOnCommit({
 }): Promise<{
   diff: string
   contextFiles: Record<string, string>
+  /** Whole task: clone, install, agent, final checks. */
   durationMs: number
+  /** The agent's own run alone — the number a speed comparison should read.
+   *  `durationMs` also counts the clone, the install and the final-check
+   *  commands, which are the same work for every arm and dwarf a fast turn. */
+  agentDurationMs?: number
   cost: number
   error?: string
   trace: AgentStep[]
+  contextLog?: ContextLogEntry[]
   finalCheckOutputs?: FinalCheckOutput[]
 }> {
   console.log(`[${commit.id}] Running agent ${agentId}...`)
@@ -56,7 +69,9 @@ export async function runAgentOnCommit({
   let contextFiles: Record<string, string> = {}
   let error: string | undefined
   let cost = 0
+  let agentDurationMs: number | undefined
   const trace: AgentStep[] = []
+  let contextLog: ContextLogEntry[] | undefined
   let finalCheckOutputs: FinalCheckOutput[] | undefined
 
   try {
@@ -88,6 +103,8 @@ export async function runAgentOnCommit({
               printEvents,
               commitId: commit.id,
               parentSha: commit.parentSha,
+              // No arm may read the task's own upstream (tool-overrides.ts).
+              overrideTools: benchToolOverrides({ repoUrl, cwd: repoDir, env }),
             })
           }
 
@@ -95,8 +112,12 @@ export async function runAgentOnCommit({
             `[${commit.id}] Running agent: ${externalAgentType || 'codebuff'}`,
           )
 
+          const agentStart = Date.now()
           const result = await runner.run(commit.prompt)
+          agentDurationMs = Date.now() - agentStart
+          if (result.error) error = result.error
           trace.push(...result.steps)
+          contextLog = result.contextLog
           cost = result.totalCostUsd
           diff = result.diff
 
@@ -152,9 +173,11 @@ export async function runAgentOnCommit({
     diff,
     contextFiles,
     durationMs,
+    agentDurationMs,
     cost,
     error,
     trace,
+    contextLog,
     finalCheckOutputs,
   }
 }

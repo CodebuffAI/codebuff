@@ -1,4 +1,8 @@
-import { MAX_AGENT_STEP_ROWS } from '@codebuff/common/constants/agents'
+import {
+  AGENT_TRUST_GATE_HEADER,
+  AGENT_TRUST_GATE_HEADER_VALUE,
+  MAX_AGENT_STEP_ROWS,
+} from '@codebuff/common/constants/agents'
 import { FREEBUFF_ACTING_USER_HEADER } from '@codebuff/common/constants/freebuff-models'
 import { validateSingleAgent } from '@codebuff/common/templates/agent-validation'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
@@ -6,7 +10,13 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { truncateString } from '@codebuff/common/util/string'
 import z from 'zod/v4'
 
+import {
+  checkRemoteAgentTemplateTrust,
+  isUntrustedAgentPublisherError,
+  resolveTrustedAgentPublishers,
+} from '../agent-publisher-trust'
 import { getWebsiteUrl } from '../constants'
+import { getTrustedAgentPublishersFromEnv } from '../env'
 import {
   createAuthError,
   createNetworkError,
@@ -233,14 +243,57 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
   ) as Awaited<GetUserInfoFromApiKeyOutput<T>>
 }
 
+/** Publisher and agent ids as the registry assigns them (`common/src/types/publisher.ts`, `dynamic-agent-template.ts`). */
+const PUBLISHED_ID_SEGMENT = /^[a-z0-9-]+$/
+/** Published versions are always `major.minor.patch` (`stringifyVersion`). */
+const PUBLISHED_VERSION = /^(latest|\d+\.\d+\.\d+)$/
+
+/**
+ * Fetch a template from the public agent registry.
+ *
+ * A registry template with a `handleSteps` source string is executable code
+ * that the runtime will `eval` in this process, so after validation it is
+ * gated on publisher trust (see ../agent-publisher-trust.ts). An untrusted
+ * executable template THROWS `UntrustedAgentPublisherError` rather than
+ * returning null: null reads as "agent not found" to every caller, which
+ * would hide the one line that tells the operator how to proceed.
+ */
 export async function fetchAgentFromDatabase(
-  params: ParamsOf<FetchAgentFromDatabaseFn>,
+  params: ParamsOf<FetchAgentFromDatabaseFn> & {
+    /** `CodebuffClientOptions.trustedAgentPublishers`; unioned with the env var. */
+    trustedAgentPublishers?: readonly string[]
+    /** Test seam for the `CODEBUFF_TRUSTED_AGENT_PUBLISHERS` read. */
+    readTrustedAgentPublishersEnv?: () => string | undefined
+  },
 ): ReturnType<FetchAgentFromDatabaseFn> {
-  const { apiKey, parsedAgentId, logger } = params
+  const {
+    apiKey,
+    parsedAgentId,
+    logger,
+    trustedAgentPublishers,
+    readTrustedAgentPublishersEnv = getTrustedAgentPublishersFromEnv,
+  } = params
   const { publisherId, agentId, version } = parsedAgentId
+  const requestedVersion = version ? version : 'latest'
+
+  // The trust gate below judges the REQUESTED publisher, so the URL must not be
+  // able to name another one: `codebuff/x@..\..\evil\payload\latest` resolves
+  // (WHATWG treats `\` as `/`) to evil's agent while the gate sees `codebuff`.
+  // Each segment is held to the shape the registry assigns.
+  if (
+    !PUBLISHED_ID_SEGMENT.test(publisherId) ||
+    !PUBLISHED_ID_SEGMENT.test(agentId) ||
+    !PUBLISHED_VERSION.test(requestedVersion)
+  ) {
+    logger.error(
+      { publisherId, agentId, version },
+      'fetchAgentFromDatabase: refused malformed published agent id',
+    )
+    return null
+  }
 
   const url = new URL(
-    `/api/v1/agents/${publisherId}/${agentId}/${version ? version : 'latest'}`,
+    `/api/v1/agents/${publisherId}/${agentId}/${requestedVersion}`,
     getWebsiteUrl(),
   )
 
@@ -251,6 +304,9 @@ export async function fetchAgentFromDatabase(
         method: 'GET',
         headers: {
           Authorization: `Bearer ${apiKey}`,
+          // the registry withholds untrusted handleSteps without it; this
+          // function keeps that promise with the trust check below
+          [AGENT_TRUST_GATE_HEADER]: AGENT_TRUST_GATE_HEADER_VALUE,
         },
       },
       logger,
@@ -299,6 +355,32 @@ export async function fetchAgentFromDatabase(
       id: `${publisherId}/${agentId}@${agentConfig.version}`,
     }
 
+    // Validation only proved handleSteps LOOKS like a generator; it is still
+    // arbitrary code from whoever owns the publisher. Refuse it unless the
+    // publisher is trusted. Data-only templates pass through unchanged.
+    const trustError = checkRemoteAgentTemplateTrust({
+      template: agentTemplate,
+      publisherId,
+      agentId,
+      version: agentConfig.version,
+      trustedPublishers: resolveTrustedAgentPublishers({
+        trustedAgentPublishers,
+        envValue: readTrustedAgentPublishersEnv(),
+      }),
+    })
+    if (trustError) {
+      logger.error(
+        {
+          publisherId,
+          agentId,
+          version: agentConfig.version,
+          fullAgentId: agentTemplate.id,
+        },
+        `fetchAgentFromDatabase: refused executable agent from untrusted publisher. ${trustError.message}`,
+      )
+      throw trustError
+    }
+
     logger.debug(
       {
         publisherId,
@@ -312,6 +394,9 @@ export async function fetchAgentFromDatabase(
 
     return agentTemplate
   } catch (error) {
+    // The trust refusal is the one failure that must reach the caller as
+    // itself (see the doc comment above); everything else stays "not found".
+    if (isUntrustedAgentPublisherError(error)) throw error
     logger.error(
       { error: getErrorObject(error), parsedAgentId },
       'fetchAgentFromDatabase error',

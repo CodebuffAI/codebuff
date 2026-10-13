@@ -5,7 +5,10 @@ import {
   dispatchFirstPartyViewAcknowledgement,
   isAnswerMessage,
   isInlineAdEligibleAnswer,
+  NO_RESPONSE_ADS,
   renderDelaySinceReceipt,
+  shouldHideGravityAds,
+  visibleResponseAds,
 } from '../use-gravity-ad'
 
 import type { ChatMessage } from '../../types/chat'
@@ -158,5 +161,61 @@ describe('dispatchFirstPartyViewAcknowledgement', () => {
     expect(claimAdImpression(fired, 'opaque-imp-url')).toBe(true)
     expect(claimAdImpression(fired, 'opaque-imp-url')).toBe(false)
     expect(calls).toBe(0)
+  })
+})
+
+describe('visibleResponseAds', () => {
+  // Chat's layout effect depends on this value and writes it to the
+  // message-block store. A fresh `{}` per render re-ran the effect after every
+  // commit while ads were hidden, feeding React's nested-update limit (#185).
+  test('hidden ads are one stable value across renders', () => {
+    const first = visibleResponseAds(false, { 'ai-1': [] })
+    const second = visibleResponseAds(false, {})
+    expect(first).toBe(NO_RESPONSE_ADS)
+    expect(second).toBe(first)
+    expect(Object.keys(first)).toEqual([])
+  })
+
+  test('visible ads pass through unchanged', () => {
+    const ads = { 'ai-1': [] }
+    expect(visibleResponseAds(true, ads)).toBe(ads)
+  })
+})
+
+describe('shouldHideGravityAds', () => {
+  test('a disabled hook is hidden at every height, Freebuff included', () => {
+    // The landing screen relies on this to stop fetching for a slot it does
+    // not draw: Freebuff ignores the compact-height rule, `enabled` does not.
+    for (const isFreeMode of [true, false]) {
+      for (const terminalHeight of [10, 17, 18, 60]) {
+        expect(
+          shouldHideGravityAds({ enabled: false, terminalHeight, isFreeMode }),
+        ).toBe(true)
+      }
+    }
+  })
+
+  test('Freebuff keeps ads on compact terminals; Codebuff drops them', () => {
+    expect(
+      shouldHideGravityAds({
+        enabled: true,
+        terminalHeight: 17,
+        isFreeMode: true,
+      }),
+    ).toBe(false)
+    expect(
+      shouldHideGravityAds({
+        enabled: true,
+        terminalHeight: 17,
+        isFreeMode: false,
+      }),
+    ).toBe(true)
+    expect(
+      shouldHideGravityAds({
+        enabled: true,
+        terminalHeight: 18,
+        isFreeMode: false,
+      }),
+    ).toBe(false)
   })
 })

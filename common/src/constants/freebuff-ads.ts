@@ -537,7 +537,7 @@ export const AD_PRICING_ENABLED = true
  * That is the thing to weigh before leaving it off for long. The campaign
  * review is what catches an approved advertiser promoting something different
  * from what they were approved for, and there is no automated substitute for
- * it — `/web/admin/advertisers` lists every campaign, and while this is false
+ * it — `/web/admin/ads/advertisers-legacy` lists every campaign, and while this is false
  * that list is a place to spot-check rather than a queue that blocks.
  */
 export const AD_CAMPAIGN_REVIEW_ENABLED = false
@@ -597,15 +597,6 @@ export function adEvidenceAttestation(platform: AdPlatform): string {
 export const AD_MAX_DESCRIPTION_CHARS = 2_000
 export const AD_MAX_COMMENT_GUIDANCE_CHARS = 2_000
 
-/** How many distinct comment suggestions we generate for a user to pick from.
- *  Enough that two people engaging with the same post do not paste the same
- *  sentence; few enough that the choice is not itself work.
- *
- *  @deprecated Nothing generates suggestions any more — see
- *  `AD_COMMENT_WRITING_RULES`. Kept only because older rows and tests still
- *  reference the count. */
-export const AD_GENERATED_COMMENT_COUNT = 4
-
 /**
  * What every commenter is told, on every post, in their own words.
  *
@@ -645,10 +636,6 @@ export const AD_DEFAULT_COMMENT_GUIDANCE =
  * opinion at scale. It is also what stops the Earn page becoming a job.
  */
 export const AD_MAX_ENGAGEMENTS_PER_USER_PER_DAY = 12
-
-/** A user may not engage with the same post twice, ever. Enforced by a unique
- *  index; this constant exists for the copy. */
-export const AD_ONE_ENGAGEMENT_PER_POST_PER_USER = true
 
 /** Minimum seconds between a post being opened and its evidence being
  *  accepted. Someone who "engaged" with a LinkedIn post four seconds after
@@ -703,16 +690,6 @@ export const AD_CAMPAIGN_STATUSES = [
   'ended',
 ] as const
 export type AdCampaignStatus = (typeof AD_CAMPAIGN_STATUSES)[number]
-
-/** Statuses an advertiser can still edit the posts of. A live campaign's posts
- *  are editable too — the edit does not re-open review, because the alternative
- *  is a campaign that stops delivering every time somebody fixes a typo. */
-export const AD_EDITABLE_CAMPAIGN_STATUSES = [
-  'draft',
-  'rejected',
-  'paused',
-  'active',
-] as const
 
 /** User-facing label per status. `pending_review` and `rejected` are the two
  *  that need to say something an advertiser can act on. */

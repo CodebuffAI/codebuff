@@ -258,7 +258,7 @@ export interface ReadDocsParams {
 }
 
 /**
- * Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.
+ * Read multiple files from disk. Returned file content shares a 20,000 estimated-token limit and a 100,000-character hard limit, so prefer the smallest relevant set.
  */
 export interface ReadFilesParams {
   /** List of file paths to read. */
@@ -420,7 +420,7 @@ export interface WebSearchParams {
  * Create or edit a file with the given content.
  */
 export interface WriteFileParams {
-  /** Path to the file relative to the **project root** */
+  /** Path to the file, relative to the **project root**. Local hosts (CLI, Desktop, SDK) also accept an absolute path, which is not limited to the project. */
   path: string
   /** What the change is intended to do in only one sentence. */
   instructions: string

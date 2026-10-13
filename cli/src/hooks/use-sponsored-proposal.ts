@@ -249,7 +249,10 @@ function proposalPayloadEqual(
     left.pr_url === right.pr_url &&
     left.advertiser_cta_url === right.advertiser_cta_url &&
     left.failure_reason === right.failure_reason &&
-    stepsEqual(left.steps, right.steps)
+    stepsEqual(left.steps, right.steps) &&
+    // The offer plan arrives on the poll (COD-824); a row that gains one, or
+    // whose estimate moves, must redraw. Small and server-shaped, so JSON.
+    JSON.stringify(left.offer_plan) === JSON.stringify(right.offer_plan)
   )
 }
 
@@ -265,11 +268,26 @@ function stepsEqual(
   )
 }
 
+/** The mounted poller's "look now", or null when none is mounted. */
+let wakePoller: (() => void) | null = null
+
+/**
+ * Read the proposal NOW rather than at the next tick.
+ *
+ * Called when the per-turn offer route says it just minted one
+ * (`sponsored-offer.ts`): the card should appear on the turn that earned it,
+ * not up to a minute later. A no-op when no poller is mounted.
+ */
+export function refreshSponsoredProposalNow(): void {
+  wakePoller?.()
+}
+
 /**
  * Poll for this repository's sponsored proposal and keep the card current.
  *
  * Mounted from `chat.tsx` beside the display rail. Returns nothing: everything
- * it does is to the transcript, which is where the card lives.
+ * it does is to the transcript, which is where the card's state lives -- the
+ * dock above the composer draws it from there.
  */
 export function useSponsoredProposal(
   options: { enabled?: boolean } = {},
@@ -287,6 +305,7 @@ export function useSponsoredProposal(
   useEffect(() => {
     if (!enabled || !hasUserMessaged) return
     let cancelled = false
+    let wokenMidPoll = false
 
     const tick = async (): Promise<void> => {
       if (cancelled || inFlight.current) return
@@ -325,7 +344,16 @@ export function useSponsoredProposal(
         logger.debug({ error }, '[sponsored-proposal] poll failed')
       } finally {
         inFlight.current = false
-        if (!cancelled) schedule()
+        if (!cancelled) {
+          // A wake that arrived mid-poll is owed a fresh read: the poll in
+          // flight may have been sent before the offer it announces existed.
+          if (wokenMidPoll) {
+            wokenMidPoll = false
+            timer.current = setTimeout(() => void tick(), 0)
+          } else {
+            schedule()
+          }
+        }
       }
     }
 
@@ -339,9 +367,23 @@ export function useSponsoredProposal(
       )
     }
 
+    const wake = (): void => {
+      if (cancelled) return
+      // Never start a second poll beside one in flight: `tick` refuses it and,
+      // with the timer already cleared, nothing would ever poll again.
+      if (inFlight.current) {
+        wokenMidPoll = true
+        return
+      }
+      if (timer.current) clearTimeout(timer.current)
+      void tick()
+    }
+    wakePoller = wake
+
     void tick()
     return () => {
       cancelled = true
+      if (wakePoller === wake) wakePoller = null
       if (timer.current) clearTimeout(timer.current)
     }
   }, [enabled, hasUserMessaged])

@@ -21,12 +21,16 @@ import {
 import {
   SPONSORED_STATE_TITLE,
   SPONSORED_STEP_STATE_LABEL,
+  isSponsoredProposalStepState,
+  sponsoredStepsNeedingYou,
   sponsoredProposalAction,
   sponsoredProposalMenu,
+  sponsoredProposalMinimized,
   sponsoredProposalViewModel,
   type SponsoredProposalRow,
   type SponsoredProposalState,
 } from './sponsored-proposal-view'
+import { sponsoredProgressPill } from './sponsored-offer-plan'
 
 const ALL_STATES: SponsoredProposalState[] = [
   'offered',
@@ -66,9 +70,140 @@ describe('state copy', () => {
   // here may read as though a pull request is pending.
   test('VM-2 committed names the outcome, not a next step', () => {
     expect(view({ state: 'committed' }).title).toBe(
-      'Sponsored thread committed its work',
+      'Done — committed to its own branch',
     )
     expect(view({ state: 'committed' }).title).not.toContain('running')
+  })
+})
+
+describe('setup handoff', () => {
+  test('VM-33 prompts before merge without claiming an already-merged PR is pending', () => {
+    for (const state of ['committed', 'landed'] as const) {
+      expect(view({ state }).setupGuide?.eyebrow).toBe('Before you merge')
+    }
+    expect(view({ state: 'merged' }).setupGuide?.eyebrow).toBe('Finish setup')
+  })
+  test('VM-34 execution completion exposes guidance without asserting activation', () => {
+    for (const state of ['committed', 'landed', 'merged'] as const) {
+      const model = view({
+        state,
+        advertiser_cta_url: FIXTURE_ADVERTISER_CTA_URL,
+      })
+      expect(model.setupGuide?.steps.map((step) => step.title)).toEqual([
+        '1. Review the code',
+        '2. Set up your account',
+        '3. Verify in your app',
+      ])
+      expect(model.setupGuide?.verificationNote).toContain('not recorded')
+      expect(model.steps).toEqual([])
+      expect(model.doneStepCount).toBe(0)
+      expect(sponsoredProposalAction(model, 'open-advertiser')?.href).toBe(
+        FIXTURE_ADVERTISER_CTA_URL,
+      )
+    }
+  })
+
+  test('VM-35 does not offer setup before code is ready or after failure', () => {
+    for (const state of ['offered', 'accepted', 'running', 'failed'] as const) {
+      const model = view({
+        state,
+        advertiser_cta_url: FIXTURE_ADVERTISER_CTA_URL,
+      })
+      expect(model.setupGuide).toBeNull()
+      expect(sponsoredProposalAction(model, 'open-advertiser')).toBeNull()
+    }
+  })
+
+  test('VM-36 missing or unsafe tracking links leave instructions without inventing a destination', () => {
+    for (const advertiser_cta_url of [undefined, ...HOSTILE_PR_URLS]) {
+      const model = view({ state: 'committed', advertiser_cta_url })
+      expect(model.setupGuide).not.toBeNull()
+      expect(model.advertiserCtaHref).toBeNull()
+      expect(sponsoredProposalAction(model, 'open-advertiser')).toBeNull()
+    }
+  })
+
+  test('VM-37 frozen criteria expose verify-again and keep setup guidance unclaimed', () => {
+    const model = view({
+      state: 'committed',
+      advertiser_cta_url: FIXTURE_ADVERTISER_CTA_URL,
+      acceptance_criteria_sha256: 'a'.repeat(64),
+      latest_verification: {
+        attempt_id: 'p1:1',
+        sequence: 1,
+        overall: 'inconclusive',
+        user_facing: 'setup_needed',
+        stale: false,
+        missing: ['Live authentication has not been observed.'],
+      },
+    })
+    expect(model.setupGuide?.verificationNote).toContain('not recorded')
+    expect(model.verification).toEqual({
+      userFacing: 'setup_needed',
+      label: 'Setup needed',
+      overall: 'inconclusive',
+      stale: false,
+      completedAt: null,
+      missing: ['Live authentication has not been observed.'],
+      canRecheck: true,
+    })
+    expect(sponsoredProposalAction(model, 'verify-again')?.label).toBe(
+      'Verify again',
+    )
+  })
+
+  test('VM-38 a run with no rubric shows no verdict, even with a stored no-contract result', () => {
+    // A campaign with no success criteria had nothing to check. The panel is
+    // absent rather than "Couldn't verify", which reads as a failed check.
+    const noContractResult = {
+      attempt_id: 'p1:1',
+      sequence: 1,
+      overall: 'inconclusive',
+      user_facing: 'couldnt_verify',
+      stale: false,
+      missing: ['This run has no frozen acceptance-criteria contract.'],
+    }
+    for (const state of ALL_STATES) {
+      for (const latest_verification of [undefined, noContractResult]) {
+        const model = view({ state, latest_verification })
+        expect(model.verification).toBeNull()
+        expect(sponsoredProposalAction(model, 'verify-again')).toBeNull()
+      }
+    }
+    // The setup card is unaffected: it is instructions, not a verdict.
+    expect(view({ state: 'landed' }).setupGuide).not.toBeNull()
+  })
+
+  test("VM-39 an inconclusive check against a frozen contract still says Couldn't verify", () => {
+    const model = view({
+      state: 'landed',
+      acceptance_criteria_sha256: 'a'.repeat(64),
+      latest_verification: {
+        attempt_id: 'p1:2',
+        sequence: 2,
+        overall: 'inconclusive',
+        user_facing: 'couldnt_verify',
+        stale: false,
+        missing: ['The live service could not be reached.'],
+      },
+    })
+    expect(model.verification).toEqual({
+      userFacing: 'couldnt_verify',
+      label: "Couldn't verify",
+      overall: 'inconclusive',
+      stale: false,
+      completedAt: null,
+      missing: ['The live service could not be reached.'],
+      canRecheck: true,
+    })
+    expect(sponsoredProposalAction(model, 'verify-again')?.label).toBe(
+      'Verify again',
+    )
+    // And before the first attempt finishes, a contract run reads as pending.
+    expect(
+      view({ state: 'landed', acceptance_criteria_sha256: 'a'.repeat(64) })
+        .verification?.userFacing,
+    ).toBe('pending')
   })
 })
 
@@ -90,19 +225,57 @@ describe('steps', () => {
     expect(view({ state: 'running' }).doneStepCount).toBe(0)
   })
 
-  test('VM-5 reads in the todo-dock vocabulary', () => {
+  test('VM-5 reads in the todo-dock vocabulary, needs_you included', () => {
     expect(SPONSORED_STEP_STATE_LABEL).toEqual({
       pending: 'Pending',
       active: 'In progress',
+      needs_you: 'Needs you',
       done: 'Done',
     })
+
+    // A run waiting on the user marks the step in progress as needs_you
+    // (COD-828). One test, not two: the conformance matrix pins the VM count.
+    const steps = [
+      { text: 'Install the SDK', state: 'done' as const },
+      { text: 'Connect your account', state: 'active' as const },
+      { text: 'Wire the client', state: 'pending' as const },
+    ]
+    expect(sponsoredStepsNeedingYou(steps, true).map((s) => s.state)).toEqual([
+      'done',
+      'needs_you',
+      'pending',
+    ])
+    expect(sponsoredStepsNeedingYou(steps, false)).toEqual(steps)
+    // Nothing in progress yet: the first pending step is the one waiting.
+    expect(
+      sponsoredStepsNeedingYou(
+        [
+          { text: 'a', state: 'done' },
+          { text: 'b', state: 'pending' },
+          { text: 'c', state: 'pending' },
+        ],
+        true,
+      ).map((s) => s.state),
+    ).toEqual(['done', 'needs_you', 'pending'])
+    // Already marked by the reporter: left alone, never a second one.
+    const marked = [
+      { text: 'a', state: 'needs_you' as const },
+      { text: 'b', state: 'active' as const },
+    ]
+    expect(sponsoredStepsNeedingYou(marked, true)).toEqual(marked)
+    expect(sponsoredStepsNeedingYou([], true)).toEqual([])
+
+    for (const state of ['pending', 'active', 'needs_you', 'done'])
+      expect(isSponsoredProposalStepState(state)).toBe(true)
+    for (const state of ['blocked', '', null, 3])
+      expect(isSponsoredProposalStepState(state)).toBe(false)
   })
 })
 
 describe('actions', () => {
   test('VM-6 offered leads with accept', () => {
     const accept = sponsoredProposalAction(view({}), 'accept')
-    expect(accept?.label).toBe('Start sponsored thread')
+    expect(accept?.label).toBe('Set it up for me')
     expect(accept?.primary).toBe(true)
   })
 
@@ -342,11 +515,11 @@ describe('sponsoredProposalMenu and the optional Accept', () => {
 
   test('VM-26 puts the Accept first, and changes nothing else', () => {
     const menu = sponsoredProposalMenu('Acme', {
-      acceptLabel: 'Start sponsored thread',
+      acceptLabel: 'Set it up for me',
     })
     expect(menu[0]).toMatchObject({
       key: 'accept',
-      label: 'Start sponsored thread',
+      label: 'Set it up for me',
     })
     expect(menu.slice(1)).toEqual(sponsoredProposalMenu('Acme'))
   })
@@ -383,7 +556,7 @@ describe('the advertiser CTA (COD-512)', () => {
       const action = sponsoredProposalAction(v, 'open-advertiser')
       expect(action).toEqual({
         kind: 'open-advertiser',
-        label: 'Create your Acme Deploys project',
+        label: 'Set up Acme Deploys',
         href: CTA,
       })
       // Never the lead answer: the PR decision and the PR link keep primacy.
@@ -429,4 +602,115 @@ describe('the advertiser CTA (COD-512)', () => {
       )
     })
   }
+})
+
+// COD-665: the X on an accepted card hides it without touching the run, and a
+// live run is minimized rather than concealed.
+describe('sponsoredProposalMinimized', () => {
+  test('VM-40 only a hidden card with a run in flight is drawn minimized', () => {
+    for (const state of ['accepted', 'running'] as const) {
+      expect(sponsoredProposalMinimized(row({ state, hidden: true }))).toBe(
+        true,
+      )
+    }
+    // An unhidden card never is.
+    for (const state of ALL_STATES) {
+      expect(sponsoredProposalMinimized(row({ state }))).toBe(false)
+    }
+    // A hidden card whose run ended is drawn in full, not guessed at: the
+    // server stops returning it, so this is only ever a stale row.
+    for (const state of [
+      'offered',
+      'committed',
+      'delivered',
+      'landed',
+      'failed',
+      'merged',
+    ] as const) {
+      expect(sponsoredProposalMinimized(row({ state, hidden: true }))).toBe(
+        false,
+      )
+    }
+  })
+})
+
+// COD-824: what an offer will ask of the user is said before Accept, and the
+// pill follows the run from Accept onwards.
+describe('offer plan and progress pill', () => {
+  const PLAN = {
+    step_count: 6,
+    needs_user: ['Archil account'],
+    estimate_seconds: 240,
+  }
+
+  test('VM-41 an offered card with a plan says its steps, estimate and the step that needs the user', () => {
+    const v = view({ state: 'offered', offer_plan: PLAN })
+    expect(v.offerSummary).toBe('6 steps · ~4 min · 1 needs you (Archil account)')
+    expect(v.offerPlan).toEqual({
+      stepCount: 6,
+      needsUser: ['Archil account'],
+      estimateSeconds: 240,
+    })
+    // Only the offer speaks it; past Accept the pill does.
+    for (const state of ALL_STATES.filter((s) => s !== 'offered')) {
+      expect(view({ state, offer_plan: PLAN }).offerSummary).toBeNull()
+    }
+  })
+
+  test('VM-42 no plan, or a malformed one, leaves the card as it was', () => {
+    expect(view({ state: 'offered' }).offerSummary).toBeNull()
+    expect(view({ state: 'offered' }).offerPlan).toBeNull()
+    for (const offer_plan of [
+      { ...PLAN, step_count: -1 },
+      { ...PLAN, step_count: 2.5 },
+      { ...PLAN, needs_user: ['\u001b[31mred'] },
+      { ...PLAN, needs_user: 'Archil account' },
+      { ...PLAN, estimate_seconds: '240' },
+    ]) {
+      const v = view({
+        state: 'offered',
+        offer_plan: offer_plan as unknown as SponsoredProposalRow['offer_plan'],
+      })
+      expect(v.offerPlan).toBeNull()
+      expect(v.offerSummary).toBeNull()
+    }
+  })
+
+  test('VM-43 the pill reads queued, running, needs you and done from Accept onwards', () => {
+    const plan = view({ state: 'offered', offer_plan: PLAN }).offerPlan
+    const steps = [
+      { text: 'a', state: 'done' as const },
+      { text: 'b', state: 'done' as const },
+      { text: 'c', state: 'done' as const },
+      { text: 'd', state: 'active' as const },
+      { text: 'e', state: 'pending' as const },
+      { text: 'f', state: 'pending' as const },
+    ]
+    expect(sponsoredProgressPill({ state: 'accepted', steps: [], plan })).toBe(
+      '0/6 · Starting',
+    )
+    expect(
+      sponsoredProgressPill({
+        state: 'running',
+        steps,
+        plan,
+        elapsedMs: 125_000,
+      }),
+    ).toBe('3/6 · 2m')
+    expect(
+      sponsoredProgressPill({ state: 'accepted', steps: [], plan, needsYou: true }),
+    ).toBe('Needs you')
+    for (const state of ['committed', 'delivered', 'landed', 'merged'] as const)
+      expect(sponsoredProgressPill({ state, steps: [], plan })).toBe('6/6 ✓')
+    // The offer and a failure have their own copy and no pill.
+    expect(sponsoredProgressPill({ state: 'offered', steps, plan })).toBeNull()
+    expect(sponsoredProgressPill({ state: 'failed', steps, plan })).toBeNull()
+    // No plan and no steps still says something true.
+    expect(
+      sponsoredProgressPill({ state: 'accepted', steps: [], plan: null }),
+    ).toBe('Starting')
+    expect(
+      sponsoredProgressPill({ state: 'delivered', steps: [], plan: null }),
+    ).toBe('Done ✓')
+  })
 })

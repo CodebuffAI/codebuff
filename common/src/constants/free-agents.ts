@@ -6,26 +6,72 @@ import {
 } from './freebuff-gemini-thinker'
 import {
   FALLBACK_FREEBUFF_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_FABLE_5_MODEL_ID,
+  FREEBUFF_FABLE_5_1_MODEL_ID,
   FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   FREEBUFF_GEMINI_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_FLASH_MAX_MODEL_ID,
-  FREEBUFF_DEEPSEEK_V4_PRO_MAX_MODEL_ID,
-  FREEBUFF_GPT_5_6_LUNA_MAX_MODEL_ID,
+  FREEBUFF_GPT_6_LUNA_MODEL_ID,
+  FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V41_FLASH_MODEL_ID,
+  FREEBUFF_GLM_V53_MODEL_ID,
+  FREEBUFF_GPT_6_SOL_MODEL_ID,
+  FREEBUFF_GPT_6_SOL_PRO_MODEL_ID,
+  FREEBUFF_GPT_6_LUNA_PRO_MODEL_ID,
+  FREEBUFF_GPT_6_ASTRA_MODEL_ID,
+  FREEBUFF_GPT_6_ASTRA_PRO_MODEL_ID,
+  FREEBUFF_GPT_5_6_SOL_MODEL_ID,
+  FREEBUFF_GPT_5_6_SOL_PRO_MODEL_ID,
+  FREEBUFF_GPT_5_6_TERRA_MODEL_ID,
+  FREEBUFF_GPT_5_6_TERRA_PRO_MODEL_ID,
+  FREEBUFF_GPT_5_6_LUNA_PRO_MODEL_ID,
+  FREEBUFF_GPT_5_5_MODEL_ID,
+  FREEBUFF_GPT_5_5_PRO_MODEL_ID,
+  FREEBUFF_GPT_5_4_PRO_MODEL_ID,
+  FREEBUFF_O3_PRO_MODEL_ID,
+  FREEBUFF_CLAUDE_OPUS_5_5_MODEL_ID,
+  FREEBUFF_CLAUDE_OPUS_5_MODEL_ID,
+  FREEBUFF_CLAUDE_SONNET_5_MODEL_ID,
+  FREEBUFF_CLAUDE_OPUS_4_8_MODEL_ID,
+  FREEBUFF_CLAUDE_SONNET_4_6_MODEL_ID,
+  FREEBUFF_QWEN3_8_MAX_PRIME_MODEL_ID,
+  FREEBUFF_QWEN3_8_MAX_0902_MODEL_ID,
+  FREEBUFF_QWEN3_8_FLASH_MODEL_ID,
+  FREEBUFF_QWEN3_8_27B_MODEL_ID,
+  FREEBUFF_QWEN3_7_MAX_MODEL_ID,
+  FREEBUFF_QWEN3_7_PLUS_MODEL_ID,
+  FREEBUFF_QWEN3_6_MAX_PREVIEW_MODEL_ID,
+  FREEBUFF_QWEN3_6_PLUS_MODEL_ID,
+  FREEBUFF_GROK_4_7_MODEL_ID,
+  FREEBUFF_GROK_4_6_MODEL_ID,
+  FREEBUFF_GROK_4_5_MODEL_ID,
+  FREEBUFF_GROK_4_20_MODEL_ID,
+  FREEBUFF_GEMINI_3_7_FLASH_MODEL_ID,
+  FREEBUFF_GEMINI_3_6_FLASH_MODEL_ID,
+  FREEBUFF_GEMINI_3_5_FLASH_MODEL_ID,
+  FREEBUFF_KIMI_K3_MODEL_ID,
+  FREEBUFF_GLM_5_3_PRIME_MODEL_ID,
+  FREEBUFF_GLM_5_3_FLASHX_MODEL_ID,
+  FREEBUFF_GLM_5_TURBO_MODEL_ID,
+  FREEBUFF_MISTRAL_LARGE_MODEL_ID,
+  FREEBUFF_CODESTRAL_2508_MODEL_ID,
+  FREEBUFF_LLAMA_4_MAVERICK_MODEL_ID,
   FREEBUFF_KIMI_K3_ECO_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_OX_ALPHA_MODEL_ID,
+  FREEBUFF_SOLAR_MINI_4_MODEL_ID,
   FREEBUFF_SOLAR_PRO_4_MODEL_ID,
+  FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID,
   LIMITED_FREEBUFF_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V26_PRO_MODEL_ID,
 } from './freebuff-models'
 import {
   GEMINI_3_1_FLASH_LITE_MODEL_ID,
@@ -71,6 +117,30 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_ID = 'freebuff-desktop-thread'
 export const FREEBUFF_DESKTOP_AUTORUN_AGENT_ID = 'freebuff-desktop-autorun'
 
 /**
+ * The root the project-understanding agent runs under: a read-only agent that looks over
+ * the project a Desktop session is working in and fills in the
+ * backend's project-understanding template (common/src/project-understanding/). It
+ * never edits files or runs commands.
+ *
+ * A first-party free-mode ROOT for the auto-run decider's reason: it runs
+ * beside a turn, not inside one, so there is no running root for it to hang
+ * off and the subagent hierarchy gate would 403 it. Unlike the decider it is
+ * pinned to one cheap model, whatever the session's model is: see
+ * isFreebuffHelperOnSessionModel.
+ */
+export const FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID = 'freebuff-project-understanding'
+
+/**
+ * The one model the project-understanding agent runs, on every surface: GPT-6
+ * Luna with reasoning off, served through OpenRouter on OpenAI's endpoints
+ * (flex, then standard). Not DeepSeek: the agent reads the user's project
+ * files, and those must not go to DeepSeek's own API. Luna is also the cheaper
+ * of the two (docs/freebuff-project-understanding.md).
+ */
+export const FREEBUFF_PROJECT_UNDERSTANDING_MODEL_ID =
+  FREEBUFF_GPT_6_LUNA_MODEL_ID
+
+/**
  * Suffix for the base3 desktop roots. The single-loop agent is a different
  * agent with a different cost profile, so it gets its own root ids: spend and
  * run counts split by `agent_id` in the DB, which is what makes a base2 vs
@@ -103,6 +173,38 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
 ] as const
 
 /**
+ * The base3-fast root and its worker subagent (agents/base3-fast.ts), one pair
+ * for the one model that runs fast mode today. The root is a base3 root with
+ * a fan-out: it spawns file-pickers in parallel, then
+ * splits the implementation across parallel workers that inherit its system
+ * prompt and history (so their requests are prompt-cache hits), and verifies
+ * the combined result itself. The worker is pinned to the same model as the
+ * root — it must be, or the session gate answers session_model_mismatch — and
+ * is allowlisted below like every other free-mode subagent.
+ */
+export const FREEBUFF_BASE3_FAST_AGENT_ID = 'base3-fast-free-deepseek-flash'
+export const FREEBUFF_BASE3_FAST_WORKER_AGENT_ID =
+  'base3-fast-worker-deepseek-flash'
+
+/**
+ * The subagent a Freebuff Projects account's Desktop and Cloud threads may
+ * spawn, up to FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS at once (agents/projects-subagent.ts). It runs
+ * its root's model with the root's prompt and history, has the root's coding
+ * tools, and may spawn more of itself. The Projects allowlist only:
+ * the completions route refuses this id for anyone else
+ * (web/src/server/desktop-cloud/projects-access.ts), whatever a client sends.
+ */
+export const FREEBUFF_PROJECTS_SUBAGENT_ID = 'freebuff-projects-subagent'
+
+/**
+ * Most Projects subagents one root run may have running at once, nested ones
+ * included (Owen, 2026-10-10: "a cap of like 10-15, not actually unlimited"; then "even for admin we should cap at like 20").
+ * The agent runtime refuses a spawn past it (spawn-agents.ts); every
+ * spawn_agents call is separately held to MAX_SPAWN_AGENTS_PER_CALL.
+ */
+export const FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS = 20
+
+/**
  * The Freebuff Web and Cloud roots that run the base3 single-loop harness
  * (agents/base3.ts): no subagents, no reviewer, windowed file reads, mechanical
  * compaction instead of a context-pruner spawn. One per selectable model,
@@ -124,19 +226,31 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
 export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base3-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base3-free-deepseek-flash',
+  // Fast mode runs the base3-FAST harness (agents/base3-fast.ts): base3's
+  // loop plus parallel file-pickers and prompt-cached worker
+  // subagents. Registered in the base3 maps because it is the base3 family's
+  // rollout shape (windowed reads, mechanical compaction, no instructions
+  // prompt) with a fan-out on top; the no-subagents assertions on this map
+  // exempt exactly this id, on purpose.
+  [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID]: FREEBUFF_BASE3_FAST_AGENT_ID,
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'base3-free-mimo',
+  [FREEBUFF_MIMO_V26_PRO_MODEL_ID]: 'base3-free-mimo-2-6-pro',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base3-free-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
+  [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 'base3-free-luna-6',
+  [FREEBUFF_GPT_61_SOL_MODEL_ID]: 'base3-free-gpt-6-1-sol',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
   [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'base3-free-glm-5-3-flash',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base3-free-kimi-k3-eco',
   [FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]: 'base3-free-luna-es',
-  // 1.2 is retired from the picker (2026-09-02) and this entry stays while
-  // its sessions drain; 1.3 is the live row. Both Web/Cloud only.
+  // 1.3 is the live row. 1.2 left every picker on 2026-09-28 and this entry
+  // stays because released CLI and Desktop binaries still send it (paid-only).
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark',
   [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark-1-3',
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base3-free-ox-alpha',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'base3-free-solar-pro4',
+  [FREEBUFF_SOLAR_MINI_4_MODEL_ID]: 'base3-free-solar-mini4',
+  [FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID]: 'base3-free-space-bunny-alpha',
   [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'base3-free-gemini-3-8-flash',
 }
 
@@ -152,26 +266,33 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
  * for no analysis that `surface` does not already answer.
  *
  * Kept as its own map rather than folded into the Web one because the model
- * sets genuinely differ in both directions: Web offers Kimi K3 Eco and Muse
- * Spark, which no CLI build can select; the CLI offers Claude Fable 5,
- * which Web never surfaces. `freebuff_bundled_agents.test.ts` asserts the Web
+ * sets genuinely differ in both directions: Web offers Kimi K3 Eco and GPT-5.6
+ * Luna-ES, which no CLI build can select; the CLI offers Claude Fable 5.1 on
+ * base2, which Web never surfaces. (Muse Spark was Web-only until 2026-09-04;
+ * both versions are in both maps now.) `freebuff_bundled_agents.test.ts` asserts the Web
  * map covers exactly the Web base2 models, so a CLI-only model added there
  * would fail that parity check for the wrong reason.
  */
 export const FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base3-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base3-free-deepseek-flash',
+  // Fast mode: the same base3-fast root id on both surfaces (see the Web map).
+  [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID]: FREEBUFF_BASE3_FAST_AGENT_ID,
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'base3-free-mimo',
+  [FREEBUFF_MIMO_V26_PRO_MODEL_ID]: 'base3-free-mimo-2-6-pro',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base3-free-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
+  [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 'base3-free-luna-6',
+  [FREEBUFF_GPT_61_SOL_MODEL_ID]: 'base3-free-gpt-6-1-sol',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
   [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'base3-free-glm-5-3-flash',
-  [FREEBUFF_FABLE_5_MODEL_ID]: 'base3-free-fable',
   // Ox Alpha reached CLI and Desktop on 2026-08-24. The WEB map above has
   // pointed at the same root id since 2026-08-20; both surfaces share it, which
   // is the arrangement described in docs/freebuff-base3-harness.md.
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base3-free-ox-alpha',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'base3-free-solar-pro4',
+  [FREEBUFF_SOLAR_MINI_4_MODEL_ID]: 'base3-free-solar-mini4',
+  [FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID]: 'base3-free-space-bunny-alpha',
   // Gemini 3.8 Flash reached every surface on 2026-09-03, sharing its root id
   // with the Web map above like every other model both surfaces offer.
   [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'base3-free-gemini-3-8-flash',
@@ -180,10 +301,20 @@ export const FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 'base3-free-muse-spark-1-3',
 }
 
+/**
+ * The CLI's catalog root: the one base3 root a catalog-aware CLI runs for
+ * EVERY model, whose definition it builds at runtime from the server catalog
+ * row (createBase3CliRoot with the row's handle as the model). Its request
+ * `model` is always a catalog handle, which the server resolves; it admits no
+ * plain model id at all (FREE_MODE_AGENT_MODELS lists none for it).
+ */
+export const FREEBUFF_CLI_CATALOG_ROOT_AGENT_ID = 'base3-free-catalog'
+
 /** Every base3 root id, whichever surface registered it. */
 export const FREEBUFF_BASE3_AGENT_IDS: ReadonlySet<string> = new Set([
   ...Object.values(FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL),
   ...Object.values(FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL),
+  FREEBUFF_CLI_CATALOG_ROOT_AGENT_ID,
 ])
 
 /**
@@ -195,9 +326,8 @@ export const FREEBUFF_BASE3_AGENT_IDS: ReadonlySet<string> = new Set([
  * 2026-08-18. The planner followed DeepSeek V4 Flash onto the premium pool for
  * a few hours and was moved straight off it, because being OUT of that pool is
  * the property this agent is designed around: a planner turn never touches a
- * sandbox, so a premium-pooled planner is both the cheapest abuse route into
- * the premium pool and a way for an ordinary user to spend their day's sessions
- * without building anything. It tracks FALLBACK_FREEBUFF_MODEL_ID rather than
+ * sandbox, so a premium-pooled planner would let an ordinary user spend their
+ * day's sessions without building anything. It tracks FALLBACK_FREEBUFF_MODEL_ID rather than
  * naming a model, so it cannot drift back in the next time a model is
  * re-tiered.
  *
@@ -330,30 +460,81 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base2-free',
   'base2-free-deepseek',
   'base2-free-deepseek-flash',
+  'base2-free-deepseek-flash-fast',
   'base2-free-mimo',
+  // MiMo 2.6 Pro (2026-09-21). NEW ids rather than the retired
+  // `base2-free-mimo-pro`: released builds from before 2026-08-04 still bundle
+  // that id pinned to MiMo 2.5 Pro, and reusing it would make those requests
+  // look like this model's traffic in every per-agent query.
+  'base2-free-mimo-2-6-pro',
   'base2-free-minimax-m3',
   'base2-free-luna',
+  // GPT-6 Luna (2026-09-22). Its own ids rather than reusing 5.6's: spend and
+  // run counts split by agent_id, and 5.6's roots stay bundled while its
+  // sessions drain.
+  'base2-free-luna-6',
+  'base2-free-gpt-6-1-sol',
   'base2-free-solar-pro4',
+  'base2-free-solar-mini4',
+  'base2-free-space-bunny-alpha',
   'base2-free-glm',
   'base2-free-glm-5-3-flash',
   'base2-free-kimi-k3-eco',
   'base2-free-luna-es',
-  // Extended-context `-max` roots. Listed here for the same reason every other
-  // root is: a root absent from this list is treated as a subagent, so a
-  // top-level request on one fails the hierarchy check with
+  // Provisioned-tier roots. Listed here for the same
+  // reason every other root is: a root absent from this list is treated as a
+  // subagent, so a top-level request on one fails the hierarchy check with
   // free_mode_invalid_agent_hierarchy instead of running.
   //
-  // base2 only. Every base3 root is enumerated by the by-model maps above, and
-  // these tiers are provisioned rather than picked, so they have no entry
-  // there and no base3 twin to list.
-  'base2-free-deepseek-pro-max',
-  'base2-free-deepseek-flash-max',
-  'base2-free-luna-max',
-  // Muse Spark roots, Web/Cloud only. 1.2's root stays while its Web
-  // sessions drain (the model is retired from the picker as of 2026-09-02);
-  // 1.3's is the live one. Listed here like every other root so their
-  // subagents pass the hierarchy gate; the model, not this list, is what keeps
-  // them off the CLI and Desktop.
+  // base2 only. None of these is picked from a catalog, so none has a base3
+  // twin to list.
+  'base2-free-deepseek-v4-1-flash',
+  'base2-free-glm-5-3',
+  'base2-free-gpt-6-sol',
+  'base2-free-gpt-6-sol-pro',
+  'base2-free-gpt-6-luna-pro',
+  'base2-free-gpt-6-astra',
+  'base2-free-gpt-6-astra-pro',
+  'base2-free-gpt-5-6-sol',
+  'base2-free-gpt-5-6-sol-pro',
+  'base2-free-gpt-5-6-terra',
+  'base2-free-gpt-5-6-terra-pro',
+  'base2-free-gpt-5-6-luna-pro',
+  'base2-free-gpt-5-5',
+  'base2-free-gpt-5-5-pro',
+  'base2-free-gpt-5-4-pro',
+  'base2-free-o3-pro',
+  'base2-free-claude-opus-5-5',
+  'base2-free-claude-opus-5',
+  'base2-free-claude-sonnet-5',
+  'base2-free-claude-opus-4-8',
+  'base2-free-claude-sonnet-4-6',
+  'base2-free-qwen3-8-max-prime',
+  'base2-free-qwen3-8-max-0902',
+  'base2-free-qwen3-8-flash',
+  'base2-free-qwen3-8-27b',
+  'base2-free-qwen3-7-max',
+  'base2-free-qwen3-7-plus',
+  'base2-free-qwen3-6-max-preview',
+  'base2-free-qwen3-6-plus',
+  'base2-free-grok-4-7',
+  'base2-free-grok-4-6',
+  'base2-free-grok-4-5',
+  'base2-free-grok-4-20',
+  'base2-free-gemini-3-7-flash',
+  'base2-free-gemini-3-6-flash',
+  'base2-free-gemini-3-5-flash',
+  'base2-free-kimi-k3',
+  'base2-free-glm-5-3-prime',
+  'base2-free-glm-5-3-flashx',
+  'base2-free-glm-5-turbo',
+  'base2-free-mistral-large',
+  'base2-free-codestral-2508',
+  'base2-free-llama-4-maverick',
+  // Muse Spark roots, on every surface. 1.3's is the live one; 1.2's stays
+  // because released CLI and Desktop binaries still send it (the model left
+  // every picker on 2026-09-28 and is paid-only). Listed here like every other
+  // root so their subagents pass the hierarchy gate.
   'base2-free-muse-spark',
   'base2-free-muse-spark-1-3',
   'base2-free-gemini-3-8-flash',
@@ -364,7 +545,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // subagents keep passing through this hierarchy gate. Dropping the root would
   // 403 them mid-run.
   'base2-free-ox-alpha',
-  // Capacity-limited trial orchestrator (Claude Fable 5). Reachable only while
+  // Capacity-limited trial orchestrator (Claude Fable 5.1). Reachable only while
   // the server is still advertising the offer, but it must be listed here
   // unconditionally: a session admitted while the pool was open runs its full
   // hour after the pool empties, and dropping the root would 403 its subagents
@@ -386,10 +567,16 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // for the ROOT too, so an omission 403s the root itself.
   'base3-free-deepseek',
   'base3-free-deepseek-flash',
+  FREEBUFF_BASE3_FAST_AGENT_ID,
   'base3-free-mimo',
+  'base3-free-mimo-2-6-pro',
   'base3-free-minimax-m3',
   'base3-free-luna',
+  'base3-free-luna-6',
+  'base3-free-gpt-6-1-sol',
   'base3-free-solar-pro4',
+  'base3-free-solar-mini4',
+  'base3-free-space-bunny-alpha',
   'base3-free-glm',
   'base3-free-glm-5-3-flash',
   'base3-free-kimi-k3-eco',
@@ -398,13 +585,17 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base3-free-muse-spark-1-3',
   'base3-free-ox-alpha',
   'base3-free-gemini-3-8-flash',
-  // Freebuff CLI base3 roots. Every other id it needs is already above,
-  // shared with Web; Fable is the one model the CLI offers and Web does not.
-  'base3-free-fable',
+  // The CLI's catalog root (FREEBUFF_CLI_CATALOG_ROOT_AGENT_ID): ONE root for
+  // every model the server catalog offers, built at runtime from the catalog
+  // row, so a new model needs no new root and no release.
+  'base3-free-catalog',
   ...FREEBUFF_DESKTOP_THREAD_AGENT_IDS,
   // The Desktop auto-run decider. Spawns nothing, but the hierarchy gate reads
   // this list for the ROOT itself, and a decision has no parent run to hang off.
   FREEBUFF_DESKTOP_AUTORUN_AGENT_ID,
+  // The project-understanding agent. Spawns nothing, and like the decider it runs
+  // beside a turn with no parent run to hang off.
+  FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID,
 ] as const
 const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
   FREEBUFF_ROOT_AGENT_IDS,
@@ -412,20 +603,74 @@ const FREEBUFF_ROOT_AGENT_ID_SET: ReadonlySet<string> = new Set(
 
 export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'base2-free-mimo',
+  [FREEBUFF_MIMO_V26_PRO_MODEL_ID]: 'base2-free-mimo-2-6-pro',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'base2-free-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base2-free-luna',
+  [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 'base2-free-luna-6',
+  [FREEBUFF_GPT_61_SOL_MODEL_ID]: 'base2-free-gpt-6-1-sol',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'base2-free-solar-pro4',
+  [FREEBUFF_SOLAR_MINI_4_MODEL_ID]: 'base2-free-solar-mini4',
+  [FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID]: 'base2-free-space-bunny-alpha',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base2-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base2-free-deepseek-flash',
+  // Fast mode's base2 twin exists for the base3 kill switch and the
+  // base2-first CLI fallback, like every other model's; nothing routes here
+  // while base3 is on.
+  [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID]: 'base2-free-deepseek-flash-fast',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base2-free-glm',
   [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'base2-free-glm-5-3-flash',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base2-free-kimi-k3-eco',
   [FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]: 'base2-free-luna-es',
-  [FREEBUFF_FABLE_5_MODEL_ID]: 'base2-free-fable',
+  [FREEBUFF_FABLE_5_1_MODEL_ID]: 'base2-free-fable',
   [FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark',
   [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 'base2-free-muse-spark-1-3',
   [FREEBUFF_OX_ALPHA_MODEL_ID]: 'base2-free-ox-alpha',
   [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 'base2-free-gemini-3-8-flash',
+  // Provisioned tiers. Resolved here so an account holding the grant starts on
+  // the tier's own root; no picker offers them (see FREEBUFF_PROVISIONED_MODELS).
+  [FREEBUFF_DEEPSEEK_V41_FLASH_MODEL_ID]: 'base2-free-deepseek-v4-1-flash',
+  [FREEBUFF_GLM_V53_MODEL_ID]: 'base2-free-glm-5-3',
+  [FREEBUFF_GPT_6_SOL_MODEL_ID]: 'base2-free-gpt-6-sol',
+  [FREEBUFF_GPT_6_SOL_PRO_MODEL_ID]: 'base2-free-gpt-6-sol-pro',
+  [FREEBUFF_GPT_6_LUNA_PRO_MODEL_ID]: 'base2-free-gpt-6-luna-pro',
+  [FREEBUFF_GPT_6_ASTRA_MODEL_ID]: 'base2-free-gpt-6-astra',
+  [FREEBUFF_GPT_6_ASTRA_PRO_MODEL_ID]: 'base2-free-gpt-6-astra-pro',
+  [FREEBUFF_GPT_5_6_SOL_MODEL_ID]: 'base2-free-gpt-5-6-sol',
+  [FREEBUFF_GPT_5_6_SOL_PRO_MODEL_ID]: 'base2-free-gpt-5-6-sol-pro',
+  [FREEBUFF_GPT_5_6_TERRA_MODEL_ID]: 'base2-free-gpt-5-6-terra',
+  [FREEBUFF_GPT_5_6_TERRA_PRO_MODEL_ID]: 'base2-free-gpt-5-6-terra-pro',
+  [FREEBUFF_GPT_5_6_LUNA_PRO_MODEL_ID]: 'base2-free-gpt-5-6-luna-pro',
+  [FREEBUFF_GPT_5_5_MODEL_ID]: 'base2-free-gpt-5-5',
+  [FREEBUFF_GPT_5_5_PRO_MODEL_ID]: 'base2-free-gpt-5-5-pro',
+  [FREEBUFF_GPT_5_4_PRO_MODEL_ID]: 'base2-free-gpt-5-4-pro',
+  [FREEBUFF_O3_PRO_MODEL_ID]: 'base2-free-o3-pro',
+  [FREEBUFF_CLAUDE_OPUS_5_5_MODEL_ID]: 'base2-free-claude-opus-5-5',
+  [FREEBUFF_CLAUDE_OPUS_5_MODEL_ID]: 'base2-free-claude-opus-5',
+  [FREEBUFF_CLAUDE_SONNET_5_MODEL_ID]: 'base2-free-claude-sonnet-5',
+  [FREEBUFF_CLAUDE_OPUS_4_8_MODEL_ID]: 'base2-free-claude-opus-4-8',
+  [FREEBUFF_CLAUDE_SONNET_4_6_MODEL_ID]: 'base2-free-claude-sonnet-4-6',
+  [FREEBUFF_QWEN3_8_MAX_PRIME_MODEL_ID]: 'base2-free-qwen3-8-max-prime',
+  [FREEBUFF_QWEN3_8_MAX_0902_MODEL_ID]: 'base2-free-qwen3-8-max-0902',
+  [FREEBUFF_QWEN3_8_FLASH_MODEL_ID]: 'base2-free-qwen3-8-flash',
+  [FREEBUFF_QWEN3_8_27B_MODEL_ID]: 'base2-free-qwen3-8-27b',
+  [FREEBUFF_QWEN3_7_MAX_MODEL_ID]: 'base2-free-qwen3-7-max',
+  [FREEBUFF_QWEN3_7_PLUS_MODEL_ID]: 'base2-free-qwen3-7-plus',
+  [FREEBUFF_QWEN3_6_MAX_PREVIEW_MODEL_ID]: 'base2-free-qwen3-6-max-preview',
+  [FREEBUFF_QWEN3_6_PLUS_MODEL_ID]: 'base2-free-qwen3-6-plus',
+  [FREEBUFF_GROK_4_7_MODEL_ID]: 'base2-free-grok-4-7',
+  [FREEBUFF_GROK_4_6_MODEL_ID]: 'base2-free-grok-4-6',
+  [FREEBUFF_GROK_4_5_MODEL_ID]: 'base2-free-grok-4-5',
+  [FREEBUFF_GROK_4_20_MODEL_ID]: 'base2-free-grok-4-20',
+  [FREEBUFF_GEMINI_3_7_FLASH_MODEL_ID]: 'base2-free-gemini-3-7-flash',
+  [FREEBUFF_GEMINI_3_6_FLASH_MODEL_ID]: 'base2-free-gemini-3-6-flash',
+  [FREEBUFF_GEMINI_3_5_FLASH_MODEL_ID]: 'base2-free-gemini-3-5-flash',
+  [FREEBUFF_KIMI_K3_MODEL_ID]: 'base2-free-kimi-k3',
+  [FREEBUFF_GLM_5_3_PRIME_MODEL_ID]: 'base2-free-glm-5-3-prime',
+  [FREEBUFF_GLM_5_3_FLASHX_MODEL_ID]: 'base2-free-glm-5-3-flashx',
+  [FREEBUFF_GLM_5_TURBO_MODEL_ID]: 'base2-free-glm-5-turbo',
+  [FREEBUFF_MISTRAL_LARGE_MODEL_ID]: 'base2-free-mistral-large',
+  [FREEBUFF_CODESTRAL_2508_MODEL_ID]: 'base2-free-codestral-2508',
+  [FREEBUFF_LLAMA_4_MAVERICK_MODEL_ID]: 'base2-free-llama-4-maverick',
 }
 
 /**
@@ -444,14 +689,24 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
  */
 export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_MIMO_V25_MODEL_ID]: 'code-reviewer-mimo',
+  [FREEBUFF_MIMO_V26_PRO_MODEL_ID]: 'code-reviewer-mimo-2-6-pro',
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 'code-reviewer-minimax-m3',
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'code-reviewer-luna',
+  [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 'code-reviewer-luna-6',
+  [FREEBUFF_GPT_61_SOL_MODEL_ID]: 'code-reviewer-gpt-6-1-sol',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'code-reviewer-solar-pro4',
+  [FREEBUFF_SOLAR_MINI_4_MODEL_ID]: 'code-reviewer-solar-mini4',
+  [FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID]: 'code-reviewer-space-bunny-alpha',
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'code-reviewer-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'code-reviewer-deepseek-flash',
+  // Fast mode's base2 twin sets `noReview`, so nothing spawns this today; the
+  // entry is what stops a base2 rollback falling through to the Flash reviewer
+  // and 403ing (a Flash-pinned reviewer cannot run the fast model's session).
+  [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID]:
+    'code-reviewer-deepseek-flash-fast',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'code-reviewer-glm',
   [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'code-reviewer-glm-5-3-flash',
-  [FREEBUFF_FABLE_5_MODEL_ID]: 'code-reviewer-fable',
+  [FREEBUFF_FABLE_5_1_MODEL_ID]: 'code-reviewer-fable',
   // Required the moment Ox Alpha became CLI-selectable: without its own entry
   // a base2 session falls back to the DeepSeek Flash reviewer, which that
   // session's allowlist does not permit, so the subagent is rejected mid-run.
@@ -470,10 +725,16 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
 const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  FREEBUFF_GPT_6_LUNA_MODEL_ID,
+  FREEBUFF_GPT_61_SOL_MODEL_ID,
   FREEBUFF_SOLAR_PRO_4_MODEL_ID,
+  FREEBUFF_SOLAR_MINI_4_MODEL_ID,
+  FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V26_PRO_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_OX_ALPHA_MODEL_ID,
@@ -495,6 +756,46 @@ const GEMINI_HELPER_MODELS = new Set([
   GEMINI_3_1_FLASH_LITE_MODEL_ID,
 ])
 
+/**
+ * Helper subagents that run on GPT-6 Luna: file-picker and file-lister with
+ * reasoning off since 2026-10-05, and researcher-web (the Desktop and
+ * Web/Cloud binding, agents/researcher/researcher-web-luna.ts) at medium
+ * effort. Luna is also a pickable session model, so a request from one of
+ * these on Luna is helper traffic inside whatever session spawned it, not a
+ * Luna session: see isFreebuffHelperOnSessionModel.
+ */
+const FREEBUFF_LUNA_HELPER_AGENT_IDS: ReadonlySet<string> = new Set([
+  'file-picker',
+  'file-lister',
+  'researcher-web',
+])
+
+/**
+ * Whether a free-mode request is a helper subagent running a model that is
+ * also a session model. The session gate binds every session-model request to
+ * the session's own model, the limited tier refuses premium models, and
+ * premium models draw on the premium rate budget; none of that is meant for a
+ * file-picker (or the project-understanding agent) on GPT-6 Luna beside, say,
+ * a DeepSeek Flash session. Such a request is treated like the Gemini helpers
+ * always were: it needs a live session, but not a session on its model.
+ */
+export function isFreebuffHelperOnSessionModel(
+  fullAgentId: string,
+  model: string,
+): boolean {
+  const { publisherId, agentId } = parseAgentId(fullAgentId)
+  if (!agentId || (publisherId && publisherId !== 'codebuff')) return false
+  return (
+    (FREEBUFF_LUNA_HELPER_AGENT_IDS.has(agentId) &&
+      model === FREEBUFF_GPT_6_LUNA_MODEL_ID) ||
+    // The project-understanding agent is a root, but it is the same kind of
+    // traffic: background work beside a session on whatever model that session
+    // runs, pinned to its own model (GPT-6 Luna, like the file helpers above).
+    (agentId === FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID &&
+      model === FREEBUFF_PROJECT_UNDERSTANDING_MODEL_ID)
+  )
+}
+
 export function getFreebuffRootAgentIdForModel(model: string): string {
   return FREEBUFF_ROOT_AGENT_ID_BY_MODEL[model] ?? 'base2-free'
 }
@@ -506,7 +807,8 @@ export function getFreebuffRootAgentIdForModel(model: string): string {
  * root, for the reason resolveFreebuffAgentId does the same on Web: running the
  * requested model on the older harness is a cost regression, running a
  * different model is a `session_model_mismatch` 403. Every model the picker can
- * select has a base3 twin, so the fallback is a backstop rather than a path.
+ * select normally has a base3 twin. Fable 5.1 deliberately uses this fallback
+ * to collect base2 orchestration traces with subagents.
  */
 export function getFreebuffBase3RootAgentIdForModel(model: string): string {
   return (
@@ -535,41 +837,48 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Kimi K2.7 Code was removed from free mode entirely on 2026-07-31. It had
   // been hidden from every client picker in 75fb0ade6 (2026-07-30) while
   // deliberately staying valid here and in session admission, so released
-  // clients weren't broken mid-session. That tail kept costing real spend
-  // (a double-digit share of free-mode cost) because CLI builds older than 75fb0ade6
-  // never drop a saved Kimi preference, and nothing forces those users to
-  // upgrade. Every remaining free-mode Kimi request now 403s with
+  // clients weren't broken mid-session. That tail persisted because CLI
+  // builds older than 75fb0ade6 never drop a saved Kimi preference. Every
+  // remaining free-mode Kimi request now 403s with
   // 'free_mode_invalid_agent_model'. Paid/BYOK Kimi is unaffected: the
   // base2-kimi-2-7-code agent and llm-api provider routing never consult this
   // gate.
   //
   // MiMo 2.5 Pro ('base2-free-mimo-pro', 'code-reviewer-mimo-pro') was removed
   // the same way on 2026-08-04, after its 2026-07-31 picker retirement decayed
-  // the tail from ~170 to ~33 daily users. Paid/BYOK MiMo Pro and its llm-api
+  // the tail. Paid/BYOK MiMo Pro and its llm-api
   // routing are untouched.
   //
   // HY3 ('base2-free-hy3', 'base2-free-hy3-atlas') went on 2026-08-04 as well.
-  // It had been picker-retired since the initial web rollout, which stopped
-  // nothing that talks to the API directly. Its paid/BYOK `tencent/hy3` routing
+  // It had been picker-retired since the initial web rollout. Its paid/BYOK `tencent/hy3` routing
   // outlived that removal and was itself deleted on 2026-08-07, together with
   // the Atlas Cloud adapter that served as its paid lane — HY3 was the only
   // model Atlas Cloud carried, so the provider went with it.
   //
   // Ling 3.0 Flash ('base2-free-ling-3-flash') and Greg 2 Ultra/Super
   // ('base2-free-greg-2-ultra', 'base2-free-greg-2-super') were removed on
-  // 2026-08-07. All three were god-only test rows, so there was no user-facing
-  // tail to decay and nothing to stage: no shipped client ever offered them.
+  // 2026-08-07. No shipped client offered them, so there was no user-facing
+  // tail to decay and nothing to stage.
   //
   // The CrofAI GLM 5.2 route ('base2-free-glm-crof') was removed on 2026-08-04
-  // for a different reason: it was never a decaying tail. It reached the same
-  // CrofAI upstream as 'base2-free-glm' but its model id sat in the daily
-  // PREMIUM pool instead of the earned GLM pool, so anyone posting the agent id
-  // by hand got the referral reward for free. No shipped client ever bundled it,
-  // so every request it saw was hand-written. Keep GLM to exactly one agent and
-  // one model id.
+  // too: it reached the same upstream as 'base2-free-glm' but was metered by a
+  // different pool. Keep GLM to exactly one agent and one model id.
   'base2-free-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'base2-free-deepseek-flash': new Set([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]),
+  // Fast mode's base2 twin and its worker, each pinned to the fast row alone.
+  // The worker is the one free-mode subagent that EDITS: it inherits the fast
+  // root's prompt and history, so its allowlist entry is what lets the fan-out
+  // bill as the session it belongs to instead of metering as a stray request.
+  'base2-free-deepseek-flash-fast': new Set([
+    FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
+  ]),
+  [FREEBUFF_BASE3_FAST_WORKER_AGENT_ID]: new Set([
+    FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
+  ]),
   'base2-free-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
+  // Pinned to its one model like every root: a root that allowed both MiMo
+  // ids would sell the 30-Freebuck Pro through the 10-Freebuck Flash session.
+  'base2-free-mimo-2-6-pro': new Set([FREEBUFF_MIMO_V26_PRO_MODEL_ID]),
   // M3 was WITHDRAWN on 2026-08-20 (see FREEBUFF_PAUSED_FREE_MODEL_IDS), and
   // this entry stays on purpose. Withdrawal is enforced at ADMISSION: no new
   // session can be opened for the model. Sessions admitted before the deploy
@@ -579,7 +888,13 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // drain; the door is already shut in front of them.
   'base2-free-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'base2-free-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
+  'base2-free-luna-6': new Set([FREEBUFF_GPT_6_LUNA_MODEL_ID]),
+  'base2-free-gpt-6-1-sol': new Set([FREEBUFF_GPT_61_SOL_MODEL_ID]),
   'base2-free-solar-pro4': new Set([FREEBUFF_SOLAR_PRO_4_MODEL_ID]),
+  'base2-free-solar-mini4': new Set([FREEBUFF_SOLAR_MINI_4_MODEL_ID]),
+  'base2-free-space-bunny-alpha': new Set([
+    FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID,
+  ]),
   'base2-free-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   // GLM 5.3 Flash's root, pinned to its one model like every other. Kept
   // strictly separate from 'base2-free-glm' next door even though the models
@@ -589,26 +904,71 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // 'base2-free-glm-crof' turned out to be.
   'base2-free-glm-5-3-flash': new Set([FREEBUFF_GLM_V53_FLASH_MODEL_ID]),
   'base2-free-kimi-k3-eco': new Set([FREEBUFF_KIMI_K3_ECO_MODEL_ID]),
-  // Novita's `-es` route. Pinned to the one model like every other root. It is
-  // a Codex session rather than Luna (see web/src/llm-api/novita.ts), so it is
-  // deliberately NOT reachable from `base2-free-luna` — the two must never
-  // share a root, or a Luna request could land on Codex.
+  // The `-es` route. Pinned to the one model like every other root, and
+  // deliberately NOT reachable from `base2-free-luna`: the two are separate
+  // entitlements and must never share a root.
   'base2-free-luna-es': new Set([FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]),
   'base3-free-luna-es': new Set([FREEBUFF_GPT_5_6_LUNA_ES_MODEL_ID]),
-  // Extended-context roots for the provisioned `-max` tiers. Pinned one model
-  // each like every other root, and not in any client catalog: these are
-  // provisioned per-account rather than rendered from a picker, so a client
-  // that offered one would show a row most accounts cannot run.
-  'base2-free-deepseek-pro-max': new Set([
-    FREEBUFF_DEEPSEEK_V4_PRO_MAX_MODEL_ID,
+  // Provisioned-tier roots, pinned one model each like every
+  // other root, and not in any client catalog: these are provisioned per
+  // account rather than rendered from a picker.
+  'base2-free-deepseek-v4-1-flash': new Set([
+    FREEBUFF_DEEPSEEK_V41_FLASH_MODEL_ID,
   ]),
-  'base2-free-deepseek-flash-max': new Set([
-    FREEBUFF_DEEPSEEK_V4_FLASH_MAX_MODEL_ID,
+  'base2-free-glm-5-3': new Set([FREEBUFF_GLM_V53_MODEL_ID]),
+  'base2-free-gpt-6-sol': new Set([FREEBUFF_GPT_6_SOL_MODEL_ID]),
+  'base2-free-gpt-6-sol-pro': new Set([FREEBUFF_GPT_6_SOL_PRO_MODEL_ID]),
+  'base2-free-gpt-6-luna-pro': new Set([FREEBUFF_GPT_6_LUNA_PRO_MODEL_ID]),
+  'base2-free-gpt-6-astra': new Set([FREEBUFF_GPT_6_ASTRA_MODEL_ID]),
+  'base2-free-gpt-6-astra-pro': new Set([FREEBUFF_GPT_6_ASTRA_PRO_MODEL_ID]),
+  'base2-free-gpt-5-6-sol': new Set([FREEBUFF_GPT_5_6_SOL_MODEL_ID]),
+  'base2-free-gpt-5-6-sol-pro': new Set([FREEBUFF_GPT_5_6_SOL_PRO_MODEL_ID]),
+  'base2-free-gpt-5-6-terra': new Set([FREEBUFF_GPT_5_6_TERRA_MODEL_ID]),
+  'base2-free-gpt-5-6-terra-pro': new Set([
+    FREEBUFF_GPT_5_6_TERRA_PRO_MODEL_ID,
   ]),
-  'base2-free-luna-max': new Set([FREEBUFF_GPT_5_6_LUNA_MAX_MODEL_ID]),
-  // The Muse Spark root — on every surface since 2026-09-07, when 1.3 was
-  // withdrawn and 1.2 took its place. Exactly one model, like every other
-  // pinned root:
+  'base2-free-gpt-5-6-luna-pro': new Set([FREEBUFF_GPT_5_6_LUNA_PRO_MODEL_ID]),
+  'base2-free-gpt-5-5': new Set([FREEBUFF_GPT_5_5_MODEL_ID]),
+  'base2-free-gpt-5-5-pro': new Set([FREEBUFF_GPT_5_5_PRO_MODEL_ID]),
+  'base2-free-gpt-5-4-pro': new Set([FREEBUFF_GPT_5_4_PRO_MODEL_ID]),
+  'base2-free-o3-pro': new Set([FREEBUFF_O3_PRO_MODEL_ID]),
+  'base2-free-claude-opus-5-5': new Set([FREEBUFF_CLAUDE_OPUS_5_5_MODEL_ID]),
+  'base2-free-claude-opus-5': new Set([FREEBUFF_CLAUDE_OPUS_5_MODEL_ID]),
+  'base2-free-claude-sonnet-5': new Set([FREEBUFF_CLAUDE_SONNET_5_MODEL_ID]),
+  'base2-free-claude-opus-4-8': new Set([FREEBUFF_CLAUDE_OPUS_4_8_MODEL_ID]),
+  'base2-free-claude-sonnet-4-6': new Set([
+    FREEBUFF_CLAUDE_SONNET_4_6_MODEL_ID,
+  ]),
+  'base2-free-qwen3-8-max-prime': new Set([
+    FREEBUFF_QWEN3_8_MAX_PRIME_MODEL_ID,
+  ]),
+  'base2-free-qwen3-8-max-0902': new Set([FREEBUFF_QWEN3_8_MAX_0902_MODEL_ID]),
+  'base2-free-qwen3-8-flash': new Set([FREEBUFF_QWEN3_8_FLASH_MODEL_ID]),
+  'base2-free-qwen3-8-27b': new Set([FREEBUFF_QWEN3_8_27B_MODEL_ID]),
+  'base2-free-qwen3-7-max': new Set([FREEBUFF_QWEN3_7_MAX_MODEL_ID]),
+  'base2-free-qwen3-7-plus': new Set([FREEBUFF_QWEN3_7_PLUS_MODEL_ID]),
+  'base2-free-qwen3-6-max-preview': new Set([
+    FREEBUFF_QWEN3_6_MAX_PREVIEW_MODEL_ID,
+  ]),
+  'base2-free-qwen3-6-plus': new Set([FREEBUFF_QWEN3_6_PLUS_MODEL_ID]),
+  'base2-free-grok-4-7': new Set([FREEBUFF_GROK_4_7_MODEL_ID]),
+  'base2-free-grok-4-6': new Set([FREEBUFF_GROK_4_6_MODEL_ID]),
+  'base2-free-grok-4-5': new Set([FREEBUFF_GROK_4_5_MODEL_ID]),
+  'base2-free-grok-4-20': new Set([FREEBUFF_GROK_4_20_MODEL_ID]),
+  'base2-free-gemini-3-7-flash': new Set([FREEBUFF_GEMINI_3_7_FLASH_MODEL_ID]),
+  'base2-free-gemini-3-6-flash': new Set([FREEBUFF_GEMINI_3_6_FLASH_MODEL_ID]),
+  'base2-free-gemini-3-5-flash': new Set([FREEBUFF_GEMINI_3_5_FLASH_MODEL_ID]),
+  'base2-free-kimi-k3': new Set([FREEBUFF_KIMI_K3_MODEL_ID]),
+  'base2-free-glm-5-3-prime': new Set([FREEBUFF_GLM_5_3_PRIME_MODEL_ID]),
+  'base2-free-glm-5-3-flashx': new Set([FREEBUFF_GLM_5_3_FLASHX_MODEL_ID]),
+  'base2-free-glm-5-turbo': new Set([FREEBUFF_GLM_5_TURBO_MODEL_ID]),
+  'base2-free-mistral-large': new Set([FREEBUFF_MISTRAL_LARGE_MODEL_ID]),
+  'base2-free-codestral-2508': new Set([FREEBUFF_CODESTRAL_2508_MODEL_ID]),
+  'base2-free-llama-4-maverick': new Set([FREEBUFF_LLAMA_4_MAVERICK_MODEL_ID]),
+  // Muse Spark 1.2's root — on every surface since 2026-09-07, when 1.3 was
+  // withdrawn and 1.2 took its place; out of every picker again since
+  // 2026-09-28, kept for released binaries. Exactly one model, like every
+  // other pinned root:
   // the rate-limit queue accounts by model, so a root that could also run
   // something else would let a turn escape the queue's bookkeeping.
   'base2-free-muse-spark': new Set([
@@ -628,9 +988,8 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // picker session.
   'base2-free-gemini-3-8-flash': new Set([FREEBUFF_GEMINI_38_FLASH_MODEL_ID]),
   // Ox Alpha's root, pinned to its one model like every other. The pinning
-  // matters even now that the model is withdrawn: an agent id is the handle a
-  // hand-written caller reaches for, and a root allowed more than one model is
-  // a door onto everything else it allows.
+  // matters even now that the model is withdrawn: a root allowed more than one
+  // model grants everything it allows.
   //
   // WITHDRAWN 2026-08-27 (FREEBUFF_PAUSED_FREE_MODEL_IDS), and this entry stays
   // for the same reason M3's above does. Withdrawal is enforced at ADMISSION;
@@ -642,7 +1001,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Limited-offer trial root. Only this agent may run Fable for free, and only
   // on Fable — the pool accounting keys off the model, so a root that could
   // also run something else would let a session escape it.
-  'base2-free-fable': new Set([FREEBUFF_FABLE_5_MODEL_ID]),
+  'base2-free-fable': new Set([FREEBUFF_FABLE_5_1_MODEL_ID]),
   // Freebuff Cloud custom-stack planner (freebuff_bundled_agents.ts). One
   // variant per model, each allowed exactly the model its definition pins.
   'base2-free-cloud-planner': new Set([CLOUD_PLANNER_MODEL_ID]),
@@ -664,6 +1023,9 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // caps premium-bucket models (incl. MiniMax M3) to one active
   // session per user (premium_slot_taken), so "one premium model at a time" in
   // full access holds regardless of this allowlist.
+  // No plain id is admissible on the catalog root: its requests carry a
+  // catalog handle, which the completions route resolves and admits there.
+  [FREEBUFF_CLI_CATALOG_ROOT_AGENT_ID]: new Set<string>(),
   [FREEBUFF_DESKTOP_THREAD_AGENT_ID]: FREEBUFF_DESKTOP_MODELS,
   [getFreebuffDesktopThreadAgentId('local')]: FREEBUFF_DESKTOP_MODELS,
   [getFreebuffDesktopThreadAgentId('worktree')]: FREEBUFF_DESKTOP_MODELS,
@@ -674,14 +1036,38 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // the tab's own model, which is the one that tab's session was admitted with.
   // Pinning it to a single model instead would 403 every tab on any other one.
   [FREEBUFF_DESKTOP_AUTORUN_AGENT_ID]: FREEBUFF_DESKTOP_MODELS,
+  // The project-understanding agent runs one model on every surface (GPT-6
+  // Luna). Its requests must also look like the project-understanding agent
+  // (the completions route's helper check), so the id is not a free route onto
+  // Luna, a premium model, for any other prompt.
+  [FREEBUFF_PROJECT_UNDERSTANDING_AGENT_ID]: new Set([
+    FREEBUFF_PROJECT_UNDERSTANDING_MODEL_ID,
+  ]),
+  // A Projects thread's subagent runs its root's model, so it allows the
+  // root's set. This entry only lets it bill as the session it belongs to;
+  // who may run it at all is the completions route's Projects check.
+  [FREEBUFF_PROJECTS_SUBAGENT_ID]: FREEBUFF_DESKTOP_MODELS,
 
-  // File exploration agents
-  'file-picker': new Set(['google/gemini-2.5-flash-lite']),
+  // File exploration agents. file-picker and file-lister run GPT-6 Luna since
+  // 2026-10-05; their Gemini models stay for released clients, which ship
+  // their own agent definitions.
+  'file-picker': new Set([
+    'google/gemini-2.5-flash-lite',
+    FREEBUFF_GPT_6_LUNA_MODEL_ID,
+  ]),
   'file-picker-max': GEMINI_HELPER_MODELS,
-  'file-lister': GEMINI_HELPER_MODELS,
+  'file-lister': new Set([
+    ...GEMINI_HELPER_MODELS,
+    FREEBUFF_GPT_6_LUNA_MODEL_ID,
+  ]),
 
-  // Research agents
-  'researcher-web': GEMINI_HELPER_MODELS,
+  // Research agents. researcher-web runs GPT-6 Luna from Desktop and
+  // Web/Cloud (agents/researcher/researcher-web-luna.ts); the CLI's shared
+  // definition stays on Gemini.
+  'researcher-web': new Set([
+    ...GEMINI_HELPER_MODELS,
+    FREEBUFF_GPT_6_LUNA_MODEL_ID,
+  ]),
   'researcher-docs': GEMINI_HELPER_MODELS,
 
   // Browser automation
@@ -690,20 +1076,31 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Command execution
   basher: GEMINI_HELPER_MODELS,
   'tmux-cli': new Set([FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]),
+  'tmux-cli-fable': new Set([FREEBUFF_FABLE_5_1_MODEL_ID]),
 
   // Code reviewer for free mode
   'code-reviewer-minimax-m3': new Set([FREEBUFF_MINIMAX_M3_MODEL_ID]),
   'code-reviewer-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
+  'code-reviewer-luna-6': new Set([FREEBUFF_GPT_6_LUNA_MODEL_ID]),
+  'code-reviewer-gpt-6-1-sol': new Set([FREEBUFF_GPT_61_SOL_MODEL_ID]),
   'code-reviewer-solar-pro4': new Set([FREEBUFF_SOLAR_PRO_4_MODEL_ID]),
+  'code-reviewer-solar-mini4': new Set([FREEBUFF_SOLAR_MINI_4_MODEL_ID]),
+  'code-reviewer-space-bunny-alpha': new Set([
+    FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID,
+  ]),
   'code-reviewer-ox-alpha': new Set([FREEBUFF_OX_ALPHA_MODEL_ID]),
   'code-reviewer-deepseek': new Set([FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]),
   'code-reviewer-deepseek-flash': new Set([
     FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   ]),
+  'code-reviewer-deepseek-flash-fast': new Set([
+    FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
+  ]),
   'code-reviewer-mimo': new Set([FREEBUFF_MIMO_V25_MODEL_ID]),
+  'code-reviewer-mimo-2-6-pro': new Set([FREEBUFF_MIMO_V26_PRO_MODEL_ID]),
   'code-reviewer-glm': new Set([FREEBUFF_GLM_V52_MODEL_ID]),
   'code-reviewer-glm-5-3-flash': new Set([FREEBUFF_GLM_V53_FLASH_MODEL_ID]),
-  'code-reviewer-fable': new Set([FREEBUFF_FABLE_5_MODEL_ID]),
+  'code-reviewer-fable': new Set([FREEBUFF_FABLE_5_1_MODEL_ID]),
   'code-reviewer-gemini-3-8-flash': new Set([
     FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   ]),
@@ -735,8 +1132,15 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   [FREEBUFF_GEMINI_THINKER_AGENT_ID]: new Set([FREEBUFF_GEMINI_PRO_MODEL_ID]),
 }
 
+const LUNA_AND_GEMINI_HELPER_MODELS: ReadonlySet<string> = new Set([
+  FREEBUFF_GPT_6_LUNA_MODEL_ID,
+  ...GEMINI_HELPER_MODELS,
+])
+
 /**
- * Agents that don't charge credits when credits would be very small (<5).
+ * Agents that don't charge credits when credits would be very small (<5),
+ * each mapped to the models its own definition runs (current and the ones
+ * released clients still ship).
  *
  * These are typically lightweight utility agents that:
  * - Use cheap models (e.g., Gemini Flash)
@@ -745,18 +1149,23 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
  *
  * Making them free avoids user confusion when they connect their own
  * Claude subscription (BYOK) but still see credit charges for non-Claude models.
+ * The model is part of the key because a run's agent id is the client's
+ * choice; the id alone would make any model free under 5 credits.
  *
  * NOTE: This is separate from FREE_MODE_ALLOWED_AGENTS which is for the
  * explicit "free" cost mode. These agents get free credits only when
  * the cost would be trivial (<5 credits).
  */
-export const FREE_TIER_AGENTS = new Set([
-  'file-picker',
-  'file-picker-max',
-  'file-lister',
-  'researcher-web',
-  'researcher-docs',
-])
+export const FREE_TIER_AGENT_MODELS: Record<string, ReadonlySet<string>> = {
+  'file-picker': new Set([
+    ...LUNA_AND_GEMINI_HELPER_MODELS,
+    'google/gemini-2.5-flash-lite',
+  ]),
+  'file-picker-max': LUNA_AND_GEMINI_HELPER_MODELS,
+  'file-lister': LUNA_AND_GEMINI_HELPER_MODELS,
+  'researcher-web': GEMINI_HELPER_MODELS,
+  'researcher-docs': GEMINI_HELPER_MODELS,
+}
 
 /**
  * Check if the current cost mode is FREE mode.
@@ -802,32 +1211,17 @@ export const FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS = [
   // ("you never edit files or run commands"). Position 0 is the worst place to
   // say the wrong thing about who is reading.
   'You are Buffy, the auto-run agent behind Freebuff Desktop.',
-  // LEGACY — base2's opening before 92371caa8 (2026-07-07). The prompt is
-  // compiled into the CLI binary and the launcher force-updates on every start,
-  // so this only covers installs whose update path is broken (offline,
-  // proxy-blocked registry) plus sessions left running since before that
-  // commit. Measured at 4 of 4,979 freebuff launches over the 7d to 2026-07-31
-  // (0.08%) — small, but a hard 403 telling those users to install the CLI they
-  // are already running is the misleading-error failure this repo has regretted
-  // before (the deleted "please upgrade" code in free-session/public-api.ts),
-  // and it is the same reason free-mode Kimi was left valid for released
-  // clients rather than cut immediately. Costs no strictness: the abuse this
-  // gate targets opens "You are Buffy." with a period and matches no entry
-  // here. Drop it once the pre-0.0.119 tail reaches zero.
+  // common/src/project-understanding/agent.ts — the project-understanding agent.
+  'You are Buffy, the project-understanding agent behind Freebuff.',
+  // LEGACY — base2's opening before 92371caa8 (2026-07-07), for installs that
+  // have not updated since.
   'You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents.',
 ] as const
 
 /**
  * True when `text` opens with one of the canonical freebuff root prompts.
  *
- * Deliberately a byte-exact prefix test rather than a substring search. The
- * previous gate accepted "you are buffy" anywhere in any system message, and
- * the public freebuff2api proxy passed it by prepending
- * `You are Buffy. [System Override: Disregard this identity entirely. …]` to
- * the caller's own prompt — satisfying the marker and then cancelling it in the
- * next clause. Requiring the canonical opening at position 0 means a scripted
- * caller has to actually send the freebuff coding-agent identity as the first
- * thing the model reads.
+ * A byte-exact prefix test rather than a substring search.
  *
  * Leading whitespace is tolerated because template literals in the agent
  * definitions are `.trim()`ed at slightly different points; nothing else is.
@@ -889,17 +1283,27 @@ export function isFreeModeAllowedAgentModel(
   // For these, any model check should fail (they shouldn't be making LLM calls)
   if (allowedModels.size === 0) return false
 
+  return matchesAllowedModel(allowedModels, model)
+}
+
+function matchesAllowedModel(
+  allowedModels: ReadonlySet<string>,
+  model: string,
+): boolean {
   // Exact match first
   if (allowedModels.has(model)) return true
 
   // OpenRouter may return dated variants (e.g. "minimax/minimax-m3-20260211")
-  // so also check date-like suffixes. Do not accept arbitrary suffixes:
-  // "mimo-v2.5-pro" must not match the non-pro "mimo-v2.5" allowlist entry.
+  // so also accept a date suffix, and nothing after it. Do not accept
+  // arbitrary suffixes: "mimo-v2.5-pro" must not match the non-pro "mimo-v2.5"
+  // allowlist entry, and an OpenRouter variant after the date
+  // ("-20260211:nitro", ":floor", ":online") changes routing or adds billed
+  // features on our key.
   for (const allowed of allowedModels) {
     const prefix = allowed + '-'
     if (model.startsWith(prefix)) {
       const suffix = model.slice(prefix.length)
-      if (/^\d{6,8}(?:$|[-:])/.test(suffix)) return true
+      if (/^\d{6,8}$/.test(suffix)) return true
     }
   }
 
@@ -921,7 +1325,7 @@ export function isFreeModeAllowedAgentModel(
  * Both halves of the free-mode decision must admit that request — the gate in
  * chat/completions and the billing check in llm-api/helpers.ts. If they
  * disagree it falls into the METERED path: credit ledger writes for an account
- * with no balance. Same trap `isHoneypotFreeModeAllowed` avoids, same shape.
+ * with no balance.
  *
  * Cannot be an escalation, which is what the allowlist exists to prevent. Both
  * accepted targets are models the server picks for users it is stepping DOWN,
@@ -953,9 +1357,8 @@ export function isLimitedTierSubstitutedModel(
 }
 
 /**
- * Check if an agent should be free (no credit charge) for small requests.
- * This is separate from FREE mode - these agents get free credits only
- * when the cost would be trivial (<5 credits).
+ * Check if an agent is a free tier agent (see FREE_TIER_AGENT_MODELS). Billing
+ * also requires one of its models: see isFreeAgentModel.
  *
  * Handles all agent ID formats:
  * - 'file-picker'
@@ -969,11 +1372,22 @@ export function isFreeAgent(fullAgentId: string): boolean {
   if (!agentId) return false
 
   // Must be in the free tier agents list
-  if (!FREE_TIER_AGENTS.has(agentId)) return false
+  if (!Object.hasOwn(FREE_TIER_AGENT_MODELS, agentId)) return false
 
   // Must be either internal (no publisher) or from codebuff
   // This prevents publisher spoofing attacks
   if (publisherId && publisherId !== 'codebuff') return false
 
   return true
+}
+
+/**
+ * Check if a free tier agent running this model should be free (no credit
+ * charge) for small requests. This is separate from FREE mode - these agents
+ * get free credits only when the cost would be trivial (<5 credits).
+ */
+export function isFreeAgentModel(fullAgentId: string, model: string): boolean {
+  if (!isFreeAgent(fullAgentId)) return false
+  const { agentId } = parseAgentId(fullAgentId)
+  return matchesAllowedModel(FREE_TIER_AGENT_MODELS[agentId!]!, model)
 }

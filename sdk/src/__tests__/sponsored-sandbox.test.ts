@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { spawnSync } from 'child_process'
+import { spawn, spawnSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -15,10 +15,18 @@ import {
   assertSponsoredWritePath,
   createSponsoredCodeSearchBroker,
   createSponsoredTerminalBroker,
+  findXcodeDeveloperGit,
+  linkDeveloperShims,
   sponsoredCodeSearchFlagsRefusal,
+  sponsoredLinuxEnvArgs,
+  sponsoredLinuxResolverMounts,
+  sponsoredMacGitPath,
   sponsoredMacProfile,
+  sponsoredMacSecretReadRules,
+  sponsoredSecretFiles,
 } from '../tools/sponsored-sandbox'
 import { codeSearch, parseCodeSearchFlags } from '../tools/code-search'
+import { probeSponsoredRuntimes } from '../tools/sponsored-runtimes'
 import { sponsoredContainmentTestGate } from '../../test/sponsored-containment-gate'
 
 /**
@@ -156,6 +164,110 @@ describe('sponsored local environment (COD-336 acceptance 4)', () => {
   )
 })
 
+describe('connected run credentials (COD-665)', () => {
+  const KEY = 'sk_test_connect_1234567890'
+
+  containedIt(
+    'a real shell sees exactly the declared variable, with the connected value, and no host credential',
+    async () => {
+      const { root, runtime, parent } = workspace()
+      try {
+        const handle = createSponsoredTerminalBroker({
+          workspaceRoot: root,
+          runtimeDir: runtime,
+          credentialEnv: { SIEVE_API_KEY: KEY },
+        }).start({
+          executable: 'bash',
+          args: [
+            '-c',
+            'echo "SIEVE=${SIEVE_API_KEY:-absent}"; echo "GH=${GITHUB_TOKEN:-absent}"; echo "HOME=$HOME"',
+          ],
+          cwd: root,
+          // The host's OWN value of the same name is not what the run gets.
+          env: {
+            ...POLLUTED_ENV,
+            SIEVE_API_KEY: 'from-the-host-shell',
+          } as NodeJS.ProcessEnv,
+        })
+        const stdout = drain(handle.stdout)
+        await handle.completion
+        const output = await stdout
+        expect(output).toContain(`SIEVE=${KEY}`)
+        expect(output).not.toContain('from-the-host-shell')
+        expect(output).toContain('GH=absent')
+        expect(output).toContain(`HOME=${path.join(runtime, 'home')}`)
+      } finally {
+        fs.rmSync(parent, { recursive: true, force: true })
+      }
+    },
+  )
+
+  it('refuses to start a command with an undeclarable credential name', () => {
+    const { root, runtime, parent } = workspace()
+    try {
+      const broker = createSponsoredTerminalBroker({
+        workspaceRoot: root,
+        runtimeDir: runtime,
+        // Linux or macOS both build the env before choosing a sandbox, so
+        // the refusal is the same whichever this host is.
+        platform: process.platform === 'linux' ? 'linux' : 'darwin',
+        credentialEnv: { NODE_OPTIONS: '--require=/tmp/evil.js' },
+      })
+      expect(() =>
+        broker.start({
+          executable: 'bash',
+          args: ['-c', 'true'],
+          cwd: root,
+          env: POLLUTED_ENV as NodeJS.ProcessEnv,
+        }),
+      ).toThrow(/not a declarable credential name/)
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('bubblewrap never carries a credential value in its argv', () => {
+    const env = {
+      PATH: '/usr/bin',
+      HOME: '/run/home',
+      SIEVE_API_KEY: KEY,
+    }
+    const { args, spawnEnv } = sponsoredLinuxEnvArgs(
+      env,
+      new Set(['SIEVE_API_KEY']),
+    )
+    // /proc/<pid>/cmdline is world-readable; /proc/<pid>/environ is not.
+    expect(args.join('\0')).not.toContain(KEY)
+    expect(args).not.toContain('--clearenv')
+    expect(spawnEnv).toEqual({ PATH: '/usr/bin', SIEVE_API_KEY: KEY })
+    // Everything else is still a --setenv, which overrides bwrap's own env.
+    expect(args).toEqual([
+      '--setenv',
+      'PATH',
+      '/usr/bin',
+      '--setenv',
+      'HOME',
+      '/run/home',
+    ])
+  })
+
+  it('with no credentials the bubblewrap env argv is exactly what it always was', () => {
+    const env = { PATH: '/usr/bin', HOME: '/run/home', UNSET: undefined }
+    expect(sponsoredLinuxEnvArgs(env)).toEqual({
+      args: [
+        '--clearenv',
+        '--setenv',
+        'PATH',
+        '/usr/bin',
+        '--setenv',
+        'HOME',
+        '/run/home',
+      ],
+      spawnEnv: { PATH: '/usr/bin' },
+    })
+  })
+})
+
 describe('sponsored write containment (COD-336 acceptance 3)', () => {
   it('refuses a cwd outside the worktree', () => {
     const { root, parent } = workspace()
@@ -268,10 +380,11 @@ describe('sponsored write containment (COD-336 acceptance 3)', () => {
 
 describe('containment availability', () => {
   it('refuses rather than downgrading where there is no mechanism', () => {
-    expect(sponsoredLocalContainment('win32')).toEqual({
-      available: false,
-      reason: 'windows-no-containment',
-    })
+    // COD-642: Windows is no longer a refusal here. It is the FLOOR arm, which
+    // carries no `available: true` -- it is not a sandbox, and nothing that
+    // reads `available` may take it for one. Linux without bubblewrap below
+    // still refuses: the floor is never what a sandboxable OS falls back to.
+    expect(sponsoredLocalContainment('win32')).toEqual({ containment: 'floor' })
     expect(sponsoredLocalContainment('freebsd')).toEqual({
       available: false,
       reason: 'unsupported-platform',
@@ -292,6 +405,10 @@ describe('containment availability', () => {
   })
 
   it('never starts a command on a platform it cannot contain', () => {
+    // COD-642 kept this refusal and narrowed what reaches it: Windows WITHOUT
+    // a server grant naming the floor still throws here, on every host. With
+    // the grant, the floor is selected only on a real Windows host
+    // (`sponsored-windows-floor.test.ts`), never by the `platform` option.
     const { root, runtime, parent } = workspace()
     try {
       expect(() =>
@@ -639,6 +756,100 @@ describe('sponsored read containment (F1)', () => {
   })
 })
 
+describe('secrets inside the workspace: the shell refuses what the file tools refuse', () => {
+  const SECRETS: Record<string, string> = {
+    '.env': 'REAL_VALUE_ENV',
+    '.env.local': 'REAL_VALUE_LOCAL',
+    'apps/web/.env.production': 'REAL_VALUE_NESTED',
+    '.npmrc': 'REAL_VALUE_NPMRC',
+    id_rsa: 'REAL_VALUE_KEY',
+    'certs/server.pem': 'REAL_VALUE_PEM',
+    '.envrc': 'REAL_VALUE_DIRENV',
+    // Inside the repository's own directory, which the Linux scan must walk.
+    '.git/deploy.key': 'REAL_VALUE_GIT',
+  }
+  function withSecrets(root: string): void {
+    for (const [file, body] of Object.entries(SECRETS)) {
+      fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
+      fs.writeFileSync(path.join(root, file), `${body}\n`)
+    }
+    fs.writeFileSync(path.join(root, '.env.example'), 'TEMPLATE_NAME=\n')
+    fs.mkdirSync(path.join(root, 'src'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'src', 'app.ts'), 'ORDINARY_CODE\n')
+  }
+
+  containedIt(
+    'a contained shell reads no secret, and still reads templates and code',
+    async () => {
+      const { root, runtime, parent } = workspace()
+      withSecrets(root)
+      try {
+        const reads = [...Object.keys(SECRETS), '.env.example', 'src/app.ts']
+          .map((file) => `cat ${JSON.stringify(file)} 2>/dev/null`)
+          .join('; ')
+        // And by renaming it first: a rename is a write on the source path,
+        // and a read-only deny let `mv` hand the value to an innocent name.
+        const { out } = await runInSandbox(
+          { workspaceRoot: root, runtimeDir: runtime, readOnlyGitDir: true },
+          root,
+          `${reads}; mv .env.local moved 2>/dev/null && cat moved 2>/dev/null; true`,
+        )
+        expect(out).not.toContain('REAL_VALUE')
+        expect(out).toContain('TEMPLATE_NAME=')
+        expect(out).toContain('ORDINARY_CODE')
+        expect(fs.readFileSync(path.join(root, '.env.local'), 'utf8')).toBe(
+          'REAL_VALUE_LOCAL\n',
+        )
+      } finally {
+        fs.rmSync(parent, { recursive: true, force: true })
+      }
+    },
+  )
+
+  it('the Linux scan finds exactly the files the read policy refuses', () => {
+    const { root, parent } = workspace()
+    withSecrets(root)
+    // Not walked: dependencies (public package content) and the object store.
+    fs.mkdirSync(path.join(root, 'node_modules', 'pkg'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'node_modules', 'pkg', '.env'), 'x')
+    fs.mkdirSync(path.join(root, '.git', 'objects'), { recursive: true })
+    fs.writeFileSync(path.join(root, '.git', 'objects', 'x.key'), 'x')
+    try {
+      expect(
+        sponsoredSecretFiles(root).map((file) => path.relative(root, file)),
+      ).toEqual(Object.keys(SECRETS).sort())
+      // A bound, and past it a refusal rather than a partial mask.
+      expect(() => sponsoredSecretFiles(root, 3)).toThrow(/too large/)
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it('the macOS rules deny after allowing, escape the root, and fold case', () => {
+    const { root, runtime, parent } = workspace()
+    try {
+      const profile = sponsoredMacProfile([root, runtime], [], [], [], [root])
+      const lines = profile.split('\n')
+      const denyAt = lines.findIndex((line) =>
+        line.startsWith('(deny file-read*'),
+      )
+      expect(denyAt).toBeGreaterThan(
+        lines.findIndex((line) => line.startsWith('(allow file-read*')),
+      )
+      // The templates are granted back AFTER the deny.
+      expect(lines[denyAt + 1]).toContain('[eE][xX][aA][mM][pP][lL][eE]')
+      const rules = sponsoredMacSecretReadRules('/tmp/a.b(c)+d').join('\n')
+      expect(rules).toContain('^/tmp/a\\.b\\(c\\)\\+d/')
+      expect(rules).toContain('\\.[eE][nN][vV]')
+      expect(() => sponsoredMacSecretReadRules('/tmp/"quote')).toThrow(
+        /quote/,
+      )
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('sponsored code search process containment', () => {
   it('cannot smuggle --pre through a quoted glob value', () => {
     const flags = "-g 'x --pre /bin/cat'"
@@ -695,9 +906,29 @@ describe('sponsored code search process containment', () => {
   )
 })
 
-// ---------------------------------------------------------- F2 loopback deny
+// ---------------------------------------------------------- network policy
 
-describe('sponsored loopback containment (F2)', () => {
+describe('sponsored network access', () => {
+  it('mounts a resolver symlink target without exposing its parent directory', () => {
+    const { root, parent } = workspace()
+    try {
+      const resolver = path.join(root, 'resolv.conf')
+      expect(sponsoredLinuxResolverMounts(resolver)).toEqual([])
+      fs.writeFileSync(resolver, 'nameserver 127.0.0.53\n')
+      const target = fs.realpathSync(resolver)
+      expect(sponsoredLinuxResolverMounts(target)).toEqual([])
+      const link = path.join(parent, 'resolv.conf')
+      fs.symlinkSync(resolver, link)
+      expect(sponsoredLinuxResolverMounts(link)).toEqual([
+        '--ro-bind',
+        target,
+        target,
+      ])
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
   it('denies loopback in the macOS profile while keeping egress', () => {
     const profile = sponsoredMacProfile(['/tmp/ws'], [])
     expect(profile).toContain('(allow network*)')
@@ -711,39 +942,69 @@ describe('sponsored loopback containment (F2)', () => {
     )
   })
 
-  containedIt('cannot reach a listener on this machine', async () => {
-    const server = Bun.serve({
-      port: 0,
-      hostname: '127.0.0.1',
-      fetch: () => new Response('ORCHESTRATOR-REACHED'),
-    })
-    const { root, runtime, parent } = workspace()
-    try {
-      const handle = createSponsoredTerminalBroker({
-        workspaceRoot: root,
-        runtimeDir: runtime,
-      }).start({
-        executable: 'bash',
-        args: [
-          '-c',
-          `curl -s --max-time 4 http://127.0.0.1:${server.port}/ || echo BLOCKED`,
-        ],
-        cwd: root,
-        env: POLLUTED_ENV as NodeJS.ProcessEnv,
+  containedIt(
+    'shares host networking on Linux and denies host loopback on macOS',
+    async () => {
+      const server = Bun.serve({
+        port: 0,
+        hostname: '127.0.0.1',
+        fetch: () => new Response('ORCHESTRATOR-REACHED'),
       })
-      const stdout = drain(handle.stdout)
-      const stderr = drain(handle.stderr)
-      await handle.completion
-      await stderr
-      // The orchestrator's API pushes branches and opens pull requests with
-      // the user's real credentials. A sandbox that can reach its own
-      // supervisor contains nothing.
-      expect(await stdout).not.toContain('ORCHESTRATOR-REACHED')
-    } finally {
-      server.stop(true)
-      fs.rmSync(parent, { recursive: true, force: true })
-    }
-  })
+      const { root, runtime, parent } = workspace()
+      try {
+        const handle = createSponsoredTerminalBroker({
+          workspaceRoot: root,
+          runtimeDir: runtime,
+        }).start({
+          executable: 'bash',
+          args: [
+            '-c',
+            `curl -s --max-time 4 http://127.0.0.1:${server.port}/ || echo BLOCKED`,
+          ],
+          cwd: root,
+          env: POLLUTED_ENV as NodeJS.ProcessEnv,
+        })
+        const stdout = drain(handle.stdout)
+        const stderr = drain(handle.stderr)
+        await handle.completion
+        await stderr
+        // A local listener makes this independent of public network uptime.
+        // The old isolated Linux network namespace cannot reach this listener.
+        if (process.platform === 'linux')
+          expect(await stdout).toBe('ORCHESTRATOR-REACHED')
+        else expect(await stdout).not.toContain('ORCHESTRATOR-REACHED')
+      } finally {
+        server.stop(true)
+        fs.rmSync(parent, { recursive: true, force: true })
+      }
+    },
+  )
+
+  it.skipIf(!CONTAINMENT_USABLE || process.platform !== 'linux')(
+    'keeps the host resolver readable inside the Linux sandbox',
+    async () => {
+      const { root, runtime, parent } = workspace()
+      try {
+        const resolver = fs.readFileSync('/etc/resolv.conf', 'utf8')
+        const handle = createSponsoredTerminalBroker({
+          workspaceRoot: root,
+          runtimeDir: runtime,
+        }).start({
+          executable: '/bin/cat',
+          args: ['/etc/resolv.conf'],
+          cwd: root,
+          env: POLLUTED_ENV as NodeJS.ProcessEnv,
+        })
+        const stdout = drain(handle.stdout)
+        const stderr = drain(handle.stderr)
+        await handle.completion
+        expect(await stderr).toBe('')
+        expect(await stdout).toBe(resolver)
+      } finally {
+        fs.rmSync(parent, { recursive: true, force: true })
+      }
+    },
+  )
 })
 
 // ------------------------------------------------- the layout Desktop creates
@@ -846,12 +1107,13 @@ async function runInSandbox(
   options: Parameters<typeof createSponsoredTerminalBroker>[0],
   cwd: string,
   script: string,
+  pathValue: string | undefined = POLLUTED_ENV.PATH,
 ): Promise<{ exitCode: number | null; out: string; err: string }> {
   const handle = createSponsoredTerminalBroker(options).start({
     executable: 'bash',
     args: ['-c', script],
     cwd,
-    env: POLLUTED_ENV as NodeJS.ProcessEnv,
+    env: { ...POLLUTED_ENV, PATH: pathValue } as NodeJS.ProcessEnv,
   })
   const stdout = drain(handle.stdout)
   const stderr = drain(handle.stderr)
@@ -1146,6 +1408,395 @@ describe('sponsored git in the layout Desktop actually creates', () => {
   )
 })
 
+// ------------------------------------------ git on macOS: the xcode-select shim
+
+/**
+ * A fake host for the resolver: `files` maps each executable PATH candidate
+ * to its realpath; anything absent is not an executable file.
+ */
+function gitHost(
+  files: Record<string, string>,
+  developerGit: string | null = null,
+) {
+  const calls = { developerGit: 0 }
+  const reals = new Map(Object.entries(files))
+  if (developerGit) reals.set(developerGit, developerGit)
+  return {
+    calls,
+    dependencies: {
+      isExecutableFile: (pathname: string) => reals.has(pathname),
+      realpath: (pathname: string) => reals.get(pathname) ?? null,
+      developerGit: () => {
+        calls.developerGit++
+        return developerGit
+      },
+    },
+  }
+}
+
+const CLT_GIT = '/Library/Developer/CommandLineTools/usr/bin/git'
+const CLT_BIN = '/Library/Developer/CommandLineTools/usr/bin'
+const KEG_GIT = '/opt/homebrew/Cellar/git/2.50.1/bin/git'
+const KEG_BIN = '/opt/homebrew/Cellar/git/2.50.1/bin'
+/**
+ * What launchd hands a Finder-launched Desktop. The login-shell repair
+ * APPENDS to it, so `/usr/bin` -- and its xcode-select `git` -- stays first.
+ */
+const FINDER_PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
+
+describe('which git a contained macOS shell runs', () => {
+  it('a Finder-launched PATH gets the developer git ahead of the shim', () => {
+    const host = gitHost(
+      { '/usr/bin/git': '/usr/bin/git', '/opt/homebrew/bin/git': KEG_GIT },
+      CLT_GIT,
+    )
+    expect(
+      sponsoredMacGitPath(
+        `${FINDER_PATH}:/opt/homebrew/bin`,
+        host.dependencies,
+      ),
+    ).toBe(`${CLT_BIN}:${FINDER_PATH}:/opt/homebrew/bin`)
+  })
+
+  it("keeps the orchestrator's own git, through its symlink, from a directory the sandbox cannot read", () => {
+    // The agentic:e2e shape: its shim dir lives under the temp dir, which the
+    // profile does not make readable, so bash inside the run skipped it and
+    // found `/usr/bin/git`.
+    const shims = '/private/var/folders/xx/T/agentic-e2e-1/shims'
+    const host = gitHost(
+      { [`${shims}/git`]: KEG_GIT, '/usr/bin/git': '/usr/bin/git' },
+      CLT_GIT,
+    )
+    expect(
+      sponsoredMacGitPath(`/gh/bin:${shims}:${FINDER_PATH}`, host.dependencies),
+    ).toBe(`/gh/bin:${KEG_BIN}:${shims}:${FINDER_PATH}`)
+    // xcrun is not asked at all when the first git is not the shim.
+    expect(host.calls.developerGit).toBe(0)
+  })
+
+  it('leaves PATH alone when the first git already lives where it is found', () => {
+    const host = gitHost(
+      { '/opt/local/bin/git': '/opt/local/bin/git' },
+      CLT_GIT,
+    )
+    const value = `/opt/local/bin:${FINDER_PATH}`
+    expect(sponsoredMacGitPath(value, host.dependencies)).toBe(value)
+  })
+
+  it('never chooses a git the profile does not already read', () => {
+    // One under HOME, and a full Xcode under /Applications: both outside the
+    // read set, so both are passed over rather than granted. The readable one
+    // still goes AHEAD of the shim, or the shim would win inside the run.
+    const host = gitHost(
+      {
+        '/Users/u/.local/bin/git': '/Users/u/.local/bin/git',
+        '/usr/bin/git': '/usr/bin/git',
+        '/opt/homebrew/bin/git': KEG_GIT,
+      },
+      '/Applications/Xcode.app/Contents/Developer/usr/bin/git',
+    )
+    expect(
+      sponsoredMacGitPath(
+        `/Users/u/.local/bin:${FINDER_PATH}:/opt/homebrew/bin`,
+        host.dependencies,
+      ),
+    ).toBe(`${KEG_BIN}:/Users/u/.local/bin:${FINDER_PATH}:/opt/homebrew/bin`)
+  })
+
+  it('with no readable git anywhere, changes nothing and throws nothing', () => {
+    // A Mac with no developer tools: only the shim, and nothing behind it.
+    const host = gitHost({ '/usr/bin/git': '/usr/bin/git' }, null)
+    expect(sponsoredMacGitPath(FINDER_PATH, host.dependencies)).toBe(
+      FINDER_PATH,
+    )
+    expect(host.calls.developerGit).toBe(1)
+    expect(sponsoredMacGitPath(undefined, host.dependencies)).toBeUndefined()
+    expect(sponsoredMacGitPath('', host.dependencies)).toBe('')
+    // A developer "git" that is itself the shim, or relative, is no answer.
+    for (const answer of ['/usr/bin/git', 'usr/bin/git']) {
+      const odd = gitHost({ '/usr/bin/git': '/usr/bin/git' }, answer)
+      expect(sponsoredMacGitPath(FINDER_PATH, odd.dependencies)).toBe(
+        FINDER_PATH,
+      )
+    }
+  })
+
+  it('never resolves a relative PATH entry', () => {
+    // Inside the run a relative entry is relative to the worktree, which the
+    // advertiser's procedure writes.
+    const host = gitHost(
+      {
+        'node_modules/.bin/git': '/opt/planted/git',
+        '/usr/bin/git': '/usr/bin/git',
+      },
+      CLT_GIT,
+    )
+    expect(
+      sponsoredMacGitPath(
+        `node_modules/.bin:${FINDER_PATH}`,
+        host.dependencies,
+      ),
+    ).toBe(`node_modules/.bin:${CLT_BIN}:${FINDER_PATH}`)
+  })
+
+  it('reads the developer directory from its link, spawning nothing', () => {
+    const CLT = '/Library/Developer/CommandLineTools'
+    const installed = (pathname: string) => pathname === CLT_GIT
+    // No link: no developer tools, and nothing that could request an install.
+    expect(
+      findXcodeDeveloperGit({ readlink: () => null, isExecutableFile: installed }),
+    ).toBeNull()
+    // The macOS 26 link names the Command Line Tools; the older one is a fallback.
+    expect(
+      findXcodeDeveloperGit({
+        readlink: (link) => (link === '/var/select/developer_dir' ? CLT : null),
+        isExecutableFile: installed,
+      }),
+    ).toBe(CLT_GIT)
+    expect(
+      findXcodeDeveloperGit({
+        readlink: (link) => (link === '/var/db/xcode_select_link' ? CLT : null),
+        isExecutableFile: installed,
+      }),
+    ).toBe(CLT_GIT)
+    // A link naming a directory that no longer has git is no answer.
+    expect(
+      findXcodeDeveloperGit({ readlink: () => CLT, isExecutableFile: () => false }),
+    ).toBeNull()
+  })
+
+  it('puts stand-ins for every /usr/bin shim right before /usr/bin, whichever git wins', () => {
+    const SHIMS = '/Users/u/.freebuff/sponsored-runtime/r/developer-shims'
+    const shims = () => SHIMS
+    // Finder PATH: the stand-ins (their `git` is the developer git) win, and
+    // the whole Command Line Tools bin is never put on PATH.
+    const finder = gitHost({ '/usr/bin/git': '/usr/bin/git' }, CLT_GIT)
+    expect(
+      sponsoredMacGitPath(FINDER_PATH, { ...finder.dependencies, developerShims: shims }),
+    ).toBe(`${SHIMS}:${FINDER_PATH}`)
+    // Homebrew git first: git stays Homebrew's, and `python3`/`make` in
+    // /usr/bin still get their stand-ins.
+    const brew = gitHost(
+      { '/opt/homebrew/bin/git': KEG_GIT, '/usr/bin/git': '/usr/bin/git' },
+      CLT_GIT,
+    )
+    expect(
+      sponsoredMacGitPath(`/opt/homebrew/bin:${FINDER_PATH}`, {
+        ...brew.dependencies,
+        developerShims: shims,
+      }),
+    ).toBe(`${KEG_BIN}:/opt/homebrew/bin:${SHIMS}:${FINDER_PATH}`)
+    // No /usr/bin on PATH: nothing to stand in for, and nothing is asked.
+    let asked = 0
+    const none = gitHost({ '/opt/local/bin/git': '/opt/local/bin/git' }, CLT_GIT)
+    expect(
+      sponsoredMacGitPath('/opt/local/bin:/bin', {
+        ...none.dependencies,
+        developerShims: () => {
+          asked++
+          return SHIMS
+        },
+      }),
+    ).toBe('/opt/local/bin:/bin')
+    expect(asked).toBe(0)
+  })
+
+  it('stands in only for the names /usr/bin already provides', () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'dev-shims-')))
+    try {
+      // Stand-in developer and shim directories; the developer one must sit
+      // under a tree the profile reads, so it is checked through a real path.
+      const shimDir = path.join(root, 'usr-bin')
+      fs.mkdirSync(shimDir)
+      for (const name of ['git', 'python3', 'ls']) fs.writeFileSync(path.join(shimDir, name), '')
+      const dir = path.join(root, 'developer-shims')
+      // Outside every readable root (a temp dir): refused, nothing created.
+      const developerBin = path.join(root, 'clt-bin')
+      fs.mkdirSync(developerBin)
+      for (const name of ['git', 'python3', 'clang-format']) {
+        fs.writeFileSync(path.join(developerBin, name), '#!/bin/sh\n', { mode: 0o755 })
+      }
+      expect(
+        linkDeveloperShims({ dir, developerGit: path.join(developerBin, 'git'), shimDir }),
+      ).toBeNull()
+      expect(linkDeveloperShims({ dir, developerGit: null, shimDir })).toBeNull()
+      expect(fs.existsSync(dir)).toBe(false)
+      // The real Command Line Tools, where this Mac has them.
+      const clt = findXcodeDeveloperGit()
+      if (process.platform !== 'darwin' || !clt?.startsWith('/Library/')) return
+      expect(linkDeveloperShims({ dir, developerGit: clt, shimDir })).toBe(dir)
+      const linked = fs.readdirSync(dir).sort()
+      // Only names both hold: `ls` has no developer twin, and CLT-only names
+      // are never made visible.
+      expect(linked).toEqual(['git', 'python3'].filter((n) => fs.existsSync(path.join(path.dirname(clt), n))))
+      // An exec by absolute path, not a link: git finds its install from it.
+      expect(fs.lstatSync(path.join(dir, 'git')).isSymbolicLink()).toBe(false)
+      expect(fs.readFileSync(path.join(dir, 'git'), 'utf8')).toBe(
+        `#!/bin/sh\nexec '${path.join(path.dirname(fs.realpathSync(clt)), 'git')}' "$@"\n`,
+      )
+      // Recreated from scratch: a planted entry does not survive.
+      fs.writeFileSync(path.join(dir, 'planted'), '')
+      linkDeveloperShims({ dir, developerGit: clt, shimDir })
+      expect(fs.existsSync(path.join(dir, 'planted'))).toBe(false)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+/**
+ * The developer directory's git on THIS Mac, when the profile can read it.
+ * Where it cannot (a full Xcode under /Applications and nothing else), the
+ * resolver deliberately does not help, so these tests have nothing to prove.
+ */
+const HOST_DEVELOPER_GIT =
+  process.platform === 'darwin' ? findXcodeDeveloperGit() : null
+const shimIt = it.skipIf(
+  !CONTAINMENT_USABLE ||
+    process.platform !== 'darwin' ||
+    !HOST_DEVELOPER_GIT?.startsWith('/Library/'),
+)
+
+/** Every string the shim, or xcrun behind it, prints when it runs in the sandbox. */
+function expectNoShim(err: string): void {
+  expect(err).not.toContain('xcode-select')
+  expect(err).not.toContain('requesting install')
+  expect(err).not.toContain('xcrun')
+  expect(err).not.toContain('Operation not permitted')
+}
+
+describe('sponsored git on the PATH a Finder-launched Desktop hands the run', () => {
+  shimIt(
+    'runs a real git, and commits, with /usr/bin first on PATH',
+    async () => {
+      const { root, runtime, parent } = workspace()
+      try {
+        const { exitCode, out, err } = await runInSandbox(
+          { workspaceRoot: root, runtimeDir: runtime },
+          root,
+          [
+            'set -e',
+            'command -v git',
+            // Where git thinks it is installed: Apple's git derives it from the
+            // path it was started by, and a wrong answer falls back to
+            // /Applications/Xcode.app, which the profile cannot read.
+            'git --exec-path',
+            // Not only git: every other /usr/bin shim runs through a stand-in.
+            'make --version > /dev/null',
+            'git init -q .',
+            'echo sponsored-change > CHANGED.md',
+            'git add CHANGED.md',
+            'git -c user.email=sponsored@example.invalid -c user.name="Sponsored Run" commit -q -m "sponsored change" --no-verify',
+            'git log --oneline -1 --format=%s',
+          ].join('\n'),
+          FINDER_PATH,
+        )
+        expectNoShim(err)
+        expect(exitCode).toBe(0)
+        // Found through the per-run stand-in for the shim, which starts the
+        // developer git by its own path, so git finds its own install.
+        const [found, execPath] = out.split('\n')
+        expect(found).toBe(path.join(runtime, 'developer-shims', 'git'))
+        expect(execPath).toBe(
+          path.join(
+            path.dirname(path.dirname(fs.realpathSync(HOST_DEVELOPER_GIT!))),
+            'libexec',
+            'git-core',
+          ),
+        )
+        expect(out).toContain('sponsored change')
+      } finally {
+        fs.rmSync(parent, { recursive: true, force: true })
+      }
+    },
+  )
+
+  shimIt(
+    "commits in a linked worktree, and it lands in the user's repository",
+    async () => {
+      const layout = desktopLayout()
+      try {
+        const { exitCode, out, err } = await runInSandbox(
+          {
+            workspaceRoot: layout.worktree,
+            runtimeDir: layout.runtime,
+            linkedWorktree: layout.linkedWorktree,
+          },
+          layout.worktree,
+          COMMIT_SCRIPT,
+          FINDER_PATH,
+        )
+        expectNoShim(err)
+        expect(exitCode).toBe(0)
+        expect(out).toContain('sponsored change')
+        const tip = spawnSync(
+          'git',
+          ['-C', layout.project, 'log', '--oneline', '-1', layout.branch],
+          { encoding: 'utf8' },
+        )
+        expect(tip.stdout).toContain('sponsored change')
+      } finally {
+        fs.rmSync(layout.parent, { recursive: true, force: true })
+      }
+    },
+  )
+
+  shimIt(
+    "runs the orchestrator's git even when its PATH entry is unreadable inside the sandbox",
+    async () => {
+      // agentic:e2e's shape: a shim dir under the temp dir, symlinking the
+      // host's git. The sandbox cannot `stat` it, so before the fix the run
+      // got `/usr/bin/git` instead.
+      // The host's own git when it is a readable, non-shim one (Homebrew, on
+      // a developer Mac), so the assertion can tell "followed the symlink"
+      // from "fell through to the developer git"; else the developer git.
+      const hostFirst = spawnSync('bash', ['-c', 'command -v git'], {
+        encoding: 'utf8',
+      }).stdout.trim()
+      const hostReal = hostFirst ? fs.realpathSync(hostFirst) : ''
+      const target = /^\/(opt|usr\/local)\//.test(hostReal)
+        ? hostReal
+        : fs.realpathSync(HOST_DEVELOPER_GIT!)
+      const { root, runtime, parent } = workspace()
+      const shims = path.join(parent, 'shims')
+      fs.mkdirSync(shims)
+      fs.symlinkSync(target, path.join(shims, 'git'))
+      try {
+        const { exitCode, out, err } = await runInSandbox(
+          { workspaceRoot: root, runtimeDir: runtime },
+          root,
+          [
+            'set -e',
+            'command -v git',
+            'git --version',
+            'git init -q .',
+            'echo x > A.md',
+            'git add A.md',
+            'git -c user.email=s@example.invalid -c user.name=S commit -q -m c --no-verify',
+          ].join('\n'),
+          `${shims}:${FINDER_PATH}`,
+        )
+        expectNoShim(err)
+        expect(exitCode).toBe(0)
+        const [resolved, version] = out.split('\n')
+        expect(resolved).toBe(target)
+        expect(version).toBe(
+          spawnSync(target, ['--version'], { encoding: 'utf8' }).stdout.trim(),
+        )
+      } finally {
+        fs.rmSync(parent, { recursive: true, force: true })
+      }
+    },
+  )
+
+  it('is a PATH change, not a grant: the profile never names the data link', () => {
+    const profile = sponsoredMacProfile(['/tmp/w', '/tmp/r'], [])
+    expect(profile).not.toContain('developer_dir')
+    expect(profile).not.toContain('xcode_select_link')
+    expect(profile).not.toContain('/Applications')
+  })
+})
+
 // ------------------------------------------- /bin/sh's selector, and its noise
 
 describe('the shell selector is readable, and nothing around it is', () => {
@@ -1200,6 +1851,11 @@ describe('the shell selector is readable, and nothing around it is', () => {
               'ls /var/select >/dev/null 2>&1 || echo "select:denied"',
               'cat /var/run/resolv.conf >/dev/null 2>&1 || echo "resolv:denied"',
               'cat /var/select/developer_dir >/dev/null 2>&1 || echo "xcode:denied"',
+              // `cat` fails on the directory the link names whether or not the
+              // link is readable; `readlink` is the call the shim makes, and it
+              // stays refused -- git works through `sponsoredMacGitPath`, not
+              // through a grant here.
+              'readlink /var/select/developer_dir >/dev/null 2>&1 || echo "xcode-link:denied"',
             ].join('\n'),
           ],
           cwd: root,
@@ -1214,6 +1870,7 @@ describe('the shell selector is readable, and nothing around it is', () => {
           'select:denied',
           'resolv:denied',
           'xcode:denied',
+          'xcode-link:denied',
         ]) {
           expect(out).toContain(marker)
         }
@@ -1221,5 +1878,86 @@ describe('the shell selector is readable, and nothing around it is', () => {
         fs.rmSync(parent, { recursive: true, force: true })
       }
     },
+  )
+})
+
+/**
+ * COD-829: the capability report's `availableRuntimes` is asked of the run's
+ * own sandbox. A runtime installed under a folder the sandbox does not grant
+ * (nvm, mise, volta under the home folder) is on the host's PATH and must
+ * read as MISSING, because the run will not be able to start it.
+ */
+describe('available runtimes, as the sandbox sees them (COD-829)', () => {
+  function fakeRuntime(dir: string, name: string): void {
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, name)
+    fs.writeFileSync(file, '#!/bin/sh\necho 1.0.0\n')
+    fs.chmodSync(file, 0o755)
+  }
+
+  it('the uncontained probe sees a runtime on PATH', async () => {
+    const { parent, root } = workspace()
+    try {
+      const bin = path.join(parent, 'hidden-toolchain', 'bin')
+      fakeRuntime(bin, 'bun')
+      const direct = {
+        start: (request: {
+          executable: string
+          args: string[]
+          cwd: string
+          env: NodeJS.ProcessEnv
+        }) => {
+          const child = spawn(request.executable, request.args, {
+            cwd: request.cwd,
+            env: request.env,
+          })
+          return {
+            pid: child.pid,
+            stdout: child.stdout,
+            stderr: child.stderr,
+            completion: new Promise<number | null>((resolve) =>
+              child.on('close', (code: number | null) => resolve(code)),
+            ),
+            kill: (signal: NodeJS.Signals) => child.kill(signal),
+            isAlive: () => child.exitCode === null,
+          }
+        },
+      }
+      const runtimes = await probeSponsoredRuntimes(direct, {
+        cwd: root,
+        env: { PATH: `${bin}:/usr/bin:/bin` },
+      })
+      expect(runtimes).toContain('bun')
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  containedIt(
+    'the contained probe reports a home-folder runtime as missing',
+    async () => {
+      const { parent, root, runtime } = workspace()
+      try {
+        // Outside every read root the sandbox grants, like ~/.bun/bin.
+        const bin = path.join(parent, 'hidden-toolchain', 'bin')
+        fakeRuntime(bin, 'bun')
+        const broker = createSponsoredTerminalBroker({
+          workspaceRoot: root,
+          runtimeDir: runtime,
+        })
+        const runtimes = await probeSponsoredRuntimes(broker, {
+          cwd: root,
+          env: { PATH: `${bin}:/usr/bin:/bin` },
+          timeoutMs: 15_000,
+        })
+        // The probe ran to its end inside the sandbox...
+        expect(runtimes).toBeDefined()
+        // ...and could not start what only the host could see.
+        expect(runtimes).not.toContain('bun')
+      } finally {
+        fs.rmSync(parent, { recursive: true, force: true })
+      }
+    },
+    20_000,
   )
 })

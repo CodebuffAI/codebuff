@@ -1,5 +1,10 @@
 import { getInputModeConfig, type InputMode } from './input-modes'
+import { profileSurveyInputForKey } from './profile-survey-machine'
 import { isPlainEnterKey } from './terminal-enter-detection'
+import type {
+  ProfileSurveyInput,
+  ProfileSurveyKeyContext,
+} from './profile-survey-machine'
 import type { KeyEvent } from '@opentui/core'
 
 
@@ -39,6 +44,12 @@ export type ChatKeyboardState = {
   // History navigation state
   historyNavUpEnabled: boolean
   historyNavDownEnabled: boolean
+  /**
+   * The draft is a recalled history entry the user has not edited or moved
+   * the cursor in. Up/Down keep paging history from it, as they do from an
+   * empty draft; in any other non-empty draft they move the cursor.
+   */
+  lastEditDueToNav: boolean
 
   // Exit handler state
   nextCtrlCWillExit: boolean
@@ -56,6 +67,21 @@ export type ChatKeyboardState = {
    */
   dockExpandable: boolean
   dockPanelOpen: boolean
+  /**
+   * A sponsored PROPOSAL holds the dock (#3989's flow on the CLI). Ctrl+O then
+   * opens the proposal's details instead of the display ad's panel -- the
+   * dock holds one ad at a time, so the chord has one meaning at a time -- and
+   * it does so in both COD-457 arms, because a proposal is not part of that
+   * experiment. Escape is not claimed here: an open proposal disables chat's
+   * keyboard outright and owns its own Escape.
+   */
+  sponsoredDockActive?: boolean
+  /**
+   * The profile survey box (COD-779), when it is on screen; null/undefined
+   * when it is not, and then it claims nothing. Read fresh from
+   * `profile-survey-store` on every key by `useChatKeyboard`.
+   */
+  profileSurvey?: ProfileSurveyKeyContext | null
 }
 
 /**
@@ -124,8 +150,14 @@ export type ChatKeyboardAction =
   // Sponsor dock (COD-457)
   | { type: 'toggle-dock-panel' }
   | { type: 'close-dock-panel' }
+  | { type: 'toggle-sponsored-dock' }
+
+  // Profile survey box (COD-779)
+  | { type: 'profile-survey'; input: ProfileSurveyInput }
 
   // No action needed
+  | { type: 'show-help' }
+  | { type: 'open-chat-history' }
   | { type: 'none' }
 
 const hasModifier = (key: KeyEvent) =>
@@ -151,6 +183,9 @@ export function resolveChatKeyboardAction(
   const isEnter = isPlainEnterKey(key)
   const isPageUp = key.name === 'pageup' && !hasModifier(key)
   const isPageDown = key.name === 'pagedown' && !hasModifier(key)
+  // History pages from an empty draft or from the entry it last recalled.
+  const inHistoryDraft =
+    state.inputValue.length === 0 || state.lastEditDueToNav
 
   // Priority 0: Out of credits mode - Enter opens buy credits page
   if (state.inputMode === 'outOfCredits') {
@@ -197,6 +232,9 @@ export function resolveChatKeyboardAction(
   // both branches fall through to `none`, so the chord does nothing at all.
   const isDockChord =
     key.ctrl && key.name === 'o' && !key.meta && !key.option && !key.shift
+  if (state.sponsoredDockActive && isDockChord) {
+    return { type: 'toggle-sponsored-dock' }
+  }
   if (state.dockExpandable) {
     if (isEscape && state.dockPanelOpen) {
       return { type: 'close-dock-panel' }
@@ -206,12 +244,34 @@ export function resolveChatKeyboardAction(
     }
   }
 
+  // Priority 1.75: The profile survey box (COD-779), only while it is on
+  // screen AND the draft is empty in default mode. It claims a digit naming
+  // an option, Enter on a multi-select, ← (back) and Esc (not now) — so while
+  // it is up, Esc means "not now" rather than "interrupt the run", and ←
+  // means "back" rather than "chat history". Ctrl+C still interrupts. Any
+  // other key falls through and starts a prompt, which closes the box. The
+  // composer's intercept (`chat-input-key-intercept.ts`) asks the same
+  // function, so the two layers never disagree about a key.
+  if (
+    state.profileSurvey &&
+    state.inputMode === 'default' &&
+    state.inputValue.length === 0
+  ) {
+    const input = profileSurveyInputForKey(key, state.profileSurvey)
+    if (input) return { type: 'profile-survey', input }
+  }
+
   // Priority 2: Non-default input mode escape
   // Escape should exit the current mode BEFORE interrupting streams
   // Exception: modes with blockKeyboardExit cannot be escaped
   const modeConfig = getInputModeConfig(state.inputMode)
   if (isEscape && state.inputMode !== 'default' && !modeConfig.blockKeyboardExit) {
     return { type: 'exit-input-mode' }
+  }
+
+  if ((state.inputMode === 'default' || state.inputMode === 'help') && state.inputValue.length === 0 && !hasModifier(key)) {
+    if (key.sequence === '?' || key.name === '?') return { type: 'show-help' }
+    if (key.name === 'left' && !key.shift) return { type: 'open-chat-history' }
   }
 
   // Priority 2.5: Open the queue editor (Ctrl+Q). Ahead of the ctrl-c rules
@@ -307,6 +367,22 @@ export function resolveChatKeyboardAction(
     }
   }
 
+  // Priority 7.5: In a non-empty draft, bare arrows edit the text (the
+  // composer moves the cursor) rather than triggering any chat action. This
+  // sits BELOW the slash and mention menus on purpose: typing "/" or "@" makes
+  // the draft non-empty, so a guard above them swallowed every Up/Down meant
+  // for an open menu and the command list could not be scrolled.
+  // A recalled history entry is the exception for Up/Down: they keep paging
+  // history (priority 10.5), or only the newest entry could ever be reached.
+  if (
+    state.inputValue.length > 0 &&
+    ['left', 'right', 'up', 'down'].includes(key.name) &&
+    !hasModifier(key) &&
+    !(state.lastEditDueToNav && (isUp || isDown))
+  ) {
+    return { type: 'none' }
+  }
+
   // Priority 8: Tab to open file menu (when not in a menu, not shift-tab, and suggestions enabled)
   // This is handled by the hook since it needs to check word at cursor
   if (
@@ -326,19 +402,19 @@ export function resolveChatKeyboardAction(
 
   // Priority 10: Bash history navigation (when in bash mode)
   if (state.inputMode === 'bash') {
-    if (isUp && state.historyNavUpEnabled) {
+    if (isUp && inHistoryDraft && state.historyNavUpEnabled) {
       return { type: 'bash-history-up' }
     }
-    if (isDown && state.historyNavDownEnabled) {
+    if (isDown && inHistoryDraft && state.historyNavDownEnabled) {
       return { type: 'bash-history-down' }
     }
   }
 
   // Priority 10.5: Regular history navigation (when at edges and enabled)
-  if (isUp && state.historyNavUpEnabled) {
+  if (isUp && inHistoryDraft && state.historyNavUpEnabled) {
     return { type: 'history-up' }
   }
-  if (isDown && state.historyNavDownEnabled) {
+  if (isDown && inHistoryDraft && state.historyNavDownEnabled) {
     return { type: 'history-down' }
   }
 
@@ -410,6 +486,7 @@ export function createDefaultChatKeyboardState(): ChatKeyboardState {
     queuedCount: 0,
     historyNavUpEnabled: false,
     historyNavDownEnabled: false,
+    lastEditDueToNav: false,
     nextCtrlCWillExit: false,
     dockExpandable: false,
     dockPanelOpen: false,

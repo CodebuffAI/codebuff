@@ -10,6 +10,29 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_POSTHOG_API_KEY: z.string().min(1),
   NEXT_PUBLIC_POSTHOG_HOST_URL: z.url().min(1),
   NEXT_PUBLIC_GRAVITY_PIXEL_ID: z.uuid().optional(),
+  /** Public Meta dataset/pixel ID. Unset disables Freebuff landing tracking. */
+  NEXT_PUBLIC_META_PIXEL_ID: z.string().regex(/^\d+$/).max(32).optional(),
+  /** Separate Ads acquisition dataset. Never falls back to the consumer ID. */
+  NEXT_PUBLIC_META_FREEBUFF_ADS_PIXEL_ID: z
+    .string()
+    .regex(/^\d+$/)
+    .max(32)
+    .optional(),
+  /**
+   * Optional paid-social pixel IDs. Each one enables its browser pixel on the
+   * public pages AND the first-party `twclid` / `ttclid` capture; absent
+   * leaves both off. X's is the lowercase base-36 ID (`rfga1`).
+   */
+  NEXT_PUBLIC_X_PIXEL_ID: z
+    .string()
+    .regex(/^[a-z0-9]+$/)
+    .max(32)
+    .optional(),
+  NEXT_PUBLIC_TIKTOK_PIXEL_ID: z
+    .string()
+    .regex(/^[A-Za-z0-9]+$/)
+    .max(64)
+    .optional(),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
   NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.url().min(1),
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
@@ -74,6 +97,11 @@ export const clientProcessEnv: ClientInput = {
   NEXT_PUBLIC_POSTHOG_API_KEY: process.env.NEXT_PUBLIC_POSTHOG_API_KEY,
   NEXT_PUBLIC_POSTHOG_HOST_URL: process.env.NEXT_PUBLIC_POSTHOG_HOST_URL,
   NEXT_PUBLIC_GRAVITY_PIXEL_ID: process.env.NEXT_PUBLIC_GRAVITY_PIXEL_ID,
+  NEXT_PUBLIC_META_PIXEL_ID: process.env.NEXT_PUBLIC_META_PIXEL_ID,
+  NEXT_PUBLIC_META_FREEBUFF_ADS_PIXEL_ID:
+    process.env.NEXT_PUBLIC_META_FREEBUFF_ADS_PIXEL_ID,
+  NEXT_PUBLIC_X_PIXEL_ID: process.env.NEXT_PUBLIC_X_PIXEL_ID,
+  NEXT_PUBLIC_TIKTOK_PIXEL_ID: process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID,
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL:

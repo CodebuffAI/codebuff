@@ -166,23 +166,29 @@ export type SponsoredProposalContentBlock = {
    * The consent screen, open, with everything it names.
    *
    * The whole of it is known BEFORE the accept, which is what lets a refusal
-   * write nothing at all: the advertiser, the headline and the body are already
-   * on the card, and the folder and the branch come from this checkout. It
-   * cannot show the reviewed procedure TEXT, because the accept response is the
-   * only place that exists -- the same trade Desktop's dialog makes, for the
-   * same ordering reason (`utils/sponsored-run.ts`).
+   * write nothing at all. The procedure is the exact reviewed text the preview
+   * route returned, whose SHA-256 the Accept binds -- so what the user can read
+   * here is what runs. There is no branch: an in-place run edits `folder`.
    */
   consent?: {
     advertiserName: string
     headline: string
     body: string
     folder: string
-    branch: string
-    /** The id the branch above was minted with. Carried into the accept. */
+    procedure: string
+    /** Minted for this review and carried into the accept. */
     runId: string
   }
   /** Which consent choice the caret is on. Reset every time it opens. */
   consentIndex?: number
+  /** The consent's reviewed procedure is expanded ("View steps"). */
+  procedureOpen?: boolean
+  /**
+   * The run behind this card has a verdict and the user has moved on: the
+   * dock goes back to display ads. The card stays in history, and
+   * `/ads:undo` still works.
+   */
+  dockReleased?: boolean
   /**
    * A local run was started from THIS card.
    *
@@ -269,40 +275,6 @@ export type ChatMessage = {
 // Type guard functions for safe type narrowing
 export function isTextBlock(block: ContentBlock): block is TextContentBlock {
   return block.type === 'text'
-}
-
-export function isToolBlock(block: ContentBlock): block is ToolContentBlock {
-  return block.type === 'tool'
-}
-
-export function isAgentBlock(block: ContentBlock): block is AgentContentBlock {
-  return block.type === 'agent'
-}
-
-export function isHtmlBlock(block: ContentBlock): block is HtmlContentBlock {
-  return block.type === 'html'
-}
-
-export function isAgentListBlock(
-  block: ContentBlock,
-): block is AgentListContentBlock {
-  return block.type === 'agent-list'
-}
-
-export function isPlanBlock(block: ContentBlock): block is PlanContentBlock {
-  return block.type === 'plan'
-}
-
-export function isModeDividerBlock(
-  block: ContentBlock,
-): block is ModeDividerContentBlock {
-  return block.type === 'mode-divider'
-}
-
-export function isAskUserBlock(
-  block: ContentBlock,
-): block is AskUserContentBlock {
-  return block.type === 'ask-user'
 }
 
 export function isImageBlock(block: ContentBlock): block is ImageContentBlock {

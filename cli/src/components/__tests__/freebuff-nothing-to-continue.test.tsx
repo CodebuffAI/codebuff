@@ -7,7 +7,7 @@ import {
   FreebuffNothingToContinueNotice,
   NOTHING_TO_CONTINUE_MESSAGE,
   shouldShowContinueNotice,
-} from '../freebuff-landing-screen'
+} from '../freebuff-nothing-to-continue-notice'
 import { initializeThemeStore } from '../../hooks/use-theme'
 
 import type { FreebuffSessionResponse } from '../../types/freebuff-session'
@@ -40,7 +40,14 @@ const renderNotice = async () => {
     flushSync(() => root.unmount())
     setup.renderer.destroy()
   }
-  flushSync(() => root.render(<FreebuffNothingToContinueNotice />))
+  flushSync(() =>
+    root.render(
+      <FreebuffNothingToContinueNotice
+        continueRequested={true}
+        session={{ status: 'none' }}
+      />,
+    ),
+  )
   await setup.renderOnce()
   return setup
 }
@@ -67,11 +74,38 @@ describe('FreebuffNothingToContinueNotice', () => {
       flushSync(() => root.unmount())
       setup.renderer.destroy()
     }
-    flushSync(() => root.render(<FreebuffNothingToContinueNotice />))
+    flushSync(() =>
+      root.render(
+        <FreebuffNothingToContinueNotice
+          continueRequested={true}
+          session={{ status: 'none' }}
+        />,
+      ),
+    )
     await setup.renderOnce()
 
     const frame = setup.captureCharFrame().replace(/\s+/g, ' ')
     expect(frame).toContain(NOTHING_TO_CONTINUE_MESSAGE.replace(/\s+/g, ' '))
+  })
+
+  test('renders nothing when no continue was requested', async () => {
+    const setup = await createTestRenderer({ width: 100, height: 3 })
+    const root = createRoot(setup.renderer)
+    cleanupRenderer = () => {
+      flushSync(() => root.unmount())
+      setup.renderer.destroy()
+    }
+    flushSync(() =>
+      root.render(
+        <FreebuffNothingToContinueNotice
+          continueRequested={false}
+          session={{ status: 'none' }}
+        />,
+      ),
+    )
+    await setup.renderOnce()
+
+    expect(setup.captureCharFrame().trim()).toBe('')
   })
 })
 
@@ -84,7 +118,7 @@ describe('shouldShowContinueNotice', () => {
       { status: 'takeover_prompt', model: 'model' },
       { status: 'ended', freebucksRefund: 4 },
       { status: 'superseded' },
-      { status: 'consent_required', walletConsent: { price: 1, walletSpend: 1 }, freebucks: null },
+      { status: 'banned' },
     ]
     for (const session of resumed) {
       expect(shouldShowContinueNotice(true, session)).toBe(false)

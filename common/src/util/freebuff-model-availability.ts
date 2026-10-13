@@ -14,17 +14,12 @@
  * other should be told the same thing.
  */
 
+import { FREE_MODE_ALLOWED_COUNTRIES } from '../constants/freebuff-countries'
+
 import type {
   FreebuffIpPrivacySignal,
   FreebuffLimitedModeReason,
 } from '../types/freebuff-session'
-
-/**
- * A short release note shared by CLI and Desktop. Current policy belongs in
- * the catalog; this is only the user-facing explanation of the change.
- */
-export const FREEBUFF_TIER_CHANGE_NOTICE =
-  'Solar Pro 4 is now unmetered at full access and available with limited access. GPT-5.6 Luna still uses your shared premium allowance, charging partial time rounded up to a tenth. —❤️ Freebuff Team'
 
 const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
   {
@@ -37,6 +32,15 @@ const PRIVACY_SIGNAL_LABELS: Partial<Record<FreebuffIpPrivacySignal, string>> =
     hosting: 'hosting network',
     service: 'privacy service',
   }
+
+function isResidentialProxyOnly(
+  signals: readonly FreebuffIpPrivacySignal[] | null | undefined,
+): boolean {
+  return (
+    !!signals?.includes('res_proxy') &&
+    signals.every((signal) => signal === 'res_proxy' || signal === 'anonymous')
+  )
+}
 
 export function formatFreebuffPrivacySignalList(
   signals: readonly FreebuffIpPrivacySignal[] | null | undefined,
@@ -78,6 +82,8 @@ export function formatFreebuffCountryName(countryCode: string): string {
  * visible either way, so saying nothing is the one option that leaves the
  * question unanswered.
  */
+const COUNTRY_PAGE = 'freebuff.com/account?tab=country'
+
 export function getFreebuffModelAvailabilityNotice(
   reason: FreebuffLimitedModeReason | null | undefined,
 ): string {
@@ -90,14 +96,36 @@ export function getFreebuffModelAvailabilityNotice(
       : null
 
   switch (reason.countryBlockReason) {
+    // Says why, not only what: since 2026-09-28 a VPN also gets a smaller
+    // free Freebucks pool than the rest of limited access, and the honest
+    // reason for both is the one the user can weigh.
     case 'anonymous_network':
+      // A household line listed as a residential proxy is usually the user's
+      // own connection, enrolled by a bandwidth-sharing app, not a VPN they
+      // chose — so "try a direct connection" would be advice they cannot
+      // take. Name the likely cause instead.
+      // In a full-access country, someone who is not on a VPN (or cannot
+      // turn off what flags the line) can confirm the country with a phone
+      // and an ID on Account → Country (docs/freebuff-access-floor.md § Phone
+      // and ID attestation). Elsewhere there is nothing to confirm.
+      const confirm =
+        countryCode && FREE_MODE_ALLOWED_COUNTRIES.has(countryCode)
+          ? `. Not on one? Confirm your country at ${COUNTRY_PAGE}`
+          : ''
+      if (isResidentialProxyOnly(reason.ipPrivacySignals)) {
+        return `This network is listed as a residential proxy, often because of a bandwidth-sharing app on a device here, so some models aren't available on it${
+          confirm ? `. Confirm your country at ${COUNTRY_PAGE}` : ''
+        }`
+      }
       return `Using a ${formatFreebuffPrivacySignalList(
         reason.ipPrivacySignals,
-      )}? More models are available on a direct connection`
+      )}? We lose money on every VPN user, so more models and Freebucks are available on a direct connection${confirm}`
     case 'country_not_allowed':
       return `Some models aren't available in ${
         countryCode ? formatFreebuffCountryName(countryCode) : 'your region'
       } yet`
+    case 'recent_limited_country':
+      return "This account was recently used from a region where some models aren't available yet, so those limits still apply for a while. Moved? Verify your country at freebuff.com/account?tab=country"
     case 'anonymized_or_unknown_country':
     case 'missing_client_ip':
     case 'unresolved_client_ip':

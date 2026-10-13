@@ -1,4 +1,9 @@
+import { isAbortError, isTransientNetworkError } from '@codebuff/common/util/error'
 import { FREEBUFF_ACTING_USER_HEADER } from '@codebuff/common/constants/freebuff-models'
+import {
+  FREEBUFF_SSE_GZIP_RECOVERY_HEADER,
+  FREEBUFF_SSE_GZIP_RECOVERY_VALUE,
+} from '@codebuff/common/constants/sse-compression'
 import { afterEach, describe, expect, mock, test } from 'bun:test'
 
 import { addAgentStep, finishAgentRun, startAgentRun } from '../database'
@@ -6,7 +11,9 @@ import {
   BYOK_CONNECTION_FAILURE_MESSAGE,
   getByokProviderErrorMessage,
   getModelForRequest,
+  isByokModelIdRejection,
   redactProviderStream,
+  sanitizeByokTransportError,
 } from '../model-provider'
 import { streamText } from 'ai'
 
@@ -127,6 +134,142 @@ describe('SDK delegated user headers', () => {
     expect(message).not.toContain('key-canary')
   })
 
+  test('recognises a provider saying the model id is wrong, and nothing else', () => {
+    // Verbatim bodies. DeepSeek's was measured 2026-09-23.
+    const rejections = [
+      '{"error":{"message":"The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek/deepseek-v4-flash.","type":"invalid_request_error","param":null,"code":"invalid_request_error"}}',
+      '{"error":{"message":"The model `gpt-5.6-lunaa` does not exist or you do not have access to it.","type":"invalid_request_error","code":"model_not_found"}}',
+      '{"error":{"message":"foo/bar is not a valid model ID","code":400}}',
+      '{"error":{"code":404,"message":"models/gemini-9 is not found for API version v1beta, or is not supported for generateContent."}}',
+      '{"message":"Invalid model: mistral-hyper"}',
+      '{"error":{"message":"Model not found"}}',
+      '{"error":{"message":"The model \\"acme/fake-1\\" is not supported."}}',
+      '{"error":{"message":"model \'gpt-9\' was not found"}}',
+    ]
+    for (const body of rejections) expect(isByokModelIdRejection(body)).toBe(true)
+
+    const others = [
+      '{"error":{"message":"The `reasoning_content` in the thinking mode must be passed back to the API.","type":"invalid_request_error"}}',
+      '{"error":{"message":"max_tokens is too large for this model. Tool calls not found in history."}}',
+      '<html><body>404 page not found</body></html>',
+      '',
+      // A capability refusal on a VALID model id is not a bad id.
+      '{"error":{"message":"model gpt-4o-mini: image input is not supported","type":"invalid_request_error"}}',
+      '{"error":{"message":"The model `deepseek-v4-flash` with tool_choice required is not supported."}}',
+      '{"error":{"message":"For model deepseek-chat, audio content is not supported"}}',
+    ]
+    for (const body of others) expect(isByokModelIdRejection(body)).toBe(false)
+  })
+
+  test('names the configured model, never the upstream text, when the model id is rejected', () => {
+    const message = getByokProviderErrorMessage(400, {
+      model: 'deepseek/deepseek-v4-flash',
+      modelRejected: true,
+    })
+    expect(message).toContain('does not recognise the model ID "deepseek/deepseek-v4-flash"')
+    expect(message).toContain('HTTP 400')
+    // A rejection on a status that cannot mean "bad model" keeps its own copy.
+    expect(getByokProviderErrorMessage(401, { model: 'm', modelRejected: true })).toContain(
+      'rejected the API key',
+    )
+    // Unclassified 400s are unchanged.
+    expect(getByokProviderErrorMessage(400)).toBe(
+      'BYOK provider request failed (HTTP 400). Check the provider settings and retry.',
+    )
+  })
+
+  test('a provider 400 for an unknown model reaches the user as a model-id problem', async () => {
+    const upstreamCanary = 'provider-body-secret-canary'
+    globalThis.fetch = mock(async () => new Response(
+      JSON.stringify({ error: { message: `The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek/deepseek-v4-flash. ${upstreamCanary}` } }),
+      { status: 400, headers: { 'content-type': 'application/json' } },
+    )) as unknown as typeof fetch
+    const result = streamText({
+      model: getModelForRequest({
+        apiKey: 'ignored', model: 'ignored',
+        byok: { id: 'conn', revision: 1, name: 'deepseek', provider: 'openai-compatible', baseUrl: 'https://api.deepseek.com', model: 'deepseek/deepseek-v4-flash', credentialRef: 'connection:conn', createdAt: 'x', updatedAt: 'x', apiKey: 'key-canary' },
+      }),
+      messages: [{ role: 'user', content: 'hello' }],
+      maxRetries: 0,
+    })
+    let message = ''
+    for await (const part of result.stream) {
+      if (part.type === 'error') message = String(part.error)
+    }
+    expect(message).toContain('does not recognise the model ID "deepseek/deepseek-v4-flash"')
+    expect(message).not.toContain(upstreamCanary)
+    expect(message).not.toContain('key-canary')
+  })
+
+  test.each([
+    ['https://openrouter.ai/api/v1', 404, 'No allowed providers are available for the selected model.', true],
+    ['https://openrouter.ai/api/v1', 404, 'No endpoints found matching your data policy (Free model publication).', true],
+    ['https://eu.openrouter.ai/api/v1', 404, 'No endpoints found matching your privacy settings.', true],
+    ['https://us.openrouter.ai/api/v1', 404, 'No endpoints found matching your provider preferences.', true],
+    ['https://openrouter.ai/api/v1', 404, 'No endpoints found for acme/retired.', false],
+    ['https://openrouter.ai/api/v1', 404, 'No endpoints found that support tool use.', false],
+    ['https://openrouter.ai/api/v1', 404, 'acme/typo is not a valid model ID', false],
+    ['https://openrouter.ai/api/v1', 401, 'No allowed providers are available for the selected model.', false],
+    ['https://openrouter.ai.example.com/v1', 404, 'No allowed providers are available for the selected model.', false],
+  ] as const)('OpenRouter settings guidance: %s HTTP %i %s', async (baseUrl, status, upstreamMessage, settingsBlocked) => {
+    const canary = 'provider-body-secret-canary'
+    let attempts = 0
+    globalThis.fetch = mock(async () => {
+      attempts++
+      return Response.json({ error: { code: status, message: `${upstreamMessage} ${canary}` } }, { status })
+    }) as unknown as typeof fetch
+    const result = streamText({
+      model: getModelForRequest({
+        apiKey: 'ignored', model: 'ignored',
+        byok: { id: 'conn', revision: 1, name: 'custom', provider: 'openai-compatible', baseUrl, model: 'acme/model', credentialRef: 'connection:conn', createdAt: 'x', updatedAt: 'x', apiKey: 'key-canary' },
+      }),
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+    let message = ''
+    for await (const part of result.stream) {
+      if (part.type === 'error') message = String(part.error)
+    }
+    expect(attempts).toBe(1)
+    expect(message).toContain(`HTTP ${status}`)
+    expect(message).not.toContain(canary)
+    expect(message).not.toContain('key-canary')
+    if (settingsBlocked) {
+      expect(message).toContain('OpenRouter settings leave no allowed providers')
+      expect(message).toContain('allowed/ignored providers')
+      expect(message).toContain('https://openrouter.ai/settings/privacy')
+      expect(message).toContain('Zero Data Retention')
+      expect(message).not.toContain('Check the model ID')
+    } else {
+      expect(message).not.toContain('OpenRouter settings')
+      if (upstreamMessage.includes('not a valid model ID')) expect(message).toContain('does not recognise the model ID')
+      else if (status === 401) expect(message).toContain('rejected the API key')
+      else expect(message).toContain('Check the model ID and provider URL')
+    }
+  })
+
+  test('a 401 on an environment-variable key names the variable, never the key', async () => {
+    const key = 'synthetic-omniroute-key-canary'
+    globalThis.fetch = mock(async () => new Response(
+      JSON.stringify({ error: { message: `Invalid API key ${key}` } }),
+      { status: 401, headers: { 'content-type': 'application/json' } },
+    )) as unknown as typeof fetch
+    const result = streamText({
+      model: getModelForRequest({
+        apiKey: 'ignored', model: 'ignored',
+        byok: { id: 'conn', revision: 1, name: 'omniroute', provider: 'openai-compatible', baseUrl: 'http://localhost:20128/v1', model: 'mistral/codestral-latest', credentialRef: 'env:OMNIROUTE_API_KEY', createdAt: 'x', updatedAt: 'x', apiKey: key },
+      }),
+      messages: [{ role: 'user', content: 'hello' }],
+      maxRetries: 0,
+    })
+    let message = ''
+    for await (const part of result.stream) {
+      if (part.type === 'error') message = String(part.error)
+    }
+    expect(message).toContain('rejected the API key in OMNIROUTE_API_KEY (HTTP 401)')
+    expect(message).toContain('is set in this Freebuff process')
+    expect(message).not.toContain(key)
+  })
+
   test('sends userId on model requests', async () => {
     const model = getModelForRequest({
       apiKey: 'service-key',
@@ -138,6 +281,30 @@ describe('SDK delegated user headers', () => {
       Authorization: 'Bearer service-key',
       [FREEBUFF_ACTING_USER_HEADER]: 'end-user',
     })
+  })
+
+  test('tells the backend it recovers a cut gzip stream, and never tells a BYOK provider', async () => {
+    const backend = getModelForRequest({ apiKey: 'user-key', model: 'test/model' })
+    expect((backend as any).config.headers()).toMatchObject({
+      [FREEBUFF_SSE_GZIP_RECOVERY_HEADER]: FREEBUFF_SSE_GZIP_RECOVERY_VALUE,
+    })
+
+    let byokHeaders = new Headers()
+    globalThis.fetch = mock(async (_input, init) => {
+      byokHeaders = new Headers(init?.headers)
+      return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+        headers: { 'content-type': 'text/event-stream' },
+      })
+    }) as unknown as typeof fetch
+    const result = streamText({
+      model: getModelForRequest({
+        apiKey: 'ignored', model: 'ignored',
+        byok: { id: 'conn', revision: 1, name: 'local', provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:9876/v1', model: 'selected/model', credentialRef: 'connection:conn', createdAt: 'x', updatedAt: 'x', apiKey: 'key' },
+      }),
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+    await result.text
+    expect(byokHeaders.has(FREEBUFF_SSE_GZIP_RECOVERY_HEADER)).toBe(false)
   })
 
   test('sends userId on agent run requests', async () => {
@@ -204,5 +371,49 @@ describe('SDK delegated user headers', () => {
     })
 
     expect(headers).not.toHaveProperty(FREEBUFF_ACTING_USER_HEADER)
+  })
+})
+
+
+describe('BYOK transport recovery classification', () => {
+  test('preserves transient classification without raw provider data', async () => {
+    for (const original of [
+      Object.assign(new Error('secret URL or credential'), { code: 'ECONNRESET' }),
+      new Error('fetch failed', { cause: new Error('secret') }),
+      new DOMException('secret', 'TimeoutError'),
+    ]) {
+      const safe = sanitizeByokTransportError(original)
+      expect(isTransientNetworkError(safe)).toBe(true)
+      expect(String(safe)).not.toContain('secret')
+      expect(safe.cause).toBeUndefined()
+      const stream = new ReadableStream<Uint8Array>({ start(c) { c.error(original) } })
+      let caught: unknown
+      await new Response(redactProviderStream(stream, 'key')).text().catch(e => { caught = e })
+      expect(isTransientNetworkError(caught)).toBe(true)
+    }
+    expect(isTransientNetworkError(sanitizeByokTransportError(new Error('unauthorized')))).toBe(false)
+    const abort = sanitizeByokTransportError(new DOMException('secret', 'AbortError'))
+    expect(isAbortError(abort)).toBe(true)
+    expect(isTransientNetworkError(abort)).toBe(false)
+  })
+
+  test('AI SDK retries a transient BYOK connection failure', async () => {
+    let calls = 0
+    globalThis.fetch = mock(async () => {
+      if (++calls === 1) throw Object.assign(new Error('credential-canary'), { code: 'ECONNRESET' })
+      return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+        headers: { 'content-type': 'text/event-stream' },
+      })
+    }) as unknown as typeof fetch
+    const result = streamText({
+      model: getModelForRequest({ apiKey: '', model: '', byok: {
+        id: 'conn', revision: 1, name: 'local', provider: 'openai-compatible',
+        baseUrl: 'http://127.0.0.1:9876/v1', model: 'selected/model',
+        credentialRef: 'connection:conn', createdAt: 'x', updatedAt: 'x', apiKey: 'key',
+      } }),
+      messages: [{ role: 'user', content: 'hello' }], maxRetries: 1,
+    })
+    expect(await result.text).toBe('ok')
+    expect(calls).toBe(2)
   })
 })

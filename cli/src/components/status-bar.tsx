@@ -1,8 +1,4 @@
-import {
-  FREEBUFF_DEFAULT_CONTEXT_WINDOW,
-  FREEBUFF_MODEL_CONTEXT_WINDOWS,
-  getFreebuffModel,
-} from '@codebuff/common/constants/freebuff-models'
+import { FREEBUFF_DEFAULT_CONTEXT_WINDOW } from '@codebuff/common/constants/freebuff-models'
 import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useState } from 'react'
 
@@ -13,7 +9,9 @@ import { ShimmerText } from './shimmer-text'
 import { useFreebuffSessionProgress } from '../hooks/use-freebuff-session-progress'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
+import { useFreebuffModelDirectory } from '../state/freebuff-catalog-store'
 import { useByokSelectionStore } from '../utils/byok'
+import { IS_FREEBUFF } from '../utils/constants'
 import { freebucksOf } from '../utils/freebucks'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 import { formatContextUsage } from '../utils/format-token-count'
@@ -116,6 +114,7 @@ export const StatusBar = ({
   }, [timerStartTime, shouldShowTimer, statusIndicatorState?.kind])
 
   const sessionProgress = useFreebuffSessionProgress(freebuffSession)
+  const modelDirectory = useFreebuffModelDirectory()
   // A metered session is NOT unlimited, and the absence of `rateLimit` is no
   // longer evidence that it is: a Freebucks row carries no pool row at all, so
   // the old test reported "unlimited" for the one kind of session that was
@@ -139,8 +138,7 @@ export const StatusBar = ({
   )
   const contextWindow =
     freebuffSession?.status === 'active'
-      ? (FREEBUFF_MODEL_CONTEXT_WINDOWS[freebuffSession.model] ??
-        FREEBUFF_DEFAULT_CONTEXT_WINDOW)
+      ? modelDirectory.contextWindow(freebuffSession.model)
       : FREEBUFF_DEFAULT_CONTEXT_WINDOW
   const contextUsage =
     contextTokenCount !== undefined
@@ -177,7 +175,12 @@ export const StatusBar = ({
         )
 
       case 'connecting':
-        return <ShimmerText text="connecting..." />
+        // The connection monitor starts optimistic; this state means a check failed.
+        return (
+          <span fg={theme.warning}>
+            {`Can't reach ${IS_FREEBUFF ? 'Freebuff' : 'Codebuff'}'s servers. Retrying… Try another network.`}
+          </span>
+        )
 
       case 'waiting':
         return (
@@ -211,13 +214,9 @@ export const StatusBar = ({
         if (sessionProgress !== null) {
           const isUrgent =
             sessionProgress.remainingMs < FREEBUFF_COUNTDOWN_VISIBLE_MS
-          const modelName =
-            freebuffSession?.status === 'active'
-              ? getFreebuffModel(freebuffSession.model).displayName
-              : null
           // One template string on purpose: conditional text-node children
           // inside a <span> trip OpenTUI's reconciler (see knowledge.md).
-          const idleLabel = `${modelName ? `${modelName} · ` : ''}${
+          const idleLabel = `${
             isUnlimited
               ? 'unlimited'
               : formatFreebuffSessionRemaining(sessionProgress.remainingMs)
@@ -260,7 +259,9 @@ export const StatusBar = ({
   return (
     <box
       style={{
+        // Same full-width parent as the composer's bordered box.
         width: '100%',
+        flexShrink: 0,
         flexDirection: 'row',
         alignItems: 'center',
         paddingLeft: 1,
@@ -273,35 +274,47 @@ export const StatusBar = ({
         <box
           style={{
             position: 'absolute',
+            zIndex: 0,
             left: 0,
             top: 0,
             bottom: 0,
             // Fill anchors left and shrinks as time passes — the draining
             // bar is the countdown; no separate numeric readout needed.
             width: `${sessionProgress.fraction * 100}%`,
-            backgroundColor: theme.surfaceHover,
+            // A green tint keeps the countdown distinct from its gray track
+            // while preserving contrast for the status text in either theme.
+            backgroundColor: theme.name === 'light' ? '#c7e8b5' : '#28452a',
           }}
         />
       )}
       <box
         style={{
+          // Keep text above the fill even when it mounts after these columns.
+          zIndex: 1,
           flexGrow: 1,
           flexShrink: 1,
           flexBasis: 0,
         }}
       >
-        <text style={{ wrapMode: 'none' }}>{statusIndicatorContent}</text>
+        <text
+          style={{
+            wrapMode: statusIndicatorState.kind === 'connecting' ? 'word' : 'none',
+          }}
+        >
+          {statusIndicatorContent}
+        </text>
       </box>
 
-      <box style={{ flexShrink: 0 }}>
+      <box style={{ flexShrink: 0, zIndex: 1 }}>
         {!isAtBottom && <ScrollToBottomButton onClick={scrollToLatest} />}
       </box>
 
       <box
         style={{
-          flexGrow: 1,
+          zIndex: 1,
+          flexGrow: statusIndicatorState.kind === 'connecting' ? 0 : 1,
           flexShrink: 1,
-          flexBasis: 0,
+          flexBasis: statusIndicatorState.kind === 'connecting' ? 'auto' : 0,
           flexDirection: 'row',
           justifyContent: 'flex-end',
           alignItems: 'center',

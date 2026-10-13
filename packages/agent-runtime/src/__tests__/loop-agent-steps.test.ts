@@ -23,8 +23,14 @@ import {
 } from 'bun:test'
 import { APICallError, RetryError } from 'ai'
 import { z } from 'zod/v4'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { applyPatch } from 'diff'
 
 import { loopAgentSteps } from '../run-agent-step'
+import { frameSteeringText, STEERING_NOTE } from '../util/messages'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import {
   MAX_CONSECUTIVE_STREAM_RECOVERIES,
@@ -33,6 +39,22 @@ import {
   REPEATED_STREAM_INTERRUPTIONS_MESSAGE,
   STREAM_INTERRUPTED_TAG,
 } from '../tools/stream-parser'
+import {
+  FILE_EDIT_LOOP_RECOVERY_MESSAGE,
+  FILE_EDIT_LOOP_STOP_MESSAGE,
+} from '../util/file-edit-loop'
+import {
+  FILE_EDIT_TOOLS_UNAVAILABLE_NOTE,
+  TODO_LOOP_RECOVERY_MESSAGE,
+  TODO_LOOP_STOP_MESSAGE,
+  WRITE_TODOS_UNCHANGED_MESSAGE,
+} from '../util/todo-loop'
+import {
+  FOLLOWUP_TODO_NUDGE_TAG,
+  MAX_FOLLOWUP_TODO_NUDGES,
+} from '../util/followup-todo-nudge'
+import { SUGGEST_PROMPTS_BEFORE_ANSWER_MESSAGE } from '../util/suggest-prompts-before-answer'
+import { TODO_PROGRESS_REMINDER_TAG } from '../util/todo-progress-reminder'
 import { createToolCallChunk, mockFileContext } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
@@ -158,6 +180,1123 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     clearMockedModules()
   })
 
+  it('offers one completion check after edits, then allows a repair and finishes', async () => {
+    mockTemplate.completionCheck = true
+    let calls = 0
+    const prompts: string[] = []
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      promptAiSdkStream: async function* ({ messages }) {
+        calls++
+        prompts.push(JSON.stringify(messages))
+        if (calls === 1 || calls === 3) {
+          yield createToolCallChunk('write_file', {
+            path: 'output.txt',
+            instructions: 'Write result',
+            content: 'verified',
+          })
+        } else {
+          yield { type: 'text' as const, text: 'Done' }
+        }
+        return promptSuccess('completion-test')
+      },
+    })
+    expect(calls).toBe(4)
+    expect(prompts[1]).not.toContain('Final completion check:')
+    expect(prompts[2]).toContain('Final completion check:')
+    expect(prompts[3].split('Final completion check:')).toHaveLength(2)
+  })
+
+  it('does not add a completion check to a plain answer or exceed the step budget', async () => {
+    mockTemplate.completionCheck = true
+    await loopAgentSteps(loopAgentStepsBaseParams)
+    expect(llmCallCount).toBe(1)
+    mockAgentState.stepsRemaining = 1
+    let calls = 0
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      promptAiSdkStream: async function* () {
+        calls++
+        yield createToolCallChunk('write_file', {
+          path: 'output.txt',
+          instructions: 'Write result',
+          content: 'test',
+        })
+        return promptSuccess('limited-test')
+      },
+    })
+    expect(calls).toBe(1)
+  })
+
+  describe('completion check failure boundaries', () => {
+    const capacityError = () =>
+      new APICallError({
+        message: 'Model capacity unavailable',
+        url: 'https://example.com/responses',
+        requestBodyValues: {},
+        statusCode: 200,
+        responseBody: JSON.stringify({ error: { code: 'flex_unavailable' } }),
+        isRetryable: false,
+      })
+
+    beforeEach(() => {
+      mockTemplate.completionCheck = true
+      mockTemplate.outputMode = 'last_message'
+    })
+
+    for (const remainingMs of [-1, 39_000, 55_000, 119_999, 120_000]) {
+      it(`reserves time before starting a check (${remainingMs}ms left)`, async () => {
+        const now = 1_000_000
+        spyOn(Date, 'now').mockReturnValue(now)
+        const prompts: string[] = []
+        await loopAgentSteps({
+          ...loopAgentStepsBaseParams,
+          deadlineAt: now + remainingMs,
+          promptAiSdkStream: async function* ({ messages }) {
+            prompts.push(JSON.stringify(messages))
+            if (prompts.length === 1) {
+              yield createToolCallChunk('write_file', {
+                path: 'output.txt',
+                content: 'done',
+                instructions: 'Write result',
+              })
+            } else yield { type: 'text', text: 'Done' }
+            return promptSuccess('deadline')
+          },
+        })
+        expect(prompts).toHaveLength(remainingMs >= 120_000 ? 3 : 2)
+        expect(prompts.at(-1)!.includes('Final completion check:')).toBe(
+          remainingMs >= 120_000,
+        )
+      })
+    }
+
+    for (const failure of [
+      'capacity',
+      'network',
+      'server',
+      'text',
+      'tool',
+      'xml-tool',
+      'after-tool',
+      'abort',
+      'forbidden',
+      'spend-limit',
+      'no-answer',
+      'bug',
+    ] as const) {
+      it(`handles ${failure} during optional verification without hiding work or errors`, async () => {
+        let calls = 0
+        const controller = new AbortController()
+        const emitted: unknown[] = []
+        const writes: string[] = []
+        const result = await loopAgentSteps({
+          ...loopAgentStepsBaseParams,
+          signal: controller.signal,
+          onResponseChunk: (chunk) => emitted.push(chunk),
+          requestToolCall: async ({ toolName, input }) => {
+            if (toolName === 'write_file') writes.push(input.content)
+            return { output: [{ type: 'json', value: { message: 'written' } }] }
+          },
+          promptAiSdkStream: async function* () {
+            calls++
+            if (calls === 1) {
+              yield createToolCallChunk('write_file', {
+                path: 'output.txt',
+                content: 'original',
+                instructions: 'Write result',
+              })
+            } else if (calls === 2) {
+              if (failure === 'no-answer')
+                yield createToolCallChunk('end_turn', {})
+              else
+                yield {
+                  type: 'text',
+                  text: 'Completed result; initial tests passed.',
+                }
+            } else {
+              yield { type: 'reasoning', text: 'Checking the result.' }
+              if (failure === 'text')
+                yield { type: 'text', text: 'I found a failing check.' }
+              if (failure === 'xml-tool') {
+                yield {
+                  type: 'text',
+                  text:
+                    '<codebuff_tool_call>' +
+                    JSON.stringify({
+                      cb_tool_name: 'write_file',
+                      path: 'repair.txt',
+                      content: 'repair',
+                      instructions: 'Repair result',
+                    }) +
+                    '</codebuff_tool_call>',
+                }
+              }
+              if (
+                (failure === 'tool' || failure === 'after-tool') &&
+                calls === 3
+              ) {
+                yield createToolCallChunk('write_file', {
+                  path: 'repair.txt',
+                  content: 'repair',
+                  instructions: 'Repair result',
+                })
+                if (failure === 'after-tool') return promptSuccess('repair')
+              }
+              if (failure === 'abort') controller.abort()
+              if (failure === 'bug') throw new Error('Unexpected internal bug')
+              if (failure === 'network')
+                throw Object.assign(new Error('connection reset'), {
+                  code: 'ECONNRESET',
+                })
+              if (
+                failure === 'forbidden' ||
+                failure === 'server' ||
+                failure === 'spend-limit'
+              ) {
+                throw new APICallError({
+                  message: failure,
+                  url: 'https://example.com/responses',
+                  requestBodyValues: {},
+                  statusCode:
+                    failure === 'forbidden'
+                      ? 403
+                      : failure === 'spend-limit'
+                        ? 429
+                        : 503,
+                  responseBody:
+                    failure === 'spend-limit'
+                      ? JSON.stringify({
+                          error: 'turn_spend_limit',
+                          message: FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
+                        })
+                      : undefined,
+                })
+              }
+              throw capacityError()
+            }
+            return promptSuccess('check')
+          },
+        })
+        const recovered = ['capacity', 'network', 'server'].includes(failure)
+        expect(result.output.type).toBe(recovered ? 'lastMessage' : 'error')
+        expect(calls).toBe(failure === 'after-tool' ? 4 : 3)
+        if (recovered) {
+          expect(JSON.stringify(result.output)).toContain(
+            'Completed result; initial tests passed.',
+          )
+          expect(JSON.stringify(result.output)).toContain(
+            'no additional verification was completed',
+          )
+          expect(
+            JSON.stringify(result.agentState.messageHistory),
+          ).not.toContain('Final completion check:')
+          expect(JSON.stringify(emitted)).toContain(
+            'no additional verification was completed',
+          )
+          expect(result.agentState.stepsRemaining).toBe(7)
+        } else {
+          expect(JSON.stringify(result.output)).not.toContain(
+            'preceding result is preserved',
+          )
+        }
+        // Native calls wait for a complete stream; XML calls can execute
+        // before the provider fails. Neither may be treated as a clean check.
+        expect(writes).toEqual(
+          failure === 'xml-tool' || failure === 'after-tool'
+            ? ['original', 'repair']
+            : ['original'],
+        )
+      })
+    }
+
+    it('handles steering that arrives during a failed optional check', async () => {
+      let calls = 0
+      let delivered = false
+      const prompts: string[] = []
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        drainSteeringMessages: async () => {
+          if (calls === 3 && !delivered) {
+            delivered = true
+            return ['Also explain how to run it.']
+          }
+          return []
+        },
+        promptAiSdkStream: async function* ({ messages }) {
+          calls++
+          prompts.push(JSON.stringify(messages))
+          if (calls === 1)
+            yield createToolCallChunk('write_file', {
+              path: 'output.txt',
+              content: 'done',
+              instructions: 'Write result',
+            })
+          else if (calls === 3) throw capacityError()
+          else
+            yield {
+              type: 'text',
+              text: calls === 2 ? 'Done' : 'Run with bun output.txt',
+            }
+          return promptSuccess('steering')
+        },
+      })
+      expect(calls).toBe(4)
+      expect(prompts[3]).toContain('Also explain how to run it.')
+      expect(JSON.stringify(result.output)).toContain('Run with bun output.txt')
+    })
+  })
+
+  describe('completion verification with real artifacts', () => {
+    const good = 'module.exports = 42;\n'
+    const wrong = 'module.exports = 0;\n'
+    const check =
+      "require('node:assert/strict').equal(require('./answer.cjs'), 42); console.log('verified 42');\n"
+    const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
+    const verify = `${quote(process.execPath)} check.cjs`
+    const filtered = `${verify} 2>&1 | tail -n 5`
+    const checkedPipeline = `set -o pipefail; ${filtered}`
+    const write = (path: string, content: string) =>
+      createToolCallChunk('write_file', {
+        path,
+        content,
+        instructions: 'Update the verification fixture',
+      })
+    const run = (command: string) =>
+      createToolCallChunk('run_terminal_command', { command })
+
+    // Script only the model boundary. The loop, file handlers, patches and
+    // shell checks execute for real. These cases prove repair/verification can
+    // complete after a premature answer, not that a live model obeys the prompt.
+    const scenarios = [
+      {
+        name: 'repairs invalid syntax before verifying the final file',
+        before: () => [write('answer.cjs', 'module.exports = ;\n')],
+        repair: () => [run(verify), write('answer.cjs', good), run(verify)],
+        initialStatuses: [],
+        repairedStatuses: [1, 0],
+      },
+      {
+        name: 'reruns verification after an edit invalidates a previous pass',
+        before: () => [
+          write('answer.cjs', good),
+          run(verify),
+          write('answer.cjs', wrong),
+        ],
+        repair: () => [run(verify), write('answer.cjs', good), run(verify)],
+        initialStatuses: [0],
+        repairedStatuses: [0, 1, 0],
+      },
+      {
+        name: 'exposes a failure hidden by a successful output filter',
+        before: () => [write('answer.cjs', wrong), run(filtered)],
+        repair: () => [
+          run(checkedPipeline),
+          write('answer.cjs', good),
+          run(checkedPipeline),
+        ],
+        initialStatuses: [0],
+        repairedStatuses: [0, 1, 0],
+      },
+      {
+        name: 'restores a silenced assertion and fixes the implementation',
+        before: () => [
+          write('answer.cjs', wrong),
+          write('check.cjs', '// Assertion removed to make the check pass.\n'),
+          run(verify),
+        ],
+        repair: () => [
+          write('check.cjs', check),
+          run(verify),
+          write('answer.cjs', good),
+          run(verify),
+        ],
+        initialStatuses: [0],
+        repairedStatuses: [0, 1, 0],
+      },
+    ]
+
+    for (const scenario of scenarios) {
+      for (const enabled of [false, true]) {
+        it(`${scenario.name} (completion check ${enabled ? 'on' : 'off'})`, async () => {
+          const directory = mkdtempSync(
+            join(tmpdir(), 'completion-verification-'),
+          )
+          try {
+            writeFileSync(join(directory, 'check.cjs'), check)
+            writeFileSync(join(directory, 'oracle.cjs'), check)
+            mockTemplate.toolNames.push('run_terminal_command')
+            mockTemplate.completionCheck = enabled
+            const before = scenario.before()
+            const repair = scenario.repair()
+            const statuses: number[] = []
+            const output: string[] = []
+            let calls = 0
+            let completionPrompts = 0
+            const result = await loopAgentSteps({
+              ...loopAgentStepsBaseParams,
+              prompt:
+                'Make answer.cjs export 42 and verify it without weakening the assertion.',
+              requestOptionalFile: async ({ filePath }) => {
+                try {
+                  return readFileSync(join(directory, filePath), 'utf8')
+                } catch (error) {
+                  if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+                    return null
+                  throw error
+                }
+              },
+              requestToolCall: async ({ toolName, input }) => {
+                if (toolName === 'write_file') {
+                  if (!['answer.cjs', 'check.cjs'].includes(input.path))
+                    throw new Error('Unexpected file')
+                  const target = join(directory, input.path)
+                  const content =
+                    input.type === 'patch'
+                      ? applyPatch(readFileSync(target, 'utf8'), input.content)
+                      : input.content
+                  if (typeof content !== 'string')
+                    throw new Error('Patch failed')
+                  writeFileSync(target, content)
+                  return {
+                    output: [
+                      {
+                        type: 'json',
+                        value: { file: input.path, message: 'File written' },
+                      },
+                    ],
+                  }
+                }
+                if (
+                  toolName !== 'run_terminal_command' ||
+                  ![verify, filtered, checkedPipeline].includes(input.command)
+                ) {
+                  throw new Error('Unexpected command')
+                }
+                const child = spawnSync('bash', ['-c', input.command], {
+                  cwd: directory,
+                  encoding: 'utf8',
+                  timeout: 2000,
+                })
+                if (child.error) throw child.error
+                statuses.push(child.status ?? -1)
+                output.push(child.stdout + child.stderr)
+                return {
+                  output: [
+                    {
+                      type: 'json',
+                      value: {
+                        command: input.command,
+                        exitCode: child.status,
+                        stdout: child.stdout,
+                        stderr: child.stderr,
+                      },
+                    },
+                  ],
+                }
+              },
+              promptAiSdkStream: async function* ({ messages }) {
+                const index = calls++
+                if (index < before.length) yield before[index]!
+                else if (index === before.length)
+                  yield { type: 'text', text: 'Done; everything passes.' }
+                else {
+                  // Repairs are reachable only if the real loop resumes after
+                  // the premature answer and supplies the completion check.
+                  completionPrompts = (
+                    JSON.stringify(messages).match(
+                      /Final completion check:/g,
+                    ) ?? []
+                  ).length
+                  if (completionPrompts !== 1)
+                    throw new Error('Expected exactly one completion check')
+                  const next = repair[index - before.length - 1]
+                  if (next) yield next
+                  else
+                    yield {
+                      type: 'text',
+                      text: 'Verified the final file exports 42 with the original assertion.',
+                    }
+                }
+                return promptSuccess(`verification-${calls}`)
+              },
+            })
+            expect(result.output.type).not.toBe('error')
+            expect(calls).toBe(
+              before.length + 1 + (enabled ? repair.length + 1 : 0),
+            )
+            expect(completionPrompts).toBe(enabled ? 1 : 0)
+            expect(statuses).toEqual(
+              enabled ? scenario.repairedStatuses : scenario.initialStatuses,
+            )
+            // Independent oracle: even deleting check.cjs cannot manufacture a pass.
+            const oracle = spawnSync(process.execPath, ['oracle.cjs'], {
+              cwd: directory,
+              encoding: 'utf8',
+              timeout: 2000,
+            })
+            if (oracle.error) throw oracle.error
+            expect(oracle.status).toBe(enabled ? 0 : 1)
+            if (enabled) {
+              expect(readFileSync(join(directory, 'check.cjs'), 'utf8')).toBe(
+                check,
+              )
+              expect(output.at(-1)).toContain('verified 42')
+            }
+          } finally {
+            rmSync(directory, { recursive: true, force: true })
+          }
+        })
+      }
+    }
+  })
+
+  it('adds deadline reminders only when entering a new urgency threshold', async () => {
+    let now = 1000000
+    spyOn(Date, 'now').mockImplementation(() => now)
+    const prompts: string[] = []
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      deadlineAt: now + 600000,
+      promptAiSdkStream: async function* ({ messages }) {
+        prompts.push(JSON.stringify(messages))
+        if (prompts.length < 4) {
+          yield createToolCallChunk('read_files', { paths: ['file1.txt'] })
+          if (prompts.length === 2) now += 400000
+          if (prompts.length === 3) now += 150000
+        } else yield { type: 'text' as const, text: 'Done' }
+        return promptSuccess('deadline-test')
+      },
+    })
+    expect(prompts[0]).toContain('600 seconds remain')
+    expect(prompts[1].split('Time budget:')).toHaveLength(2)
+    expect(prompts[2]).toContain('200 seconds remain')
+    expect(prompts[3]).toContain('50 seconds remain')
+  })
+
+  it('stops a loop of identical rejected file edits after recovery attempts and can resume on a new prompt', async () => {
+    mockAgentState.stepsRemaining = 200
+    let calls = 0
+    let clientWrites = 0
+    const seenPrompts: string[] = []
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      // the file already holds exactly what the model keeps sending
+      requestOptionalFile: async () => 'unchanged',
+      requestToolCall: async () => {
+        clientWrites++
+        throw new Error('a rejected write never reaches the client')
+      },
+      promptAiSdkStream: async function* ({ messages }) {
+        calls++
+        seenPrompts.push(JSON.stringify(messages))
+        yield { type: 'text', text: 'Writing the file now.' }
+        yield createToolCallChunk('write_file', {
+          path: 'output.txt',
+          instructions: `Attempt ${calls}`,
+          content: 'unchanged',
+        })
+        return promptSuccess(`edit-${calls}`)
+      },
+    })
+
+    expect(calls).toBe(6)
+    expect(clientWrites).toBe(0)
+    expect(seenPrompts[2]).not.toContain(FILE_EDIT_LOOP_RECOVERY_MESSAGE)
+    expect(seenPrompts[3]).toContain(FILE_EDIT_LOOP_RECOVERY_MESSAGE)
+    expect(result.output).toMatchObject({
+      type: 'error',
+      message: FILE_EDIT_LOOP_STOP_MESSAGE,
+    })
+    expect(
+      result.agentState.messageHistory.filter(
+        (m) => m.role === 'tool' && m.toolName === 'write_file',
+      ),
+    ).toHaveLength(6)
+
+    let resumeCalls = 0
+    const resumed = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentState: result.agentState,
+      prompt: 'Try a different approach',
+      requestOptionalFile: async () => 'unchanged',
+      promptAiSdkStream: async function* () {
+        if (++resumeCalls === 1) {
+          yield createToolCallChunk('write_file', {
+            path: 'output.txt',
+            instructions: 'once more',
+            content: 'unchanged',
+          })
+        } else {
+          yield createToolCallChunk('end_turn', {})
+        }
+        return promptSuccess(`resumed-${resumeCalls}`)
+      },
+    })
+    expect(resumeCalls).toBe(2)
+    expect(resumed.output.type).not.toBe('error')
+  })
+
+  it('stops an unchanged to-do loop after recovery attempts and can resume on a new prompt', async () => {
+    mockTemplate.toolNames.push('write_todos')
+    mockAgentState.stepsRemaining = 200
+    let calls = 0
+    const seenPrompts: string[] = []
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      promptAiSdkStream: async function* ({ messages }) {
+        calls++
+        seenPrompts.push(JSON.stringify(messages))
+        yield { type: 'reasoning', text: 'I should stop repeating the list.' }
+        yield { type: 'text', text: 'Executing now.' }
+        yield createToolCallChunk('write_todos', {
+          todos: [{ task: 'x', completed: false }],
+        })
+        return promptSuccess(`todo-${calls}`)
+      },
+    })
+
+    expect(calls).toBe(6)
+    expect(seenPrompts[2]).not.toContain(TODO_LOOP_RECOVERY_MESSAGE)
+    expect(seenPrompts[3]).toContain(TODO_LOOP_RECOVERY_MESSAGE)
+    expect(result.output).toMatchObject({
+      type: 'error',
+      message: TODO_LOOP_STOP_MESSAGE,
+    })
+    // The real tool handler completed each call; the error is the model loop,
+    // not a lost result or a tool that never resolves.
+    expect(
+      result.agentState.messageHistory.filter(
+        (m) => m.role === 'tool' && m.toolName === 'write_todos',
+      ),
+    ).toHaveLength(6)
+
+    let resumeCalls = 0
+    const resumed = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentState: result.agentState,
+      prompt: 'Continue with a different approach',
+      promptAiSdkStream: async function* () {
+        if (++resumeCalls === 1) {
+          yield createToolCallChunk('write_todos', {
+            todos: [{ task: 'x', completed: false }],
+          })
+        } else {
+          yield createToolCallChunk('end_turn', {})
+        }
+        return promptSuccess(`resumed-${resumeCalls}`)
+      },
+    })
+    expect(resumeCalls).toBe(2)
+    expect(resumed.output.type).not.toBe('error')
+  })
+
+  it('allows the model to recover by using another tool, then update its list again', async () => {
+    mockTemplate.toolNames.push('write_todos')
+    let calls = 0
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      promptAiSdkStream: async function* ({ messages }) {
+        calls++
+        if (calls === 4) {
+          expect(JSON.stringify(messages)).toContain(TODO_LOOP_RECOVERY_MESSAGE)
+          yield createToolCallChunk('read_files', { paths: ['src/example.ts'] })
+        } else if (calls === 7) {
+          yield createToolCallChunk('end_turn', {})
+        } else {
+          yield createToolCallChunk('write_todos', {
+            todos: [{ task: 'x', completed: false }],
+          })
+        }
+        return promptSuccess(`recovery-${calls}`)
+      },
+    })
+    expect(calls).toBe(7)
+    expect(result.output.type).not.toBe('error')
+    expect(
+      JSON.stringify(result.agentState.messageHistory).split(
+        TODO_LOOP_RECOVERY_MESSAGE,
+      ),
+    ).toHaveLength(2)
+  })
+
+  it('does not interrupt changing to-do lists or completion updates', async () => {
+    mockTemplate.toolNames.push('write_todos')
+    let calls = 0
+    const result = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      promptAiSdkStream: async function* () {
+        calls++
+        if (calls === 9) {
+          yield createToolCallChunk('end_turn', {})
+        } else {
+          yield createToolCallChunk('write_todos', {
+            todos: [
+              {
+                task: calls <= 4 ? 'Read code' : 'Run tests',
+                completed: calls % 4 > 2 || calls % 4 === 0,
+              },
+            ],
+          })
+        }
+        return promptSuccess(`progress-${calls}`)
+      },
+    })
+    expect(calls).toBe(9)
+    expect(result.output.type).not.toBe('error')
+    expect(JSON.stringify(result.agentState.messageHistory)).not.toContain(
+      TODO_LOOP_RECOVERY_MESSAGE,
+    )
+  })
+
+  describe('followup cards with unfinished to-dos', () => {
+    const followups = () =>
+      createToolCallChunk('suggest_followups', {
+        followups: [
+          { prompt: 'Continue with the next step', label: 'Continue' },
+        ],
+      })
+    const list = (doneCount: number, total = 3) =>
+      createToolCallChunk('write_todos', {
+        todos: Array.from({ length: total }, (_, i) => ({
+          task: `Step ${i + 1}`,
+          completed: i < doneCount,
+        })),
+      })
+    const nudges = (state: AgentState) =>
+      state.messageHistory.filter((m) =>
+        m.tags?.includes(FOLLOWUP_TODO_NUDGE_TAG),
+      ).length
+
+    beforeEach(() => {
+      mockTemplate.toolNames.push('write_todos', 'suggest_followups')
+    })
+
+    it('continues a turn that stopped mid-list, then ends with cards once the list is done', async () => {
+      let calls = 0
+      const seenPrompts: string[] = []
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* ({ messages }) {
+          calls++
+          seenPrompts.push(JSON.stringify(messages))
+          if (calls === 1) {
+            yield list(1)
+          } else if (calls === 2) {
+            // The reported behaviour: step 1 of 3 done, then stop on cards.
+            yield { type: 'text', text: 'Step 1 is done.' }
+            yield followups()
+          } else if (calls === 3) {
+            yield list(3)
+          } else {
+            yield { type: 'text', text: 'All three steps are done.' }
+            yield followups()
+          }
+          return promptSuccess(`followups-${calls}`)
+        },
+      })
+
+      expect(calls).toBe(4)
+      expect(result.output.type).not.toBe('error')
+      expect(seenPrompts[1]).not.toContain('to-do list still has')
+      expect(seenPrompts[2]).toContain(
+        JSON.stringify(
+          'to-do list still has 2 unfinished items: "Step 2", "Step 3"',
+        ).slice(1, -1),
+      )
+      expect(nudges(result.agentState)).toBe(1)
+    })
+
+    it('ends on cards when every to-do is done', async () => {
+      let calls = 0
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* () {
+          yield ++calls === 1 ? list(3) : followups()
+          return promptSuccess(`done-${calls}`)
+        },
+      })
+      expect(calls).toBe(2)
+      expect(nudges(result.agentState)).toBe(0)
+    })
+
+    it('lets the model stop after one nudge when it makes no progress', async () => {
+      let calls = 0
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* () {
+          if (++calls === 1) {
+            yield list(1)
+          } else {
+            yield {
+              type: 'text',
+              text: 'I need you to install git before I can continue.',
+            }
+            yield followups()
+          }
+          return promptSuccess(`blocked-${calls}`)
+        },
+      })
+      expect(calls).toBe(3)
+      expect(nudges(result.agentState)).toBe(1)
+    })
+
+    it(`stops nudging after ${MAX_FOLLOWUP_TODO_NUDGES} times in one prompt`, async () => {
+      mockAgentState.stepsRemaining = 50
+      let calls = 0
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* () {
+          calls++
+          // Progress every cycle (one more item, one more done) but never the
+          // whole list.
+          yield calls % 2 === 1
+            ? list((calls + 1) / 2, (calls + 1) / 2 + 1)
+            : followups()
+          return promptSuccess(`cap-${calls}`)
+        },
+      })
+      expect(nudges(result.agentState)).toBe(MAX_FOLLOWUP_TODO_NUDGES)
+      expect(calls).toBe(2 * (MAX_FOLLOWUP_TODO_NUDGES + 1))
+    })
+
+    it('ignores a part-done list from an earlier prompt', async () => {
+      mockAgentState.messageHistory = [
+        userMessage({ content: 'Build it', tags: ['USER_PROMPT'] }),
+        assistantMessage({
+          type: 'tool-call',
+          toolCallId: 'old',
+          toolName: 'write_todos',
+          input: {
+            todos: [
+              { task: 'Step 1', completed: true },
+              { task: 'Step 2', completed: false },
+            ],
+          },
+        }),
+        {
+          role: 'tool',
+          toolCallId: 'old',
+          toolName: 'write_todos',
+          content: [],
+        },
+      ]
+      let calls = 0
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        prompt: 'What does this file do?',
+        promptAiSdkStream: async function* () {
+          calls++
+          yield { type: 'text', text: 'It parses the config.' }
+          yield followups()
+          return promptSuccess(`question-${calls}`)
+        },
+      })
+      expect(calls).toBe(1)
+      expect(nudges(result.agentState)).toBe(0)
+    })
+  })
+
+  it("keeps each turn's instructions in history, so the next request extends this one", async () => {
+    // A per-turn instructionsPrompt must not cost the prompt cache (base3's
+    // turn-ending note, docs/freebuff-base3-harness.md).
+    mockTemplate.stepPrompt = ''
+    const requests: unknown[][] = []
+    const promptAiSdkStream: Parameters<
+      typeof loopAgentSteps
+    >[0]['promptAiSdkStream'] = async function* ({ messages }) {
+      requests.push(JSON.parse(JSON.stringify(messages)))
+      yield { type: 'text', text: 'Done.' }
+      return promptSuccess(`turn-${requests.length}`)
+    }
+    const first = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      promptAiSdkStream,
+    })
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentState: first.agentState,
+      prompt: 'continue',
+      promptAiSdkStream,
+    })
+
+    expect(requests).toHaveLength(2)
+    expect(requests[1].slice(0, requests[0].length)).toEqual(requests[0])
+    expect(JSON.stringify(requests[1]).split('Test user prompt')).toHaveLength(3)
+  })
+
+  describe('suggest_prompts before the answer', () => {
+    const answer = `Here is the plan.\n\n${'1. A concrete step and why it is needed.\n'.repeat(10)}`
+    const note = JSON.stringify(SUGGEST_PROMPTS_BEFORE_ANSWER_MESSAGE).slice(
+      1,
+      -1,
+    )
+
+    /** Runs the loop on `steps` (step n's text, and whether it calls
+     *  suggest_prompts) and returns each request's messages. */
+    const run = async (steps: { text: string; cards: boolean }[]) => {
+      mockTemplate.toolNames.push('suggest_prompts')
+      const requests: string[] = []
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        fileContext: {
+          ...mockFileContext,
+          customToolDefinitions: {
+            suggest_prompts: {
+              inputSchema: {
+                type: 'object',
+                properties: { prompts: { type: 'array' } },
+                required: ['prompts'],
+              },
+              description: 'Suggest follow-up prompts',
+              endsAgentStep: false,
+            },
+          },
+        },
+        requestToolCall: async () => ({
+          output: [{ type: 'json', value: { ok: true } }],
+        }),
+        promptAiSdkStream: async function* ({ messages }) {
+          const step = steps[requests.length]!
+          requests.push(JSON.stringify(messages))
+          yield { type: 'text', text: step.text }
+          if (step.cards) {
+            yield createToolCallChunk('suggest_prompts', {
+              prompts: [{ prompt: 'Add tests' }],
+            })
+          }
+          return promptSuccess(`before-answer-${requests.length}`)
+        },
+      })
+      return { result, requests }
+    }
+
+    it('takes one more step with the note, then ends on the answer', async () => {
+      const { result, requests } = await run([
+        { text: "Planning-only, here's the proposal.", cards: true },
+        { text: answer, cards: false },
+      ])
+    expect(requests).toHaveLength(2)
+      expect(requests[0]).not.toContain(note)
+      expect(requests[1]).toContain(note)
+      expect(result.output.type).not.toBe('error')
+      expect(JSON.stringify(result.agentState.messageHistory.at(-1))).toContain(
+        'A concrete step and why it is needed.',
+      )
+    })
+
+    it('ends after one step when the cards follow a real answer', async () => {
+      const { result, requests } = await run([{ text: answer, cards: true }])
+      expect(requests).toHaveLength(1)
+      expect(JSON.stringify(result.agentState.messageHistory)).not.toContain(
+        note,
+      )
+    })
+  })
+
+  describe('to-do progress reminders', () => {
+    const list = (doneCount: number, total = 4) =>
+      createToolCallChunk('write_todos', {
+        todos: Array.from({ length: total }, (_, i) => ({
+          task: `Step ${i + 1}`,
+          completed: i < doneCount,
+        })),
+      })
+    const read = () => createToolCallChunk('read_files', { paths: ['src/example.ts'] })
+    // History carries every reminder given so far, so each prompt shows the running count.
+    const reminders = (prompt: string) =>
+      prompt.split('since you last updated it').length - 1
+
+    it('reminds a model that works through its list without ticking items off, once per list', async () => {
+      mockTemplate.toolNames.push('write_todos')
+      mockAgentState.stepsRemaining = 200
+      // 0/4 then five reads; ticks 1/4 then five reads; then ignores the second reminder
+      const script = [
+        list(0), read(), read(), read(), read(), read(),
+        list(1), read(), read(), read(), read(), read(),
+        read(), read(), read(), read(), read(), read(),
+      ]
+      const seen: string[] = []
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* ({ messages }) {
+          seen.push(JSON.stringify(messages))
+          yield script[seen.length - 1] ?? createToolCallChunk('end_turn', {})
+          return promptSuccess(`progress-${seen.length}`)
+        },
+      })
+      expect(result.output.type).not.toBe('error')
+      expect(seen).toHaveLength(script.length + 1)
+      // Not before the fifth untouched call; right after it, with the real count.
+      expect(reminders(seen[5]!)).toBe(0)
+      expect(reminders(seen[6]!)).toBe(1)
+      expect(seen[6]).toContain('0 of 4 done')
+      // Ticking an item re-arms it, five calls later.
+      expect(reminders(seen[11]!)).toBe(1)
+      expect(reminders(seen[12]!)).toBe(2)
+      expect(seen[12]).toContain('1 of 4 done')
+      // Ignored: never repeated for the same list.
+      expect(reminders(seen.at(-1)!)).toBe(2)
+      expect(
+        result.agentState.messageHistory.filter((m) =>
+          m.tags?.includes(TODO_PROGRESS_REMINDER_TAG),
+        ),
+      ).toHaveLength(2)
+    })
+  })
+
+  describe('unchanged write_todos results', () => {
+    const todoResults = (state: AgentState): string[] =>
+      state.messageHistory.flatMap((m) =>
+        m.role === 'tool' && m.toolName === 'write_todos'
+          ? m.content.map((part) =>
+              part.type === 'json'
+                ? String((part.value as { message: unknown }).message)
+                : '',
+            )
+          : [],
+      )
+
+    it('answers a repeated list as a no-op from the first repeat', async () => {
+      mockTemplate.toolNames.push('write_todos')
+      let calls = 0
+      const seenPrompts: string[] = []
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* ({ messages }) {
+          calls++
+          seenPrompts.push(JSON.stringify(messages))
+          if (calls === 3) {
+            yield createToolCallChunk('end_turn', {})
+          } else {
+            yield createToolCallChunk('write_todos', {
+              todos: [{ task: 'Write the script', completed: false }],
+            })
+          }
+          return promptSuccess(`unchanged-${calls}`)
+        },
+      })
+
+      expect(calls).toBe(3)
+      expect(result.output.type).not.toBe('error')
+      expect(todoResults(result.agentState)).toEqual([
+        'Todos written',
+        WRITE_TODOS_UNCHANGED_MESSAGE,
+      ])
+      // The model sees it on the very next step, well before the streak
+      // detector's recovery guidance at the third identical call.
+      expect(seenPrompts[2]).toContain(WRITE_TODOS_UNCHANGED_MESSAGE)
+      expect(seenPrompts[2]).not.toContain(TODO_LOOP_RECOVERY_MESSAGE)
+    })
+
+    it('never flags a list whose status or tasks changed', async () => {
+      mockTemplate.toolNames.push('write_todos')
+      const lists = [
+        [
+          { task: 'Read code', completed: false },
+          { task: 'Write fix', completed: false },
+        ],
+        [
+          { task: 'Read code', completed: true },
+          { task: 'Write fix', completed: false },
+        ],
+        [
+          { task: 'Read code', completed: true },
+          { task: 'Write fix', completed: true },
+        ],
+        [
+          { task: 'Read code', completed: true },
+          { task: 'Write fix', completed: true },
+          { task: 'Run tests', completed: false },
+        ],
+      ]
+      let calls = 0
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* () {
+          const todos = lists[calls++]
+          yield todos
+            ? createToolCallChunk('write_todos', { todos })
+            : createToolCallChunk('end_turn', {})
+          return promptSuccess(`progress-${calls}`)
+        },
+      })
+
+      expect(result.output.type).not.toBe('error')
+      expect(todoResults(result.agentState)).toEqual(
+        lists.map(() => 'Todos written'),
+      )
+    })
+
+    it('flags a list re-sent unchanged at the start of the next turn', async () => {
+      mockTemplate.toolNames.push('write_todos')
+      const todos = [{ task: 'Write the script', completed: false }]
+      const first = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* () {
+          yield createToolCallChunk('write_todos', { todos })
+          yield createToolCallChunk('end_turn', {})
+          return promptSuccess('turn-1')
+        },
+      })
+      const second = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentState: first.agentState,
+        prompt: 'continue',
+        promptAiSdkStream: async function* () {
+          yield createToolCallChunk('write_todos', { todos })
+          yield createToolCallChunk('end_turn', {})
+          return promptSuccess('turn-2')
+        },
+      })
+
+      expect(todoResults(second.agentState)).toEqual([
+        'Todos written',
+        WRITE_TODOS_UNCHANGED_MESSAGE,
+      ])
+    })
+
+    it('tells a model without file-editing tools not to substitute write_todos', async () => {
+      // Desktop plan mode withholds the write tools. A model that meant to
+      // call write_file kept emitting write_todos instead.
+      mockTemplate.toolNames = ['read_files', 'write_todos', 'end_turn']
+      mockAgentState.stepsRemaining = 200
+      let calls = 0
+      const seenPrompts: string[] = []
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* ({ messages }) {
+          calls++
+          seenPrompts.push(JSON.stringify(messages))
+          yield {
+            type: 'text',
+            text: 'Writing the script with write_file now:',
+          }
+          yield createToolCallChunk('write_todos', {
+            todos: [{ task: 'Write the QC script', completed: false }],
+          })
+          return promptSuccess(`plan-${calls}`)
+        },
+      })
+
+      expect(calls).toBe(6)
+      expect(result.output).toMatchObject({
+        type: 'error',
+        message: TODO_LOOP_STOP_MESSAGE,
+      })
+      expect(todoResults(result.agentState).slice(1)).toEqual(
+        Array(5).fill(
+          `${WRITE_TODOS_UNCHANGED_MESSAGE} ${FILE_EDIT_TOOLS_UNAVAILABLE_NOTE}`,
+        ),
+      )
+      expect(seenPrompts[3]).toContain(
+        JSON.stringify(
+          `${TODO_LOOP_RECOVERY_MESSAGE} ${FILE_EDIT_TOOLS_UNAVAILABLE_NOTE}`,
+        ).slice(1, -1),
+      )
+    })
+  })
+
   it('retains completed steps after a spending cap and resumes under a new run id', async () => {
     mockTemplate.handleSteps = function* () {
       yield 'STEP'
@@ -226,6 +1365,32 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       message: 'Run cancelled by user',
     })
     expect(llmCallCount).toBe(0)
+  })
+
+  it('skips run tracking for the context-pruner by name, not by substring', async () => {
+    mockTemplate.handleSteps = function* () {
+      yield 'STEP'
+    }
+    const runIdFor = async (id: string) => {
+      const template = { ...mockTemplate, id }
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentType: id,
+        agentTemplate: template,
+        localAgentTemplates: { [id]: template },
+        agentState: { ...mockAgentState, messageHistory: [] },
+        startAgentRun: async () => 'ledger-run',
+      })
+      return result.agentState.runId
+    }
+
+    expect(await runIdFor('context-pruner')).toStartWith('untracked-')
+    expect(await runIdFor('codebuff/context-pruner@1.0.0')).toStartWith(
+      'untracked-',
+    )
+    // The web API refuses untracked ids, so a model-calling agent whose id
+    // merely contains the name must keep its ledger run.
+    expect(await runIdFor('context-pruner-test-agent')).toBe('ledger-run')
   })
 
   it('should verify correct STEP behavior - LLM called once after STEP', async () => {
@@ -423,6 +1588,39 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
     expect(llmCallCount).toBe(1) // LLM should be called once
     expect(result.agentState).toBeDefined()
+  })
+
+  it('offers spawnable agents as tools only to an agent with spawn_agents', async () => {
+    const toolsOffered: string[][] = []
+    loopAgentStepsBaseParams.promptAiSdkStream = async function* ({ tools }) {
+      toolsOffered.push(Object.keys(tools ?? {}))
+      yield createToolCallChunk('end_turn', {})
+      return promptSuccess('mock-message-id')
+    }
+    const helper = { ...mockTemplate, id: 'helper', spawnerPrompt: 'Helps' }
+    const toolNameSets: AgentTemplate['toolNames'][] = [
+      ['end_turn'],
+      ['spawn_agents', 'end_turn'],
+    ]
+
+    for (const toolNames of toolNameSets) {
+      await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        localAgentTemplates: {
+          'test-agent': {
+            ...mockTemplate,
+            toolNames,
+            spawnableAgents: ['helper'],
+          },
+          helper,
+        },
+      })
+    }
+
+    expect(toolsOffered).toEqual([
+      ['end_turn'],
+      ['spawn_agents', 'end_turn', 'helper'],
+    ])
   })
 
   it('should pass the full message history to the traceWriter when provided', async () => {
@@ -1138,6 +2336,56 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       }
     })
 
+    it('a session gate refusing a later step keeps every step that completed', async () => {
+      // Hosts resume a free-mode turn that lost its session from this state
+      // (Desktop checkpoints it; the CLI adopts it). If the refusal dropped the
+      // steps before it, "continue" after a session ended would start over.
+      const llmOnlyTemplate = { ...mockTemplate, handleSteps: undefined }
+      let calls = 0
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+        calls++
+        if (calls === 1) {
+          yield { type: 'text' as const, text: 'Reading the schema first.\n\n' }
+          yield createToolCallChunk('read_files', { paths: ['schema.sql'] })
+          return promptSuccess('step-1')
+        }
+        throw new APICallError({
+          statusCode: 428,
+          message: 'Precondition Required',
+          url: 'https://api.codebuff.com/v1/chat/completions',
+          requestBodyValues: {},
+          responseBody: JSON.stringify({
+            error: 'waiting_room_required',
+            message: 'Your free session has ended.',
+          }),
+          isRetryable: false,
+        })
+      }
+
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentType: 'test-agent',
+        localAgentTemplates: { 'test-agent': llmOnlyTemplate },
+      })
+
+      expect(calls).toBe(2)
+      expect(result.output.type).toBe('error')
+      if (result.output.type === 'error') {
+        expect(result.output.error).toBe('waiting_room_required')
+        expect(result.output.statusCode).toBe(428)
+      }
+      const history = JSON.stringify(result.agentState.messageHistory)
+      expect(history).toContain('Reading the schema first.')
+      expect(history).toContain('schema.sql')
+      expect(
+        result.agentState.messageHistory.some((m) => m.role === 'tool'),
+      ).toBe(true)
+      // the host's snapshots read the SAME object, so they see the step too
+      expect(mockAgentState.messageHistory).toBe(
+        result.agentState.messageHistory,
+      )
+    })
+
     it('should unwrap retry errors to propagate underlying 409 gate errors', async () => {
       const llmOnlyTemplate = {
         ...mockTemplate,
@@ -1220,6 +2468,41 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       }
     })
 
+    it("reports a caller's deadline as a cancellation, not as the 5-minute idle timeout", async () => {
+      const llmOnlyTemplate = {
+        ...mockTemplate,
+        handleSteps: undefined,
+      }
+
+      const localAgentTemplates = {
+        'test-agent': llmOnlyTemplate,
+      }
+
+      // `AbortSignal.timeout` fires with a DOMException named TimeoutError —
+      // the same name Bun's fetch idle timeout uses — and the stream rejects
+      // with that reason.
+      const controller = new AbortController()
+      loopAgentStepsBaseParams.promptAiSdkStream = async function* () {
+        const timeoutError = new Error('The operation timed out.')
+        timeoutError.name = 'TimeoutError'
+        controller.abort(timeoutError)
+        throw timeoutError
+      }
+
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentType: 'test-agent',
+        localAgentTemplates,
+        signal: controller.signal,
+      })
+
+      expect(result.output.type).toBe('error')
+      if (result.output.type === 'error') {
+        expect(result.output.message).toBe('Run cancelled by user')
+        expect(result.output.message).not.toContain('5 minutes')
+      }
+    })
+
     it('should explain dropped socket connections instead of showing the raw runtime message', async () => {
       const llmOnlyTemplate = {
         ...mockTemplate,
@@ -1258,6 +2541,42 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   describe('steering (drainSteeringMessages)', () => {
+    it('awaits image-bearing steering and sends each message with its own images on the next model call', async () => {
+      const images = [
+        { type: 'image' as const, image: 'Zmlyc3Q=', mediaType: 'image/png' },
+        { type: 'image' as const, image: 'c2Vjb25k', mediaType: 'image/jpeg' },
+      ]
+      const seen: unknown[][] = []
+      let drained = false
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        drainSteeringMessages: async () => {
+          await Promise.resolve()
+          if (drained) return []
+          drained = true
+          return ['Text correction', { prompt: 'Compare both images', content: images }, { prompt: '', content: [images[1]] }]
+        },
+        promptAiSdkStream: async function* ({ messages }) {
+          seen.push(structuredClone(messages))
+          yield createToolCallChunk('end_turn', {})
+          return promptSuccess(`step-${seen.length}`)
+        },
+      })
+      const expected = [
+        [{ type: 'text', text: frameSteeringText('Text correction') }],
+        [{ type: 'text', text: frameSteeringText('Compare both images') }, ...images],
+        [{ type: 'text', text: frameSteeringText('') }, images[1]],
+      ]
+      expect(seen).toHaveLength(2)
+      for (const content of expected) {
+        expect(seen[0]).not.toContainEqual(expect.objectContaining({ role: 'user', content }))
+        expect(seen[1]).toContainEqual(expect.objectContaining({ role: 'user', content }))
+        expect(result.agentState.messageHistory).toContainEqual(expect.objectContaining({
+          role: 'user', content, tags: ['USER_PROMPT'], keepDuringTruncation: true,
+        }))
+      }
+    })
+
     it('appends a steering message at the step boundary and continues the turn', async () => {
       // The mock LLM ends the turn after one step. A steering message that arrives
       // during that step should be appended to history and keep the turn going, so
@@ -1285,6 +2604,46 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       )
       expect(steered).toBeDefined()
       expect((steered as { tags?: string[] }).tags).toContain('USER_PROMPT')
+    })
+
+    it('frames a steered message exactly once, as sent mid-turn, so the earlier request is kept', async () => {
+      const steerText = 'also add a README'
+      const seen: unknown[][] = []
+      let drained = false
+      await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        prompt: 'build the login page',
+        drainSteeringMessages: () => {
+          if (drained) return []
+          drained = true
+          // The second is already framed (a host re-delivering it): not re-wrapped.
+          return [steerText, frameSteeringText('and a footer')]
+        },
+        promptAiSdkStream: async function* ({ messages }) {
+          seen.push(structuredClone(messages))
+          yield createToolCallChunk('end_turn', {})
+          return promptSuccess(`step-${seen.length}`)
+        },
+      })
+
+      expect(seen).toHaveLength(2)
+      const request = JSON.stringify(seen[1])
+      // The original request is still there, unframed.
+      expect(request).toContain('build the login page')
+      expect(request).not.toContain(
+        JSON.stringify(frameSteeringText('build the login page')).slice(1, -1),
+      )
+      for (const text of [steerText, 'and a footer']) {
+        expect(seen[1]).toContainEqual(
+          expect.objectContaining({
+            role: 'user',
+            content: [{ type: 'text', text: frameSteeringText(text) }],
+          }),
+        )
+      }
+      // One note per steered message, never a nested frame.
+      expect(request.split(STEERING_NOTE).length - 1).toBe(2)
+      expect(request.split('<user_message_sent_while_working>').length - 1).toBe(2)
     })
 
     it('does not extend the turn when no steering messages arrive', async () => {
@@ -1410,6 +2769,101 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     })
   })
 
+  describe('provider usage as context size', () => {
+    it('uses receipts without a host callback, replaces them each step, and persists across turns', async () => {
+      mockTemplate.stepPrompt = ''
+      mockTemplate.instructionsPrompt = ''
+      mockTemplate.toolNames.push('write_todos')
+      let calls = 0
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        promptAiSdkStream: async function* ({ onUsageReceived }) {
+          calls++
+          if (calls === 1) {
+            yield createToolCallChunk('write_todos', {
+              todos: [{ task: 'inspect', completed: false }],
+            })
+          } else {
+            expect(mockAgentState.contextTokenCount).toBeGreaterThan(30_000)
+            yield { type: 'text', text: 'done' }
+          }
+          onUsageReceived?.({
+            inputTokens: calls === 1 ? 30_000 : 35_000,
+            outputTokens: 100,
+            totalTokens: 999_999,
+            cachedInputTokens: 20_000,
+          })
+          return promptSuccess(`receipt-${calls}`)
+        },
+      })
+      expect(calls).toBe(2)
+      expect(result.agentState.contextTokenCount).toBe(35_100)
+
+      const restored = JSON.parse(
+        JSON.stringify(result.agentState),
+      ) as AgentState
+      await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        agentState: restored,
+        prompt: 'One more thing',
+        promptAiSdkStream: async function* () {
+          expect(restored.contextTokenCount).toBeGreaterThan(35_100)
+          expect(restored.contextTokenCount).toBeLessThan(35_200)
+          yield { type: 'text', text: 'ok' }
+          return promptSuccess('missing-usage')
+        },
+      })
+      expect(restored.contextTokenCount).toBeGreaterThan(35_100)
+    })
+
+    it('compacts on reported usage even when local history is small, then resets the anchor', async () => {
+      mockTemplate.stepPrompt = ''
+      mockTemplate.instructionsPrompt = ''
+      mockTemplate.compactContext = {
+        maxContextLength: 16_384,
+        cacheExpiryMs: null,
+      }
+      mockTemplate.toolNames.push('write_todos')
+      mockAgentState.messageHistory.push(
+        assistantMessage('prior finding '.repeat(1000)),
+      )
+      let calls = 0
+      let compactions = 0
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        onCompaction: () => compactions++,
+        promptAiSdkStream: async function* ({ onUsageReceived, messages }) {
+          if (++calls === 1) {
+            yield createToolCallChunk('write_todos', {
+              todos: [{ task: 'inspect', completed: false }],
+            })
+            onUsageReceived?.({
+              inputTokens: 15_000,
+              outputTokens: 500,
+              totalTokens: 15_500,
+              cachedInputTokens: 0,
+            })
+          } else {
+            expect(JSON.stringify(messages)).toContain('<conversation_summary>')
+            expect(mockAgentState.contextTokenBaseline).toBeUndefined()
+            yield { type: 'text', text: 'done' }
+            onUsageReceived?.({
+              inputTokens: 1000,
+              outputTokens: 10,
+              totalTokens: 1010,
+              cachedInputTokens: 0,
+            })
+          }
+          return promptSuccess('step')
+        },
+      })
+      expect(result.output.type).not.toBe('error')
+      expect(compactions).toBe(1)
+      expect(calls).toBe(2)
+      expect(result.agentState.contextTokenCount).toBe(1010)
+    })
+  })
+
   describe('the end-of-turn context recount', () => {
     // The cancel exit is where the recount earns its keep, and it is also the
     // only exit where the two behaviours are far apart enough to assert
@@ -1446,22 +2900,13 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       expect(asRoot).toBeGreaterThan(10_000)
     })
 
-    it('does not pay to recount a subagent nobody reads', async () => {
-      // Only the root's count leaves the runtime — the host reads
-      // sessionState.mainAgentState. Recounting here tokenizes a spawned
-      // agent's whole history (file-picker, thinker, context-pruner, …) for a
-      // value that is discarded with the agent, which on a one-step subagent
-      // roughly doubles its tokenizer cost.
-      //
-      // Same predicate as the compaction callback: parentId.
+    it('keeps partial subagent output in its cheap fallback estimate too', async () => {
       const asRoot = await contextTokensAfterCancelledTurn(withHistory())
       const asSubagent = await contextTokensAfterCancelledTurn(
         withHistory({ parentId: 'parent-agent-id' }),
       )
-
-      // Not merely different: the subagent's number is the estimate taken
-      // before the model call, which predates everything the model produced.
-      expect(asRoot).toBeGreaterThan(asSubagent * 2)
+      expect(asRoot).toBeGreaterThan(10_000)
+      expect(asSubagent).toBeGreaterThan(10_000)
     })
   })
 })

@@ -29,7 +29,17 @@ export const DEEPSEEK_PEAK_HOUR_RANGES_UTC: ReadonlyArray<
 
 export type DeepSeekPricingWindow = 'peak' | 'off-peak'
 
-function isBeijingWeekend(at: Date): boolean {
+/**
+ * Saturday or Sunday in Beijing (UTC+8): Fri 16:00Z to Sun 16:00Z.
+ *
+ * Assumes `at` is on or after 2026-08-22T16:00Z, when DeepSeek's weekend rule
+ * took effect; earlier instants are not gated.
+ *
+ * Exported for its boundary tests: every peak and expensive hour sits in
+ * 00:00-10:00Z, where the UTC and Beijing days agree, so the +8h shift is not
+ * observable through the functions below until those hours move.
+ */
+export function isBeijingWeekend(at: Date): boolean {
   const beijingDay = new Date(at.getTime() + 8 * 60 * 60 * 1000).getUTCDay()
   return beijingDay === 0 || beijingDay === 6
 }
@@ -119,23 +129,50 @@ export function deepSeekExpensiveWindowEndsAt(at: Date): Date {
 export const FALLBACK_WINDOW_TIME_ZONE = 'UTC'
 
 /**
+ * Whether this runtime's `Intl` will format in `timeZone` at all.
+ *
+ * A runtime does not always accept the name it reports itself. When ICU cannot
+ * read the device's zone it answers `Etc/Unknown`, and `Intl.DateTimeFormat`
+ * then throws a RangeError when handed that same name back — V8 says "Invalid
+ * time zone specified: Etc/Unknown", JavaScriptCore "invalid time zone:
+ * Etc/Unknown". The Web model picker builds its row labels during render, so
+ * that throw took the whole Cloud page down to its error boundary: 25 crashes
+ * in the week to 2026-09-26, from a PlayStation 5 browser and a Windows Chrome.
+ */
+export function isSupportedTimeZone(timeZone: string): boolean {
+  try {
+    // Constructing is the test: an unsupported zone throws RangeError here.
+    new Intl.DateTimeFormat('en-US', { timeZone })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * The zone these formatters actually render in.
  *
  * An explicit `timeZone` wins. Otherwise the RUNTIME's zone, which is the
  * reader's own in a browser or a desktop process — the case every picker label
- * depends on — and only falls through to UTC where the runtime has no zone to
- * report at all.
+ * depends on. Either falls through to UTC when this runtime cannot format in
+ * it: no zone at all, or a name it reports but rejects (see
+ * isSupportedTimeZone). A device that cannot read its own zone formats
+ * `timeZone: undefined` in ICU's unknown zone, which sits at UTC+0, so a "UTC"
+ * label still matches the digits beside it.
+ *
+ * Display only. Any other use of a client's zone is the server's business,
+ * not this formatter's.
  */
 export function resolveWindowTimeZone(timeZone?: string): string {
-  if (timeZone) return timeZone
-  try {
-    return (
-      Intl.DateTimeFormat().resolvedOptions().timeZone ??
-      FALLBACK_WINDOW_TIME_ZONE
-    )
-  } catch {
-    return FALLBACK_WINDOW_TIME_ZONE
+  let zone = timeZone
+  if (!zone) {
+    try {
+      zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    } catch {
+      return FALLBACK_WINDOW_TIME_ZONE
+    }
   }
+  return zone && isSupportedTimeZone(zone) ? zone : FALLBACK_WINDOW_TIME_ZONE
 }
 
 /**

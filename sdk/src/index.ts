@@ -36,14 +36,38 @@ export * from './client'
 export * from './custom-tool'
 export * from './native/ripgrep'
 export * from './run-state'
+export {
+  compactRunState,
+  truncateRunStateAtUserTurn,
+} from './compact-run-state'
+export type { CompactedRunState } from './compact-run-state'
 export { ToolHelpers } from './tools'
 export * from './constants'
+export { isAllowedRuntimeAppUrl } from './env'
 
 export { getUserInfoFromApiKey } from './impl/database'
+export {
+  ALWAYS_TRUSTED_AGENT_PUBLISHERS,
+  TRUSTED_AGENT_PUBLISHERS_ENV_VAR,
+  UntrustedAgentPublisherError,
+  isUntrustedAgentPublisherError,
+} from './agent-publisher-trust'
 export * from './credentials'
 export * from './byok'
-export { loadLocalAgents } from './agents/load-agents'
-export { loadMCPConfig, loadMCPConfigSync } from './agents/load-mcp-config'
+export * from './chatgpt'
+export * from './project-understanding'
+export { resolveProjectKey } from './project-profile'
+export {
+  getDefaultAgentDirs,
+  listLocalAgentFiles,
+  loadLocalAgents,
+} from './agents/load-agents'
+export {
+  MCP_CONFIG_FILE_NAME,
+  loadMCPConfig,
+  loadMCPConfigSync,
+  mcpFileSchema,
+} from './agents/load-mcp-config'
 export {
   loadSkills,
   loadSkillsSync,
@@ -64,8 +88,13 @@ export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
 
 // Free-mode capacity deferral notifications (server-side tier shedding)
-export { setFreeModeCapacityDeferralListener } from './impl/model-provider'
-export type { FreeModeCapacityDeferral } from './impl/model-provider'
+export {
+  setFreeModeCapacityDeferralListener,
+} from './impl/model-provider'
+export type {
+  CodebuffRequestHeadersProvider,
+  FreeModeCapacityDeferral,
+} from './impl/model-provider'
 
 // Error utilities
 export {
@@ -111,6 +140,7 @@ export type { FileTokenData, TokenCallerMap } from '@codebuff/code-map'
 
 export {
   getActiveTerminalCommandProcesses,
+  releaseBackgroundTerminalCommands,
   runTerminalCommand,
 } from './tools/run-terminal-command'
 export type {
@@ -135,7 +165,11 @@ export {
   sponsoredMacProfile,
 } from './tools/sponsored-sandbox'
 export type { SponsoredSandboxOptions } from './tools/sponsored-sandbox'
-export { createSponsoredRootedFileSystem } from './tools/sponsored-rooted-filesystem'
+export {
+  createSponsoredRootedFileSystem,
+  probeSponsoredFileLayer,
+} from './tools/sponsored-rooted-filesystem'
+export type { SponsoredFileLayerSupport } from './tools/sponsored-rooted-filesystem'
 export {
   promptAiSdk,
   promptAiSdkStream,

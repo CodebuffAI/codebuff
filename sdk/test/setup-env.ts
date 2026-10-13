@@ -5,7 +5,7 @@
 const testDefaults: Record<string, string> = {
   NEXT_PUBLIC_CB_ENVIRONMENT: 'test',
   NEXT_PUBLIC_CODEBUFF_APP_URL: 'http://localhost:3000',
-  NEXT_PUBLIC_SUPPORT_EMAIL: 'support@codebuff.com',
+  NEXT_PUBLIC_SUPPORT_EMAIL: 'support@freebuff.com',
   NEXT_PUBLIC_POSTHOG_API_KEY: 'test-posthog-key',
   NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://us.i.posthog.com',
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder',
@@ -20,9 +20,8 @@ const serverDefaults: Record<string, string> = {
   OPENAI_API_KEY: 'test',
   SERPER_API_KEY: 'test',
   // Direct-provider handlers throw before fetch when their key is unset, so
-  // give the mocked-fetch tests a dummy — without these, whether the CrofAI/
+  // give the mocked-fetch tests a dummy — without these, whether the RunInfra/
   // MiMo routing tests pass depends on the developer's shell env.
-  CROF_AI_API_KEY: 'test',
   RUNINFRA_GATEWAY_KEY: 'test',
   MIMO_API_KEY: 'test',
   PORT: '4242',
@@ -43,6 +42,22 @@ const serverDefaults: Record<string, string> = {
 // CI unit jobs are secretless, but local shells can still carry rollout state.
 // Tests that want the other setting set process.env themselves.
 process.env.FREEBUFF_GOD_QUOTA_EXEMPT = 'on'
+
+// Integration CI imports production secrets. Fixture campaigns must never
+// notify the real ads channel; notification tests inject their own transport.
+delete process.env.FREEBUFF_ADS_SLACK_WEBHOOK_URL
+// Submission fixtures must never update real Loops contacts or enroll leads.
+process.env.FREEBUFF_ADS_LEAD_NURTURE = 'off'
+// Fixture users, prompts and signups must never reach Vectoral's real feed
+// with the production key. Vectoral's own tests inject `apiKey` and `fetch`.
+delete process.env.VECTORAL_API_KEY
+// Fixture accounts must never send real SMS (and spend real money) through
+// Prelude with the production key. The phone gate's tests inject `fetch`.
+delete process.env.PRELUDE_API_KEY
+// The CPM leg defaults ON in production (COD-677: un-pausing an invoiced CPM
+// campaign is the only switch). Route tests written before that assume it
+// absent; the ones that exercise it set the knob themselves.
+process.env.FREEBUFF_FIRST_PARTY_CPM_LEG ??= 'off'
 
 for (const [key, value] of Object.entries(testDefaults)) {
   if (!process.env[key]) {

@@ -1,15 +1,47 @@
-import type { FreebuffWalletSpendLimit } from '@codebuff/common/types/freebuff-session'
+import { freebucksTimeZoneHeaders } from '@codebuff/common/util/freebucks-timezone'
+import {
+  sanitizeTerminalStrings,
+  sanitizeTerminalText,
+} from '@codebuff/common/util/terminal-safe-text'
 import { env } from '@codebuff/common/env'
 import {
+  FREEBUFF_CLIENT_VERSION_HEADER,
+  FREEBUFF_DESKTOP_ATTEMPT_HEADER,
+  FREEBUFF_PURCHASE_CONTINUITY_HEADER,
+} from '@codebuff/common/constants/freebuff-desktop-sessions'
+import { clientEnvironmentHeaders } from './client-environment'
+import { getCliEnv } from './env'
+import { timedApiCall } from '../ads/ad-signals'
+import { freebuffCliAttemptId } from './freebuff-session-identity'
+import {
   FREEBUFF_COMPACT_SESSION_HEADER,
+  FREEBUFF_HEARTBEAT_HEADER,
+  FREEBUFF_INCLUDE_UNUSED_RATE_LIMITS_HEADER,
   FREEBUFF_INSTANCE_HEADER,
   FREEBUFF_MODEL_HEADER,
+  FREEBUFF_MULTI_SESSION_HEADER,
+  FREEBUFF_TAKEOVER_INSTANCE_HEADER,
   FREEBUFF_WALLET_SPEND_LIMIT_HEADER,
   FREEBUFF_SESSION_ADMISSION_PATH,
   FREEBUFF_SESSION_UNSUPPORTED_MESSAGE,
 } from '@codebuff/common/constants/freebuff-models'
 
+import {
+  FREEBUFF_CATALOG_FETCH_HEADER,
+  FREEBUFF_CATALOG_PROTOCOL_HEADER,
+  FREEBUFF_CATALOG_PROTOCOL_VERSION,
+  FREEBUFF_CATALOG_STALE_ERROR,
+} from '@codebuff/common/types/freebuff-model-catalog'
+
+import { useFreebuffCatalogStore } from '../state/freebuff-catalog-store'
+import {
+  freebuffDeviceHeaders,
+  noteFreebuffDeviceKeyError,
+} from './freebuff-device-key'
+import { freebuffCatalogHandleFor } from './freebuff-model-directory'
+
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
+import type { FreebuffModelCatalog } from '@codebuff/common/types/freebuff-model-catalog'
 import type { FreebuffSessionServerResponse } from '@codebuff/common/types/freebuff-session'
 
 const SESSION_FETCH_TIMEOUT_MS = 20_000
@@ -93,43 +125,197 @@ export function sessionFetchSignal(
   return signal ? AbortSignal.any([signal, timeout]) : timeout
 }
 
-function sessionEndpoint(method: FreebuffSessionMethod): string {
-  const base = (
-    env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
-  ).replace(/\/$/, '')
-  return `${base}${method === 'POST' ? FREEBUFF_SESSION_ADMISSION_PATH : '/api/v1/freebuff/session'}`
+/** The web API origin the session and catalog endpoints live on. */
+export function freebuffApiBaseUrl(): string {
+  return sessionBaseUrl()
 }
 
+function sessionBaseUrl(): string {
+  return (env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com').replace(
+    /\/$/,
+    '',
+  )
+}
+
+function sessionEndpoint(method: FreebuffSessionMethod): string {
+  return `${sessionBaseUrl()}${method === 'POST' ? FREEBUFF_SESSION_ADMISSION_PATH : '/api/v1/freebuff/session'}`
+}
+
+/** The host the session API is reached on, for copy that names it. */
+export function freebuffSessionHost(): string {
+  try {
+    return new URL(sessionBaseUrl()).host
+  } catch {
+    return sessionBaseUrl()
+  }
+}
+
+/**
+ * A network-layer failure: nothing came back, as opposed to a response we did
+ * not like. Bun's `fetch` surfaces these as `fetch failed`, a TimeoutError, or
+ * a bare socket code.
+ */
+export function isFreebuffSessionNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  if (isFreebuffSessionTimeoutError(error)) return true
+  return /fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|ENETUNREACH|EAI_AGAIN|network/i.test(
+    `${error.message} ${(error.cause as Error | undefined)?.message ?? ''}`,
+  )
+}
+
+/**
+ * What the landing screen shows for a session request that never got an
+ * answer.
+ *
+ * Until 2026-09-19 it printed the runtime's error verbatim, so a user whose
+ * ISP could not route to this host — while every browser on the machine
+ * reached freebuff.com, which sits on a different address — read
+ * `The operation timed out.` and reinstalled. Four PLDT (Philippines) users
+ * reported exactly that in two days; switching ISP fixed each one. Name the
+ * host we could not reach and the two things that actually help, and never
+ * blame the machine: the server was serving everyone else at the time.
+ */
+export function freebuffSessionUnreachableMessage(host: string): string {
+  return (
+    `Couldn't get a response from ${host}. If your browser can open ` +
+    `freebuff.com, this network isn't routing to that host: try mobile data ` +
+    `or another ISP, or use freebuff.com/web meanwhile.`
+  )
+}
+
+type FreebuffSessionCallOptions = {
+  instanceId?: string
+  multiSession?: boolean
+  takeoverInstanceId?: string
+  model?: string
+  signal?: AbortSignal
+  compact?: boolean
+}
+
+/**
+ * One session request, in whichever protocol this process is speaking.
+ *
+ * In catalog mode (docs/freebuff-model-catalog.md) every call carries the
+ * catalog protocol header, so the server answers with catalog keys, and an
+ * admission's `model` is a KEY that goes out as the row's HANDLE. Every call
+ * also carries the held catalog's fetch id and this install's device
+ * signature (freebuff-device-key.ts), when there is one. A handle the
+ * server no longer accepts comes back as 409 `freebuff_catalog_stale`: the
+ * catalog is refetched once and the request retried once with the new handle
+ * for the same key. A second refusal is surfaced like any other failure.
+ *
+ * In fallback mode the catalog headers are omitted.
+ */
 export async function callFreebuffSession(
   method: FreebuffSessionMethod,
   token: string,
-  opts: {
-    instanceId?: string
-    model?: string
-    walletSpendLimit?: FreebuffWalletSpendLimit
-    signal?: AbortSignal
-    compact?: boolean
-  } = {},
+  opts: FreebuffSessionCallOptions = {},
 ): Promise<FreebuffSessionServerResponse> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
-  if ((method === 'GET' || method === 'DELETE') && opts.instanceId) {
+  const catalog = useFreebuffCatalogStore.getState().catalog
+  try {
+    return await requestFreebuffSession(method, token, opts, catalog)
+  } catch (error) {
+    const refreshAfterStale =
+      useFreebuffCatalogStore.getState().refreshAfterStale
+    if (
+      !catalog ||
+      !(error instanceof FreebuffSessionRequestError) ||
+      error.errorCode !== FREEBUFF_CATALOG_STALE_ERROR ||
+      !refreshAfterStale ||
+      opts.signal?.aborted
+    ) {
+      throw error
+    }
+    if (!(await refreshAfterStale())) throw error
+    return requestFreebuffSession(
+      method,
+      token,
+      opts,
+      useFreebuffCatalogStore.getState().catalog,
+    )
+  }
+}
+
+async function requestFreebuffSession(
+  method: FreebuffSessionMethod,
+  token: string,
+  opts: FreebuffSessionCallOptions,
+  catalog: FreebuffModelCatalog | null,
+): Promise<FreebuffSessionServerResponse> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    ...freebucksTimeZoneHeaders(),
+    ...clientEnvironmentHeaders(),
+  }
+  // Observe-only: ties a server-side refusal line to the build that saw it.
+  const cliVersion = getCliEnv().CODEBUFF_CLI_VERSION
+  if (cliVersion) headers[FREEBUFF_CLIENT_VERSION_HEADER] = cliVersion
+  const attemptId = freebuffCliAttemptId(opts.instanceId)
+  const multiSession = opts.multiSession ?? Boolean(attemptId)
+  if (multiSession) {
+    headers[FREEBUFF_MULTI_SESSION_HEADER] = '1'
+    headers[FREEBUFF_PURCHASE_CONTINUITY_HEADER] = '1'
+    if (attemptId && method !== 'GET') {
+      headers[FREEBUFF_DESKTOP_ATTEMPT_HEADER] = attemptId
+    }
+    if (method === 'GET' && opts.instanceId) {
+      headers[FREEBUFF_HEARTBEAT_HEADER] = '1'
+      // A bare heartbeat omits balances and quotas. Rich refreshes (including
+      // expiry and identity changes) must explicitly ask for that snapshot.
+      if (!opts.compact)
+        headers[FREEBUFF_INCLUDE_UNUSED_RATE_LIMITS_HEADER] = '1'
+    }
+  }
+  if (catalog) {
+    headers[FREEBUFF_CATALOG_PROTOCOL_HEADER] = FREEBUFF_CATALOG_PROTOCOL_VERSION
+    if (catalog.fetchId) headers[FREEBUFF_CATALOG_FETCH_HEADER] = catalog.fetchId
+  }
+  if ((multiSession || method !== 'POST') && opts.instanceId) {
     headers[FREEBUFF_INSTANCE_HEADER] = opts.instanceId
   }
   if (method === 'GET' && opts.compact) {
     headers[FREEBUFF_COMPACT_SESSION_HEADER] = '1'
   }
   if (method === 'POST') {
-    if (opts.model) headers[FREEBUFF_MODEL_HEADER] = opts.model
-    headers[FREEBUFF_WALLET_SPEND_LIMIT_HEADER] = String(
-      opts.walletSpendLimit ?? 0,
-    )
+    if (opts.takeoverInstanceId)
+      headers[FREEBUFF_TAKEOVER_INSTANCE_HEADER] = opts.takeoverInstanceId
+    if (opts.model) {
+      // A key the catalog has no row for goes out as-is: the server answers
+      // it stale, which refetches the catalog.
+      headers[FREEBUFF_MODEL_HEADER] = catalog
+        ? (freebuffCatalogHandleFor(catalog, opts.model) ?? opts.model)
+        : opts.model
+    }
+    // The admission route refuses a POST without this header; its value no
+    // longer limits anything (wallet consent is the picker's own prompt).
+    headers[FREEBUFF_WALLET_SPEND_LIMIT_HEADER] = 'session'
   }
 
-  const response = await fetch(sessionEndpoint(method), {
-    method,
-    headers,
-    signal: sessionFetchSignal(opts.signal),
-  })
+  const endpoint =
+    method === 'DELETE' && attemptId
+      ? `${sessionEndpoint(method)}/attempt`
+      : sessionEndpoint(method)
+  if (catalog) {
+    // Session calls send no body; the signature covers the empty one.
+    Object.assign(
+      headers,
+      await freebuffDeviceHeaders(token, {
+        method,
+        url: endpoint,
+        fetchId: catalog.fetchId,
+      }),
+    )
+  }
+  const fetchSession = () =>
+    fetch(endpoint, {
+      method,
+      headers,
+      signal: sessionFetchSignal(opts.signal),
+    })
+  // The polled GET is the CLI's steadiest call to our API: its round trip is
+  // the ad client context's `net.rtt` sample (COD-757).
+  const response =
+    method === 'GET' ? await timedApiCall(fetchSession) : await fetchSession()
 
   if (method === 'POST' && [404, 405].includes(response.status)) {
     throw new FreebuffSessionRequestError(
@@ -151,7 +337,7 @@ export async function callFreebuffSession(
       body &&
       (body.status === 'country_blocked' || body.status === 'banned')
     ) {
-      return body
+      return sanitizeTerminalStrings(body)
     }
   }
 
@@ -164,9 +350,12 @@ export async function callFreebuffSession(
       body &&
       (body.status === 'model_locked' ||
         body.status === 'model_unavailable' ||
-        body.status === 'consent_required')
+        body.status === 'premium_slot_taken' ||
+        body.status === 'purchase_claim_released' ||
+        body.status === 'purchase_in_use' ||
+        body.status === 'purchase_capacity')
     ) {
-      return body
+      return sanitizeTerminalStrings(body)
     }
   }
 
@@ -180,7 +369,7 @@ export async function callFreebuffSession(
         body.status === 'spend_limited' ||
         body.status === 'ip_capped')
     ) {
-      return body
+      return sanitizeTerminalStrings(body)
     }
   }
 
@@ -193,15 +382,20 @@ export async function callFreebuffSession(
     } catch {
       // Non-JSON errors have no machine-readable code.
     }
+    if (catalog) noteFreebuffDeviceKeyError(token, endpoint, errorCode)
     throw new FreebuffSessionRequestError(
-      `freebuff session ${method} failed: ${response.status} ${text.slice(0, 200)}`,
+      `freebuff session ${method} failed: ${response.status} ${sanitizeTerminalText(text.slice(0, 200))}`,
       response.status,
       parseRetryAfterMs(response.headers.get('retry-after')),
       errorCode,
     )
   }
 
-  return (await response.json()) as FreebuffSessionServerResponse
+  // Server-written copy (messages, upgrade hints, Freebucks CTAs) is drawn in
+  // the terminal: every string is stripped of escape sequences here.
+  return sanitizeTerminalStrings(
+    (await response.json()) as FreebuffSessionServerResponse,
+  )
 }
 
 /** A compact poll omits quota fields that were already returned by admission.
@@ -229,10 +423,10 @@ export function mergeCompactActiveSession(
     // Same carry, and it matters MORE here: the Freebucks header is the whole
     // meter for a metered account, so losing it mid-session would drop the
     // picker back to session rings that no longer gate anything. The balance
-    // cannot change during a session anyway — a session is charged once, at
-    // admission — so the carried block is not merely a placeholder, it is
-    // still correct.
-    freebucks: next.freebucks !== undefined ? next.freebucks : current.freebucks,
+    // is refreshed on a full poll/admission. Other instances can spend from
+    // it meanwhile; admission rechecks both the balance and wallet consent.
+    freebucks:
+      next.freebucks !== undefined ? next.freebucks : current.freebucks,
   }
 }
 

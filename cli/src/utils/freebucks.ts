@@ -21,7 +21,12 @@
  * below. If the currency is ever renamed, this is the second place to change.
  */
 
+import { compareByFreebucksPrice } from '@codebuff/common/util/freebuff-price-order'
 import { getFreebucksInfo } from '@codebuff/common/types/freebuff-session'
+import {
+  FREEBUCKS_REFILL_PENDING_LABEL,
+  freebucksRefillPending,
+} from '@codebuff/common/util/freebucks-reset'
 
 import type {
   FreebuffFreebucksInfo,
@@ -86,13 +91,9 @@ export function sortModelsByPrice<
   freebucks: FreebuffFreebucksInfo | null | undefined,
 ): readonly T[] {
   if (!freebucks) return models
-  const priceOf = (id: string) =>
-    freebucksPriceFor(freebucks, id) ?? Number.POSITIVE_INFINITY
-  return [...models].sort(
-    (a, b) =>
-      priceOf(a.id) - priceOf(b.id) ||
-      a.displayName.localeCompare(b.displayName),
-  )
+  // Ties (two rows a catalog discount brought to one price) break on the
+  // regular price, then the name — shared with Desktop and Web.
+  return [...models].sort((a, b) => compareByFreebucksPrice(freebucks, a, b))
 }
 
 /**
@@ -123,7 +124,9 @@ export function freebucksHeaderLine(
   ]
   if (nowMs !== undefined) {
     parts.push(
-      `resets in ${freebucksResetCountdown(freebucks.daily.resetAt, nowMs)}`,
+      freebucksRefillPending(freebucks.daily.resetAt, nowMs)
+        ? FREEBUCKS_REFILL_PENDING_LABEL
+        : `resets in ${freebucksResetCountdown(freebucks.daily.resetAt, nowMs)}`,
     )
   }
   // An empty wallet is the ordinary case for a free account, and "0 wallet"
@@ -172,10 +175,6 @@ export const FREEBUCKS_INTRO = {
   ],
   dismiss: 'Shown once. Press any key to continue.',
 } as const
-
-/** Under the picker on a metered account, in place of the tier notices. */
-export const FREEBUCKS_PICKER_NOTICE =
-  'Each model is priced in Freebucks per hour of session, charged once when the session starts. Your daily Freebucks refill at midnight Pacific; the wallet keeps what you buy or earn.'
 
 /**
  * "4h 12m", "38m", "2d 5h" — until the daily pool refills. Same shape as the

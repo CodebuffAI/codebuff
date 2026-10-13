@@ -48,11 +48,13 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   // useful if every one is counted.
   AnalyticsEvent.DESKTOP_TURN_BACKGROUND_WAIT,
   // Feature adoption is measured as UNIQUE USERS per feature. At desktop's
-  // ~1-2k DAU a 1% sample would leave a feature used by 2% of users with
+  // scale a 1% sample would leave a feature used by 2% of users with
   // roughly zero sampled users — the number is unrecoverable from a sample, so
   // this one is never sampled. Volume is controlled at the emit site instead
   // (intent-only actions + per-session dedupe), not by throwing away users.
   AnalyticsEvent.DESKTOP_FEATURE_USED,
+  // Ratios use summed disjoint durations, so numerator and denominator stay whole.
+  AnalyticsEvent.DESKTOP_AD_DENSITY,
   AnalyticsEvent.DESKTOP_HARNESS_CHANGED,
   AnalyticsEvent.DESKTOP_MODEL_CHANGED,
   AnalyticsEvent.DESKTOP_SKILL_RUN,
@@ -62,7 +64,14 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   AnalyticsEvent.TERMINAL_BROKER_SPAWN_FAILED,
   AnalyticsEvent.TERMINAL_WATCHDOG_FAILED,
   AnalyticsEvent.TERMINAL_COMMAND_COMPLETED,
+  // Rare by construction (rate-limited per kind per install) and only useful
+  // if every affected install is counted.
+  AnalyticsEvent.CLI_HELPER_PROCESS_FLOOD,
+  AnalyticsEvent.CLI_HELPER_OUTLIVED_PARENT,
+  AnalyticsEvent.DESKTOP_HELPER_PROCESS_FLOOD,
   AnalyticsEvent.UPDATE_CODEBUFF_FAILED,
+  // Crash counts per version must be whole to be comparable.
+  AnalyticsEvent.CLI_FATAL_CRASH,
 ])
 
 type AnalyticsProperties = Record<string, unknown> | undefined

@@ -211,4 +211,33 @@ describe('Freebuff CLI Argument Parsing', () => {
     expect(result.continue).toBe(true)
     expect(result.continueId).toBe('abc-123')
   })
+
+  test('parses --trust-agents and defaults it to false', () => {
+    expect(
+      parseArgs({
+        argv: ['node', 'freebuff', '--trust-agents'],
+        isFreebuff: true,
+        version: '1.0.0',
+      }).trustAgents,
+    ).toBe(true)
+    expect(
+      parseArgs({
+        argv: ['node', 'freebuff'],
+        isFreebuff: true,
+        version: '1.0.0',
+      }).trustAgents,
+    ).toBe(false)
+  })
+})
+
+describe('Codebuff --trust-agents', () => {
+  test('parses --trust-agents alongside a prompt', () => {
+    const result = parseArgs({
+      argv: ['node', 'codebuff', '--trust-agents', 'fix', 'it'],
+      isFreebuff: false,
+      version: '1.0.0',
+    })
+    expect(result.trustAgents).toBe(true)
+    expect(result.initialPrompt).toBe('fix it')
+  })
 })

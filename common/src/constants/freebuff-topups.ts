@@ -84,6 +84,12 @@ export const AD_PROMO_REFERRER_REWARD_CAP = 10
 export const AD_PROMO_CREDIT_EXPIRY_DAYS = 60
 export const AD_PROMO_REFERRAL_PROGRAM = 'placements_launch_2026'
 
+/** Verified YC companies earn one $1,000 credit only after $1,000 is collected. */
+export const AD_PROMO_YC_PROGRAM = 'yc_match_2026'
+export const AD_PROMO_YC_MATCH_MILESTONES_CENTS = [100_000] as const
+export const AD_PROMO_YC_MATCH_GRANT_CENTS = 100_000
+export const AD_PROMO_YC_MATCH_CAP_CENTS = 100_000
+
 /**
  * Keep collection provenance through Stripe's refund/dispute exposure window.
  * Account deletion is blocked while a collection is pending or this recent.
@@ -184,9 +190,6 @@ export function advertiserPlacementCpcBand(params: {
         : AD_PLACEMENT_CPC_SELF_SERVE_CEILING_CENTS,
   }
 }
-
-/** A single automatic reprice may move at most 25% in either direction. */
-export const AD_PLACEMENT_CPC_REPRICE_MAX_MOVE_BPS = 2_500
 
 /** Thin samples are reported, but never allowed to move money automatically. */
 export const AD_PLACEMENT_CPC_REPRICE_MIN_CLICKS = 50

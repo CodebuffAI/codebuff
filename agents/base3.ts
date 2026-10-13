@@ -1,5 +1,17 @@
-import { compactionPolicyForModel } from '@codebuff/common/constants/compaction-policy'
+import {
+  compactionPolicyForModel,
+  type RootCompactionPolicy,
+} from '@codebuff/common/constants/compaction-policy'
+import {
+  FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  freebuffModelIdMatches,
+} from '@codebuff/common/constants/freebuff-models'
+import {
+  TURN_ENDING_NOTE,
+  TURN_ENDING_RULE,
+} from '@codebuff/common/constants/turn-ending-rule'
 
+import { leanContextGuidance } from './lean-context'
 import {
   FOLLOWUP_STYLE_GUIDANCE,
   gravityIndexGuidance,
@@ -14,7 +26,33 @@ import {
 
 export function createBase3(
   model: SecretAgentDefinition['model'] = OPUS_MODEL,
+  options: {
+    /** Overrides the per-model policy. A server-catalog row supplies it,
+     *  because its `model` is an opaque handle the lookup cannot key on; its
+     *  `maxContextLength` replaces the runtime's per-model budget lookup for
+     *  the same reason. `lean` (with a `maxContextLength`) adds the
+     *  context-budget prompt section. */
+    compaction?: RootCompactionPolicy
+    /** Web/Cloud owns persistent processes through managed sessions. */
+    supportsBackgroundCommands?: boolean
+    /** The compiled model a catalog handle stands for, which decides the
+     *  per-model parts below; defaults to `model`. */
+    compiledModelId?: string
+  } = {},
 ): Omit<SecretAgentDefinition, 'id'> {
+  // Muse Spark 1.3 only: the model that ends turns on a status line
+  // (docs/freebuff-muse-spark.md). Follows every user message, and every copy
+  // stays in history, so the cached prefix only grows.
+  const turnEndingNote = freebuffModelIdMatches(
+    options.compiledModelId ?? model,
+    FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  )
+  const { lean, ...compactContext }: RootCompactionPolicy =
+    options.compaction ?? compactionPolicyForModel(model)
+  const leanGuidance =
+    lean && compactContext.maxContextLength
+      ? `\n${leanContextGuidance(compactContext.maxContextLength)}\n`
+      : ''
   return {
     publisher,
     model,
@@ -33,10 +71,12 @@ export function createBase3(
     outputMode: 'last_message',
     includeMessageHistory: true,
     windowedFileReads: true,
+    completionCheck: true,
     // Per-model idle gap and token floor (common/src/constants/
     // compaction-policy.ts). Explicit, not `true`: a bare `true` would take
     // the runtime default instead of the model's.
-    compactContext: compactionPolicyForModel(model),
+    compactContext,
+    ...(turnEndingNote ? { instructionsPrompt: TURN_ENDING_NOTE } : {}),
     toolNames: [
       'read_files',
       'str_replace',
@@ -48,6 +88,10 @@ export function createBase3(
       'write_todos',
     ],
 
+    // No deadline, time-budget or "minimal result early" wording: no product
+    // host gives the model a deadline, and that wording made models invent
+    // one and stop short. A host with a real deadline passes `deadlineAt`; the
+    // runtime then states it.
     systemPrompt: `You are Buffy, the coding agent behind Codebuff. You help users with software engineering tasks: fixing bugs, adding functionality, refactoring, and explaining code.
 
 Current date: ${PLACEHOLDER.CURRENT_DATE}.
@@ -55,14 +99,20 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - Match the project's existing conventions. Verify a library is already used in the project before employing it.
 - Prefer editing existing files over creating new ones. Make the fewest changes that address the request.
 - Verify non-trivial changes by running the project's typecheck and relevant tests.
-- Use write_todos to plan and track multi-step tasks.
+- Extract the acceptance criteria before implementing: exact output paths, file names, interfaces, schemas, formats, and any performance or resource constraints. Check the actual artifacts against those criteria before finishing.
+- Test the delivered artifact through the interface the user will use. A successful build or exit code alone does not prove the requested behavior. For performance work, measure correctness and timing on representative inputs; do not claim a speedup without a measurement.
+- Verify the final edited files: after a repair, rerun the affected checks; earlier passing results do not cover later changes. When filtering test or build output through a pipeline, preserve the tested command's exit status (for example, Bash pipefail or explicit status capture), and inspect the failure output.
+- Fix the cause of a failing check. Do not skip tests, weaken assertions, swallow errors, or add type/lint suppressions just to make verification pass. If such a change is required by the requested behavior, explain why and verify that behavior. Report checks that failed or could not run as limitations, never as passes.
+- ${options.supportsBackgroundCommands === false ? 'Terminal commands support only SYNC on this host. Use the host-managed preview controls for persistent services; do not request BACKGROUND or use shell backgrounding. Split other long jobs into bounded commands.' : 'Use BACKGROUND for persistent services or long jobs, inspect their logs and readiness, and verify they are still running when required. Do not assume shell backgrounding inside a SYNC command survives tool cleanup.'}
+- Use write_todos to plan and track multi-step tasks. The user watches the list as your live progress: each time you finish an item, call write_todos again with it marked completed before you start the next one, rather than marking everything done at the end.
 - Your responses are displayed in a terminal. Keep them short and concise.
+- ${TURN_ENDING_RULE}
 - Don't run destructive or hard-to-undo commands (git push, resets, deploys) unless the user asks for them.
 
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
 
 ${PLACEHOLDER.GIT_CHANGES_PROMPT}
-`,
+${leanGuidance}`,
   }
 }
 
@@ -76,14 +126,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
  * freebuff-desktop/.../thread-agent.ts unions that array with its own extras).
  * The bare eight are the harness; what follows is CLI product surface.
  *
- * Two things are load-bearing, both for the same reason they are on the Web
- * roots (docs/freebuff-base3-harness.md):
- *
- * - The appendix is APPENDED. `hasFreebuffRootSystemPromptOpening` requires a
- *   canonical opening at byte 0, so prepending 403s every free-mode turn.
- * - No `instructionsPrompt`. base2 carries one and it is re-injected after
- *   every user message, which breaks the prompt cache this harness exists to
- *   keep warm.
+ * One thing is load-bearing, for the same reason it is on the Web roots
+ * (docs/freebuff-base3-harness.md): the appendix is APPENDED. The root prompt
+ * must keep its canonical opening first (`hasFreebuffRootSystemPromptOpening`).
  */
 export function createBase3CliRoot(
   options: {
@@ -93,32 +138,46 @@ export function createBase3CliRoot(
     /** Drop the tools that address a human. For the eval harness, where an
      *  ask_user call would stall the run rather than gather anything. */
     noAskUser?: boolean
+    /** Drop web_search and read_url. For the eval harness: the evaluated
+     *  repositories are public, and a search result that quotes their
+     *  current code is the answer key (36% of base3's search results in the
+     *  2026-10-04 runs cited the repository under evaluation). */
+    noWeb?: boolean
+    /** Harness guidance that belongs BETWEEN base3's prompt and the CLI
+     *  appendix (base3-fast's fan-out section). Appended, never prepended,
+     *  for the reason the appendix is: the canonical opening stays at byte 0. */
+    extraSystemPrompt?: string
+    /** The model's human name, for the meta-information line. A server
+     *  catalog root's `model` is an opaque handle, which must not be what the
+     *  prompt tells the model it is running on. */
+    modelLabel?: string
+    /** See createBase3. */
+    compaction?: RootCompactionPolicy
+    /** See createBase3. */
+    compiledModelId?: string
   } = {},
 ): Omit<SecretAgentDefinition, 'id'> {
-  const { model = OPUS_MODEL, isFreebuff = false, noAskUser = false } = options
-  const base3 = createBase3(model)
+  const {
+    model = OPUS_MODEL,
+    isFreebuff = false,
+    noAskUser = false,
+    noWeb = false,
+    extraSystemPrompt,
+  } = options
+  const base3 = createBase3(model, {
+    compaction: options.compaction,
+    compiledModelId: options.compiledModelId,
+  })
 
   const root: Omit<SecretAgentDefinition, 'id'> = {
     ...base3,
-    // Written out rather than spread from `base3.toolNames`, because
-    // `foreign-client-shipped-agents.test.ts` scans source for literal
-    // toolNames arrays and asserts none of ours reads as a third-party
-    // harness — a toolset assembled at runtime is invisible to that scan,
-    // which is how `freebuff-desktop-autorun` shipped flagged.
-    //
-    // The first eight are base3's own. `web_search`/`read_url` replace the
-    // researcher subagents base2 spawned. The last five are CLI product
-    // surface, not harness: they drive the ask-user panel, the followup
-    // cards, service discovery, rendered UI, and skills.
+    // base3's own eight, then the CLI surface: `web_search`/`read_url`
+    // replace the researcher subagents base2 spawned; the last five drive the
+    // ask-user panel, the followup cards, service discovery, rendered UI and
+    // skills. (The shipped-agents CI guard checks this toolset by importing
+    // the definitions, so it may be assembled rather than restated.)
     toolNames: [
-      'read_files',
-      'str_replace',
-      'write_file',
-      'run_terminal_command',
-      'code_search',
-      'glob',
-      'list_directory',
-      'write_todos',
+      ...base3.toolNames!,
       'web_search',
       'read_url',
       'ask_user',
@@ -128,15 +187,26 @@ export function createBase3CliRoot(
       'skill',
     ],
     systemPrompt: `${base3.systemPrompt}
-${buildCliAppendix({ isFreebuff, model, noAskUser })}`,
+${extraSystemPrompt ? `${extraSystemPrompt}\n` : ''}${buildCliAppendix({
+      isFreebuff,
+      model: options.modelLabel ?? model,
+      noAskUser,
+    })}`,
   }
 
-  if (!noAskUser) return root
+  const withheld = new Set<string>([
+    ...(noAskUser ? HUMAN_TOOL_NAMES : []),
+    ...(noWeb ? WEB_TOOL_NAMES : []),
+  ])
+  if (withheld.size === 0) return root
   return {
     ...root,
-    toolNames: root.toolNames?.filter((name) => !HUMAN_TOOL_NAMES.has(name)),
+    toolNames: root.toolNames?.filter((name) => !withheld.has(name)),
   }
 }
+
+/** The web, which the eval harness withholds from both arms (see `noWeb`). */
+const WEB_TOOL_NAMES: ReadonlySet<string> = new Set(['web_search', 'read_url'])
 
 /** Offered only when there is a human on the other end. */
 const HUMAN_TOOL_NAMES: ReadonlySet<string> = new Set([
@@ -150,7 +220,8 @@ function buildCliAppendix({
   noAskUser = false,
 }: {
   isFreebuff: boolean
-  model: SecretAgentDefinition['model']
+  /** The model id, or its human name when the id is an opaque handle. */
+  model: string
   noAskUser?: boolean
 }): string {
   return `

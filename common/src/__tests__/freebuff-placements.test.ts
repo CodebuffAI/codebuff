@@ -16,6 +16,7 @@ import {
   PLACEMENTS_CONSOLE_ENABLED,
   PLACEMENT_METRIC_LABELS,
   PLACEMENT_PREVIEW_WIDTHS,
+  PARTNER_PLACEMENT_IDS,
   PLACEMENT_FORMATS,
   PLACEMENT_SLOTS,
   SPONSOR_BREAK_CREATIVE_LIMITS,
@@ -23,6 +24,8 @@ import {
   INTERRUPTING_BREAK_FORMATS,
   isInterruptingBreakFormat,
   isInterruptingBreakPlacement,
+  isPartnerFormat,
+  isPartnerPlacement,
   isSponsorBreakFormat,
   SPONSOR_BREAK_HERO_SPEC,
   TRACKED_LINK_PLACEMENT_ID,
@@ -217,7 +220,16 @@ describe('copy and configuration', () => {
       expect([slot.id, surfaceNames.has(slot.id)]).toEqual([slot.id, false])
     }
 
-    expect(PLACEMENT_SLOTS.every((slot) => slot.available)).toBe(true)
+    // Every slot is sellable except the partner ones, whose whole point is
+    // that they are not: one advertiser is in each by agreement, and an
+    // `available` partner slot would appear in the self-serve picker. The
+    // billboards are operator-placed until the console can upload their art.
+    for (const slot of PLACEMENT_SLOTS) {
+      expect([slot.id, slot.available]).toEqual([
+        slot.id,
+        slot.format !== 'partner' && slot.format !== 'billboard',
+      ])
+    }
     expect(new Set(PLACEMENT_SLOTS.map((slot) => slot.id)).size).toBe(
       PLACEMENT_SLOTS.length,
     )
@@ -232,12 +244,13 @@ describe('copy and configuration', () => {
     // eight `CLI-Chat-Inline-N` ids:
     // no shipping client requests those, so selling them would be selling a
     // decaying legacy path.
-    // Plus the three sponsor breaks, which are deliberately the same surface:
-    // a break is a different RENDERER on Desktop chat, not a new surface, and
-    // adding one costs a house creative and a pinned rollup row.
-    expect(bySurface('cli_chat')).toBe(7)
+    // Plus the three sponsor breaks, the six partner slots and the two
+    // billboards, which are deliberately the same surface: each is a different
+    // RENDERER on the same chat surface, not a new surface, and adding a
+    // surface costs a house creative and a pinned rollup row.
+    expect(bySurface('cli_chat')).toBe(15)
     expect(bySurface('waiting_room')).toBe(4)
-    expect(bySurface('freebuff_web_chat')).toBe(2)
+    expect(bySurface('freebuff_web_chat')).toBe(12)
     expect(bySurface('chat_assistant')).toBe(1)
   })
 
@@ -262,17 +275,72 @@ describe('copy and configuration', () => {
       'Desktop-Spotlight',
       'Desktop-Showcase',
       'Desktop-Intermission',
+      'Desktop-Spotlight:web',
+      'Desktop-Showcase:web',
+      'Desktop-Intermission:web',
     ])
     expect(placementFormat('Desktop-Spotlight')).toBe('spotlight')
     expect(placementFormat('Desktop-Showcase')).toBe('showcase')
     expect(placementFormat('Desktop-Intermission')).toBe('intermission')
     // Resolvable as slots, exactly like every other sellable id.
-    for (const id of breaks) expect(placementSurface(id)).toBe('cli_chat')
+    for (const id of breaks) expect(placementSurface(id)).toBe(id.endsWith(':web') ? 'freebuff_web_chat' : 'cli_chat')
     expect(SPONSOR_BREAK_FORMATS).toEqual([
       'showcase',
       'spotlight',
       'intermission',
     ])
+  })
+
+  it('names the partner slots and keeps them out of the break family', () => {
+    // The exclusion spelling of SPONSOR_BREAK_FORMATS ("everything but
+    // inline") would have made `partner` a break by default, which would
+    // require it to carry a hero image, refuse the text house floor and
+    // accept break-length copy -- three rules nobody wrote down for it.
+    expect(PARTNER_PLACEMENT_IDS).toEqual([
+      'Desktop-Partner-Skill-Picker',
+      'Desktop-Partner-Composer-PR',
+      'CLI-Partner-Composer-PR',
+      'CLI-Partner-Slash-Review',
+      'Desktop-Partner-Composer-Launch',
+      'CLI-Partner-Composer-Launch',
+      'Desktop-Partner-Skill-Picker:web',
+      'Desktop-Partner-Composer-PR:web',
+      'Desktop-Partner-Composer-Launch:web',
+    ])
+    for (const id of PARTNER_PLACEMENT_IDS) {
+      expect([id, placementFormat(id)]).toEqual([id, 'partner'])
+      expect([id, isPartnerPlacement(id)]).toEqual([id, true])
+      expect([id, isSponsorBreakPlacement(id)]).toEqual([id, false])
+      expect([id, isInterruptingBreakPlacement(id)]).toEqual([id, false])
+      expect([id, placementSurface(id)]).toEqual([id, id.endsWith(':web') ? 'freebuff_web_chat' : 'cli_chat'])
+    }
+    expect(isPartnerFormat('inline')).toBe(false)
+    expect(isSponsorBreakFormat('partner')).toBe(false)
+    // Conservative for an id the registry does not describe, in the same
+    // direction as the break predicate: an unknown id is an ordinary card,
+    // never a piece of somebody's branded chrome.
+    expect(isPartnerPlacement('some-future-grain')).toBe(false)
+  })
+
+  it('labels a partner slot by where it appears, not by its id', () => {
+    // The hyphen splitter would answer "Desktop Partner Skill Picker", which
+    // names the id. An advertiser reading a delivery breakdown wants the
+    // place in the app they were shown.
+    expect(placementSlotLabel('Desktop-Partner-Skill-Picker')).toBe(
+      'Desktop — Skill picker',
+    )
+    expect(placementSlotLabel('Desktop-Partner-Composer-PR')).toBe(
+      'Desktop — Composer (PR intent)',
+    )
+    // The CLI's two say which app as well, because the same deal runs in
+    // both and a breakdown listing "Composer (PR intent)" twice names
+    // neither.
+    expect(placementSlotLabel('CLI-Partner-Composer-PR')).toBe(
+      'CLI — Composer (PR intent)',
+    )
+    expect(placementSlotLabel('CLI-Partner-Slash-Review')).toBe(
+      'CLI — Slash menu (/review)',
+    )
   })
 
   it('caps the two INTERRUPTING breaks and never Showcase (COD-455)', () => {
@@ -291,7 +359,7 @@ describe('copy and configuration', () => {
     const interrupting = PLACEMENT_SLOTS.filter((slot) =>
       isInterruptingBreakPlacement(slot.id),
     ).map((slot) => slot.id)
-    expect(interrupting).toEqual(['Desktop-Spotlight', 'Desktop-Intermission'])
+    expect(interrupting).toEqual(['Desktop-Spotlight', 'Desktop-Intermission', 'Desktop-Spotlight:web', 'Desktop-Intermission:web'])
     expect(isInterruptingBreakPlacement('Desktop-Showcase')).toBe(false)
 
     // Still the conservative fallback for an unknown id, in both directions.
@@ -425,7 +493,7 @@ describe('placement daily cap', () => {
   it('offers a self-serve ceiling of 500_000 cents a day', () => {
     // The bound the campaigns API validates. If this moves, the API moves with
     // it -- both read this constant, which is the whole reason it is here.
-    expect(PLACEMENT_DAILY_CAP_MIN_CENTS).toBe(500)
+    expect(PLACEMENT_DAILY_CAP_MIN_CENTS).toBe(2_500)
     expect(PLACEMENT_DAILY_CAP_MAX_CENTS).toBe(500_000)
   })
 
@@ -435,7 +503,7 @@ describe('placement daily cap', () => {
     expect(clampPlacementDailyCapCents(9_999_999)).toBe(
       PLACEMENT_DAILY_CAP_MAX_CENTS,
     )
-    expect(clampPlacementDailyCapCents(1_234.6)).toBe(1_235)
+    expect(clampPlacementDailyCapCents(3_234.6)).toBe(3_235)
     // A cap off the slider's ladder is a legal cap: the input takes any
     // amount, and nothing on the way to the database snaps it.
     expect(clampPlacementDailyCapCents(13_700)).toBe(13_700)
@@ -475,4 +543,19 @@ describe('placement daily cap', () => {
       PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(9_999_999)],
     ).toBe(PLACEMENT_DAILY_CAP_MAX_CENTS)
   })
+})
+
+
+it('web copies retain format labels and name the web surface', () => {
+  const aliases = PLACEMENT_SLOTS.filter((slot) => slot.id.endsWith(':web'))
+  expect(aliases).toHaveLength(10)
+  for (const slot of aliases) {
+    expect(placementSlotLabel(slot.id)).toStartWith('Web — ')
+    expect(placementSlotLabel(slot.id)).not.toContain(':web')
+  }
+  expect(placementSlotLabel('Desktop-Partner-Skill-Picker:web')).toBe('Web — Command menu')
+  expect(placementSlotLabel('Desktop-Partner-Composer-PR:web')).toBe('Web — Composer (PR intent)')
+  expect(placementSlotLabel('Desktop-Billboard-Sidebar:web')).toBe('Web — Sidebar billboard')
+  expect(placementSlotLabel('Desktop-Intermission:web')).toBe('Web — Intermission')
+  expect(placementSlotLabel('Desktop-Future:web')).toBe('Desktop Future:web')
 })

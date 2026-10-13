@@ -186,7 +186,7 @@ describe('ordering', () => {
   test('equal prices break on name, so the order is stable', () => {
     const tied = [
       { id: 'solar', displayName: 'Solar Pro 4' },
-      { id: 'luna', displayName: 'GPT-5.6 Luna' },
+      { id: 'luna', displayName: 'GPT-6 Luna' },
     ]
     const prices = { solar: 20, luna: 20 }
     expect(
@@ -219,10 +219,18 @@ describe('the header line', () => {
 
   test('the countdown reads hours and minutes, then days, then "now"', () => {
     const reset = '2026-09-05T07:00:00Z'
-    expect(freebucksResetCountdown(reset, Date.parse('2026-09-05T06:22:00Z'))).toBe('38m')
-    expect(freebucksResetCountdown(reset, Date.parse('2026-09-05T02:48:00Z'))).toBe('4h 12m')
-    expect(freebucksResetCountdown(reset, Date.parse('2026-09-03T01:00:00Z'))).toBe('2d 6h')
-    expect(freebucksResetCountdown(reset, Date.parse('2026-09-05T07:00:01Z'))).toBe('now')
+    expect(
+      freebucksResetCountdown(reset, Date.parse('2026-09-05T06:22:00Z')),
+    ).toBe('38m')
+    expect(
+      freebucksResetCountdown(reset, Date.parse('2026-09-05T02:48:00Z')),
+    ).toBe('4h 12m')
+    expect(
+      freebucksResetCountdown(reset, Date.parse('2026-09-03T01:00:00Z')),
+    ).toBe('2d 6h')
+    expect(
+      freebucksResetCountdown(reset, Date.parse('2026-09-05T07:00:01Z')),
+    ).toBe('now')
   })
 
   test('hides an empty wallet, as Web and Desktop do', () => {
@@ -230,7 +238,6 @@ describe('the header line', () => {
       freebucksHeaderLine(metered({ wallet: { balance: 0, monthlyBonus: 0 } })),
     ).toBe('30/75 Freebucks daily')
   })
-
 })
 
 describe('the price label', () => {

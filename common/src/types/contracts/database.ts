@@ -1,3 +1,7 @@
+import type {
+  ProjectProfile,
+  ProjectProfileReport,
+} from '@codebuff/common/constants/project-profile'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -24,6 +28,14 @@ export type GetUserInfoFromApiKeyInput<T extends UserColumn> = {
   logger: Logger
   /** ends the lookup, including its retries, when the caller's run is aborted */
   signal?: AbortSignal
+  /**
+   * The server lookup resolves a SUSPENDED account's key to nothing unless
+   * the caller sets this, so a route that never reads the ban still refuses
+   * it. Set only by a route that answers a suspended account deliberately
+   * (its own 403 with the suspension message, or the ban status a client
+   * shows). Ignored by clients, whose lookup is a request to the server.
+   */
+  allowBanned?: boolean
 }
 export type GetUserInfoFromApiKeyOutput<T extends UserColumn> = Promise<
   | {
@@ -112,5 +124,16 @@ export type AddAgentStepFn = (params: {
   startTime: Date
   logger: Logger
 }) => Promise<string | null>
+
+export type GetProjectProfileFn = (params: {
+  logger: Logger
+  signal?: AbortSignal
+}) => Promise<{ due: boolean; profile: ProjectProfile | null } | null>
+
+export type ReportProjectProfileFn = (params: {
+  report: ProjectProfileReport
+  logger: Logger
+  signal?: AbortSignal
+}) => Promise<boolean>
 
 export type DatabaseAgentCache = Map<string, AgentTemplate | null>

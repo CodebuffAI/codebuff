@@ -1,0 +1,48 @@
+/**
+ * The AGENTIC POOL's wire contract, shared by Freebuff Desktop and the
+ * `/api/ads` route (`freebuff/web/src/server/ads/agentic-pool.ts`).
+ *
+ * Agentic cards -- a paid generic proposal (lane A) or a non-billable setup
+ * invitation (lane B) -- used to be served IN the `Desktop-Inline-Chat`
+ * display slot, so every one of them replaced a display ad, and a paid offer
+ * only became a proposal if it also won first-party display selection. The
+ * pool serves them on a placement of their own, beside the display ad: the
+ * display response is what it would have been had agentic not existed.
+ */
+
+/**
+ * The placement a pool-served agentic impression is recorded under
+ * (`ad_impression.placement_id` / `ad_placement_delivery.placement_id`).
+ *
+ * NOT a sellable slot and deliberately absent from `PLACEMENT_SLOTS`: no
+ * advertiser buys it and no display campaign can target it. A campaign
+ * reaches it by being a reviewed agentic campaign that targets
+ * `Desktop-Inline-Chat` and that the generic selector matched on the request.
+ */
+export const AGENTIC_POOL_PLACEMENT_ID = 'Desktop-Agentic'
+
+/**
+ * `agenticPoolVersion` on an `/api/ads` request: this client renders an
+ * agentic card as its own element and takes BOTH `ads` and `invitation` from
+ * one response. A released client never sends it, and the server keeps
+ * today's behaviour for it whatever `FREEBUFF_AGENTIC_POOL` says.
+ */
+export const AGENTIC_POOL_CLIENT_VERSION = 1
+
+/**
+ * Starting posted price for new agentic campaigns. An Accept is normally
+ * priced by budget pace instead (from $4, between $3 and $20; see "Paced
+ * click price" in `docs/ads/money/README.md`); the posted price is what an
+ * Accept costs when the campaign has no fresh pacing reading.
+ */
+export const DEFAULT_AGENTIC_CPC_CENTS = 300
+
+/**
+ * What an agentic Accept from a TIER 2 request bills at most, in cents
+ * (COD-665): `min(campaign cpc, this)`. Only an Accept priced at its posted
+ * CPC: a paced Accept pays the same price in every tier. Applied, frozen and charged only by
+ * the agentic offer route (`freebuff/web/src/server/ads/agentic-pool.ts`,
+ * which documents the rule); here so the advertiser console can name the
+ * same figure when it explains why an effective CPC sits below the list CPC.
+ */
+export const AGENTIC_TIER2_ACCEPT_PRICE_CENTS = DEFAULT_AGENTIC_CPC_CENTS

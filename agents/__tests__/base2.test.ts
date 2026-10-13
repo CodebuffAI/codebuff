@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  FREEBUFF_FABLE_5_MODEL_ID,
+  FREEBUFF_FABLE_5_1_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
@@ -142,7 +142,7 @@ describe('base2 gemini thinker', () => {
 describe('production agent step prompts', () => {
   test('base2 and base-deep rely on their non-repeating prompts', () => {
     const agents = [
-      ...(['default', 'free', 'lite', 'max', 'fast'] as const).map((mode) =>
+      ...(['default', 'free', 'lite', 'max'] as const).map((mode) =>
         createBase2(mode),
       ),
       createBase2('default', { planOnly: true }),
@@ -273,7 +273,7 @@ describe('base2 escalation guidance', () => {
 
   test.each([
     ['default free root', undefined],
-    ['Fable', FREEBUFF_FABLE_5_MODEL_ID],
+    ['Fable', FREEBUFF_FABLE_5_1_MODEL_ID],
     ['DeepSeek Flash', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID],
   ] as const)('%s has no thinker-gpt to restrict', (_label, model) => {
     // Freebuff reached thinker-gpt only through /connect-chatgpt, on the user's
@@ -367,7 +367,7 @@ describe('base2 provider routing', () => {
     // The privacy policy's no-training promise is made to every user, so paid
     // modes must assert this too, not just the free tier. Verified against
     // OpenRouter: deny still serves luna, gemini-pro, minimax-m3 and opus.
-    for (const mode of ['default', 'free', 'lite', 'max', 'fast'] as const) {
+    for (const mode of ['default', 'free', 'lite', 'max'] as const) {
       expect(createBase2(mode).providerOptions).toMatchObject({
         data_collection: 'deny',
       })
@@ -528,7 +528,7 @@ describe('base2 context pruning', () => {
     })
   })
 
-  test.each(['default', 'lite', 'max', 'fast'] as const)(
+  test.each(['default', 'lite', 'max'] as const)(
     '%s mode defaults context pruning to 400k tokens with a 30-minute cache expiry',
     (mode) => {
       expect(getContextPrunerParams(mode)).toEqual({
@@ -585,9 +585,9 @@ describe('base2 context pruning', () => {
   })
 })
 
-describe('Claude Fable 5 root', () => {
+describe('Claude Fable 5.1 root', () => {
   const fable = createBase2('free', {
-    model: FREEBUFF_FABLE_5_MODEL_ID,
+    model: FREEBUFF_FABLE_5_1_MODEL_ID,
   })
 
   test('reviews with a Fable reviewer, not the cross-model fallback', () => {

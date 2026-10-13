@@ -1,4 +1,9 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
+import {
+  sanitizeTerminalStrings,
+  sanitizeTerminalText,
+} from '@codebuff/common/util/terminal-safe-text'
+import { redactUrlForLog } from '@codebuff/common/util/log-redaction'
 import type {
   PublishAgentsResponse,
 } from '@codebuff/common/types/api/agents/publish'
@@ -112,8 +117,6 @@ export interface RequestOptions {
   query?: Record<string, string>
   /** Include Authorization header (default: true when authToken is set) */
   includeAuth?: boolean
-  /** Include session token as Cookie header (for legacy endpoints) */
-  includeCookie?: boolean
   /** Request timeout in ms (overrides default) */
   timeoutMs?: number
   /** Retry configuration (overrides default) */
@@ -228,19 +231,24 @@ function getTlsCertificateError(error: Error, depth = 0): Error | null {
   return getTlsCertificateError(error.cause, depth + 1)
 }
 
+// These messages reach PostHog and Axiom, so they name the URL without its
+// query (the login poll's carries `fingerprintHash`), and a runtime message
+// that quotes the full URL (Bun's fetch errors do) gets the same redaction.
 function formatNetworkErrorMessage(error: Error, method: string, url: string) {
   const requestUrl = new URL(url)
+  const safeUrl = redactUrlForLog(url)
+  const redact = (message: string) => message.split(url).join(safeUrl)
   const tlsCertificateError = getTlsCertificateError(error)
 
   if (tlsCertificateError) {
     return [
       `TLS certificate verification failed for ${requestUrl.origin}.`,
       'If your network intercepts HTTPS traffic, install its root certificate into your system trust store or use a network path that does not intercept TLS.',
-      `Original error: ${tlsCertificateError.message} (${method} ${url})`,
+      `Original error: ${redact(tlsCertificateError.message)} (${method} ${safeUrl})`,
     ].join(' ')
   }
 
-  return `${error.message} (${method} ${url})`
+  return `${redact(error.message)} (${method} ${safeUrl})`
 }
 
 /**
@@ -320,7 +328,6 @@ export function createCodebuffApiClient(
     const {
       query,
       includeAuth = true,
-      includeCookie = false,
       timeoutMs = defaultTimeoutMs,
       retry: retryConfig = mergedDefaultRetry,
       headers: customHeaders = {},
@@ -337,9 +344,6 @@ export function createCodebuffApiClient(
     const headers: Record<string, string> = { ...customHeaders }
     if (authToken && includeAuth) {
       headers['Authorization'] = `Bearer ${authToken}`
-    }
-    if (authToken && includeCookie) {
-      headers['Cookie'] = `next-auth.session-token=${authToken};`
     }
     if (body !== undefined) {
       headers['Content-Type'] = 'application/json'
@@ -407,13 +411,15 @@ export function createCodebuffApiClient(
         let errorMessage: string | undefined
         let errorData: unknown
         try {
-          const errorBody = await response.json()
+          // Error text is shown to the user as-is by several callers: no
+          // escape sequences from a response body reach the terminal.
+          const errorBody = sanitizeTerminalStrings(await response.json())
           errorData = errorBody
           errorMessage =
             errorBody?.error || errorBody?.message || response.statusText
         } catch {
           try {
-            errorMessage = await response.text()
+            errorMessage = sanitizeTerminalText(await response.text())
           } catch {
             errorMessage = response.statusText
           }
@@ -600,13 +606,4 @@ export function setApiClientAuthToken(authToken: string | undefined): void {
   // Note: We don't eagerly invalidate the client here. Instead, getApiClient()
   // checks if the token has changed and recreates the client if needed.
   // This avoids race conditions where the client is nullified but not yet recreated.
-}
-
-/**
- * Reset the shared client (mainly for testing)
- */
-export function resetApiClient(): void {
-  sharedClient = null
-  sharedAuthToken = undefined
-  clientCreatedWithToken = undefined
 }

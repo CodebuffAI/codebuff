@@ -134,70 +134,13 @@ export type ProcessEnv = BaseEnv & {
   CODEBUFF_CLI_TARGET?: string
   CODEBUFF_RG_PATH?: string
   CODEBUFF_WASM_DIR?: string
+  // Comma-separated registry publishers whose agents may run executable
+  // handleSteps on this machine (see sdk/src/agent-publisher-trust.ts)
+  CODEBUFF_TRUSTED_AGENT_PUBLISHERS?: string
 
   // Build/CI flags
   VERBOSE?: string
   OVERRIDE_TARGET?: string
   OVERRIDE_PLATFORM?: string
   OVERRIDE_ARCH?: string
-}
-
-// =============================================================================
-// FUNCTION TYPES - For dependency injection
-// =============================================================================
-
-/**
- * Function type for getting a client env value.
- */
-export type GetClientEnvFn = () => ClientEnv
-
-/**
- * Function type for getting base env values.
- */
-export type GetBaseEnvFn = () => BaseEnv
-
-/**
- * Function type for getting full process env values.
- */
-export type GetProcessEnvFn = () => ProcessEnv
-
-/**
- * Function type for getting base CI env values.
- */
-export type GetBaseCiEnvFn = () => BaseCiEnv
-
-/**
- * Function type for getting extended CI env values.
- */
-export type GetCiEnvFn = () => CiEnv
-
-// =============================================================================
-// COMBINED DEPS - For functions that need multiple env types
-// =============================================================================
-
-/**
- * Base env deps - minimal set for most functions.
- */
-export type BaseEnvDeps = {
-  clientEnv: ClientEnv
-  env: BaseEnv
-}
-
-/**
- * Combined env deps with full process env.
- * Used in CLI and client-side code.
- */
-export type EnvDeps = {
-  clientEnv: ClientEnv
-  processEnv: ProcessEnv
-}
-
-/**
- * Full env deps including CI vars.
- * Note: ServerEnv is defined in packages/internal and should be imported from there.
- */
-export type FullEnvDeps = {
-  clientEnv: ClientEnv
-  processEnv: ProcessEnv
-  ciEnv: CiEnv
 }

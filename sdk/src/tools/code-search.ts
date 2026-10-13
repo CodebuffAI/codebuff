@@ -3,6 +3,7 @@ import { spawn } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
+import { codeSearchExecFlagRefusal } from '../../../common/src/util/code-search-flags'
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
 
@@ -15,7 +16,8 @@ import type {
 
 // Hidden directories to include in code search by default.
 // These are searched in addition to '.' to ensure important config/workflow files are discoverable.
-const INCLUDED_HIDDEN_DIRS = [
+// Exported so the sponsored broker can admit exactly these search paths and no others.
+export const INCLUDED_HIDDEN_DIRS: readonly string[] = [
   '.agents', // Codebuff agent definitions
   '.claude', // Claude settings
   '.github', // GitHub Actions, workflows, issue templates
@@ -106,6 +108,12 @@ export function codeSearch({
           type: 'json',
           value: { errorMessage: 'Code search flags contain an unterminated quote.' },
         },
+      ])
+    }
+    const execFlagRefusal = codeSearchExecFlagRefusal(flagsArray)
+    if (execFlagRefusal) {
+      return resolve([
+        { type: 'json', value: { errorMessage: execFlagRefusal } },
       ])
     }
 

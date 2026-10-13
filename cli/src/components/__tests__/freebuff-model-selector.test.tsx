@@ -1,8 +1,5 @@
 import { getFreebucksInfo } from '@codebuff/common/types/freebuff-session'
-import {
-  SOLAR_PRICE_CHANGES,
-  solarOfferAt,
-} from '@codebuff/common/constants/freebuff-solar-promo'
+import { SOLAR_PRICE_CHANGES } from '@codebuff/common/constants/freebuff-solar-promo'
 import {
   toLandingSession,
   resolveFreebuffModelPickForSession,
@@ -24,16 +21,20 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
-  FREEBUFF_SOLAR_PRO_4_MODEL_ID,
-  FREEBUFF_FABLE_5_MODEL_ID,
+  FREEBUFF_SOLAR_MINI_4_MODEL_ID,
+  FREEBUFF_FABLE_5_1_MODEL_ID,
+  FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
-  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_MINIMAX_M3_MODEL_ID,
   FREEBUFF_MODELS,
   getFreebuffModelSupersededBy,
   isFreebuffModelId,
+  FREEBUFF_LIMITED_TIER_PLAN_ONLY_MODEL_IDS,
+  getFreebuffModel,
+  LIMITED_FREEBUFF_HERO_MODEL_ID,
   LIMITED_FREEBUFF_MODELS,
-  LIMITED_FREEBUFF_MODEL_ID,
+  FREEBUFF_ENABLE_FAST_MODE_IN_UI,
 } from '@codebuff/common/constants/freebuff-models'
 
 import { initializeThemeStore } from '../../hooks/use-theme'
@@ -77,7 +78,11 @@ afterEach(() => {
 
 const renderSelector = async (
   maxHeight = 40,
-  startSession?: (model: string, limit?: number | 'session') => Promise<void>,
+  startSession?: (model: string) => Promise<void>,
+  width = 100,
+  nowMs = FIXED_NOW_MS,
+  onSelectModel?: (model: string) => void,
+  initialView: 'model' | 'reasoning' = 'model',
 ) => {
   // Tear down any selector this test already rendered. Only the LAST one was
   // reachable from afterEach, so a test that renders twice used to leave the
@@ -86,7 +91,7 @@ const renderSelector = async (
   // test ran next.
   cleanupRenderer?.()
   cleanupRenderer = undefined
-  const setup = await createTestRenderer({ width: 100, height: 40 })
+  const setup = await createTestRenderer({ width, height: Math.max(40, maxHeight), kittyKeyboard: true })
   const root = createRoot(setup.renderer)
   cleanupRenderer = () => {
     flushSync(() => root.unmount())
@@ -96,14 +101,101 @@ const renderSelector = async (
     root.render(
       <FreebuffModelSelector
         maxHeight={maxHeight}
-        nowMs={FIXED_NOW_MS}
+        nowMs={nowMs}
         startSession={startSession}
+        onSelectModel={onSelectModel}
+        initialView={initialView}
       />,
     ),
   )
   await setup.renderOnce()
   return setup
 }
+
+test.each([
+  ['2026-09-17T23:00:00Z', '2026-09-19T06:00:00Z', 10, 15],
+  ['2026-09-17T21:00:00Z', '2026-09-18T22:00:00Z', 15, 10],
+] as const)('the mounted CLI picker catches up after multi-day sleep from %s', async (issued, resumed, before, after) => {
+  const now = Date.parse(issued)
+  const clock = spyOn(Date, 'now').mockReturnValue(now)
+  const realTimeout = globalThis.setTimeout
+  let wake: (() => void) | undefined
+  const timer = spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void, ms: number, ...args: unknown[]) => {
+    if (ms >= 3_600_000) wake = fn
+    return realTimeout(fn, ms, ...args)
+  }) as typeof setTimeout)
+  const id = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  try {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none', accessTier: 'full',
+      freebucks: {
+        ...freebucksFixture(25, { [id]: before }),
+        offPeak: { [id]: { startHourUtc: 22, endHourUtc: 6, price: 10, regularPrice: 15 } },
+        priceChanges: [],
+        priceNotices: { [id]: 'Server fallback price notice' },
+      },
+    })
+    useFreebuffModelStore.getState().setSelectedModel(id)
+    const setup = await renderSelector(40, undefined, 100, now)
+    expect(setup.captureCharFrame()).toMatch(new RegExp(`│ +${before} Freebucks/hr`))
+    // At peak, line 2 says when the off-peak price is back.
+    expect(setup.captureCharFrame().includes('10 Freebucks/hr from')).toBe(before === 15)
+    expect(setup.captureCharFrame()).not.toContain('Off-peak')
+    expect(setup.captureCharFrame()).not.toContain('normally 15/hr')
+    expect(setup.captureCharFrame()).not.toContain('Server fallback price notice')
+    expect(wake).toBeDefined()
+    flushSync(() => {
+      clock.mockReturnValue(Date.parse(resumed))
+      wake!()
+    })
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toMatch(new RegExp(`│ +${after} Freebucks/hr`))
+    expect(setup.captureCharFrame().includes('10 Freebucks/hr from')).toBe(after === 15)
+    expect(setup.captureCharFrame()).not.toContain('Off-peak')
+    expect(setup.captureCharFrame()).not.toContain('normally 15/hr')
+  } finally {
+    cleanupRenderer?.()
+    cleanupRenderer = undefined
+    timer.mockRestore()
+    clock.mockRestore()
+  }
+})
+
+test.each([
+  ['priceNotices', 40],
+  ['priceNotices', 100],
+  ['peak', 40],
+  ['peak', 100],
+] as const)('legacy %s copy stays hidden at %s columns while Flash remains selectable', async (payload, width) => {
+  const id = FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID
+  const price = payload === 'peak' ? 25 : 10
+  useFreebuffSessionStore.getState().setSession({
+    status: 'none',
+    accessTier: 'full',
+    freebucks: {
+      ...freebucksFixture(25, { [id]: price }),
+      priceNotices: { [id]: 'Off-peak pricing · 15 Freebucks/hour at peak' },
+      ...(payload === 'peak' ? {
+        peak: {
+          modelIds: [id],
+          surcharge: 10,
+          endsAt: new Date(FIXED_NOW_MS + 3_600_000).toISOString(),
+        },
+      } : {}),
+    },
+  })
+  useFreebuffModelStore.getState().setSelectedModel(id)
+  const requested: string[] = []
+  const setup = await renderSelector(40, async (model) => { requested.push(model) }, width)
+  const frame = setup.captureCharFrame()
+  expect(frame).toContain('› DeepSeek V4.1 Flash')
+  expect(frame).toContain('Smart &')
+  expect(frame).toMatch(new RegExp(`│ +${price} Freebucks/hr`))
+  expect(frame).not.toMatch(/Off-peak|Peak pricing|charges double|Freebucks\/hour at peak/)
+  flushSync(() => setup.mockInput.pressEnter())
+  await setup.renderOnce()
+  expect(requested).toEqual([id])
+})
 
 /**
  * LIMITED tier, which since 2026-08-31 is the only tier where the reward is a
@@ -134,6 +226,34 @@ const renderSelectorWithGlmRemaining = async (remaining?: number) => {
   await nextSetup.renderOnce()
 }
 
+test('the Freebucks picker waits after an expired reset and displays a confirmed refill', async () => {
+  const meter = freebucksFixture(0)
+  const publish = (remaining: number, resetAt: number) => {
+    flushSync(() => useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      freebucks: {
+        ...meter,
+        balance: remaining,
+        daily: { ...meter.daily, limit: 100, remaining, spent: 100 - remaining, resetAt: new Date(resetAt).toISOString() },
+      },
+    }))
+  }
+  publish(0, FIXED_NOW_MS + 60_000)
+  const setup = await renderSelector(48)
+  expect(setup.captureCharFrame()).toContain('0/100 Freebucks daily · resets in 1m')
+  for (const resetAt of [FIXED_NOW_MS, FIXED_NOW_MS - 60_000]) {
+    publish(0, resetAt)
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toContain('0/100 Freebucks daily · Updating balance…')
+    expect(setup.captureCharFrame()).not.toContain('resets in now')
+  }
+  publish(100, FIXED_NOW_MS + 86_400_000)
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain('100/100 Freebucks daily · resets in 1d 0h')
+  expect(setup.captureCharFrame()).not.toContain('Updating balance')
+})
+
 describe('FreebuffModelSelector referral selection', () => {
   test('keeps a fractional unlocked reward session selected while its request is pending', async () => {
     await renderSelectorWithGlmRemaining(0.25)
@@ -142,15 +262,15 @@ describe('FreebuffModelSelector referral selection', () => {
 
   test('still repairs a locked reward selection to a visible grid model', async () => {
     await renderSelectorWithGlmRemaining(0)
-    // The LIMITED hero, which is no longer the full-access default: GLM 5.3
-    // Flash became that on 2026-09-05 and is earned-metered at this tier, so
-    // repairing onto it would move the user from one locked row to another.
-    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
+    // The LIMITED hero: MiMo 2.6 Flash since 2026-09-30, an always-open row.
+    // GLM 5.3 Flash (the reward) is earned-metered at this tier, so repairing
+    // onto it would move the user from one locked row to another.
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_HERO_MODEL_ID)
   })
 
   test('treats an omitted reward balance as locked', async () => {
     await renderSelectorWithGlmRemaining()
-    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_HERO_MODEL_ID)
   })
 })
 
@@ -172,7 +292,13 @@ describe('FreebuffModelSelector tier layout', () => {
       .getState()
       .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
 
-    const frame = (await renderSelector()).captureCharFrame()
+    // 48 rows since 2026-09-23: Solar Mini 4 and Space Bunny Alpha made the
+    // full catalog one row taller than a 40-row frame holds with the referral
+    // actions beneath it.
+    // 52 rows: GPT-6.1 Sol (2026-09-29) made the catalog one row taller again.
+    // 53 rows once FREEBUFF_ENABLE_FAST_MODE_IN_UI lists DeepSeek V4.1 Flash Fast.
+    // Five more for the three section headers and the gaps between them.
+    const frame = (await renderSelector(FREEBUFF_ENABLE_FAST_MODE_IN_UI ? 58 : 57)).captureCharFrame()
     const actionRow =
       frame.split('\n').find((line) => line.includes('Copy invite link')) ?? ''
 
@@ -186,32 +312,18 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(frame).not.toContain('for small tasks')
   })
 
-  test('orders the premium row above UNLIMITED, saved unlimited model focused', async () => {
+  test('focuses the saved pick, not the hero', async () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
     })
-    // Solar Pro 4 moved into UNLIMITED on 2026-09-03. Keeping it as the saved
-    // pick exercises both section ordering and focus without relying on a
-    // second premium row that no longer exists.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_SOLAR_PRO_4_MODEL_ID)
+      .setSelectedModel(FREEBUFF_SOLAR_MINI_4_MODEL_ID)
 
-    const setup = await renderSelector()
-    const frame = setup.captureCharFrame()
-    const premiumHeaderIndex = frame.indexOf('PREMIUM')
-    const recommendedModelIndex = frame.indexOf('GPT-5.6 Luna')
-    const selectedModelIndex = frame.indexOf('Solar Pro 4')
-    const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
-
-    expect(premiumHeaderIndex).toBeGreaterThanOrEqual(0)
-    expect(recommendedModelIndex).toBeGreaterThan(premiumHeaderIndex)
-    expect(unlimitedHeaderIndex).toBeGreaterThan(recommendedModelIndex)
-    expect(selectedModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
-    // The cursor sits on the SAVED pick, not on the recommendation.
-    expect(frame).toContain('› Solar Pro 4')
-    expect(frame).not.toContain('› GPT-5.6 Luna')
+    const frame = (await renderSelector()).captureCharFrame()
+    expect(frame).toContain('› Solar Mini 4')
+    expect(frame).not.toContain('› MiMo 2.6 Flash')
   })
 
   /**
@@ -290,8 +402,8 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
       rateLimitsByModel: {
-        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
-          model: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        [FREEBUFF_GPT_6_LUNA_MODEL_ID]: {
+          model: FREEBUFF_GPT_6_LUNA_MODEL_ID,
           limit: 6,
           period: 'pacific_day',
           resetTimeZone: 'America/Los_Angeles',
@@ -317,7 +429,7 @@ describe('FreebuffModelSelector tier layout', () => {
     //
     // MiMo 2.5 is that row since 2026-08-18 — Flash moved into the premium
     // group and can no longer be what a spent user lands on.
-    const heroModelIndex = frame.indexOf('MiMo 2.5', unlimitedHeaderIndex)
+    const heroModelIndex = frame.indexOf('MiMo 2.6 Flash', unlimitedHeaderIndex)
 
     expect(unlimitedHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
     expect(heroModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
@@ -341,8 +453,8 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
       rateLimitsByModel: {
-        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
-          model: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        [FREEBUFF_GPT_6_LUNA_MODEL_ID]: {
+          model: FREEBUFF_GPT_6_LUNA_MODEL_ID,
           limit: 6,
           period: 'pacific_day',
           resetTimeZone: 'America/Los_Angeles',
@@ -354,7 +466,7 @@ describe('FreebuffModelSelector tier layout', () => {
     })
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+      .setSelectedModel(FREEBUFF_GPT_6_LUNA_MODEL_ID)
 
     const setup = await renderSelector()
     await Promise.resolve()
@@ -368,7 +480,9 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
     const frame = setup.captureCharFrame()
     // `›` is the cursor: it has to be on the row Enter now commits.
-    expect(frame).toContain('› GLM 5.3 Flash')
+    expect(frame).toContain(
+      `› ${getFreebuffModel(DEFAULT_FREEBUFF_MODEL_ID).displayName}`,
+    )
     // …and that row is the whole screen, exactly as for a user who is already
     // on the recommendation. The spent rows live behind the toggle.
     expect(frame).toContain('See all')
@@ -381,8 +495,8 @@ describe('FreebuffModelSelector tier layout', () => {
       status: 'none',
       accessTier: 'full',
       rateLimitsByModel: {
-        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: {
-          model: FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+        [FREEBUFF_GPT_6_LUNA_MODEL_ID]: {
+          model: FREEBUFF_GPT_6_LUNA_MODEL_ID,
           limit: 6,
           period: 'pacific_day',
           resetTimeZone: 'America/Los_Angeles',
@@ -403,7 +517,9 @@ describe('FreebuffModelSelector tier layout', () => {
     // premium; an unmetered default is always joinable, so an invalid selection
     // now lands on the row the picker leads with.
     expect(getSelectedFreebuffModel()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
-    expect(setup.captureCharFrame()).toContain('› GLM 5.3 Flash')
+    expect(setup.captureCharFrame()).toContain(
+      `› ${getFreebuffModel(DEFAULT_FREEBUFF_MODEL_ID).displayName}`,
+    )
   })
 
   test('shows every limited-tier model when the access tier arrives after mount', async () => {
@@ -422,7 +538,8 @@ describe('FreebuffModelSelector tier layout', () => {
     useFreebuffModelStore
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
-    const setup = await renderSelector()
+    // Tall enough for the whole limited list, plan rows included (2026-09-30).
+    const setup = await renderSelector(80)
 
     flushSync(() => {
       useFreebuffSessionStore.getState().setSession({
@@ -440,11 +557,102 @@ describe('FreebuffModelSelector tier layout', () => {
     for (const model of LIMITED_FREEBUFF_MODELS) {
       expect(frame).toContain(model.displayName)
     }
-    // The pre-transition pick was a full-access model, so this is the path
-    // where a full-access-only row would linger.
-    expect(frame).not.toContain('GPT-5.6 Luna')
+    // The rows a plan unlocks at limited access are LISTED to a planless
+    // account since 2026-09-30, drawn locked exactly like a full-access
+    // paid-only row: "Paid plan" on the detail line, no price. No plan-lock
+    // list arrived with this session, so the tier's own fallback decides.
+    const lines = frame.split('\n')
+    const planRows = FREEBUFF_MODELS.filter((m) =>
+      FREEBUFF_LIMITED_TIER_PLAN_ONLY_MODEL_IDS.includes(m.id),
+    )
+    expect(planRows.length).toBeGreaterThan(0)
+    // The card's own line: a section hint may name a model too.
+    const cardLine = (name: string) =>
+      lines.findIndex((line) => line.includes('│') && line.includes(name))
+    for (const model of planRows) {
+      const row = cardLine(model.displayName)
+      expect(row).toBeGreaterThanOrEqual(0)
+      expect(lines[row + 1] ?? '').toContain('Paid plan')
+    }
+    // No limited row is locked.
+    for (const model of LIMITED_FREEBUFF_MODELS) {
+      const row = cardLine(model.displayName)
+      expect(lines[row + 1] ?? '').not.toContain('Paid plan')
+    }
+    // No pool header: the rows sit in Desktop's sections, as at full access.
     expect(frame).not.toContain('PREMIUM')
-    expect(frame).not.toContain('UNLIMITED')
+    expect(frame).toContain('UNLIMITED · Experimental models')
+  })
+
+  test("on the meter, rows sit in Desktop's sections, Optimized's pick marked Recommended", async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      freebucks: freebucksFixture(100),
+    })
+    // Not the hero, so the picker opens expanded.
+    useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_GPT_6_LUNA_MODEL_ID)
+    const frame = (await renderSelector(100)).captureCharFrame()
+    const lines = frame.split('\n')
+    const cardLine = (name: string) =>
+      lines.findIndex((line) => line.includes('│') && line.includes(name))
+    const order = [
+      lines.findIndex((line) => line.startsWith('UNLIMITED · Experimental models')),
+      cardLine('Solar Pro 4'),
+      lines.findIndex((line) => line.startsWith('OPTIMIZED · Strongest')),
+      cardLine('MiMo 2.6 Flash'),
+      lines.findIndex((line) => line.startsWith('POWERFUL · Frontier')),
+      ...(FREEBUFF_ENABLE_FAST_MODE_IN_UI ? [cardLine('DeepSeek V4.1 Flash Fast')] : []),
+      cardLine('GPT-6 Luna'),
+    ]
+    expect(order.every((at) => at >= 0)).toBe(true)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+    expect(lines[cardLine('MiMo 2.6 Flash') + 1]).toContain('Recommended')
+    // Flash Fast is not badged Recommended since 2026-10-07.
+    if (FREEBUFF_ENABLE_FAST_MODE_IN_UI) {
+      expect(lines[cardLine('DeepSeek V4.1 Flash Fast') + 1]).not.toContain('Recommended')
+    }
+    expect(lines[cardLine('GPT-6 Luna') + 1]).not.toContain('Recommended')
+    expect(lines[cardLine('Solar Pro 4') + 1]).not.toContain('Recommended')
+    // Withdrawn 2026-10-06.
+    expect(cardLine('Space Bunny Alpha')).toBe(-1)
+  })
+
+  test('lists the paid-only row to a free account, locked', async () => {
+    // Listed rather than hidden since 2026-09-21: Gemini 3.8 Flash says "Paid
+    // plan" on its detail line instead of a price. MiMo 2.6 Pro and GPT-6 Luna
+    // are open to every full-access account since 2026-09-25, so neither is.
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
+    const lines = (await renderSelector(100)).captureCharFrame().split('\n')
+    const gemini = lines.findIndex((line) => line.includes('Gemini 3.8 Flash'))
+    expect(gemini).toBeGreaterThanOrEqual(0)
+    expect(lines[gemini + 1]).toContain('Paid plan')
+    for (const name of ['MiMo 2.6 Pro', 'GPT-6 Luna']) {
+      const row = lines.findIndex((line) => line.includes(name))
+      expect(row).toBeGreaterThanOrEqual(0)
+      expect(lines[row + 1] ?? '').not.toContain('Paid plan')
+    }
+    expect(lines.some((line) => line.includes('MiMo 2.6 Flash'))).toBe(true)
+  })
+
+  test('shows MiMo 2.6 Pro to a paying account, with no price caveat', async () => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      subscription: { tierId: 'starter', tiers: [] },
+    })
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_MINIMAX_M3_MODEL_ID)
+    const frame = (await renderSelector(100)).captureCharFrame()
+    expect(frame).toContain('MiMo 2.6 Pro')
+    expect(frame).not.toContain('Price subject to change')
   })
 
   test('badges only natively multimodal rows with Images', async () => {
@@ -462,9 +670,9 @@ describe('FreebuffModelSelector tier layout', () => {
     const frame = (await renderSelector()).captureCharFrame()
 
     // Natively multimodal: the badge is a real capability claim.
-    expect(rowOf(frame, 'MiMo 2.5')).toContain('Images')
-    expect(rowOf(frame, 'GPT-5.6 Luna')).toContain('Images')
-    expect(rowOf(frame, 'MiMo 2.5')).toContain('Images')
+    expect(rowOf(frame, 'MiMo 2.6 Flash')).toContain('Images')
+    expect(rowOf(frame, 'GPT-6 Luna')).toContain('Images')
+    expect(rowOf(frame, 'MiMo 2.6 Flash')).toContain('Images')
     // Text-only. They still accept a pasted image (read server-side as a
     // description), but badging them made the label mean nothing — and the
     // badge is what widened the hero card.
@@ -486,34 +694,28 @@ describe('FreebuffModelSelector tier layout', () => {
       frame.split('\n').find((line) => line.includes(tagline)) ?? ''
     const frame = (await renderSelector()).captureCharFrame()
 
-    expect(rowOf(frame, 'Smart & Fast')).toContain('Reasoning: high')
-    const lunaRow = rowOf(frame, 'GPT-5.6 Luna')
+    expect(rowOf(frame, 'Smart & Fast')).toContain('• high')
+    const lunaRow = rowOf(frame, 'GPT-6 Luna')
     expect(lunaRow).toContain('Strong all-around')
-    expect(lunaRow).toContain('Reasoning: high')
+    expect(lunaRow).toContain('• high')
     expect(rowOf(frame, 'MiniMax M3')).not.toContain('Reasoning')
   })
 
-  test('says nothing about a premium quota the account does not have', async () => {
-    // Quota-exempt accounts (god/admin) draw on no free pool, so no snapshot
-    // arrives. The header used to fall back to the static limit and render
-    // "0 of 4 used · resets in 11h 43m" for an account with neither.
+  test('off the meter, the rows still sit in the sections, with no pool counts', async () => {
+    // No Freebucks block: a quota-exempt account, or a local server whose
+    // FREEBUFF_FREEBUCKS_AUDIENCE leaves this account off the meter.
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
     })
-    // A row that isn't the hero, so the picker opens expanded and the PREMIUM
-    // header is actually drawn. The assertion is the ABSENCE of numbers on
-    // that header, so which unmetered row is selected changes nothing here —
-    // only that it is not the recommendation. It was GLM 5.3 Flash until
-    // 2026-09-05, when GLM became the default and this quietly started
-    // asserting against a COLLAPSED picker that draws no section at all.
+    // Not the hero, so the picker opens expanded.
     useFreebuffModelStore
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
     const frame = (await renderSelector()).captureCharFrame()
-    // The section still groups the rows; only the invented numbers are gone.
-    expect(frame).toContain('PREMIUM')
+    expect(frame).toContain('UNLIMITED · Experimental models')
+    expect(frame).not.toContain('PREMIUM')
     expect(frame).not.toContain('used')
     expect(frame).not.toContain('resets in')
   })
@@ -540,8 +742,8 @@ describe('FreebuffModelSelector tier layout', () => {
     // border, padding the card out by ~17 columns of empty space. What remains
     // is ordinary slack from the widest row in the set.
     //
-    // So this bound tracks the WIDEST ROW, not the hero's own content, and it
-    // moves whenever any row in the set grows. It went 10 -> 14 when GLM 5.3
+    // So this bound tracks the WIDEST ROW, and it moves whenever any row in
+    // the set grows. It went 10 -> 14 when GLM 5.3
     // Flash gained a reasoning ladder, which widens its row two different ways:
     // a model with a pinned `reasoningEffort` shows ` · Reasoning: <rung>`, and
     // a model the user has picked a rung for shows ` · Reasoning: <rung>*`
@@ -555,31 +757,41 @@ describe('FreebuffModelSelector tier layout', () => {
     // fail if the reserved gutter ever comes back, which is the only thing this
     // assertion is really guarding. Widen it again only for a real content
     // change, and check WHICH row got wider before you do.
-    const gapToBorder =
-      heroRow.length - 1 - (heroRow.indexOf('NEW') + 'NEW'.length)
+    // Measured on the WIDEST row (the smallest gap of any card line), not the
+    // hero's: NEW now marks only the row a release announces, so the hero is
+    // no longer the row that sets the width.
+    const gapToBorder = Math.min(
+      ...frame
+        .split('\n')
+        .map((line) => line.trimEnd())
+        .filter((line) => line.startsWith('│') && line.endsWith('│'))
+        .map((line) => line.slice(1, -1))
+        .filter((inner) => inner.trim())
+        .map((inner) => inner.length - inner.trimEnd().length),
+    )
     expect(heroRow.endsWith('│')).toBe(true)
     expect(gapToBorder).toBeLessThan(14)
   })
 })
 
-describe('FreebuffModelSelector limited-model offer', () => {
+describe.each(['full', 'limited'] as const)('FreebuffModelSelector limited-model offer (%s)', (accessTier) => {
   const offerSession = (
     offer: Partial<{
       remaining: number
       total: number
       userRemaining: number
-      userResetAt: string
+      userResetAt: string | null
     }> = {},
   ) => ({
     status: 'none' as const,
-    accessTier: 'full' as const,
+    accessTier,
     limitedModelOffers: [
       {
-        model: FREEBUFF_FABLE_5_MODEL_ID,
-        remaining: 38,
-        total: 50,
+        model: FREEBUFF_FABLE_5_1_MODEL_ID,
+        remaining: 488,
+        total: 500,
         userRemaining: 1,
-        userResetAt: new Date(FIXED_NOW_MS + 5 * 60 * 60_000).toISOString(),
+        userResetAt: null,
         ...offer,
       },
     ],
@@ -601,8 +813,8 @@ describe('FreebuffModelSelector limited-model offer', () => {
     useFreebuffSessionStore.getState().setSession(offerSession())
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).toContain('LIMITED TRIAL')
-    expect(frame).toContain('38 of 50 sessions left')
-    expect(frame).toContain('Claude Fable 5')
+    expect(frame).toContain('488 of 500 sessions left')
+    expect(frame).toContain('Claude Fable 5.1')
     // The disclosure that makes collecting the traces legitimate travels on the
     // row itself, not in a footnote somewhere else.
     expect(frame).toContain('May use data for AI training')
@@ -616,7 +828,7 @@ describe('FreebuffModelSelector limited-model offer', () => {
     useFreebuffSessionStore.getState().setSession(offerSession())
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).toContain('See all')
-    expect(frame).toContain('Claude Fable 5')
+    expect(frame).toContain('Claude Fable 5.1')
     expect(frame).not.toContain('PREMIUM')
   })
 
@@ -625,10 +837,56 @@ describe('FreebuffModelSelector limited-model offer', () => {
       .getState()
       .setSession(offerSession({ userRemaining: 0 }))
     const frame = (await renderSelector()).captureCharFrame()
-    expect(frame).toContain('Claude Fable 5')
-    expect(frame).toContain("you've used yours")
-    expect(frame).toContain('resets in')
+    expect(frame).toContain('Claude Fable 5.1')
+    expect(frame).toContain("trial used")
+    expect(frame).not.toContain('resets in')
+    expect(frame).toContain('1 per user')
   })
+
+  test.each([60, 80, 100])(
+    'trial clicks at %s columns start only an unused trial at zero balance',
+    async (width) => {
+      const starts: string[] = []
+      const publish = (userRemaining: number) =>
+        useFreebuffSessionStore.getState().setSession({
+          ...offerSession({ userRemaining }),
+          freebucks: freebucksFixture(0),
+        })
+      publish(1)
+      useFreebuffModelStore
+        .getState()
+        .setSelectedModel(FREEBUFF_FABLE_5_1_MODEL_ID)
+      const setup = await renderSelector(
+        40,
+        async (model) => {
+          starts.push(
+            resolveFreebuffModelPickForSession(
+              model,
+              useFreebuffSessionStore.getState().session,
+            ),
+          )
+        },
+        width,
+      )
+      const clickFable = async () => {
+        const y = setup
+          .captureCharFrame()
+          .split('\n')
+          .findIndex((line) => line.includes('Claude Fable'))
+        expect(y).toBeGreaterThanOrEqual(0)
+        await setup.mockMouse.click(8, y)
+        await setup.renderOnce()
+      }
+      expect(setup.captureCharFrame()).toContain('May use data for AI training')
+      await clickFable()
+      expect(starts).toEqual([FREEBUFF_FABLE_5_1_MODEL_ID])
+      publish(0)
+      await setup.renderOnce()
+      expect(setup.captureCharFrame()).toContain('trial used')
+      await clickFable()
+      expect(starts).toHaveLength(1)
+    },
+  )
 
   test('drops an offer this build has no catalog entry for', async () => {
     // A server rolling out a model older clients don't know must be a no-op,
@@ -656,9 +914,9 @@ describe('FreebuffModelSelector limited-model offer', () => {
     // invalid-selection repair would otherwise bounce the user off the row they
     // just picked.
     useFreebuffSessionStore.getState().setSession(offerSession())
-    useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_FABLE_5_MODEL_ID)
+    useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_FABLE_5_1_MODEL_ID)
     await renderSelector()
-    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_FABLE_5_MODEL_ID)
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_FABLE_5_1_MODEL_ID)
   })
 
   test('repairs the selection once the wave ends', async () => {
@@ -666,7 +924,7 @@ describe('FreebuffModelSelector limited-model offer', () => {
       status: 'none',
       accessTier: 'full',
     })
-    useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_FABLE_5_MODEL_ID)
+    useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_FABLE_5_1_MODEL_ID)
     await renderSelector()
     expect(isFreebuffModelId(getSelectedFreebuffModel())).toBe(true)
   })
@@ -714,7 +972,7 @@ describe('FreebuffModelSelector plan line', () => {
 
   test('a subscriber sees their plan windows under the catalog', async () => {
     useFreebuffSessionStore.getState().setSession(PLAN_SESSION)
-    const frame = (await renderSelector()).captureCharFrame()
+    const frame = (await renderSelector(48)).captureCharFrame()
     expect(frame).toContain('STARTER PLAN')
     expect(frame).toContain('today 1.3 of 2')
     expect(frame).toContain('week 3 of 6')
@@ -730,7 +988,8 @@ describe('FreebuffModelSelector plan line', () => {
         blockedBy: 'daily',
       },
     } as never)
-    const frame = (await renderSelector()).captureCharFrame()
+    // The blocking line sits under the whole catalog; 40 rows no longer reach it.
+    const frame = (await renderSelector(48)).captureCharFrame()
     expect(frame).toContain("today's plan sessions are used")
     expect(frame).toContain('resets in 3h')
   })
@@ -750,7 +1009,9 @@ describe('FreebuffModelSelector plan line', () => {
         monthResetAt: new Date(FIXED_NOW_MS + 20 * 24 * 3600_000).toISOString(),
       },
     } as never)
-    const frame = (await renderSelector()).captureCharFrame()
+    // 48 rows: Solar Pro 4's return (2026-09-25) made the full catalog taller
+    // than a 40-row frame holds with the plan line above it.
+    const frame = (await renderSelector(48)).captureCharFrame()
     expect(frame).toContain(
       'FREE · today 1 of 4 · week 3 of 14 · month 9 of 40',
     )
@@ -790,13 +1051,12 @@ describe('GLM selection uses the applicable meter', () => {
         .setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
       const setup = await renderSelector()
       await setup.renderOnce()
-      // The LIMITED hero when the balance cannot cover GLM. It stopped being
-      // the full-access default on 2026-09-05: GLM became that, and repairing
-      // an unaffordable GLM onto GLM would be a no-op.
+      // The LIMITED hero (MiMo 2.6 Flash since 2026-09-30) when the balance
+      // cannot cover GLM.
       expect(getSelectedFreebuffModel()).toBe(
         balance >= 5
           ? FREEBUFF_GLM_V53_FLASH_MODEL_ID
-          : LIMITED_FREEBUFF_MODEL_ID,
+          : LIMITED_FREEBUFF_HERO_MODEL_ID,
       )
       if (balance >= 5)
         // The price reads `5/hr`; the balance lives in the header line.
@@ -824,7 +1084,7 @@ describe('GLM selection uses the applicable meter', () => {
     await setup.renderOnce()
     await setup.renderOnce()
     // The LIMITED hero — see the note in the case above.
-    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_HERO_MODEL_ID)
     setBalance(5)
     useFreebuffModelStore
       .getState()
@@ -835,7 +1095,7 @@ describe('GLM selection uses the applicable meter', () => {
     setBalance()
     await setup.renderOnce()
     await setup.renderOnce()
-    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_MODEL_ID)
+    expect(getSelectedFreebuffModel()).toBe(LIMITED_FREEBUFF_HERO_MODEL_ID)
   })
 })
 
@@ -905,9 +1165,11 @@ test.each([
         ? {}
         : { freebucks: freebucksFixture(balance) }),
     })
+    // A non-hero pick, so the picker opens expanded with GLM on screen. MiMo
+    // 2.6 Flash was that pick until it became the limited hero (2026-09-30).
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_MIMO_V25_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     const requested: string[] = []
     const setup = await renderSelector(40, async (model) => {
       requested.push(model)
@@ -920,9 +1182,130 @@ test.each([
     await setup.mockMouse.click(15, y)
     await setup.renderOnce()
     expect(requested).toEqual([])
-    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+    expect(getSelectedFreebuffModel()).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
   },
 )
+
+// Gemini 3.8 Flash is PAID-ONLY on every surface since 2026-09-21, and the
+// CLI lists it: locked rather than hidden, so the upgrade has something to
+// point at. Locked means no price, a "Paid plan" note, and a press that opens
+// the plans page and never starts a session. The balance here easily covers
+// the row, so what is pinned is the PLAN gate, not the meter.
+describe('a paid-only row on an account without a plan', () => {
+  const STARTER_PLAN = {
+    tierId: 'starter',
+    tiers: [
+      {
+        id: 'starter',
+        displayName: 'Starter',
+        priceUsd: 8,
+        firstPeriodPriceUsd: 2.5,
+        dailySessions: 2,
+        fiveDaySessions: 6,
+        monthlySessions: 50,
+        monthlySpendLimitUsd: 40,
+        dailyPremiumSessions: 2,
+        disclaimers: [],
+        current: true,
+        upgrade: false,
+        downgrade: false,
+      },
+    ],
+    usage: {
+      dayUsed: 0,
+      dayLimit: 2,
+      fiveDayUsed: 0,
+      fiveDayLimit: 6,
+      monthUsed: 0,
+      monthLimit: 50,
+      dayPremiumUsed: 0,
+      dayPremiumLimit: 2,
+      dayResetAt: new Date(FIXED_NOW_MS + 3 * 3600_000).toISOString(),
+      periodEndsAt: new Date(FIXED_NOW_MS + 20 * 24 * 3600_000).toISOString(),
+      monthSpendUsd: 0,
+      monthSpendLimitUsd: 40,
+    },
+  }
+  const renderOnGemini = async (withPlan: boolean) => {
+    useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      freebucks: freebucksFixture(1_000, {
+        [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 80,
+        [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 10,
+      }),
+      ...(withPlan ? { subscription: STARTER_PLAN } : {}),
+    } as never)
+    // A non-default pick, so the picker opens expanded (MiMo 2.6 Flash, the
+    // pick here until 2026-09-30, is the default now and opens collapsed).
+    useFreebuffModelStore
+      .getState()
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
+    const requested: string[] = []
+    const setup = await renderSelector(40, async (model) => {
+      requested.push(model)
+    })
+    await setup.renderOnce()
+    for (let i = 0; i < 20; i++) {
+      if (setup.captureCharFrame().includes('› Gemini 3.8 Flash')) break
+      flushSync(() => setup.mockInput.pressKey('ARROW_DOWN'))
+      await setup.renderOnce()
+    }
+    expect(setup.captureCharFrame()).toContain('› Gemini 3.8 Flash')
+    return { setup, requested }
+  }
+  const detailLineOf = (frame: string) => {
+    const lines = frame.split('\n')
+    const row = lines.findIndex((line) => line.includes('Gemini 3.8 Flash'))
+    expect(row).toBeGreaterThanOrEqual(0)
+    return lines[row + 1] ?? ''
+  }
+
+  test('is listed, marked Paid plan, with no price', async () => {
+    const { setup } = await renderOnGemini(false)
+    const details = detailLineOf(setup.captureCharFrame())
+    expect(details).toContain('Paid plan')
+    expect(details).not.toContain('Freebucks/hr')
+  })
+
+  test('explains the plan on the first press and starts nothing', async () => {
+    const { setup, requested } = await renderOnGemini(false)
+    flushSync(() => setup.mockInput.pressEnter())
+    await setup.renderOnce()
+    const frame = setup.captureCharFrame()
+    expect(frame).toContain('Included with a paid plan. Enter opens plans.')
+    expect(frame).not.toContain(`Not enough ${FREEBUCKS_LABEL}`)
+    expect(requested).toEqual([])
+  })
+
+  test('opens the plans page on the second press, and starts nothing', async () => {
+    const openSpy = spyOn(openUrl, 'safeOpen').mockResolvedValue(true)
+    try {
+      const { setup, requested } = await renderOnGemini(false)
+      flushSync(() => setup.mockInput.pressEnter())
+      await setup.renderOnce()
+      flushSync(() => setup.mockInput.pressEnter())
+      await setup.renderOnce()
+      expect(openSpy).toHaveBeenCalledWith('https://freebuff.com/plans')
+      expect(requested).toEqual([])
+      expect(getSelectedFreebuffModel()).toBe(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      )
+    } finally {
+      openSpy.mockRestore()
+    }
+  })
+
+  test('is an ordinary priced row for a subscriber, and Enter starts it', async () => {
+    const { setup, requested } = await renderOnGemini(true)
+    const details = detailLineOf(setup.captureCharFrame())
+    expect(details).not.toContain('Paid plan')
+    expect(details).toContain('80 Freebucks/hr')
+    flushSync(() => setup.mockInput.pressEnter())
+    await setup.renderOnce()
+    expect(requested).toEqual([FREEBUFF_GEMINI_38_FLASH_MODEL_ID])
+  })
+})
 
 // A row the meter cannot cover used to be inert in both directions: the Enter
 // handler and the click handler both gated on `isJoinable`, so pressing it did
@@ -936,14 +1319,20 @@ describe('a row the balance cannot cover', () => {
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
-      freebucks: freebucksFixture(10, {
-        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 20,
-        [FREEBUFF_MIMO_V25_MODEL_ID]: 10,
-      }),
+      freebucks: {
+        // The Freebucks wall, not the plan wall: this row must be affordable-
+        // in-principle for the balance message to be what the press explains.
+        planRequiredModelIds: [],
+        ...freebucksFixture(10, {
+          [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 20,
+          [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 10,
+        }),
+      },
     })
+    // A non-default pick, so the picker opens expanded.
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_MIMO_V25_MODEL_ID)
+      .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     const requested: string[] = []
     const setup = await renderSelector(40, async (model) => {
       requested.push(model)
@@ -951,11 +1340,11 @@ describe('a row the balance cannot cover', () => {
     await setup.renderOnce()
     // Walk the focus onto Luna rather than assuming where it lands.
     for (let i = 0; i < 12; i++) {
-      if (setup.captureCharFrame().includes('› GPT-5.6 Luna')) break
+      if (setup.captureCharFrame().includes('› GPT-6 Luna')) break
       flushSync(() => setup.mockInput.pressKey('ARROW_DOWN'))
       await setup.renderOnce()
     }
-    expect(setup.captureCharFrame()).toContain('› GPT-5.6 Luna')
+    expect(setup.captureCharFrame()).toContain('› GPT-6 Luna')
     return { setup, requested }
   }
 
@@ -979,10 +1368,43 @@ describe('a row the balance cannot cover', () => {
       await setup.renderOnce()
       expect(openSpy).toHaveBeenCalledWith('https://freebuff.com/plans')
       expect(requested).toEqual([])
-      expect(getSelectedFreebuffModel()).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
+      expect(getSelectedFreebuffModel()).toBe(
+        FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+      )
     } finally {
       openSpy.mockRestore()
     }
+  })
+
+  test('a pending paywall clears when the balance refresh makes the row affordable', async () => {
+    const { setup, requested } = await renderUnaffordableLuna()
+    flushSync(() => setup.mockInput.pressEnter())
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toContain(`Not enough ${FREEBUCKS_LABEL}`)
+    expect(requested).toEqual([])
+
+    flushSync(() => useFreebuffSessionStore.getState().setSession({
+      status: 'none',
+      accessTier: 'full',
+      freebucks: {
+        // Same viewer as the fixture above: nothing plan-locked for them.
+        planRequiredModelIds: [],
+        ...freebucksFixture(25, {
+          [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 20,
+          [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 10,
+        }),
+      },
+    }))
+    await setup.renderOnce()
+    const frame = setup.captureCharFrame()
+    expect(frame).toContain('› GPT-6 Luna')
+    expect(frame).toMatch(/│ +20 Freebucks\/hr/)
+    expect(frame).not.toContain(`Not enough ${FREEBUCKS_LABEL}`)
+    expect(requested).toEqual([])
+
+    flushSync(() => setup.mockInput.pressEnter())
+    await setup.renderOnce()
+    expect(requested).toEqual([FREEBUFF_GPT_6_LUNA_MODEL_ID])
   })
 
   test('a row closed for the hour stays inert — no wall to raise', async () => {
@@ -990,7 +1412,7 @@ describe('a row the balance cannot cover', () => {
       status: 'none',
       accessTier: 'full',
       freebucks: freebucksFixture(10, {
-        [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 20,
+        [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 20,
       }),
     })
     useFreebuffModelStore
@@ -1012,21 +1434,23 @@ test.each([false, true])(
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'limited',
-      freebucks: freebucksFixture(25, { [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 20 }),
+      freebucks: freebucksFixture(25, { [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 20 }),
       ...(paid ? { subscription: { tierId: 'starter', tiers: [] } } : {}),
     })
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+      .setSelectedModel(FREEBUFF_GPT_6_LUNA_MODEL_ID)
     const setup = await renderSelector()
     await setup.renderOnce()
-    // Unpaid at limited access repairs onto the LIMITED hero, which since
-    // 2026-09-05 is not the full-access default.
+    // Unpaid at limited access repairs onto the LIMITED hero: Luna is listed
+    // there since 2026-09-30, but LOCKED (no plan-lock list arrived here, so
+    // the tier's own fallback, FREEBUFF_LIMITED_TIER_PLAN_ONLY_MODEL_IDS,
+    // decides), and a locked row is never a selection the picker keeps.
     expect(getSelectedFreebuffModel()).toBe(
-      paid ? FREEBUFF_GPT_5_6_LUNA_MODEL_ID : LIMITED_FREEBUFF_MODEL_ID,
+      paid ? FREEBUFF_GPT_6_LUNA_MODEL_ID : LIMITED_FREEBUFF_HERO_MODEL_ID,
     )
-    if (paid) expect(setup.captureCharFrame()).toContain('GPT-5.6 Luna')
-    else expect(setup.captureCharFrame()).not.toContain('GPT-5.6 Luna')
+    if (paid) expect(setup.captureCharFrame()).toContain('GPT-6 Luna')
+    else expect(setup.captureCharFrame()).not.toContain('› GPT-6 Luna')
   },
 )
 
@@ -1035,16 +1459,17 @@ test('quota-exempt Luna remains selected at zero Freebucks', async () => {
     status: 'none',
     accessTier: 'full',
     freebucks: {
-      ...freebucksFixture(0, { [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 20 }),
+      planRequiredModelIds: [],
+      ...freebucksFixture(0, { [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 20 }),
       quotaExempt: true,
     },
   })
   useFreebuffModelStore
     .getState()
-    .setSelectedModel(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+    .setSelectedModel(FREEBUFF_GPT_6_LUNA_MODEL_ID)
   const setup = await renderSelector()
   await setup.renderOnce()
-  expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)
+  expect(getSelectedFreebuffModel()).toBe(FREEBUFF_GPT_6_LUNA_MODEL_ID)
 })
 
 test('the collapsed picker recommends affordable GLM when the default costs too much', async () => {
@@ -1055,7 +1480,7 @@ test('the collapsed picker recommends affordable GLM when the default costs too 
       [DEFAULT_FREEBUFF_MODEL_ID]: 15,
       [FREEBUFF_MIMO_V25_MODEL_ID]: 10,
       [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 5,
-      [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 5,
+      [FREEBUFF_SOLAR_MINI_4_MODEL_ID]: 5,
     }),
   })
   useFreebuffModelStore.getState().setSelectedModel(DEFAULT_FREEBUFF_MODEL_ID)
@@ -1072,11 +1497,16 @@ test('the collapsed picker recommends affordable GLM when the default costs too 
 })
 
 test('a funded Luna row does not show its exhausted legacy quota in the section header', async () => {
-  const id = FREEBUFF_GPT_5_6_LUNA_MODEL_ID
+  const id = FREEBUFF_GPT_6_LUNA_MODEL_ID
   useFreebuffSessionStore.getState().setSession({
     status: 'none',
     accessTier: 'full',
-    freebucks: freebucksFixture(25, { [id]: 20 }),
+    // Empty = "no row is plan-locked for this viewer", the server's verdict
+    // for a US account. Without it the Luna row is drawn locked and priceless.
+    freebucks: {
+      ...freebucksFixture(25, { [id]: 20 }),
+      planRequiredModelIds: [],
+    },
     rateLimitsByModel: {
       [id]: {
         model: id,
@@ -1098,8 +1528,13 @@ test('a funded Luna row does not show its exhausted legacy quota in the section 
   expect(getSelectedFreebuffModel()).toBe(id)
 })
 
-test('an open Solar CLI picker leaves the holiday price at the cutoff and submits at 5', async () => {
-  const cutoff = Date.parse('2026-09-08T07:00:00Z')
+test.each([
+  { at: '2026-09-08T07:00:00Z', before: 0, price: 5, balance: 5 },
+  { at: '2026-09-14T03:46:00Z', before: 5, price: 10, balance: 9 },
+  { at: '2026-09-14T03:46:00Z', before: 5, price: 10, balance: 10 },
+])('an open Solar CLI picker updates price and purchase affordability: %j', async ({ at, before, price, balance }) => {
+  const SOLAR = FREEBUFF_SOLAR_MINI_4_MODEL_ID
+  const cutoff = Date.parse(at)
   const clock = spyOn(Date, 'now').mockReturnValue(cutoff - 137)
   const realTimeout = globalThis.setTimeout
   let wake: (() => void) | undefined
@@ -1117,35 +1552,32 @@ test('an open Solar CLI picker leaves the holiday price at the cutoff and submit
       status: 'none',
       accessTier: 'full',
       freebucks: {
-        ...freebucksFixture(5, {
+        ...freebucksFixture(balance, {
           [DEFAULT_FREEBUFF_MODEL_ID]: 15,
           [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 5,
-          [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 0,
+          [SOLAR]: before,
         }),
-        priceNotices: {
-          [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: solarOfferAt(cutoff - 137).tagline,
-        },
+        // Solar Mini 4's recorded schedule, replayed on the row that replaced
+        // it in the picker (2026-09-23): the mechanism under test is generic,
+        // and a retired row no longer renders.
         priceChanges: SOLAR_PRICE_CHANGES.filter(
           (change) => Date.parse(change.at) >= cutoff,
-        ),
+        ).map((change) => ({ ...change, modelId: SOLAR })),
       },
     })
     useFreebuffModelStore
       .getState()
-      .setSelectedModel(FREEBUFF_SOLAR_PRO_4_MODEL_ID)
-    const setup = await renderSelector(40, async (model) => {
+      .setSelectedModel(SOLAR)
+    // 48 rows: the expanded catalog outgrew 40 when Solar Pro 4 returned.
+    // 50 rows once FREEBUFF_ENABLE_FAST_MODE_IN_UI lists DeepSeek V4.1 Flash
+    // Fast: that row makes the expanded catalog two lines taller.
+    // Five more for the three section headers and the gaps between them, and
+    // one for Solar Pro 4's "Promotional" line (2026-10-05).
+    const setup = await renderSelector(FREEBUFF_ENABLE_FAST_MODE_IN_UI ? 56 : 54, async (model) => {
       requested.push(model)
     })
-    expect(setup.captureCharFrame()).toContain('Labor Day weekend')
-    expect(setup.captureCharFrame()).toContain('0 Freebucks')
     expect(wake).toBeDefined()
-    // Keep the whole catalog open: the collapsed recommendation can change
-    // when another model becomes the cheapest affordable choice. Whether it
-    // OPENS collapsed depends on the hero: a default the balance cannot cover
-    // (DeepSeek at 15) fell back to Solar, the selection, so it collapsed;
-    // an affordable default (GLM at 5, since 2026-09-05) is not the selection,
-    // so it opens expanded with the cursor already on Solar. Only reach for
-    // the toggle when there is one, or Down walks the cursor onto GLM.
+    // Expand if the affordable recommendation initially collapsed the catalog.
     if (!setup.captureCharFrame().includes('Show fewer')) {
       await setup.mockInput.pressArrow('down')
       await setup.renderOnce()
@@ -1161,14 +1593,24 @@ test('an open Solar CLI picker leaves the holiday price at the cutoff and submit
       wake!()
     })
     await setup.renderOnce()
-    expect(setup.captureCharFrame()).not.toContain('Labor Day weekend')
-    expect(setup.captureCharFrame()).toContain('Solar Pro 4')
     expect(setup.captureCharFrame()).toMatch(
-      /Solar Pro 4[^\n]*\n[^\n]*5 Freebucks\/hr/,
+      new RegExp(`Solar Mini 4[^\\n]*\\n[^\\n]*${price} Freebucks/hr`),
     )
-    await setup.mockInput.pressEnter()
+    // Return to Solar if the price increase moved focus to a cheaper model.
+    for (let i = 0; i < 12; i++) {
+      if (setup.captureCharFrame().includes('› Solar Mini 4')) break
+      flushSync(() => setup.mockInput.pressKey('ARROW_DOWN'))
+      await setup.renderOnce()
+    }
+    expect(setup.captureCharFrame()).toContain('› Solar Mini 4')
+    flushSync(() => setup.mockInput.pressEnter())
     await setup.renderOnce()
-    expect(requested).toEqual([FREEBUFF_SOLAR_PRO_4_MODEL_ID])
+    if (balance < price) {
+      expect(requested).toEqual([])
+      expect(setup.captureCharFrame()).toContain(`Not enough ${FREEBUCKS_LABEL}`)
+    } else {
+      expect(requested).toEqual([SOLAR])
+    }
   } finally {
     cleanupRenderer?.()
     cleanupRenderer = undefined
@@ -1187,7 +1629,7 @@ describe('FreebuffModelSelector limited upgrade CTA', () => {
     modelId: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
     cta: 'Get 7x usage for $5',
     tooltip:
-      'DeepSeek V4.1 Flash drops to 15 Freebucks on a plan — 7 hours a day instead of 1 hour. $5 first month, $8/mo after.',
+      'DeepSeek V4.1 Flash: 7 hours a day on Starter instead of 1 hour for free. $5 first month, $8/mo after.',
   }
   const renderWith = async (
     upgrade: typeof LIMITED_OFFER | undefined,
@@ -1265,9 +1707,10 @@ describe('unavailable balances in the mounted CLI picker', () => {
       useFreebuffSessionStore.getState().setSession(pending)
       useFreebuffModelStore.getState().setSelectedModel(id)
       const requests: string[] = []
-      const limits: (number | 'session' | undefined)[] = []
-      const setup = await renderSelector(40, async (model, limit) => {
-        limits.push(limit)
+      // Tall enough for the expanded list: GLM is no longer the default
+      // (2026-09-30), so the picker opens expanded on it and the balance line
+      // sits below every row.
+      const setup = await renderSelector(80, async (model) => {
         requests.push(
           resolveFreebuffModelPickForSession(
             model,
@@ -1316,7 +1759,6 @@ describe('unavailable balances in the mounted CLI picker', () => {
       flushSync(() => setup.mockInput.pressEnter())
       await setup.renderOnce()
       expect(requests).toEqual([id, id, id])
-      expect(limits).toEqual(['session', undefined, 5])
     },
   )
 
@@ -1403,3 +1845,54 @@ test.each(['full', 'limited'] as const)(
     expect(picked).toEqual([id])
   },
 )
+
+
+test('chat picker selects without admitting or asking to spend wallet funds', async () => {
+  const model = FREEBUFF_MIMO_V25_MODEL_ID
+  useFreebuffSessionStore.getState().setSession({
+    status: 'none', accessTier: 'full',
+    freebucks: { ...freebucksFixture(0, { [model]: 5 }), balance: 10, wallet: { balance: 10, monthlyBonus: 0 } },
+  })
+  useFreebuffModelStore.getState().setSelectedModel(model)
+  const selected: string[] = []
+  const admitted: string[] = []
+  const setup = await renderSelector(40, async (id) => { admitted.push(id) }, 100, FIXED_NOW_MS, (id) => { selected.push(id) })
+  flushSync(() => setup.mockInput.pressEnter())
+  expect(selected).toEqual([model])
+  expect(admitted).toEqual([])
+  expect(setup.captureCharFrame()).not.toContain('Enter uses')
+})
+
+test.each(['model', 'reasoning'] as const)('%s entry edits reasoning and Escape returns without selecting', async (initialView) => {
+  const model = FREEBUFF_GLM_V53_FLASH_MODEL_ID
+  const previous = useFreebuffModelStore.getState().reasoningEffortByModel
+  useFreebuffSessionStore.getState().setSession({ status: 'none', accessTier: 'full' })
+  useFreebuffModelStore.setState({ selectedModel: model, reasoningEffortByModel: {} })
+  const selected: string[] = []
+  const setup = await renderSelector(40, undefined, 120, FIXED_NOW_MS, (id) => selected.push(id), initialView)
+  const persist = spyOn(useFreebuffModelStore.getState(), 'setReasoningEffort').mockImplementation((id, effort) => {
+    useFreebuffModelStore.setState({ reasoningEffortByModel: effort ? { [id]: effort } : {} })
+  })
+  try {
+    if (initialView === 'model') flushSync(() => setup.mockInput.pressKey('TAB'))
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toContain('GLM 5.3 Flash • Reasoning')
+    flushSync(() => setup.mockInput.pressKey('ESCAPE'))
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).not.toContain('↑↓ choose · Enter save')
+    expect(selected).toEqual([])
+    flushSync(() => setup.mockInput.pressKey('TAB'))
+    await setup.renderOnce()
+    flushSync(() => setup.mockInput.pressKey('ARROW_UP'))
+    await setup.renderOnce()
+    flushSync(() => setup.mockInput.pressEnter())
+    await setup.renderOnce()
+    expect(persist).toHaveBeenCalledTimes(1)
+    expect(selected).toEqual([])
+    flushSync(() => setup.mockInput.pressEnter())
+    expect(selected).toEqual([model])
+  } finally {
+    persist.mockRestore()
+    useFreebuffModelStore.setState({ reasoningEffortByModel: previous })
+  }
+})

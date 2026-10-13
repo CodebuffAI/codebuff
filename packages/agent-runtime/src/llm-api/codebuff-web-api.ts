@@ -9,6 +9,15 @@ const MAX_RETRIES = 3
 const RETRY_BASE_DELAY_MS = 1000
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 
+/**
+ * Thrown by a runtime `fetch` that will never reach the hosted service (a
+ * direct BYOK run has no Codebuff allowance). Retrying it cannot succeed, so
+ * the tool fails at once instead of after the 1s + 2s network-error backoff.
+ */
+export class HostedServiceUnavailableError extends Error {
+  override name = 'HostedServiceUnavailableError'
+}
+
 interface CodebuffWebApiEnv {
   clientEnv: ClientEnv
   ciEnv: CiEnv
@@ -121,6 +130,9 @@ const callCodebuffV1 = async (params: {
       return { json, creditsUsed: getNumberField(json, 'creditsUsed') }
     } catch (error) {
       lastError = error instanceof Error ? error.message : 'Network error'
+      if (error instanceof HostedServiceUnavailableError) {
+        return { error: lastError }
+      }
 
       // Retry on network errors
       if (attempt < MAX_RETRIES) {
@@ -265,85 +277,4 @@ export async function callGravityIndexAPI(params: {
 
   const error = getStringField(res.json, 'error')
   return { error: error ?? 'Invalid response format' }
-}
-
-export async function callTokenCountAPI(params: {
-  messages: unknown[]
-  system?: string
-  model?: string
-  tools?: Array<{ name: string; description?: string; input_schema?: unknown }>
-  fetch: typeof globalThis.fetch
-  logger: Logger
-  env: CodebuffWebApiEnv
-  baseUrl?: string
-  apiKey?: string
-}): Promise<{ inputTokens?: number; error?: string }> {
-  const { messages, system, model, tools, fetch, logger, env } = params
-  const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
-  const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
-
-  if (!baseUrl || !apiKey) {
-    return { error: 'Missing Codebuff base URL or API key' }
-  }
-
-  const url = `${baseUrl}/api/v1/token-count`
-  const payload: Record<string, unknown> = { messages }
-  if (system) payload.system = system
-  if (model) payload.model = model
-  if (tools) payload.tools = tools
-
-  try {
-    const res = await withTimeout(
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'x-codebuff-api-key': apiKey,
-        },
-        body: JSON.stringify(payload),
-      }),
-      FETCH_TIMEOUT_MS,
-      `Request to /api/v1/token-count timed out after ${FETCH_TIMEOUT_MS}ms`,
-    )
-
-    const text = await res.text()
-    const json = tryParseJson(text)
-
-    if (!res.ok) {
-      const err =
-        getStringField(json, 'error') ??
-        getStringField(json, 'message') ??
-        text ??
-        'Request failed'
-      logger.warn(
-        {
-          url,
-          status: res.status,
-          statusText: res.statusText,
-          body: text?.slice(0, 500),
-        },
-        'Web API token-count request failed',
-      )
-      return { error: err }
-    }
-
-    const inputTokens = getNumberField(json, 'inputTokens')
-    if (typeof inputTokens === 'number') {
-      return { inputTokens }
-    }
-
-    return { error: 'Invalid response format' }
-  } catch (error) {
-    logger.error(
-      {
-        error:
-          error instanceof Error
-            ? { name: error.name, message: error.message, stack: error.stack }
-            : error,
-      },
-      'Web API token-count network error',
-    )
-    return { error: error instanceof Error ? error.message : 'Network error' }
-  }
 }

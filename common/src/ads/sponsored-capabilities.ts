@@ -18,8 +18,11 @@
  * that this map was ever read.
  *
  * Deliberately dependency-free: it is imported by a Convex module, by the
- * Desktop orchestrator, and by the SDK.
+ * Desktop orchestrator, and by the SDK. The one import is a pure sibling in
+ * `common`, so the env-file rule is the same one the read policy uses.
  */
+
+import { isSensitiveEnvFilePath } from '../util/env-file-path'
 
 /**
  * The named authorities a run can hold.
@@ -86,6 +89,9 @@ export const SPONSORED_CAPABILITY_BY_TOOL: Readonly<
   update_subgoal: 'agent_control',
   create_plan: 'agent_control',
   cloud_plan_ready: 'agent_control',
+  // Reports the project's stack to our own profile dashboard (#3943); it
+  // reads and writes nothing in the workspace and reaches no third party.
+  report_project_profile: 'agent_control',
 
   // run_commands — anything that executes or watches a program run.
   // `browser_logs` sits here rather than with the read tools because what it
@@ -104,10 +110,6 @@ export const SPONSORED_CAPABILITY_BY_TOOL: Readonly<
   read_docs: 'network',
   gravity_index: 'network',
   lookup_agent_info: 'network',
-  composio_manage_connections: 'network',
-  composio_multi_execute_tool: 'network',
-  composio_search_tools: 'network',
-  composio_get_tool_schemas: 'network',
 
   // human_in_loop
   ask_user: 'human_in_loop',
@@ -161,11 +163,10 @@ export type SponsoredToolDecision =
  * May a run holding `grant` call this tool?
  *
  * `unknown_tool` IS THE POINT OF THIS FUNCTION. The runtime's own gates do the
- * opposite: `getToolSet` silently drops a name it does not recognise, and an
- * unrecognised name reaching a gate that only knows how to subtract is a name
- * that was never subtracted. Custom tools, MCP tools and anything added
- * upstream all arrive here as strings this map has never seen, and every one
- * of them is refused.
+ * opposite: `getToolSet` silently drops a name it does not recognise. Here
+ * the map is an allowlist: custom tools, MCP tools and anything added
+ * upstream arrive as strings this map has never seen, and every one of them
+ * is refused.
  *
  * The grant is REQUIRED here, with no default. The default used to be the
  * Cloud grant, which is exactly the shape of mistake COD-336 asked to be made
@@ -252,13 +253,8 @@ const GIT_SEGMENT = /(^|\/)\.git(\/|$)/
 
 /**
  * Paths whose CONTENT executes somewhere the pull-request diff is not the
- * decision point.
- *
- * WHY EACH CLASS IS REFUSED is in `docs/freebuff-sponsored-local-execution.md`
- * §9, not here. This module ships to the public repository (it is inside
- * `common`, which is one include line in the export manifest), and reasoning
- * that reads as "here is what this list is for and here is what it misses" is
- * more useful to somebody working around it than to anybody reading it.
+ * decision point: CI configuration, hook directories tracked in the
+ * repository, and editor tasks.
  */
 const CI_PATHS = Object.freeze([
   '.github/workflows/',
@@ -280,20 +276,18 @@ const CI_PATHS = Object.freeze([
   '.vscode/tasks.json',
 ])
 
-const CREDENTIAL_BASENAMES: ReadonlySet<string> = new Set([
+/** Also read by the SDK sandbox, so the shell and the file tools refuse one list. */
+export const CREDENTIAL_BASENAMES: ReadonlySet<string> = new Set([
   '.npmrc',
   '.netrc',
   '.pypirc',
   'id_rsa',
   'id_ed25519',
+  // direnv's file: `export` lines with real values, loaded into the shell.
+  '.envrc',
 ])
 
-const CREDENTIAL_SUFFIXES = Object.freeze(['.pem', '.key', '.p12', '.pfx'])
-
-/** Mirrors `isEnvFilePath`'s intent without importing the harness. */
-function isEnvFile(basename: string): boolean {
-  return basename === '.env' || basename.startsWith('.env.')
-}
+export const CREDENTIAL_SUFFIXES = Object.freeze(['.pem', '.key', '.p12', '.pfx'])
 
 /**
  * May this sponsored run write this path?
@@ -302,14 +296,10 @@ function isEnvFile(basename: string): boolean {
  * it one of the classes refused even inside it. The order decides the message
  * the model reads.
  *
- * THE REASONING IS NOT HERE. Why each class is refused, what a path check
- * cannot see, and how the boundary is shaped on each environment are in
- * `docs/freebuff-sponsored-local-execution.md` §9 — a private file, because
- * `common` is published and that reasoning is worth more to somebody working
- * around this than to anybody maintaining it. Change one and change the other.
+ * Refused inside the boundary: `.git`, the CI and hook paths, and credential
+ * files. Env templates (`.env.example` and family) are written, not refused.
  *
- * `..` is refused outright rather than normalised, matching `assertProjectPath`
- * (freebuff/web/src/server/agent-runner/harness.ts): a normaliser is a thing
+ * `..` is refused outright rather than normalised: a normaliser is a thing
  * that can be wrong and a rejection is not.
  */
 export function evaluateSponsoredWritePath(
@@ -336,8 +326,7 @@ export function evaluateSponsoredWritePath(
   // NORMALISED BEFORE ANY MATCHING. The write lands through `path.join`, which
   // collapses `.` and duplicate slashes -- so `./.github/workflows/x.yml` and
   // `.github//workflows/x.yml` both resolve to the path the refusals below are
-  // written to catch, while matching the RAW string let them straight through.
-  // One character of prefix defeated the CI refusal entirely.
+  // written to catch, and are matched in that form.
   //
   // `..` is already rejected above, so this only has to drop `.` segments and
   // squeeze separators; it can never resolve upward.
@@ -393,19 +382,114 @@ export function evaluateSponsoredWritePath(
     }
   }
 
-  const basename = lower.split('/').at(-1) ?? lower
+  // Env templates (`ENV_TEMPLATE_FILE_PATTERNS`) are writable; every other
+  // env-family name is a credential file. The rule is `isSensitiveEnvFilePath`,
+  // the one the read policy uses, so the two cannot drift. Reasoning: §9.
+  if (isSensitiveEnvFilePath(relative)) {
+    return {
+      allowed: false,
+      code: 'credential_file',
+      message: `Refusing \`${path}\`: sponsored runs may not write environment files, which hold real values. Declare new variable names with placeholder values in \`.env.example\` instead.`,
+    }
+  }
+
+  // Either separator, like `isSensitiveEnvFilePath` above: `keys\id_rsa` is
+  // `id_rsa` on Windows.
+  const basename = lower.split(/[\\/]/).at(-1) ?? lower
   if (
-    isEnvFile(basename) ||
     CREDENTIAL_BASENAMES.has(basename) ||
     CREDENTIAL_SUFFIXES.some((suffix) => basename.endsWith(suffix))
   ) {
     return {
       allowed: false,
       code: 'credential_file',
-      message: `Refusing \`${path}\`: sponsored runs may not write credential or environment files.`,
+      message: `Refusing \`${path}\`: sponsored runs may not write credential files.`,
     }
   }
 
+  return { allowed: true, path: relative }
+}
+
+/**
+ * May this IN-PLACE sponsored run READ this path?
+ *
+ * Only for a run editing the user's working copy
+ * (`docs/freebuff-sponsored-local-execution.md`, 2026-09-24). A worktree run
+ * needs none of this: its checkout was cut from a commit, so it contains no
+ * untracked file and `.env.local`, `id_rsa` and `.npmrc` are absent by
+ * construction. The user's own folder has them, so the same names the WRITE
+ * policy refuses become read refusals too, and the two share one rule
+ * (`isSensitiveEnvFilePath`) rather than two lists that can drift.
+ *
+ * `.env.example` and its family stay readable: writing a placeholder into one
+ * is the entire deliverable of the Supabase procedure, and a procedure that
+ * cannot read the file it is meant to extend would have to guess at it.
+ *
+ * `containSponsoredPath` in the SDK refuses everything outside the
+ * workspace; this narrows what is refused INSIDE it, for the file tools. On
+ * macOS and Linux the OS sandbox denies the same paths to the shell.
+ */
+export function evaluateSponsoredReadPath(
+  rawPath: unknown,
+  policy: { workspaceRoot: string },
+): SponsoredPathDecision {
+  if (typeof rawPath !== 'string' || rawPath.trim() === '') {
+    return {
+      allowed: false,
+      code: 'empty',
+      message: 'Sponsored runs must name the path they are reading.',
+    }
+  }
+  const trimmed = rawPath.trim()
+  if (trimmed.includes('\0') || trimmed.split('/').includes('..')) {
+    return {
+      allowed: false,
+      code: 'traversal',
+      message: `Refusing \`${trimmed}\`: sponsored runs may not use \`..\` to leave their workspace.`,
+    }
+  }
+  const path = normalisePath(trimmed)
+  const root = policy.workspaceRoot.replace(/\/+$/, '')
+  if (root === '') {
+    return {
+      allowed: false,
+      code: 'outside_workspace',
+      message: `Refusing \`${path}\`: this sponsored run has no workspace boundary.`,
+    }
+  }
+  const relative = path.startsWith(`${root}/`)
+    ? path.slice(root.length + 1)
+    : path === root
+      ? ''
+      : path.startsWith('/')
+        ? null
+        : path
+  if (relative === null) {
+    return {
+      allowed: false,
+      code: 'outside_workspace',
+      message: `Refusing \`${path}\`: sponsored runs may only read inside their workspace.`,
+    }
+  }
+  const lower = relative.toLowerCase()
+  if (isSensitiveEnvFilePath(relative)) {
+    return {
+      allowed: false,
+      code: 'credential_file',
+      message: `Refusing \`${path}\`: sponsored runs may not read environment files, which hold real values. \`.env.example\` and its family are readable.`,
+    }
+  }
+  const basename = lower.split(/[\\/]/).at(-1) ?? lower
+  if (
+    CREDENTIAL_BASENAMES.has(basename) ||
+    CREDENTIAL_SUFFIXES.some((suffix) => basename.endsWith(suffix))
+  ) {
+    return {
+      allowed: false,
+      code: 'credential_file',
+      message: `Refusing \`${path}\`: sponsored runs may not read credential files.`,
+    }
+  }
   return { allowed: true, path: relative }
 }
 
