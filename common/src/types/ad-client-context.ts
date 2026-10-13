@@ -512,6 +512,8 @@ export const adClientContextSchema = z.object({
       webdriver: z.boolean(),
       doNotTrack: z.boolean(),
       zoom: z.enum(ZOOM_BUCKETS),
+      /** Client-rendering cadence policy; observational only, never a serve input. */
+      inlineCadence: z.string().regex(/^[a-z0-9_]{1,48}$/),
     })
     .partial()
     .optional(),

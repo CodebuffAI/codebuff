@@ -159,10 +159,16 @@ describe('parseAdClientContext', () => {
     const web = {
       v: 1,
       net: { connection: 'wifi', effectiveType: '4g', saveData: false },
-      web: { browser: 'arc', adBlock: false, touch: false, mobile: false, dark: true, reducedMotion: false },
+      web: { browser: 'arc', adBlock: false, touch: false, mobile: false, dark: true, reducedMotion: false, inlineCadence: 'one_per_reply_90s_v1' },
     }
     expect(parseAdClientContext(web)).toEqual(web)
     expect(parseAdClientContext({ v: 1, term: { terminal: 'hyper' } })).toBeUndefined()
+    expect(
+      parseAdClientContext({ v: 1, web: { inlineCadence: 'one-per-reply' } }),
+    ).toBeUndefined()
+    expect(
+      parseAdClientContext({ v: 1, web: { inlineCadence: 'A'.repeat(49) } }),
+    ).toBeUndefined()
   })
 
   test('strips unknown keys so a raw value can never ride along', () => {

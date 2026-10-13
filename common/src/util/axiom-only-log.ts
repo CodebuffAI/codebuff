@@ -327,6 +327,12 @@ const GRAVITY_REPORT_NUDGE_FIELDS = {
 const ADS_FETCH_COMPLETED_FIELDS = {
   outcome: 'string',
   /**
+   * Browser client cadence stamped in the validated client context. Absent
+   * means unknown or a client that predates the measurement; it never drives
+   * serving, eligibility, pricing, or billing.
+   */
+  client_inline_cadence: 'string',
+  /**
    * The REQUEST-grain correlation handle (`adr_`, COD-406): one per HTTP ad
    * request on both rails. Opaque and server-minted: never derived from the
    * prompt, the IP, or the session.

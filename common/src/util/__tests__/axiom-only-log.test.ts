@@ -28,6 +28,21 @@ import {
 } from '../axiom-only-log'
 
 describe('getAxiomOnlyLogEvent', () => {
+  test('preserves the optional validated browser inline cadence on completion', () => {
+    const cadence = 'one_per_reply_90s_v1'
+    expect(ADS_FETCH_COMPLETED_FIELD_NAMES).toContain('client_inline_cadence')
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+        client_inline_cadence: cadence,
+        private_input: 'never shipped',
+      }),
+    ).toEqual({
+      event: ADS_FETCH_COMPLETED_EVENT,
+      data: { client_inline_cadence: cadence },
+    })
+  })
+
   test('strictly bounds client-reported Showcase presentation telemetry', () => {
     const valid = {
       axiomEvent: ADS_SHOWCASE_PRESENTED_EVENT,
