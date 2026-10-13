@@ -316,6 +316,25 @@ describe('BYOK connection lifecycle', () => {
       expect(JSON.stringify(result)).not.toContain(input.apiKey)
     })
 
+    test('Anthropic is asked with the version header its native /models requires', async () => {
+      const seen: Array<Record<string, string | null>> = []
+      const { store } = fixture((async (_url: unknown, init?: RequestInit) => {
+        const headers = new Headers(init?.headers)
+        seen.push({
+          auth: headers.get('authorization'),
+          version: headers.get('anthropic-version'),
+        })
+        return Response.json({ data: [{ id: 'claude-sonnet-4-5' }] })
+      }) as unknown as typeof fetch)
+      const added = await store.create({
+        ...proxy,
+        baseUrl: 'https://api.anthropic.com/v1',
+        model: 'claude-sonnet-4-5',
+      })
+      expect(await store.validate(added)).toMatchObject({ ok: true, modelListed: true })
+      expect(seen).toEqual([{ auth: `Bearer ${input.apiKey}`, version: '2023-06-01' }])
+    })
+
     test('a listing without ids makes no claim about the model', async () => {
       const { store } = fixture(
         (async () => new Response('ok')) as unknown as typeof fetch,

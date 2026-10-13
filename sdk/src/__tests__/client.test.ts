@@ -31,6 +31,28 @@ describe('CodebuffClient', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1)
     })
 
+    test('a BYOK Anthropic connection is probed at /models with the version header its native API requires', async () => {
+      const seen: Array<{ url: string; version: string | null; auth: string | null }> = []
+      const mockFetch = mock((input: URL, init?: RequestInit) => {
+        const headers = new Headers(init?.headers)
+        seen.push({ url: String(input), version: headers.get('anthropic-version'), auth: headers.get('authorization') })
+        return Promise.resolve({ ok: true, body: null } as Response)
+      })
+      setFetchMock(mockFetch)
+      const client = new CodebuffClient({
+        byok: {
+          id: 'c', revision: 1, name: 'Anthropic', provider: 'openai-compatible',
+          baseUrl: 'https://api.anthropic.com/v1', model: 'claude-sonnet-4-5',
+          credentialRef: 'env:ANTHROPIC_API_KEY', createdAt: '2026-10-12T00:00:00.000Z',
+          updatedAt: '2026-10-12T00:00:00.000Z', apiKey: 'sk-ant-test',
+        },
+      })
+      expect(await client.checkConnection()).toBe(true)
+      expect(seen).toEqual([
+        { url: 'https://api.anthropic.com/v1/models', version: '2023-06-01', auth: 'Bearer sk-ant-test' },
+      ])
+    })
+
     test('returns false when response is not ok', async () => {
       const mockFetch = mock(() =>
         Promise.resolve({

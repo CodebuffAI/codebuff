@@ -232,6 +232,24 @@ export function normalizeByokBaseUrl(
   }
   return url.toString().replace(/\/+$/, '')
 }
+/**
+ * Headers for a provider's `/models` listing. OpenRouter lists without a key.
+ * Anthropic's OpenAI-compatible endpoint answers `/chat/completions` on the
+ * bearer alone but its `/models` is the native API, which refuses any request
+ * without `anthropic-version` (HTTP 400 "anthropic-version: header is required").
+ */
+export function byokListingHeaders(
+  connection: Pick<ResolvedByokConnection, 'provider' | 'apiKey'>,
+  base: string,
+): Record<string, string> {
+  if (connection.provider === 'openrouter') return {}
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${connection.apiKey}`,
+  }
+  if (new URL(base).hostname === 'api.anthropic.com')
+    headers['anthropic-version'] = '2023-06-01'
+  return headers
+}
 export function byokCompletionUrl(
   connection: Pick<ByokConnection, 'provider' | 'baseUrl'>,
 ): string {
@@ -433,10 +451,7 @@ export async function discoverByokContextWindow(
   const window = (async () => {
     try {
       const response = await fetchImpl(`${base}/models`, {
-        headers:
-          connection.provider === 'openrouter'
-            ? {}
-            : { Authorization: `Bearer ${connection.apiKey}` },
+        headers: byokListingHeaders(connection, base),
         redirect: 'error',
         signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
       })
@@ -1053,7 +1068,10 @@ export function createByokConnectionStore(params: {
         const response = await fetchImpl(
           base + (resolved.provider === 'openrouter' ? '/key' : '/models'),
           {
-            headers: { Authorization: `Bearer ${resolved.apiKey}` },
+            headers: {
+              Authorization: `Bearer ${resolved.apiKey}`,
+              ...byokListingHeaders(resolved, base),
+            },
             redirect: 'error',
             signal: AbortSignal.timeout(10_000),
           },

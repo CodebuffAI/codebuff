@@ -3,7 +3,7 @@ import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 import { getWebsiteUrl } from './constants'
 import { getCodebuffApiKeyFromEnv } from './env'
 import { run } from './run'
-import { normalizeByokBaseUrl } from './byok'
+import { byokListingHeaders, normalizeByokBaseUrl } from './byok'
 
 import type { RunOptions, CodebuffClientOptions } from './run'
 import type { RunState } from './run-state'
@@ -87,7 +87,10 @@ export class CodebuffClient {
           this.options.byok.baseUrl,
         )
         const response = await fetch(new URL(this.options.byok.provider === 'openrouter' ? 'key' : 'models', baseUrl.replace(/\/?$/, '/')), {
-          headers: { Authorization: `Bearer ${this.options.byok.apiKey}` },
+          headers: {
+            Authorization: `Bearer ${this.options.byok.apiKey}`,
+            ...byokListingHeaders(this.options.byok, baseUrl),
+          },
           signal: AbortSignal.timeout(5000),
           redirect: 'error',
         })
