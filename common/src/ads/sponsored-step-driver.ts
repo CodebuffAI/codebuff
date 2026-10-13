@@ -37,6 +37,10 @@ import {
   type SponsoredSkill,
   type SponsoredSkillStep,
 } from './sponsored-skill'
+import {
+  deliveredSponsoredSkillForProcedure,
+  deliveredSponsoredSkillForRef,
+} from './sponsored-skill-delivery'
 import { resolveSponsoredSkill } from './sponsored-skills/registry'
 import {
   evaluateSponsoredSkillChecks,
@@ -84,32 +88,69 @@ export type SponsoredStepDriveResult = {
 export const SPONSORED_STEP_MAX_FIXES_PER_RUN = 6
 
 /**
- * The registered skill an accepted procedure names, or null. Only when the
- * text is exactly that skill's rendering (`sponsoredSkillMatchesProcedure`):
- * a legacy procedure, a skill this build does not ship, or text that differs
- * from the registered bytes is not driven.
+ * Where the skill a run drives came from: this build's registry, the server
+ * (verified against the consented text or the hash recorded at accept), or
+ * nowhere, and then the procedure runs as free text with no step checks.
  */
-export function sponsoredProcedureSkill(
+export type SponsoredSkillSource = 'bundled' | 'server' | 'none'
+
+export type SponsoredSkillSelection =
+  | { skill: SponsoredSkill; source: Exclude<SponsoredSkillSource, 'none'> }
+  | { skill: null; source: 'none' }
+
+const NO_SKILL: SponsoredSkillSelection = { skill: null, source: 'none' }
+
+/**
+ * The skill an accepted procedure names, and where it came from. Only when
+ * the text is exactly that skill's rendering: this build's registry first,
+ * then the skill the Accept response offered (`offered`, untrusted JSON, held
+ * to the procedure by `deliveredSponsoredSkillForProcedure`),
+ * else none, and a legacy or unmatched procedure runs as free text.
+ */
+export function selectSponsoredProcedureSkill(
   procedure: string | null | undefined,
-): SponsoredSkill | null {
+  offered?: unknown,
+): SponsoredSkillSelection {
   const directive = sponsoredSkillDirective(procedure)
-  if (!directive || !procedure) return null
-  const skill = resolveSponsoredSkill(`${directive.id}@${directive.version}`)
-  return skill && sponsoredSkillMatchesProcedure(skill, procedure)
-    ? skill
-    : null
+  if (!directive || !procedure) return NO_SKILL
+  const bundled = resolveSponsoredSkill(`${directive.id}@${directive.version}`)
+  if (bundled && sponsoredSkillMatchesProcedure(bundled, procedure))
+    return { skill: bundled, source: 'bundled' }
+  const server = deliveredSponsoredSkillForProcedure(offered, procedure)
+  return server ? { skill: server, source: 'server' } : NO_SKILL
 }
 
 /**
- * The skill a run record names, looked up again in this build's registry and
- * held to the hash recorded at accept. Null when this build does not ship it
- * or the bytes differ, and then the run is not driven.
+ * The skill an accepted procedure names, or null (see
+ * {@link selectSponsoredProcedureSkill}). Without `offered`, only this
+ * build's registry: a skill it does not ship is not driven.
  */
-export function sponsoredRunSkill(ref: {
+export function sponsoredProcedureSkill(
+  procedure: string | null | undefined,
+  offered?: unknown,
+): SponsoredSkill | null {
+  return selectSponsoredProcedureSkill(procedure, offered).skill
+}
+
+export type SponsoredRunSkillRef = {
   id: string
   version: string
   sha256: string
-}): SponsoredSkill | null {
+}
+
+/**
+ * The skill a run record names, held to the hash recorded at accept: the
+ * copy stored with the run (`stored`, the verified skill as accepted) first,
+ * so a resume never depends on this build's registry; then the registry.
+ * Null when neither matches, and then the caller may ask the server
+ * (`deliveredSponsoredSkillForRef` on its answer) or run the text undriven.
+ */
+export function sponsoredRunSkill(
+  ref: SponsoredRunSkillRef,
+  stored?: unknown,
+): SponsoredSkill | null {
+  const kept = deliveredSponsoredSkillForRef(stored, ref)
+  if (kept) return kept
   const skill = resolveSponsoredSkill(`${ref.id}@${ref.version}`)
   return skill && sponsoredSkillSha256(skill) === ref.sha256 ? skill : null
 }
