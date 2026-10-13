@@ -1839,10 +1839,6 @@ const DEEPSEEK_V4_FLASH_FAST_MODEL = {
   efforts: DEEPSEEK_V4_REASONING_EFFORTS,
   defaultEffort: 'high',
   isNew: true,
-  // A New pill in place of Recommended (product, 2026-10-07).
-  newBadge: {
-    tooltip: 'Gathers context with parallel subagents on DeepSeek’s own API.',
-  },
 } as const satisfies FreebuffModelOption
 
 /**
@@ -2950,14 +2946,6 @@ const MUSE_SPARK_13_CONTRIBUTOR_MODEL = {
   // and no queue — a request Meta will not take is answered on the fallback at
   // once — so "Queues" would describe a lane the row no longer runs on.
   tagline: 'Falls back when busy',
-  // The row a release is announcing again (2026-10-09), now that it opens
-  // without a plan. The copy states the entitlement, since that is what
-  // changed. Only the CLI draws this pill; Desktop and Web show promotional
-  // and ending pills beside names (HostedModelRows.promotionalModelBadges).
-  newBadge: {
-    tooltip:
-      'Muse Spark 1.3 is free to open for full-access accounts. A paid plan unlocks it where access is limited.',
-  },
   taglineTooltip: MUSE_SPARK_FALLBACK_NOTICE,
   availability: 'always',
   // Load-bearing pair (a catalog invariant test enforces it): the Contributor

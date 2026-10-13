@@ -378,9 +378,9 @@ describe('FreebuffModelSelector tier layout', () => {
     },
   )
 
-  test('badges the new builds so a returning user notices they changed', async () => {
-    // Independent of the supersedes machinery above, which is why it is its own
-    // test now: `isNew` is a property of the row, and Flash still carries it.
+  test('draws no NEW pill on a compiled row: only Claude Haiku 5.5 is New', async () => {
+    // Product, 2026-10-13: the one New pill is the catalog's, on the two
+    // Claude Haiku 5.5 rows; no compiled row carries `newBadge`.
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
@@ -393,7 +393,7 @@ describe('FreebuffModelSelector tier layout', () => {
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).toContain('DeepSeek V4.1 Flash')
-    expect(frame).toContain('NEW')
+    expect(frame).not.toContain('NEW')
   })
 
   test('places the exhausted-quota recommendation beneath UNLIMITED', async () => {
