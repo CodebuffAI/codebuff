@@ -1,3 +1,4 @@
+import { hashMatchingEmail } from '../matching-hash'
 import { describe, expect, test } from 'bun:test'
 
 import {
@@ -86,7 +87,8 @@ describe('Gravity first-message CAPI', () => {
             visitor_id: 'visitor-1',
             session_id: 'session-1',
             client_user_agent: 'pixel-agent',
-            em: ['person@example.com'],
+            // SHA-256 of the normalized address, never the raw one (#293).
+            em: [hashMatchingEmail('person@example.com')],
             external_id: ['user-123'],
           },
           client_context: { timezone: 'America/Los_Angeles' },

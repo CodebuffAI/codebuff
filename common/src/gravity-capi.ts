@@ -1,3 +1,5 @@
+import { hashMatchingEmail } from './matching-hash'
+
 export const GRAVITY_CAPI_ENDPOINT = 'https://api.trygravity.ai/gateway/events'
 export const GRAVITY_FIRST_MESSAGE_EVENT = 'FirstMessage'
 
@@ -118,6 +120,7 @@ export function buildGravityFirstMessagePayload(params: {
   eventTime?: number
 }) {
   const pixelUser = params.gravity?.user_data ?? {}
+  const hashedEmail = hashMatchingEmail(params.email)
   const userData = {
     ...(pixelUser.click_id ? { click_id: pixelUser.click_id } : {}),
     ...(pixelUser.visitor_id ? { visitor_id: pixelUser.visitor_id } : {}),
@@ -128,7 +131,9 @@ export function buildGravityFirstMessagePayload(params: {
             pixelUser.client_user_agent ?? params.userAgent ?? undefined,
         }
       : {}),
-    ...(params.email ? { em: [params.email] } : {}),
+    // Hashed like every other match key we send (Meta `em`, the Gravity
+    // auction's `hashed_email`): never the raw address (AB827V0 #293).
+    ...(hashedEmail ? { em: [hashedEmail] } : {}),
     external_id: [params.userId],
   }
 
