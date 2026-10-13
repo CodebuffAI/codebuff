@@ -88,6 +88,8 @@ const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
     'openai/gpt-6-luna': { section: 'powerful', order: 20 },
     'mimo/mimo-v2.6-pro': { section: 'powerful', order: 30 },
     'openai/gpt-6.1-sol': { section: 'powerful', order: 40 },
+    // Gemini 4 Argon (2026-10-13): above Sol.
+    'google/gemini-4-argon': { section: 'powerful', order: 35 },
     'google/gemini-3.8-flash': { section: 'powerful', order: 50, more: true },
   })
 

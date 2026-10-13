@@ -5,6 +5,7 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS,
   FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS,
   getFreebuffWebModel,
@@ -63,8 +64,10 @@ export const FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS: readonly string[] =
     // without the cap, a subscriber spending every daily session here would
     // have to be priced for, and the allowance would shrink for everyone.
     FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-    // GPT-6.1 Sol (2026-09-29) is dearer still, for the same reason.
+    // GPT-6.1 Sol (2026-09-29) and Gemini 4 Argon (2026-10-13) are dearer
+    // still, for the same reason.
     FREEBUFF_GPT_61_SOL_MODEL_ID,
+    FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   ])
 
 export function isFreebuffSubscriptionPremiumModelId(modelId: string): boolean {
@@ -396,7 +399,8 @@ export const FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS: readonly string[] =
  * Where a Pro row is enforced BY DEFAULT: Freebuff Web.
  *
  * A row in FREEBUFF_PRO_ONLY_EVERY_SURFACE_MODEL_IDS is enforced on the CLI
- * and Desktop too, which is every current row (Gemini 3.8 Flash, GPT-6.1 Sol). A future Pro row that is Web-only needs nothing
+ * and Desktop too, which is every current row (Gemini 3.8 Flash, GPT-6.1 Sol, Gemini 4
+ * Argon). A future Pro row that is Web-only needs nothing
  * more; one added to the shared CLI/Desktop catalog must join that list, or it
  * is served free on those surfaces.
  *

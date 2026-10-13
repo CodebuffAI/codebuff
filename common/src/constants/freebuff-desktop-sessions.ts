@@ -8,6 +8,7 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   FREEBUFF_MIMO_V26_PRO_MODEL_ID,
   freebuffModelIdMatches,
 } from './freebuff-models'
@@ -20,8 +21,10 @@ const FREEBUFF_DESKTOP_SLOT_BOUND_MODEL_IDS = [
   // GPT-6 Luna, 2026-09-22, in 5.6's slot: quota-metered, so slot-bound.
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-  // GPT-6.1 Sol, the dearest row of all (2026-09-29).
+  // GPT-6.1 Sol, the dearest row of all (2026-09-29), and Gemini 4 Argon on
+  // the same card (2026-10-13).
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   // MiMo 2.6 Pro, the dearest row after Gemini and paid-only.
   FREEBUFF_MIMO_V26_PRO_MODEL_ID,
   // DeepSeek Flash fast mode (2026-09-26): premium and metered like the rows

@@ -25,6 +25,7 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   isFreebuffGpt6LunaModelId,
   FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE,
   FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
@@ -1770,6 +1771,8 @@ describe('freebuff model availability', () => {
       FREEBUFF_GPT_6_LUNA_MODEL_ID,
       // GPT-6.1 Sol arrived 2026-09-29; its wire id names the version.
       FREEBUFF_GPT_61_SOL_MODEL_ID,
+      // Gemini 4 Argon arrived 2026-10-13; its wire id names the version.
+      FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
       // Solar Mini 4 and Space Bunny Alpha arrived 2026-09-23; neither has a
       // build date to disambiguate.
       FREEBUFF_SOLAR_MINI_4_MODEL_ID,

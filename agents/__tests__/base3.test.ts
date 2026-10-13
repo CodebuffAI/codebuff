@@ -35,6 +35,7 @@ import base3FreeMuseSpark from '../base3-free-muse-spark'
 import base3FreeMuseSpark13 from '../base3-free-muse-spark-1-3'
 import base3FreeOxAlpha from '../base3-free-ox-alpha'
 import base3FreeGemini38Flash from '../base3-free-gemini-3-8-flash'
+import base3FreeGemini4Argon from '../base3-free-gemini-4-argon'
 import base3FreeSolarPro4 from '../base3-free-solar-pro4'
 import base3FreeSolarMini4 from '../base3-free-solar-mini4'
 import base3FreeSpaceBunnyAlpha from '../base3-free-space-bunny-alpha'
@@ -77,6 +78,7 @@ const CLI_ROOTS = [
   base3FreeSolarMini4,
   base3FreeSpaceBunnyAlpha,
   base3FreeGemini38Flash,
+  base3FreeGemini4Argon,
   base3FreeMuseSpark,
   base3FreeMuseSpark13,
 ]
@@ -94,7 +96,7 @@ describe('base3 CLI roots', () => {
     // Fable 5.1 deliberately runs base2 for the trace campaign. The
     // count is asserted so a root added without the flags below cannot slip in
     // unnoticed.
-    expect(CLI_ROOTS.length).toBe(21)
+    expect(CLI_ROOTS.length).toBe(22)
     for (const agent of CLI_ROOTS) {
       // Windowed reads + the 100-entry glob cap + search-first tool wording.
       expect(agent.windowedFileReads).toBe(true)

@@ -993,8 +993,8 @@ export type FreebuffSessionAdmissionResponse = (
        */
       purchasesPaused?: boolean
       /**
-       * The model's daily session limit is spent (FREEBUFF_DAILY_SESSION_LIMITS,
-       * GPT-6.1 Sol's promotion). A STOP, never a fallback: the user asked for
+       * The model's daily session limit is spent (FREEBUFF_DAILY_SESSION_LIMITS:
+       * GPT-6.1 Sol and Gemini 4 Argon, one a day). A STOP, never a fallback: the user asked for
        * this model, was quoted its price, and must be told it is used up rather
        * than be moved onto a different model (2026-09-30, a CLI user quoted
        * Sol's price and silently re-admitted on MiMo). `availableHours` says

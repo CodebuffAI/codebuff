@@ -14,7 +14,7 @@ import {
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
 import { SOLAR_PRO_4_OFFER, SOLAR_PROMOTIONAL } from './freebuff-solar-promo'
-import { GPT_61_SOL_PROMOTIONAL } from './freebuff-sol-promo'
+import { GEMINI_4_ARGON_PROMOTIONAL } from './freebuff-sol-promo'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -440,9 +440,9 @@ export const FREEBUFF_GPT_6_LUNA_REASONING_EFFORT = 'high' as const
 /**
  * GPT-6.1 Sol (OpenAI), served through OpenRouter, on every surface from
  * 2026-09-29: FREE TO US VIEWERS and paywalled for everyone else
- * (FREEBUFF_US_OR_PAID_MODEL_IDS over the paid-only lists), at a PROMOTIONAL
- * 100 Freebucks — the most expensive row we have offered outside the Fable
- * campaign.
+ * (FREEBUFF_US_OR_PAID_MODEL_IDS over the paid-only lists), at 250 Freebucks
+ * since 2026-10-13 (a PROMOTIONAL 100 until then) — the most expensive row we
+ * have offered outside the Fable campaign.
  *
  * Its own wire id. The `gpt-6-sol` ids elsewhere in this file are separate
  * provisioned tiers; nothing here aliases them.
@@ -450,7 +450,7 @@ export const FREEBUFF_GPT_6_LUNA_REASONING_EFFORT = 'high' as const
  * PRICE: OpenRouter's flex endpoint lists $1.00 in / $0.05 cached / $5.00 out
  * per M — 20x GPT-6 Luna flex on fresh input and output, 10x on cached input.
  * It reasons far less than Luna on the same tasks, which offsets some of
- * that. The 100 Freebucks price is a promotional product decision.
+ * that. The 250 Freebucks price is a product decision.
  * (measured figures: freebuff-models.knowledge.md)
  */
 export const FREEBUFF_GPT_61_SOL_MODEL_ID = 'openai/gpt-6.1-sol'
@@ -478,6 +478,50 @@ export const FREEBUFF_GPT_61_SOL_MAX_PRICE = {
  *  `medium`, not Luna's `high`: reasoning bills as output at $5/M here, and
  *  the row's cost measurement was taken at the model's default. */
 export const FREEBUFF_GPT_61_SOL_REASONING_EFFORT = 'medium' as const
+/**
+ * Gemini 4 Argon (Google), served through OpenRouter, on every surface from
+ * 2026-10-13 on GPT-6.1 Sol's launch terms: FREE TO US VIEWERS and paywalled
+ * for everyone else (FREEBUFF_US_OR_PAID_MODEL_IDS over the paid-only lists),
+ * at a PROMOTIONAL 100 Freebucks, one session a day.
+ *
+ * PRICE: OpenRouter lists three bands, read off the live API 2026-10-13 —
+ *
+ *   | tier     | in     | cache read | out    | endpoints                  |
+ *   | flex     | $1.00  | $0.05      | $5.00  | AI Studio only             |
+ *   | standard | $2.00  | $0.10      | $10.00 | AI Studio, Vertex global   |
+ *   | priority | $3.60  | $0.18      | $18.00 | AI Studio, Vertex          |
+ *
+ * Flex is Sol's flex card exactly, and like Gemini 3.8 Flash's it is a 50%
+ * `discount` on the standard list price, so it can end without notice.
+ * Vertex is reached through our own Google credentials (BYOK) and invoices at
+ * full list whatever OpenRouter lists — the Gemini 3.8 Flash lesson — so
+ * routing names AI Studio only (FREEBUFF_GEMINI_4_ARGON_UPSTREAM_ORDER).
+ */
+export const FREEBUFF_GEMINI_4_ARGON_MODEL_ID = 'google/gemini-4-argon'
+/**
+ * Endpoint order for Gemini 4 Argon: AI Studio flex first, AI Studio standard
+ * (2x) behind it so a flex capacity refusal or delisting is not a dead turn —
+ * Gemini 3.8 Flash's order (GEMINI_38_FLASH_OPENROUTER_UPSTREAM_ORDER), sent
+ * with `allow_fallbacks: false` so the BYOK Vertex endpoints never serve. A
+ * sustained rise in standard's share doubles this row's bill.
+ */
+export const FREEBUFF_GEMINI_4_ARGON_UPSTREAM_ORDER = [
+  'google-ai-studio/flex',
+  'google-ai-studio',
+] as const
+/**
+ * Price ceiling for Gemini 4 Argon, USD per million: above standard
+ * ($2/$10), which stays reachable, and below priority ($3.60/$18), which is
+ * the band this fences out. Strictly above list: a ceiling equal to list
+ * 404s (FREEBUFF_GEMINI_38_FLASH_MAX_PRICE).
+ */
+export const FREEBUFF_GEMINI_4_ARGON_MAX_PRICE = {
+  prompt: 2.5,
+  completion: 12.5,
+} as const
+/** Reasoning effort a Gemini 4 Argon turn runs at unless the user picks one:
+ *  `medium`, as on Sol, because reasoning bills as output at $5/M. */
+export const FREEBUFF_GEMINI_4_ARGON_REASONING_EFFORT = 'medium' as const
 /** Solar Pro 4 (Upstage), served through OpenRouter and constrained to Upstage
  *  by `applyOpenRouterProviderRouting`. Context 524,288, text in / text out,
  *  using Upstage's non-ZDR endpoint for provider-side debugging.
@@ -1466,6 +1510,9 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   [FREEBUFF_GPT_61_SOL_MODEL_ID]: 1_000_000,
   [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 1_000_000,
   [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 1_000_000,
+  // Gemini 4 Argon publishes 1,048,576 on every OpenRouter endpoint
+  // (2026-10-13); entered low like its peers.
+  [FREEBUFF_GEMINI_4_ARGON_MODEL_ID]: 1_000_000,
 }
 
 /** Window assumed for any model missing from FREEBUFF_MODEL_CONTEXT_WINDOWS.
@@ -2519,12 +2566,35 @@ const GPT_61_SOL_MODEL = {
   efforts: EFFORTS_THROUGH_HIGH,
   defaultEffort: FREEBUFF_GPT_61_SOL_REASONING_EFFORT,
   isNew: true,
-  // PROMOTIONAL, by product decision (2026-09-29): 100 Freebucks is a
-  // temporary price (FREEBUFF_GPT_61_SOL_MODEL_ID), and the label says so
-  // rather than letting a user build a habit on it.
-  promotional: GPT_61_SOL_PROMOTIONAL,
+  // No `promotional` since 2026-10-13: the promotional 100 ended and the row
+  // is at its regular 250 (FREEBUFF_GPT_61_SOL_MODEL_ID).
   taglineTooltip:
     'On OpenAI flex capacity, with a standard-tier backup when it’s busy.',
+} as const satisfies FreebuffModelOption
+
+const GEMINI_4_ARGON_MODEL = {
+  id: FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
+  displayName: 'Gemini 4 Argon',
+  tagline: 'Google flagship',
+  availability: 'always',
+  // Google's paid APIs do not train on request data, and every endpoint this
+  // row can reach bills (no AI Studio free tier): no AI-training notice and
+  // no trace storage, as on Gemini 3.8 Flash.
+  dataUse: 'service',
+  premium: true,
+  // OpenRouter reports text, image, file, audio and video input.
+  multimodal: true,
+  reasoningEffort: FREEBUFF_GEMINI_4_ARGON_REASONING_EFFORT,
+  // Capped at `high` like Sol: reasoning bills as output at $5/M.
+  efforts: EFFORTS_THROUGH_HIGH,
+  defaultEffort: FREEBUFF_GEMINI_4_ARGON_REASONING_EFFORT,
+  isNew: true,
+  // PROMOTIONAL, by product decision (2026-10-13): 100 Freebucks is a
+  // temporary price (FREEBUFF_GEMINI_4_ARGON_MODEL_ID), and the label says so
+  // rather than letting a user build a habit on it.
+  promotional: GEMINI_4_ARGON_PROMOTIONAL,
+  taglineTooltip:
+    'On Google flex capacity, with a standard-tier backup when it’s busy.',
 } as const satisfies FreebuffModelOption
 
 /**
@@ -3018,6 +3088,7 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   GPT_5_6_LUNA_MODEL,
   GPT_6_LUNA_MODEL,
   GPT_61_SOL_MODEL,
+  GEMINI_4_ARGON_MODEL,
   // Solar Pro 4 stays SUPPORTED after its 2026-09-23 retirement for the same
   // reason 5.6 does.
   SOLAR_PRO_4_MODEL,
@@ -3177,9 +3248,11 @@ export const FREEBUFF_MODELS = [
   // completions route. Last in the list on purpose: it may answer as another
   // model when Meta's team-wide ceiling is full.
   MUSE_SPARK_13_CONTRIBUTOR_MODEL,
-  // GPT-6.1 Sol (2026-09-29): free in the US, paid-only elsewhere, at a
-  // promotional 100 Freebucks — the dearest row, so last in a cheapest-first
-  // list.
+  // Gemini 4 Argon (2026-10-13): free in the US, paid-only elsewhere, at a
+  // promotional 100 Freebucks.
+  GEMINI_4_ARGON_MODEL,
+  // GPT-6.1 Sol (2026-09-29): free in the US, paid-only elsewhere, at 250
+  // Freebucks — the dearest row, so last in a cheapest-first list.
   GPT_61_SOL_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -4194,9 +4267,11 @@ export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
 export const FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS: readonly string[] =
   Object.freeze([
     FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-    // GPT-6.1 Sol (2026-09-29): paid-only on every surface OUTSIDE THE US —
-    // FREEBUFF_US_OR_PAID_MODEL_IDS is the exemption.
+    // GPT-6.1 Sol (2026-09-29) and Gemini 4 Argon (2026-10-13): paid-only on
+    // every surface OUTSIDE THE US — FREEBUFF_US_OR_PAID_MODEL_IDS is the
+    // exemption.
     FREEBUFF_GPT_61_SOL_MODEL_ID,
+    FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
     // Muse Spark 1.3 (and 1.2 with it) was paid-only on every surface from
     // 2026-09-28 and LEFT this list on 2026-10-09, by product decision, on
     // MiMo 2.6 Pro's and Luna's terms below: open to every full-access
@@ -4230,8 +4305,10 @@ export const FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS: readonly string[] =
 export const FREEBUFF_PRO_ONLY_EVERY_SURFACE_MODEL_IDS: readonly string[] =
   Object.freeze([
     FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-    // GPT-6.1 Sol is in FREEBUFF_MODELS, so the CLI and Desktop list it.
+    // GPT-6.1 Sol and Gemini 4 Argon are in FREEBUFF_MODELS, so the CLI and
+    // Desktop list them.
     FREEBUFF_GPT_61_SOL_MODEL_ID,
+    FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   ])
 
 /**
@@ -4255,10 +4332,12 @@ export const FREEBUFF_PRO_ONLY_EVERY_SURFACE_MODEL_IDS: readonly string[] =
  *
  * GPT-6 Luna and MiMo 2.6 Pro held this exemption 2026-09-22 → 09-25, when
  * they opened to every full-access account and the list was removed; GPT-6.1
- * Sol brings it back (2026-09-29, by product decision).
+ * Sol brings it back (2026-09-29, by product decision); Gemini 4 Argon joins
+ * it on the same terms (2026-10-13).
  */
 export const FREEBUFF_US_OR_PAID_MODEL_IDS: readonly string[] = Object.freeze([
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
 ])
 
 export function isFreebuffUsOrPaidModelId(
@@ -4643,9 +4722,10 @@ export const FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS: readonly string[] =
     // (1.2 is deliberately absent: it survives only for released binaries at
     // full access, and is not offered at limited access at all.)
     FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
-    // GPT-6.1 Sol (2026-09-29): available to EVERY paid account, limited
-    // region included.
+    // GPT-6.1 Sol (2026-09-29) and Gemini 4 Argon (2026-10-13): available to
+    // EVERY paid account, limited region included.
     FREEBUFF_GPT_61_SOL_MODEL_ID,
+    FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   ])
 
 /**
@@ -4922,6 +5002,15 @@ export function isFreebuffGemini38FlashModelId(
   id: string | null | undefined,
 ): boolean {
   return freebuffModelIdMatches(id, FREEBUFF_GEMINI_38_FLASH_MODEL_ID)
+}
+
+/** Whether the requested model is Gemini 4 Argon, tolerating a dated
+ *  snapshot. Never prefix-matched on `google/gemini` (see
+ *  isFreebuffGemini38FlashModelId). */
+export function isFreebuffGemini4ArgonModelId(
+  id: string | null | undefined,
+): boolean {
+  return freebuffModelIdMatches(id, FREEBUFF_GEMINI_4_ARGON_MODEL_ID)
 }
 
 /** Whether the requested model is GPT-5.6 Luna, tolerating the dated snapshot

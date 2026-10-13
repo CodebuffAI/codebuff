@@ -1,12 +1,14 @@
 /**
- * GPT-6.1 Sol's promotion (2026-09-29): a temporary price, and ONE SESSION A
- * DAY for every account, paid plans included.
+ * The two US-or-paid flagship rows: GPT-6.1 Sol (2026-09-29) and Gemini 4
+ * Argon (2026-10-13). Both are ONE SESSION A DAY for every account, paid
+ * plans included.
  *
- * `GPT_61_SOL_PROMOTIONAL` is the catalog row's `promotional` field and the
- * server price notice (`freebucksPricing().priceNotices`) that released CLI
- * and Desktop builds render in place of the tagline. One constant so the two
- * cannot disagree — and it names the daily limit, so nobody meets the limit
- * for the first time as a refusal.
+ * `GEMINI_4_ARGON_PROMOTIONAL` is the catalog row's `promotional` field and
+ * the server price notice (`freebucksPricing().priceNotices`) that released
+ * CLI and Desktop builds render in place of the tagline. One constant so the
+ * two cannot disagree — and it names the daily limit, so nobody meets the
+ * limit for the first time as a refusal. Sol carried the same label at its
+ * promotional 100 until 2026-10-13, when it moved to its regular 250.
  *
  * A leaf module, like freebuff-solar-promo.ts, because the Freebucks price
  * map, the model catalog and the admission debit all read it and none may
@@ -15,11 +17,17 @@
 import { getFreebuffModelPolicyOverlay } from './freebuff-model-policy-overlay'
 
 export const GPT_61_SOL_MODEL_ID = 'openai/gpt-6.1-sol'
+export const GEMINI_4_ARGON_MODEL_ID = 'google/gemini-4-argon'
 
-export const GPT_61_SOL_PROMOTIONAL = {
+/**
+ * The tooltip also says the row is NEW and EXPERIMENTAL (product,
+ * 2026-10-13): Desktop and the Web workspace draw only the promotional pill
+ * beside a model name, so its hover text is where those two facts are seen.
+ */
+export const GEMINI_4_ARGON_PROMOTIONAL = {
   short: 'Promotional · 1 session a day',
   tooltip:
-    'Free in the US, a paid plan elsewhere, until the promotion ends. One session a day on every plan.',
+    'New and experimental: it may be unreliable or change without notice. Free in the US, a paid plan elsewhere, until the promotion ends. One session a day on every plan.',
 } as const
 
 /**
@@ -34,6 +42,7 @@ export const GPT_61_SOL_PROMOTIONAL = {
 export const FREEBUFF_DAILY_SESSION_LIMITS: Readonly<Record<string, number>> =
   Object.freeze({
     [GPT_61_SOL_MODEL_ID]: 1,
+    [GEMINI_4_ARGON_MODEL_ID]: 1,
   })
 
 /**
