@@ -217,6 +217,9 @@ export enum AnalyticsEvent {
   ADS_CLICKED = 'ads.clicked',
   ADS_FIRST_PARTY_DECISION = 'ads.first_party_decision',
   ADS_FIRST_PARTY_SETTLEMENT = 'ads.first_party_settlement',
+  // Provider-ledger snapshot. Keep the latest fetched_at per UTC day before
+  // summing; today's row is explicitly partial. No per-user identity.
+  ADS_GRAVITY_REVENUE_DAILY = 'ads.gravity_revenue_daily',
   ADS_FIRST_PARTY_VIEW_ACK = 'ads.first_party_view_ack',
   /**
    * The CLI dock was expanded into its detail panel (COD-457). A UI gesture,
