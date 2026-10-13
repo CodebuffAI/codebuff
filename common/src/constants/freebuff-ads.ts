@@ -412,6 +412,14 @@ export function platformRequiresComment(platform: AdPlatform): boolean {
   return platform !== 'github'
 }
 
+/**
+ * Platforms whose promoted posts the Earn feed does not offer right now.
+ * Reddit is paused (2026-10-13); its posts stay active for advertisers and
+ * resume serving when it is removed here. An engagement already opened can
+ * still be submitted.
+ */
+export const AD_PAUSED_PLATFORMS: readonly AdPlatform[] = ['reddit']
+
 /** Host allowlist per platform, used to validate a submitted post URL. Hosts
  *  are matched exactly or as a subdomain suffix. */
 export const AD_PLATFORM_HOSTS: Record<AdPlatform, readonly string[]> = {

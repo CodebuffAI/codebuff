@@ -1,3 +1,4 @@
+import { FREEBUFF_BOUNTIES_ENABLED } from '../constants/freebuff-bounties'
 import { SHARED_SETTINGS_PAGES } from '../constants/settings-pages'
 
 type Surface = 'desktop' | 'web'
@@ -114,7 +115,9 @@ const topics: Record<PageLabel, Topic[]> = {
       label: 'Referrals',
       keywords: 'invite friends referral link rewards leaderboard',
     },
-    { label: 'Bounties', keywords: 'submissions tasks rewards freebucks' },
+    ...(FREEBUFF_BOUNTIES_ENABLED
+      ? [{ label: 'Bounties', keywords: 'submissions tasks rewards freebucks' }]
+      : []),
     { label: 'Offers', keywords: 'earn rewards freebucks' },
   ],
   Integrations: [
