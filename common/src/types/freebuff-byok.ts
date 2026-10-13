@@ -47,9 +47,13 @@ export function isKeylessProvider(provider: string) {
   return provider === ACCOUNT_BYOK_CHATGPT_PROVIDER || isAgentKeyProvider(provider)
 }
 
-/** ChatGPT sign-in models are Codex's: older rows were named "… (ChatGPT)". */
+/**
+ * A ChatGPT sign-in's model reads as just the model ("GPT-6-Sol"): it runs on the user's plan
+ * through any agent, so neither "(ChatGPT)", which the rows are saved with, nor "(Codex)", which
+ * some were added with, belongs in a picker.
+ */
 export function byokConnectionLabel(name: string) {
-  return name.replace(/ \(ChatGPT\)$/, ' (Codex)')
+  return name.replace(/ \((ChatGPT|Codex)\)$/, '')
 }
 
 /** Most saved account providers one account may keep. */
