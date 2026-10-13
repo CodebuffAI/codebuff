@@ -778,6 +778,13 @@ cd freebuff-desktop && bun test \
   src/ui/shell/Tab.rename.test.tsx src/ui/agent/AgentPicker.menu.test.tsx
 ```
 
+Our own components do it too. Freebuff Web's survey cards show once per page load
+and keep that in module state behind a reset seam (`resetWorkspaceProfileSurveySession`,
+`resetWorkspaceOnboardingSurveySession`). Any file that renders `WorkspaceApp` can
+spend it. So a test that needs the card resets it in `beforeEach`, not only
+`afterEach`. Otherwise its first test renders nothing whenever bun loads it after
+`workspace-app.dom` or `workspace-queue.dom` (2026-10-13, `sponsored-survey.dom`).
+
 **An eighth shape, and one where the wait is fast and the CHECK is slow: a
 failing matcher handed a mounted DOM node.** `expect(node).toBe(other)` and
 `expect(node).toBeNull()` build their failure message by pretty-printing the
