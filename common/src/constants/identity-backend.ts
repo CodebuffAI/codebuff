@@ -27,7 +27,7 @@
  */
 export type IdentityBackend = 'convex' | 'shadow' | 'postgres'
 
-export const IDENTITY_BACKEND: IdentityBackend = 'convex'
+export const IDENTITY_BACKEND: IdentityBackend = 'shadow'
 
 /** Read through a function so callers' comparisons are not narrowed away. */
 export function identityBackend(): IdentityBackend {
