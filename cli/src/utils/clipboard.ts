@@ -365,13 +365,24 @@ async function tryCopyViaPlatformTool(
     if (process.platform === 'win32') return [['clip', []]]
     if (process.platform !== 'linux') return []
 
+    const wlCopy: [string, string[]] = ['wl-copy', ['--type', 'text/plain']]
     const x11Commands: [string, string[]][] = [
       ['xclip', ['-selection', 'clipboard']],
       ['xsel', ['--clipboard', '--input']],
     ]
+    // WAYLAND_DISPLAY decides the ORDER, never whether wl-copy is tried at
+    // all. It is routinely absent from a Wayland session's processes — tmux's
+    // default `update-environment` does not carry it, and neither does screen
+    // or a terminal started from a systemd user unit — and a Wayland-only box
+    // ships wl-clipboard and often no xclip. Gating on it made the one tool
+    // that works unreachable there, so the copy fell through to
+    // fire-and-forget OSC 52 (dropped by tmux unless `allow-passthrough` is
+    // on) and the CLI reported a copy that never reached the clipboard.
+    // wl-copy with no Wayland display exits non-zero immediately, so an X11
+    // session pays one failed spawn, last, and only when nothing else worked.
     return getCliEnv().WAYLAND_DISPLAY
-      ? [['wl-copy', ['--type', 'text/plain']], ...x11Commands]
-      : x11Commands
+      ? [wlCopy, ...x11Commands]
+      : [...x11Commands, wlCopy]
   })()
 
   for (const [command, args] of commands) {
