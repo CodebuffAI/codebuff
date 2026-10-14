@@ -7,6 +7,7 @@ import {
   formatDeepSeekExpensiveWindowLocal,
   formatDeepSeekExpensiveWindowReturn,
   formatDeepSeekOffPeakWindowLocal,
+  formatWindowInstant,
   formatWindowTimeZoneLabel,
   isBeijingWeekend,
   isDeepSeekExpensiveWindow,
@@ -146,6 +147,18 @@ describe('every window names the clock it is quoted in', () => {
     expect(berlin).toContain('12:00 PM')
     expect(berlin).not.toContain('10:00 AM')
     expect(berlin).toMatch(/GMT\+2|CEST/)
+  })
+
+  test('one instant, named, for prose a client can only print verbatim', () => {
+    // The daily-model-limit refusal embeds the reset mid-sentence, so the
+    // client cannot re-render it in the reader's zone: the server has to
+    // choose one and say which. 2026-09-29T17:00Z is Bangkok's midnight.
+    const reset = new Date('2026-09-29T17:00:00.000Z')
+    expect(formatWindowInstant(reset, 'Asia/Bangkok')).toBe('12:00 AM GMT+7')
+    expect(formatWindowInstant(reset, 'UTC')).toBe('5:00 PM UTC')
+    // An unknown or missing zone says UTC rather than guessing the host's.
+    expect(formatWindowInstant(reset, 'Mars/Olympus')).toBe('5:00 PM UTC')
+    expect(formatWindowInstant(reset)).toBe('5:00 PM UTC')
   })
 
   test('a range labels its zone ONCE, at the end', () => {

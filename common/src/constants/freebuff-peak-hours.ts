@@ -210,6 +210,20 @@ function windowTimeFormatter(timeZone: string): Intl.DateTimeFormat {
   })
 }
 
+/**
+ * One instant as a named wall-clock time, e.g. "12:00 AM GMT+7".
+ *
+ * For prose the SERVER renders and the client can only print verbatim. A
+ * client-rendered refusal goes through formatFreebuffModelUnavailableWindow,
+ * which uses the reader's own zone; prose that embeds the time mid-sentence
+ * cannot, so it has to name the zone it chose. An unsupported or missing zone
+ * falls back to UTC, and says so.
+ */
+export function formatWindowInstant(on: Date, timeZone?: string): string {
+  const zone = resolveWindowTimeZone(timeZone)
+  return `${windowTimeFormatter(zone).format(on)} ${formatWindowTimeZoneLabel(on, zone)}`
+}
+
 /** The window in the reader's timezone, e.g. "5:00 PM – 3:00 AM PDT". Local
  *  time is the point: a user told "00:00-10:00 UTC" has to do the arithmetic.
  *  The zone is named either way — see formatWindowTimeZoneLabel. */
