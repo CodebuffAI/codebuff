@@ -13,6 +13,8 @@ import {
 } from '@codebuff/common/constants/turn-ending-rule'
 import {
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  FREEBUFF_SOLAR_MINI_4_MODEL_ID,
+  FREEBUFF_SOLAR_PRO_4_MODEL_ID,
   SUPPORTED_FREEBUFF_MODELS,
 } from '@codebuff/common/constants/freebuff-models'
 import { describe, test, expect } from 'bun:test'
@@ -110,13 +112,36 @@ describe('base3 CLI roots', () => {
       // Single loop: no subagents at all, which is what the harness IS.
       expect(agent.spawnableAgents ?? []).toEqual([])
       expect(agent.toolNames ?? []).not.toContain('spawn_agents')
-      // No per-turn instructions but Muse Spark 1.3's turn-ending note.
+      // No per-turn instructions but the turn-ending note, and only for the
+      // models that end turns on a status line. Written as a literal set, so a
+      // refactor of base3's own list cannot move both sides at once.
       expect(agent.instructionsPrompt).toBe(
-        agent.model === FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID
+        [
+          FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+          FREEBUFF_SOLAR_PRO_4_MODEL_ID,
+          FREEBUFF_SOLAR_MINI_4_MODEL_ID,
+        ].includes(agent.model as string)
           ? TURN_ENDING_NOTE
           : undefined,
       )
     }
+  })
+
+  // Solar Pro 4 and Solar Mini 4 ended 24.0% and 18.8% of their completed
+  // Desktop turns in prose with no tool call over the 24h to 2026-10-14,
+  // against DeepSeek V4 Flash's 1.7% — and 41.7% vs 17.1% zero-tool among the
+  // 402 users who used both. Named here as well as in the loop above: a root
+  // that disappears from CLI_ROOTS must fail, not pass silently.
+  test('the Solar roots and Muse Spark 1.3 carry the turn-ending note', () => {
+    for (const agent of [
+      base3FreeSolarPro4,
+      base3FreeSolarMini4,
+      base3FreeMuseSpark13,
+    ]) {
+      expect(agent.instructionsPrompt).toBe(TURN_ENDING_NOTE)
+    }
+    // And the comparison that made it measurable stays off it.
+    expect(base3FreeDeepseekFlash.instructionsPrompt).toBeUndefined()
   })
 
   test('DeepSeek Flash roots get 15 minutes / 40k, the rest the hour / 140k', () => {
