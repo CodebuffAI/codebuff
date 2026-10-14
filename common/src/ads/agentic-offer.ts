@@ -45,6 +45,7 @@ import {
 import { genericSetupInvitationSchema } from './generic-setup-invitation'
 import { sponsoredEnvironmentWarningSchema } from './sponsored-environment-warning'
 import { SPONSORED_IN_PLACE_VERSION } from './sponsored-in-place'
+import { SPONSORED_RUN_SPEC_VERSION } from './sponsored-run-spec'
 
 /** `agenticOfferRoute` on an `/api/ads` request, and `v` on this route's wire. */
 export const AGENTIC_OFFER_ROUTE_VERSION = 1
@@ -153,6 +154,13 @@ export const agenticOfferRequestSchema = z.object({
    * be offered; absent is the worktree flow every released build runs.
    */
   inPlaceExecutionVersion: z.literal(SPONSORED_IN_PLACE_VERSION).optional(),
+  /**
+   * `1`: this client runs the run spec the Accept delivers
+   * (`sponsored-run-spec.ts`): the server's prompt, skill and declared
+   * packages, never its own. Such a client is not refused a skill for being
+   * too old to resolve it (`sponsoredSkillClientRefusal`).
+   */
+  runSpecVersion: z.literal(SPONSORED_RUN_SPEC_VERSION).optional(),
   /**
    * Pointer ids to the conversation's trace, never its text
    * (`trace-context.ts`). Unknown here and read with `parseAdTraceContext`, so

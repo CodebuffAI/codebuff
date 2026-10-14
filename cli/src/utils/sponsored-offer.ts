@@ -32,6 +32,7 @@ import {
 } from '@codebuff/common/ads/agentic-offer'
 import { localAgenticTestCampaign } from '@codebuff/common/ads/local-agentic-test'
 import { SPONSORED_IN_PLACE_VERSION } from '@codebuff/common/ads/sponsored-in-place'
+import { SPONSORED_RUN_SPEC_VERSION } from '@codebuff/common/ads/sponsored-run-spec'
 import { env } from '@codebuff/common/env'
 
 import { FREEBUFF_WEB_URL } from '../login/constants'
@@ -130,6 +131,16 @@ function aiText(message: ChatMessage): string {
   return fromBlocks || message.content
 }
 
+/**
+ * The offer request this build sends: the route's body plus `runSpecVersion`,
+ * which says this client runs the server-built run spec on Accept
+ * (`common/src/ads/sponsored-run-spec.ts`). A server that does not know the
+ * field strips it.
+ */
+export type SponsoredAgenticOfferRequest = AgenticOfferRequest & {
+  runSpecVersion: typeof SPONSORED_RUN_SPEC_VERSION
+}
+
 /** The request body. Pure, so what leaves the machine is asserted directly. */
 export function buildAgenticOfferRequest(input: {
   conversationId: string
@@ -141,7 +152,7 @@ export function buildAgenticOfferRequest(input: {
   localTestCampaignId?: string | null
   /** Pointer ids to this conversation's trace, never its text. */
   traceContext?: AdTraceContext | null
-}): AgenticOfferRequest | null {
+}): SponsoredAgenticOfferRequest | null {
   const sponsored = input.capability.sponsoredCapability
   // No capability, no offer: the route would refuse an in-place CLI request
   // without a target to key it to, so asking would spend a round trip and a
@@ -164,6 +175,7 @@ export function buildAgenticOfferRequest(input: {
       ? { localTestCampaignId: input.localTestCampaignId }
       : {}),
     inPlaceExecutionVersion: SPONSORED_IN_PLACE_VERSION,
+    runSpecVersion: SPONSORED_RUN_SPEC_VERSION,
     ...(input.traceContext ? { traceContext: input.traceContext } : {}),
   }
 }

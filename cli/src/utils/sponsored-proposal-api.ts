@@ -4,6 +4,7 @@ import {
   agenticOfferResponseSchema,
 } from '@codebuff/common/ads/agentic-offer'
 import { SPONSORED_IN_PLACE_VERSION } from '@codebuff/common/ads/sponsored-in-place'
+import { SPONSORED_RUN_SPEC_VERSION } from '@codebuff/common/ads/sponsored-run-spec'
 import { sanitizeTerminalStrings } from '@codebuff/common/util/terminal-safe-text'
 import { normalizeRepoFullName } from '@codebuff/common/ads/sponsored-proposal-target'
 import type {
@@ -90,6 +91,14 @@ export type SponsoredAccept = {
    * older servers.
    */
   skill?: unknown
+  /**
+   * The server-built run spec (`common/src/ads/sponsored-run-spec.ts`), sent
+   * only because this client said `runSpecVersion` on the Accept body.
+   * UNTRUSTED: used only through `checkSponsoredRunSpec`, which holds it to
+   * the consented procedure and the grant. Absent from older servers, and
+   * then the run is built here exactly as before.
+   */
+  runSpec?: unknown
 }
 
 export type SponsoredAcceptPreview = {
@@ -634,6 +643,8 @@ export async function acceptSponsoredProposal(
       surface: 'cli',
       ...binding,
       inPlaceExecutionVersion: SPONSORED_IN_PLACE_VERSION,
+      // This build runs the server-built run spec when the Accept carries one.
+      runSpecVersion: SPONSORED_RUN_SPEC_VERSION,
     },
     ACCEPT_TIMEOUT_MS,
   )

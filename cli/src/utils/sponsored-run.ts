@@ -152,8 +152,11 @@ import { logger } from './logger'
 import { atomicPrivateWrite, privateStateFile } from './private-state'
 import {
   buildSponsoredPrompt,
+  buildSponsoredSpecPrompt,
   sponsoredAgentDefinition,
 } from './sponsored-agent'
+import { checkSponsoredRunSpec } from '@codebuff/common/ads/sponsored-run-spec-client'
+import type { SponsoredRunSpec } from '@codebuff/common/ads/sponsored-run-spec'
 import { sponsoredFrictionTool } from './sponsored-friction-tool'
 import {
   SPONSORED_ACCOUNT_STEP_MARGIN_MS,
@@ -487,6 +490,13 @@ const TERMINAL_REPORT_RETRY_MAX_MS = 5 * 60_000
  * idempotent per run id within the token's TTL, so a retry after a lost
  * response returns the same token rather than charging twice.
  */
+/**
+ * What the user reads when the Accept carried a run spec that does not match
+ * what they approved (`checkSponsoredRunSpec`). The run is reported failed.
+ */
+export const SPONSORED_RUN_SPEC_INVALID_COPY =
+  'Freebuff returned a sponsored task this version could not verify against what you approved. Nothing was started.'
+
 export const ACCEPT_RETRY_DELAYS_MS = [1_000, 3_000, 9_000] as const
 
 /** A refusal worth asking again: nothing answered, or upstream was busy. */
@@ -638,6 +648,12 @@ export class SponsoredRun {
      */
     skill: SponsoredSkill | null
     skillSource: SponsoredSkillSource
+    /**
+     * The verified run spec from the Accept, when the server sent one: its
+     * prompt template, skill and packages are the run's. Null builds the run
+     * here, exactly as before.
+     */
+    runSpec: SponsoredRunSpec | null
     /** The local cutoff the expiry timer aborts at; set when the turn starts. */
     runDeadlineMs: number | null
     /** What the step checks found, once they ran. Read by the verdict. */
@@ -955,18 +971,48 @@ export class SponsoredRun {
       const advertiserName = sanitizeTerminalText(
         accepted.accept.advertiserName || proposal.advertiser_name,
       )
-      // THE SKILL, AS DESKTOP SELECTS IT: this build's registry first; else
-      // the skill the Accept sent, only if it renders the consented procedure
-      // byte for byte. The procedure the user consented to is what runs
-      // either way; a skill only adds checks after the turn.
-      const { skill, source: skillSource } = selectSponsoredProcedureSkill(
-        accepted.accept.procedure,
-        accepted.accept.skill,
-      )
-      const named = skill
-        ? null
-        : sponsoredSkillDirective(accepted.accept.procedure)
-      if (named) {
+      // THE RUN SPEC, when the server sent one (`sponsored-run-spec.ts`): its
+      // skill, packages and prompt are THE run's, never this build's
+      // registry or prompt. Held to the consented procedure and the grant
+      // first. The Accept is already settled upstream, so a spec that fails
+      // is reported as a failed run (below) rather than run or dropped.
+      const sentSpec =
+        accepted.accept.runSpec !== undefined && accepted.accept.runSpec !== null
+      const specCheck = sentSpec
+        ? checkSponsoredRunSpec(accepted.accept.runSpec, {
+            procedure: accepted.accept.procedure,
+            procedureSha256: accepted.accept.computeGrant.procedureSha256,
+          })
+        : null
+      const runSpec = specCheck?.ok ? specCheck.spec : null
+      // Without a spec, THE SKILL AS DESKTOP SELECTS IT: this build's
+      // registry first; else the skill the Accept sent, only if it renders
+      // the consented procedure byte for byte. The procedure the user
+      // consented to is what runs either way; a skill only adds checks after
+      // the turn.
+      const { skill, source: skillSource } = runSpec
+        ? runSpec.skill
+          ? { skill: runSpec.skill, source: 'server' as const }
+          : { skill: null, source: 'none' as const }
+        : selectSponsoredProcedureSkill(
+            accepted.accept.procedure,
+            accepted.accept.skill,
+          )
+      const named =
+        skill || sentSpec
+          ? null
+          : sponsoredSkillDirective(accepted.accept.procedure)
+      if (specCheck && !specCheck.ok) {
+        logger.error(
+          {
+            proposalId: proposal._id,
+            runId,
+            reason: specCheck.reason,
+            procedureSha256: prepared.preview.procedureSha256,
+          },
+          '[sponsored-run] the Accept carried a run spec this build cannot verify; the run is failed',
+        )
+      } else if (named) {
         // Named a skill this build cannot run as accepted: the procedure
         // still runs as free text, with no step checks.
         logger.warn(
@@ -987,6 +1033,7 @@ export class SponsoredRun {
             proposalId: proposal._id,
             skill: `${skill.id}@${skill.version}`,
             skillSource,
+            runSpec: runSpec !== null,
           },
           '[sponsored-run] accepted a skill',
         )
@@ -1020,6 +1067,7 @@ export class SponsoredRun {
         running: null,
         skill,
         skillSource,
+        runSpec,
         runDeadlineMs: null,
         stepResult: null,
         credentials: new SponsoredHeldCredentials(),
@@ -1027,6 +1075,16 @@ export class SponsoredRun {
       }
       this.deps.lastRun.write(runId)
       this.prepared = null
+      if (specCheck && !specCheck.ok) {
+        // Settled upstream and charged: report it failed now, with the
+        // reason, so the row does not wait for a turn that never comes.
+        this.set({ phase: 'queued', advertiserName })
+        await this.settle({
+          errorText: `run-spec-invalid: ${specCheck.reason}`,
+          aborted: false,
+        })
+        return { ok: false, message: SPONSORED_RUN_SPEC_INVALID_COPY }
+      }
       this.set({ phase: 'queued', advertiserName })
       return { ok: true }
     } catch (error) {
@@ -1105,9 +1163,16 @@ export class SponsoredRun {
       // is the skill the user consented to); otherwise from the procedure
       // hash the grant pins; none for a legacy procedure, which refuses every
       // install.
-      declaredPackages: active.skill
-        ? active.skill.packages
-        : sponsoredDeclaredPackagesForProcedureSha256(grant.procedureSha256),
+      // A run spec's own list is the only one (it equals its skill's).
+      declaredPackages: active.runSpec
+        ? active.runSpec.declaredPackages
+        : active.skill
+          ? active.skill.packages
+          : sponsoredDeclaredPackagesForProcedureSha256(grant.procedureSha256),
+      skillUnresolved:
+        !active.runSpec &&
+        !active.skill &&
+        sponsoredSkillDirective(active.procedure) !== null,
       credentialEnv: () => active.credentials.env(),
     }
     // THE ACCOUNT STEP, deferred as Desktop defers it: the turn starts now,
@@ -1203,12 +1268,14 @@ export class SponsoredRun {
       runId: active.runId,
       proposalId: active.proposalId,
       advertiserName: active.advertiserName,
-      prompt: buildSponsoredPrompt(
-        active.procedure,
-        active.taskContext,
-        active.runtimeInputs,
-        deferredSignup ? { deferredSignup } : {},
-      ),
+      prompt: active.runSpec
+        ? buildSponsoredSpecPrompt(active.runSpec, active.taskContext)
+        : buildSponsoredPrompt(
+            active.procedure,
+            active.taskContext,
+            active.runtimeInputs,
+            deferredSignup ? { deferredSignup } : {},
+          ),
       agent: sponsoredAgentDefinition({
         agentId,
         model: grant.modelId,
@@ -2053,6 +2120,8 @@ export type SponsoredToolContext = {
    * (`sponsored-declared-installs.ts`). Absent refuses every install.
    */
   declaredPackages?: readonly SponsoredDeclaredPackage[]
+  /** The procedure names a skill this build could not load (installs say so). */
+  skillUnresolved?: boolean
   /**
    * The keys the user connected for this run, read at each command: they
    * may connect one mid-turn. Injected by the broker after its scrub.
@@ -2234,6 +2303,7 @@ export function sponsoredOverrideTools(
       const install = evaluateSponsoredInstallCommand(
         input.command,
         context.declaredPackages,
+        { skillUnresolved: context.skillUnresolved === true },
       )
       if (install.kind === 'refuse') return refusal(install.message)
       const command = install.kind === 'allow' ? install.command : input.command

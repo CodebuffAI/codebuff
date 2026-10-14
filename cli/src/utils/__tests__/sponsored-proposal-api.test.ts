@@ -238,6 +238,7 @@ describe('acceptSponsoredProposal renders a refusal, never a code', () => {
     expect(bodies[0]).toMatchObject({
       surface: 'cli',
       inPlaceExecutionVersion: 1,
+      runSpecVersion: 1,
       clientExecutionSurface: 'cli_linux',
     })
   })

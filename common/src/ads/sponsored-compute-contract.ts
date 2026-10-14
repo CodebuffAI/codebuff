@@ -10,6 +10,7 @@ import type {
   SponsoredExecutionContainment,
 } from './sponsored-windows'
 import type { SPONSORED_IN_PLACE_VERSION } from './sponsored-in-place'
+import type { SPONSORED_RUN_SPEC_VERSION } from './sponsored-run-spec'
 
 /** The clients a funded Accept can come from. */
 export const SPONSORED_ACCEPT_SURFACES = ['desktop', 'cli', 'web'] as const
@@ -51,6 +52,15 @@ export type SponsoredAcceptRequest = {
    * it from then on.
    */
   inPlaceExecutionVersion?: typeof SPONSORED_IN_PLACE_VERSION
+  /**
+   * `1`: this client runs the run spec (`./sponsored-run-spec.ts`). The 200
+   * then carries `runSpec`, built from the server's own skill, on a fresh
+   * Accept and on every replay of it. A procedure that names a skill the
+   * server cannot resolve is refused `409 run_spec_unavailable` before
+   * anything is charged (`503 run_spec_unavailable` on a replay, which
+   * charges nothing again and is safe to retry).
+   */
+  runSpecVersion?: typeof SPONSORED_RUN_SPEC_VERSION
 }
 
 /**

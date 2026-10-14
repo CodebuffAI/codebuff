@@ -54,6 +54,11 @@ import {
 
 import { SPONSORED_FRICTION_TOOL_NAME } from '@codebuff/common/ads/sponsored-run-friction'
 import {
+  fillSponsoredRunSpecPrompt,
+  type SponsoredRunSpec,
+} from '@codebuff/common/ads/sponsored-run-spec'
+import { renderSponsoredRunTaskContext } from '@codebuff/common/ads/sponsored-run-prompt'
+import {
   LAB_DEFERRED_SIGNUP_CREDENTIALS,
   LAB_DEFERRED_SIGNUP_LINK,
   LAB_NO_KEYS_IN_CHAT_BULLET,
@@ -145,6 +150,40 @@ export const SPONSORED_CONTEXT_HEADING = [
 ].join('\n')
 
 /**
+ * The background section of the legacy (no run spec) prompt: the heading,
+ * then the user's own messages. A spec's template carries the heading itself,
+ * and its slot takes `renderSponsoredRunTaskContext`.
+ */
+export function sponsoredTaskContextSection(
+  taskContext: readonly string[],
+): string {
+  const renderedContext = taskContext
+    .map((message, index) => `User message ${index + 1}:\n${message}`)
+    .join('\n\n')
+  return `${SPONSORED_CONTEXT_HEADING}\n${renderedContext}`
+}
+
+/**
+ * The first-turn prompt of a run whose Accept carried a verified run spec:
+ * the server's template, with only the two client slots filled. The task
+ * context is this build's own rendering (empty when there is none). The
+ * credentials slot is empty: a CLI run asks for an account mid-run
+ * (`request_sponsored_signup`), so no key is connected when the turn starts,
+ * and a key connected later reaches the run through that tool's result.
+ */
+export function buildSponsoredSpecPrompt(
+  spec: Pick<SponsoredRunSpec, 'promptTemplate'>,
+  taskContext: readonly string[] = [],
+): string {
+  return fillSponsoredRunSpecPrompt(spec.promptTemplate, {
+    // The template carries the background heading itself; the slot takes
+    // only the messages.
+    taskContext: renderSponsoredRunTaskContext(taskContext),
+    credentials: '',
+  })
+}
+
+/**
  * The run's prompt, in Desktop's order: the authorisation, the advertiser's
  * reviewed procedure, the user's own words as background, and our rules last.
  *
@@ -165,13 +204,10 @@ export function buildSponsoredPrompt(
    */
   options: { deferredSignup?: 'link' | 'credentials' } = {},
 ): string {
-  const renderedContext = taskContext
-    .map((message, index) => `User message ${index + 1}:\n${message}`)
-    .join('\n\n')
   return [
     SPONSORED_TASK_FRAMING,
     `The approved procedure:\n${sponsoredProcedurePrompt(procedure, runtimeInputs)}`,
-    `${SPONSORED_CONTEXT_HEADING}\n${renderedContext}`,
+    sponsoredTaskContextSection(taskContext),
     `How to carry it out here:\n${CLI_SPONSORED_GUIDANCE}${
       options.deferredSignup ? `\n${LAB_NO_KEYS_IN_CHAT_BULLET}` : ''
     }`,

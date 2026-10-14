@@ -227,6 +227,14 @@ function canonicalInstall(
   return [...parts, ...specs].join(' ')
 }
 
+/**
+ * The refusal for a run whose skill this build could not load: the pinned
+ * packages exist, this build just does not know them. Distinct from
+ * {@link SPONSORED_LOCAL_INSTALL_REFUSAL} so a trace says which it was.
+ */
+export const SPONSORED_SKILL_UNRESOLVED_INSTALL_REFUSAL =
+  "Refusing this install: this Freebuff build could not load the skill's list of pinned packages, so it cannot install them. Declare the pinned version in the package manifest, write the code against it, and tell the user to update Freebuff and run the procedure's pinned install command themselves."
+
 const REFUSAL_PREFIX =
   'Refusing this install: a sponsored run may install only the packages its skill declares, at the declared versions, as one plain command (a leading `cd <subfolder> &&` is fine; no other chaining or quoting).'
 
@@ -265,10 +273,20 @@ export function sponsoredWheelOnlyRefusal(canonical: string): string {
 export function evaluateSponsoredInstallCommand(
   command: string,
   declared: readonly SponsoredDeclaredPackage[] | undefined,
+  /**
+   * The run's procedure names a skill this build could not load, so its
+   * declared list is unknown rather than empty: refused with that cause.
+   */
+  options: { skillUnresolved?: boolean } = {},
 ): SponsoredInstallDecision {
   if (!commandInstallsDependencies(command)) return { kind: 'not-install' }
   if (!declared || declared.length === 0) {
-    return { kind: 'refuse', message: SPONSORED_LOCAL_INSTALL_REFUSAL }
+    return {
+      kind: 'refuse',
+      message: options.skillUnresolved
+        ? SPONSORED_SKILL_UNRESOLVED_INSTALL_REFUSAL
+        : SPONSORED_LOCAL_INSTALL_REFUSAL,
+    }
   }
   const refuse = { kind: 'refuse', message: declaredRefusal(declared) } as const
 

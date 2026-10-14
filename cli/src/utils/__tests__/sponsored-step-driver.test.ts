@@ -174,6 +174,7 @@ function world(
 function fakes(options: {
   procedure: string
   skill?: unknown
+  runSpec?: unknown
   stepCheckContext?: SponsoredRunDeps['stepCheckContext']
   terminalCommand?: (input: { command: string }) => unknown
   advertiserLink?: string
@@ -218,6 +219,7 @@ function fakes(options: {
           allowanceUsdMicros: 500_000,
         },
         ...(options.skill !== undefined ? { skill: options.skill } : {}),
+        ...(options.runSpec !== undefined ? { runSpec: options.runSpec } : {}),
         ...(options.advertiserLink
           ? { advertiserLink: options.advertiserLink }
           : {}),
@@ -399,6 +401,100 @@ describe('which runs the CLI drives', () => {
     const plan = await startDriven(f)
     expect(plan.driveSteps).toBeUndefined()
     expect(plan.prompt).toContain('acme.config.json')
+  })
+})
+
+describe('a run spec on the Accept', () => {
+  const TEMPLATE = [
+    'SERVER-BUILT PROMPT for the accepted procedure.',
+    'Background from this conversation (read-only):\n{{FREEBUFF_TASK_CONTEXT}}',
+    'Rules from the server.',
+    '{{FREEBUFF_CREDENTIALS}}',
+    'Report last.',
+  ].join('\n\n')
+
+  function spec(
+    procedure: string,
+    skill: unknown,
+    over: Record<string, unknown> = {},
+  ) {
+    return {
+      v: 1,
+      procedure,
+      procedureSha256: sponsoredProcedureSha256(procedure),
+      skill,
+      declaredPackages:
+        (skill as { packages?: unknown[] } | null)?.packages ?? [],
+      promptTemplate: TEMPLATE,
+      ...over,
+    }
+  }
+
+  test("drives the spec's skill, installs only its packages and runs its prompt, with no skill field and no bundled copy", async () => {
+    const skill = serverSkill()
+    const procedure = renderSponsoredSkillProcedure(skill)
+    const w = world(['acme.config.json', 'src/hook.ts'])
+    const f = fakes({
+      procedure,
+      runSpec: spec(procedure, RAW_SKILL),
+      stepCheckContext: w.stepCheckContext,
+    })
+    const plan = await startDriven(f)
+    expect(plan.driveSteps).toBeDefined()
+    expect(f.contexts[0]!.declaredPackages).toEqual(skill.packages)
+    expect(f.contexts[0]!.skillUnresolved).toBe(false)
+    expect(plan.prompt.startsWith('SERVER-BUILT PROMPT')).toBe(true)
+    expect(plan.prompt).toContain('User message 1:\nHow do I deploy this?')
+    // The heading is the template's; the client adds only the messages.
+    expect(plan.prompt.split('Background from this conversation')).toHaveLength(2)
+    expect(plan.prompt).not.toContain('{{FREEBUFF_')
+    // Not this build's own prompt.
+    expect(plan.prompt).not.toContain('The approved procedure:')
+  })
+
+  test('a free-text spec runs its prompt and may install nothing', async () => {
+    const procedure = 'Wire up the Acme deploy hook.'
+    const f = fakes({ procedure, runSpec: spec(procedure, null) })
+    const plan = await startDriven(f)
+    expect(plan.driveSteps).toBeUndefined()
+    expect(f.contexts[0]!.declaredPackages).toEqual([])
+    expect(plan.prompt.startsWith('SERVER-BUILT PROMPT')).toBe(true)
+  })
+
+  for (const [name, mutate] of [
+    ['an unknown version', { v: 2 }],
+    ['packages that are not the skill\'s', { declaredPackages: [{ ecosystem: 'npm', name: 'left-pad', version: '1.0.0' }] }],
+    ['another procedure', { procedure: 'Something else.' }],
+    ['no skill for a skill procedure', { skill: null, declaredPackages: [] }],
+    ['no prompt', { promptTemplate: '' }],
+  ] as const) {
+    test(`a spec with ${name} is refused and the accepted run is reported failed`, async () => {
+      const procedure = renderSponsoredSkillProcedure(serverSkill())
+      const f = fakes({
+        procedure,
+        skill: RAW_SKILL,
+        runSpec: spec(procedure, RAW_SKILL, mutate),
+      })
+      const task = sponsoredTaskEvidence([
+        { variant: 'user', content: 'How do I deploy this?' },
+      ])!
+      const consent = await f.service.consentFor(PROPOSAL, task)
+      if (!consent.ok) throw new Error(consent.message)
+      const accepted = await f.service.accept(PROPOSAL, consent.runId, task)
+      expect(accepted.ok).toBe(false)
+      expect(await f.service.startTurn()).toBeNull()
+      expect(f.contexts).toHaveLength(0)
+      await settle()
+      const report = terminal(f)!
+      expect(report.state).toBe('failed')
+      expect(report.diagnosticReason).toContain('run-spec-invalid')
+    })
+  }
+
+  test('no spec keeps the prompt this build writes', async () => {
+    const procedure = 'Wire up the Acme deploy hook.'
+    const plan = await startDriven(fakes({ procedure }))
+    expect(plan.prompt).toContain('The approved procedure:')
   })
 })
 
