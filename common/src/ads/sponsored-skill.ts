@@ -188,8 +188,12 @@ export function sponsoredPackageSpec(pkg: SponsoredSkillPackage): string {
  * A CLI the skill calls by `name` (in `command_succeeds` and its instructions).
  * - `npm`: run through the package runner at a pinned version (`npx --yes <package>@<version>`).
  * - `path`: a vendor binary installed outside npm (a curl installer, Homebrew).
- *   It must already be on PATH: today's runs install nothing, so the skill
- *   checks for it and the run stops at that check when it is missing.
+ *   It must already be on PATH, so the skill checks for it and the run stops
+ *   at that check when it is missing. A path tool may also pin a `release`:
+ *   checksummed release archives a harness that knows how (web's Linux VM)
+ *   installs before the run. A client that does not install releases ignores
+ *   the field and treats the tool exactly as it did before, so adding one keeps
+ *   the skill valid, and rendered the same, on every older client.
  */
 export type SponsoredSkillTool =
   | { name: string; source: 'npm'; package: string; version: string }
@@ -198,7 +202,43 @@ export type SponsoredSkillTool =
       source: 'path'
       /** How a person installs it, shown in the report when it is missing. */
       installHint: string
+      release?: SponsoredSkillToolRelease
     }
+
+export const SPONSORED_TOOL_RELEASE_OS = ['linux', 'darwin'] as const
+export const SPONSORED_TOOL_RELEASE_ARCH = ['x64', 'arm64'] as const
+export const SPONSORED_TOOL_RELEASE_ARCHIVES = [
+  'tar.gz',
+  'zip',
+  'none',
+] as const
+export const MAX_SPONSORED_TOOL_RELEASE_ASSETS = 4
+
+/**
+ * One vendor CLI build, pinned by its SHA-256. The installer downloads `url`,
+ * refuses any bytes whose SHA-256 is not `sha256`, and installs the one file
+ * `binary` names inside the archive (the download itself when `archive` is
+ * `none`) as the tool's `name`. Nothing in the archive runs while installing.
+ */
+export type SponsoredSkillToolReleaseAsset = {
+  os: (typeof SPONSORED_TOOL_RELEASE_OS)[number]
+  /** Node's `process.arch` names: `x64`, `arm64`. */
+  arch: (typeof SPONSORED_TOOL_RELEASE_ARCH)[number]
+  /** The vendor's own HTTPS download, no query or fragment. */
+  url: string
+  /** Lowercase hex, from the vendor's published checksums. */
+  sha256: string
+  archive: (typeof SPONSORED_TOOL_RELEASE_ARCHIVES)[number]
+  /** Path of the executable inside the archive, e.g. `infisical` or `bin/cli`. */
+  binary: string
+}
+
+export type SponsoredSkillToolRelease = {
+  /** The vendor's exact release version; part of the install's identity. */
+  version: string
+  /** At most one per os/arch. */
+  assets: SponsoredSkillToolReleaseAsset[]
+}
 
 export type SponsoredSkillRequirements = {
   os: SponsoredSkillOs[]
@@ -547,6 +587,138 @@ function parseCheck(
  * skill. Every error is reported, not just the first, so a reviewer or the
  * authoring skill can fix them in one pass.
  */
+const SHA256_HEX = /^[0-9a-f]{64}$/
+/** HTTPS, a dotted host and a plain path: nothing a shell or URL parser could read twice. */
+const RELEASE_URL =
+  /^https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[A-Za-z0-9._~%+\/-]+$/
+const RELEASE_BINARY_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._+-]*$/
+
+function validReleaseUrl(url: unknown): url is string {
+  if (typeof url !== 'string' || url.length > 2_048 || !RELEASE_URL.test(url))
+    return false
+  try {
+    const parsed = new URL(url)
+    return (
+      parsed.protocol === 'https:' &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.port &&
+      !parsed.search &&
+      !parsed.hash &&
+      // An IP literal or a local name is never a vendor's release host.
+      !/^[0-9.]+$/.test(parsed.hostname) &&
+      !/(?:^|\.)(?:localhost|local|internal)$/.test(parsed.hostname) &&
+      // The URL parser folds `..` away, so look at the text as written.
+      !url
+        .slice(`https://${parsed.host}`.length)
+        .split('/')
+        .map((part) => part.toLowerCase().replaceAll('%2e', '.'))
+        .some((part) => part === '..' || part === '.')
+    )
+  } catch {
+    return false
+  }
+}
+
+function validReleaseBinary(binary: unknown): binary is string {
+  if (typeof binary !== 'string' || !binary || binary.length > 200) return false
+  const parts = binary.split('/')
+  return parts.every(
+    (part) => RELEASE_BINARY_SEGMENT.test(part) && part !== '..',
+  )
+}
+
+function parseToolRelease(
+  errors: SponsoredSkillParseError[],
+  path: string,
+  release: unknown,
+): void {
+  if (!isRecord(release)) {
+    errors.push({ path, message: 'must be an object' })
+    return
+  }
+  if (
+    typeof release.version !== 'string' ||
+    !EXACT_SEMVER.test(release.version)
+  )
+    errors.push({ path: `${path}.version`, message: 'must be an exact semver' })
+  const assets = release.assets
+  if (
+    !Array.isArray(assets) ||
+    assets.length === 0 ||
+    assets.length > MAX_SPONSORED_TOOL_RELEASE_ASSETS
+  ) {
+    errors.push({
+      path: `${path}.assets`,
+      message: `must list 1-${MAX_SPONSORED_TOOL_RELEASE_ASSETS} assets`,
+    })
+    return
+  }
+  const targets = new Set<string>()
+  assets.forEach((asset, index) => {
+    const at = `${path}.assets[${index}]`
+    if (!isRecord(asset)) {
+      errors.push({ path: at, message: 'must be an object' })
+      return
+    }
+    if (!(SPONSORED_TOOL_RELEASE_OS as readonly unknown[]).includes(asset.os))
+      errors.push({
+        path: `${at}.os`,
+        message: `must be one of ${SPONSORED_TOOL_RELEASE_OS.join(', ')}`,
+      })
+    if (
+      !(SPONSORED_TOOL_RELEASE_ARCH as readonly unknown[]).includes(asset.arch)
+    )
+      errors.push({
+        path: `${at}.arch`,
+        message: `must be one of ${SPONSORED_TOOL_RELEASE_ARCH.join(', ')}`,
+      })
+    if (!validReleaseUrl(asset.url))
+      errors.push({
+        path: `${at}.url`,
+        message:
+          'must be a plain https URL on a public host, with no query, fragment, port or credentials',
+      })
+    if (typeof asset.sha256 !== 'string' || !SHA256_HEX.test(asset.sha256))
+      errors.push({
+        path: `${at}.sha256`,
+        message: 'must be 64 lowercase hex characters',
+      })
+    if (
+      !(SPONSORED_TOOL_RELEASE_ARCHIVES as readonly unknown[]).includes(
+        asset.archive,
+      )
+    )
+      errors.push({
+        path: `${at}.archive`,
+        message: `must be one of ${SPONSORED_TOOL_RELEASE_ARCHIVES.join(', ')}`,
+      })
+    if (!validReleaseBinary(asset.binary))
+      errors.push({
+        path: `${at}.binary`,
+        message: 'must be a relative path inside the archive, without ..',
+      })
+    const target = `${String(asset.os)}-${String(asset.arch)}`
+    if (targets.has(target))
+      errors.push({ path: at, message: `duplicate asset for ${target}` })
+    targets.add(target)
+  })
+}
+
+/** The release asset a harness on `os`/`arch` installs for `tool`, or null. */
+export function sponsoredToolReleaseAsset(
+  tool: SponsoredSkillTool,
+  os: string,
+  arch: string,
+): SponsoredSkillToolReleaseAsset | null {
+  if (tool.source !== 'path' || !tool.release) return null
+  return (
+    tool.release.assets.find(
+      (asset) => asset.os === os && asset.arch === arch,
+    ) ?? null
+  )
+}
+
 export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
   const errors: SponsoredSkillParseError[] = []
   if (!isRecord(value))
@@ -785,6 +957,8 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
           errors.push({ path, message: 'a path tool needs an installHint' })
           return
         }
+        if (tool.release !== undefined)
+          parseToolRelease(errors, `${path}.release`, tool.release)
       } else {
         errors.push({ path, message: 'source must be npm or path' })
         return
@@ -1268,6 +1442,24 @@ export function sponsoredSkillConsentView(
       tool.source === 'path' ? [tool.name] : [],
     ),
   }
+}
+
+/**
+ * Why a browser-workspace (Freebuff Web) run of `skill` could only fail, or
+ * null when it can run there. A web run executes in a bare Linux VM whose
+ * commands may install only the skill's pinned npm packages, so a skill that
+ * does not declare `linux`, or needs a vendor CLI already on PATH (`path`
+ * tool), is never offered on web. A `path` tool's pinned `release` does not
+ * change that until something installs it on web.
+ */
+export type SponsoredSkillWebRefusal = 'skill_os' | 'skill_path_tool'
+export function sponsoredSkillWebRefusal(
+  skill: Pick<SponsoredSkill, 'requirements' | 'tools'>,
+): SponsoredSkillWebRefusal | null {
+  if (!skill.requirements.os.includes('linux')) return 'skill_os'
+  if (skill.tools.some((tool) => tool.source === 'path'))
+    return 'skill_path_tool'
+  return null
 }
 
 /**

@@ -39,6 +39,7 @@ import { z } from 'zod'
 
 import {
   capabilityInspectionSchema,
+  cloudWorktreeCapabilitySchema,
   sponsoredCapabilitySchema,
 } from './sponsored-capability'
 import { genericSetupInvitationSchema } from './generic-setup-invitation'
@@ -115,6 +116,12 @@ export const agenticOfferRequestSchema = z.object({
     .max(20),
   localCapability: agenticOfferLocalCapabilitySchema.optional(),
   sponsoredCapability: sponsoredCapabilitySchema.optional(),
+  /**
+   * The browser workspace's worktree facts (`web` client only). The route
+   * reads it only from the workspace server, adds the server-assigned
+   * `cloud_linux` execution itself, and ignores it from any other client.
+   */
+  cloudCapability: cloudWorktreeCapabilitySchema.optional(),
   capabilityInspection: capabilityInspectionSchema.optional(),
   /** Setup-only capability; parsed server-side exactly as `/api/ads` does. */
   invitationCapability: z.unknown().optional(),

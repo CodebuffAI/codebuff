@@ -37,7 +37,7 @@
  * schema module; type imports are erased.
  */
 
-import { isSponsoredExecutionSurface } from './sponsored-execution-surface'
+import { isSponsoredRunExecutionSurface } from './sponsored-execution-surface'
 import { SPONSORED_CLIENT_VERSION_PATTERN } from './sponsored-client-version'
 import { SPONSORED_PARTIAL_EDITS_MARKER } from './sponsored-in-place'
 
@@ -250,6 +250,8 @@ const OS_BY_SURFACE: Record<string, SponsoredRunOs> = {
   // WSL is a Linux kernel under Windows; the surface keeps the distinction.
   cli_wsl: 'linux',
   desktop_windows: 'windows',
+  // Freebuff Web's browser workspace VMs.
+  cloud_linux: 'linux',
 }
 
 /**
@@ -452,23 +454,29 @@ export function buildSponsoredRunFunnelMetadata(args: {
   refusal?: string | null
 }): SponsoredRunFunnelMetadata {
   const { row } = args
-  const executionMode: SponsoredRunExecutionMode = row.project_id
-    ? 'cloud'
-    : row.in_place_execution === true
-      ? 'in_place'
-      : 'worktree'
-  const surface = isSponsoredExecutionSurface(row.execution_surface)
-    ? row.execution_surface
-    : undefined
-  const executionSurface =
-    surface ?? (executionMode === 'cloud' ? ('cloud' as const) : undefined)
   const clientRaw = row.acceptance?.surface ?? row.surface ?? null
   const client = (SPONSORED_RUN_CLIENTS as readonly string[]).includes(
     clientRaw ?? '',
   )
     ? (clientRaw as (typeof SPONSORED_RUN_CLIENTS)[number])
     : undefined
-  const os = surface ? OS_BY_SURFACE[surface] : undefined
+  // A Freebuff Web run executes on OUR Linux VM, in the accepting chat's
+  // worktree, and its row carries no Convex `project_id` (that key belongs to
+  // the retired /cloud executor). It is Cloud execution all the same: the
+  // worker reports it, not a user's machine.
+  const webRun = !row.project_id && client === 'web'
+  const executionMode: SponsoredRunExecutionMode =
+    row.project_id || webRun
+      ? 'cloud'
+      : row.in_place_execution === true
+        ? 'in_place'
+        : 'worktree'
+  const surface = isSponsoredRunExecutionSurface(row.execution_surface)
+    ? row.execution_surface
+    : undefined
+  const executionSurface =
+    surface ?? (executionMode === 'cloud' ? ('cloud' as const) : undefined)
+  const os = surface ? OS_BY_SURFACE[surface] : webRun ? 'linux' : undefined
   const fromState = (SPONSORED_RUN_FROM_STATES as readonly string[]).includes(
     args.fromState ?? '',
   )
@@ -491,9 +499,10 @@ export function buildSponsoredRunFunnelMetadata(args: {
     })
     if (NO_TURN_CODES.has(failureCode)) llmCalled = false
     else if (TURN_RAN_CODES.has(failureCode)) llmCalled = true
-    // A Cloud row the sweep took out of `accepted` was never queued. A local
-    // one may have run with its advisory `running` report lost, so it stays
-    // unknown.
+    // A Cloud row the sweep took out of `accepted` was never queued, and a
+    // web row never started its turn: the web worker starts one only after
+    // its `running` report landed. A local one may have run with its
+    // advisory `running` report lost, so it stays unknown.
     else if (
       failureCode === 'timed_out' &&
       executionMode === 'cloud' &&

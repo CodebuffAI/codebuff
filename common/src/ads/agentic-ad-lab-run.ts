@@ -26,6 +26,8 @@
 import { TURN_ENDING_RULE } from '../constants/turn-ending-rule'
 import { sponsoredProcedurePrompt } from './sponsored-procedure-inputs'
 
+import type { SponsoredProcedureRuntimeInputs } from './sponsored-procedure-inputs'
+
 import type { SponsoredRunCredential } from './sponsored-run-credentials'
 
 // ---------------------------------------------------------------- turn prompt
@@ -171,7 +173,14 @@ function excerpt(text: string, max = LAB_TASK_CONTEXT_MAX_CHARS): string {
 export function labSponsoredPrompt(
   procedure: string,
   taskContext: readonly string[],
-  options: { deferredSignup?: 'link' | 'credentials' } = {},
+  options: {
+    deferredSignup?: 'link' | 'credentials'
+    /**
+     * A production Cloud run's Accept answer (`advertiserLink`, the tracked
+     * `bfcid` link), filled in as Desktop fills it. A lab run passes none.
+     */
+    runtimeInputs?: SponsoredProcedureRuntimeInputs
+  } = {},
 ): string {
   const renderedContext = taskContext
     .map((message, index) => `User message ${index + 1}:\n${message}`)
@@ -179,8 +188,8 @@ export function labSponsoredPrompt(
   return [
     LAB_SPONSORED_TASK_FRAMING,
     // The lab's tracked link is minted at Accept and opened by the account
-    // step, never by the agent, so the procedure carries no runtime inputs.
-    `The approved procedure:\n${sponsoredProcedurePrompt(procedure, {})}`,
+    // step, never by the agent, so a lab procedure carries no runtime inputs.
+    `The approved procedure:\n${sponsoredProcedurePrompt(procedure, options.runtimeInputs ?? {})}`,
     `${LAB_SPONSORED_CONTEXT_HEADING}\n${renderedContext}`,
     `How to carry it out here:\n${LAB_SPONSORED_GUIDANCE}\n${LAB_SPONSORED_SCOPE_GUIDANCE}`,
     ...(options.deferredSignup === 'link'
@@ -239,7 +248,7 @@ export const LAB_SPONSORED_DELIVERY = `# Delivery
 
 Leave your finished work UNCOMMITTED in the working copy: the user reviews the diff and keeps or undoes it. Git commands that change the repository are refused; read-only ones (status, diff, log) are how you check your own work. Never push or open a PR.
 
-You are working in this chat's own worktree in a Linux cloud VM that other chats share. Touch only what the procedure needs, and never modify sibling worktrees, shared Git configuration or other chats' processes. Other processes may run development servers, so check existing listeners before choosing a port. \`.env.example\` and its family are where placeholder variables belong; never write a credential into a file.`
+You are working in this chat's own worktree in a Linux cloud VM that other chats share. Touch only what the procedure needs, and never modify sibling worktrees, shared Git configuration or other chats' processes. Other processes may run development servers, so check existing listeners before choosing a port. \`.env.example\` and its family are where placeholder variables belong. Write a connected key into a file only where a step says to, and then only into the project's git-ignored env file (such as \`.env.local\`), never a tracked one. That file stays in this chat alone: no other chat can read it and workspace checkpoints never save it. When you write one, say so in your report: the key is kept only in this chat.`
 
 /** MIRRORED: Desktop's `SPONSORED_AGENT_REPORT`. */
 export const LAB_SPONSORED_AGENT_REPORT = `# Ending the run
