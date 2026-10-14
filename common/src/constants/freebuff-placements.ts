@@ -970,9 +970,10 @@ export const OVERSHOOT_POLICY_COPY =
  * blunt -- it exists because comments in this package leaked real cost figures
  * once already -- so the phrasing moves here, never the pattern there.
  */
-export const PLACEMENT_DAILY_CAP_MIN_CENTS = 2_500
+export const PLACEMENT_DAILY_CAP_MIN_CENTS = 5_000
 export const PLACEMENT_DAILY_CAP_MAX_CENTS = 500_000
 export const PLACEMENT_DAILY_CAP_DEFAULT_CENTS = 10_000
+export const PLACEMENT_DAILY_CAP_MIN_ERROR = `Daily budget must be at least $${PLACEMENT_DAILY_CAP_MIN_CENTS / 100}.`
 
 /** Whole cents inside the bounds, which is exactly what the API accepts. */
 export function clampPlacementDailyCapCents(cents: number): number {
@@ -986,11 +987,10 @@ export function clampPlacementDailyCapCents(cents: number): number {
 /**
  * The caps the slider can land on, ascending.
  *
- * A linear $5-step track to $5,000 is a thousand positions, which buries the
- * range nearly every campaign actually runs in ($25-$50/day) inside the first
- * one percent of it -- a pixel of drag would be tens of dollars, and the low
- * end would be unreachable by dragging at all. So the slider walks a ladder
- * whose step grows with the number: $5 up to $100, $25 up to $500, $100 up to
+ * A linear $5-step track to $5,000 is nearly a thousand positions, which
+ * buries the low end inside the first few pixels. The slider starts at the
+ * minimum and walks a ladder whose step grows with the number: $5 up to
+ * $100, $25 up to $500, $100 up to
  * $1,000, $500 up to $5,000. Every position is a cap someone would choose.
  *
  * The ladder is the SLIDER's resolution and nothing else. The numeric input

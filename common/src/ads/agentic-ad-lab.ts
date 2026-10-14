@@ -1,4 +1,9 @@
 import { z } from 'zod/v4'
+import {
+  PLACEMENT_DAILY_CAP_MIN_CENTS,
+  PLACEMENT_DAILY_CAP_MIN_ERROR,
+  PLACEMENT_DAILY_CAP_MAX_CENTS,
+} from '../constants/freebuff-placements'
 
 export const labAdSchema = z
   .object({
@@ -48,8 +53,11 @@ export const labPublishSchema = z
     sourceCampaignId: z.string().min(1).max(120).nullable(),
     name: z.string().trim().min(1).max(120),
     landingUrl: z.string().trim().min(1).max(2048),
-    dailyCapCents: z.number().int().positive(),
-    totalBudgetCents: z.number().int().positive().nullable(),
+    dailyCapCents: z
+      .number()
+      .int()
+      .min(PLACEMENT_DAILY_CAP_MIN_CENTS, PLACEMENT_DAILY_CAP_MIN_ERROR)
+      .max(PLACEMENT_DAILY_CAP_MAX_CENTS),
     flightStart: flightDay,
     flightEnd: flightDay.nullable(),
     countryTargeting: z

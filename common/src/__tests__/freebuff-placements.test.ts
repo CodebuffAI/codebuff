@@ -493,8 +493,9 @@ describe('placement daily cap', () => {
   it('offers a self-serve ceiling of 500_000 cents a day', () => {
     // The bound the campaigns API validates. If this moves, the API moves with
     // it -- both read this constant, which is the whole reason it is here.
-    expect(PLACEMENT_DAILY_CAP_MIN_CENTS).toBe(2_500)
+    expect(PLACEMENT_DAILY_CAP_MIN_CENTS).toBe(5_000)
     expect(PLACEMENT_DAILY_CAP_MAX_CENTS).toBe(500_000)
+    expect(PLACEMENT_DAILY_CAP_DEFAULT_CENTS).toBe(10_000)
   })
 
   it('clamps into the bounds and answers with whole cents', () => {
@@ -503,7 +504,7 @@ describe('placement daily cap', () => {
     expect(clampPlacementDailyCapCents(9_999_999)).toBe(
       PLACEMENT_DAILY_CAP_MAX_CENTS,
     )
-    expect(clampPlacementDailyCapCents(3_234.6)).toBe(3_235)
+    expect(clampPlacementDailyCapCents(6_234.6)).toBe(6_235)
     // A cap off the slider's ladder is a legal cap: the input takes any
     // amount, and nothing on the way to the database snaps it.
     expect(clampPlacementDailyCapCents(13_700)).toBe(13_700)
@@ -519,21 +520,23 @@ describe('placement daily cap', () => {
     expect(
       rungs.every((cents, index) => index === 0 || cents > rungs[index - 1]!),
     ).toBe(true)
-    // Small enough to drag through, and fine enough at the low end that the
-    // $25-$50/day campaigns the product actually runs are all reachable.
+    // Small enough to drag through, with the minimum as its first position.
     expect(rungs.length).toBeLessThan(80)
-    expect(rungs).toContain(2_500)
+    expect(rungs).not.toContain(2_500)
     expect(rungs).toContain(5_000)
     expect(rungs).toContain(PLACEMENT_DAILY_CAP_DEFAULT_CENTS)
   })
 
   it('puts an off-ladder cap on the nearest rung without leaving the range', () => {
     expect(
-      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(2_500)],
-    ).toBe(2_500)
+      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(5_500)],
+    ).toBe(5_500)
     expect(
-      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(2_600)],
-    ).toBe(2_500)
+      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(5_600)],
+    ).toBe(5_500)
+    expect(
+      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(2_500)],
+    ).toBe(PLACEMENT_DAILY_CAP_MIN_CENTS)
     expect(
       PLACEMENT_DAILY_CAP_LADDER[
         placementDailyCapLadderIndex(PLACEMENT_DAILY_CAP_MAX_CENTS)
