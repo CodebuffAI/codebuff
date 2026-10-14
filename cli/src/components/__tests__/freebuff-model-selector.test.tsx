@@ -321,7 +321,12 @@ describe('FreebuffModelSelector tier layout', () => {
       .getState()
       .setSelectedModel(FREEBUFF_SOLAR_MINI_4_MODEL_ID)
 
-    const frame = (await renderSelector()).captureCharFrame()
+    const setup = await renderSelector()
+    // Unlimited is last since 2026-10-14, so the saved pick sits below the
+    // fold: the frame after the first measurement scrolls it into view.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await setup.renderOnce()
+    const frame = setup.captureCharFrame()
     expect(frame).toContain('› Solar Mini 4')
     expect(frame).not.toContain('› MiMo 2.6 Flash')
   })
@@ -396,7 +401,7 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(frame).not.toContain('NEW')
   })
 
-  test('places the exhausted-quota recommendation beneath UNLIMITED', async () => {
+  test('places the exhausted-quota recommendation beneath its section', async () => {
     const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
@@ -420,19 +425,19 @@ describe('FreebuffModelSelector tier layout', () => {
     const setup = await renderSelector()
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
-    const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
+    const sectionHeaderIndex = frame.indexOf('OPTIMIZED')
     // Located by the ROW rather than by a ' RECOMMENDED ' border title, which
     // was removed on 2026-08-21 — nothing in the picker is badged as a
     // recommendation any more. The property under test is unchanged: when the
-    // premium pool is spent, the row the user is steered onto sits in the
-    // UNLIMITED group rather than above the list.
+    // premium pool is spent, the row the user is steered onto sits in its
+    // section (Optimized, the first since 2026-10-14) rather than above the list.
     //
     // MiMo 2.5 is that row since 2026-08-18 — Flash moved into the premium
     // group and can no longer be what a spent user lands on.
-    const heroModelIndex = frame.indexOf('MiMo 2.6 Flash', unlimitedHeaderIndex)
+    const heroModelIndex = frame.indexOf('MiMo 2.6 Flash', sectionHeaderIndex)
 
-    expect(unlimitedHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
-    expect(heroModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
+    expect(sectionHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
+    expect(heroModelIndex).toBeGreaterThan(sectionHeaderIndex)
   })
 
   test('collapses to the unlimited hero when the premium default is spent', async () => {
@@ -596,9 +601,8 @@ describe('FreebuffModelSelector tier layout', () => {
     const lines = frame.split('\n')
     const cardLine = (name: string) =>
       lines.findIndex((line) => line.includes('│') && line.includes(name))
+    // Unlimited last since 2026-10-14.
     const order = [
-      lines.findIndex((line) => line.startsWith('UNLIMITED · Experimental models')),
-      cardLine('Solar Pro 4'),
       lines.findIndex((line) => line.startsWith('OPTIMIZED · Strongest')),
       // DeepSeek V4.1 Flash leads Optimized as its pick since 2026-10-14.
       cardLine('DeepSeek V4.1 Flash'),
@@ -607,6 +611,8 @@ describe('FreebuffModelSelector tier layout', () => {
       cardLine('GPT-6 Luna'),
       lines.findIndex((line) => line.startsWith('POWERFUL · Frontier')),
       ...(FREEBUFF_ENABLE_FAST_MODE_IN_UI ? [cardLine('DeepSeek V4.1 Flash Fast')] : []),
+      lines.findIndex((line) => line.startsWith('UNLIMITED · Experimental models')),
+      cardLine('Solar Pro 4'),
     ]
     expect(order.every((at) => at >= 0)).toBe(true)
     expect(order).toEqual([...order].sort((a, b) => a - b))
@@ -717,7 +723,8 @@ describe('FreebuffModelSelector tier layout', () => {
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
-    const frame = (await renderSelector()).captureCharFrame()
+    // Tall enough for Unlimited, the last section since 2026-10-14.
+    const frame = (await renderSelector(80)).captureCharFrame()
     expect(frame).toContain('UNLIMITED · Experimental models')
     expect(frame).not.toContain('PREMIUM')
     expect(frame).not.toContain('used')

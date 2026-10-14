@@ -1256,7 +1256,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // Keep the keyboard-focused element inside the viewport as the user
   // Tabs/arrows through a list taller than the available rows. Child ids let
   // OpenTUI use the real post-wrap geometry instead of a second hand-maintained
-  // row model. Reset a stale offset when a resize makes everything fit.
+  // row model. Reset a stale offset when a resize makes everything fit. Reruns
+  // on the first measurement: before it no row has geometry to scroll to.
   useLayoutEffect(() => {
     const sb = scrollRef.current
     if (!sb) return
@@ -1271,7 +1272,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     if (focusedId === extraTargetIds.at(-1)) {
       sb.scrollTop = Math.max(0, sb.scrollHeight - sb.viewport.height)
     }
-  }, [focusedId, contentHeight, needsScroll, extraTargetIds, reasoningModel])
+  }, [
+    focusedId,
+    contentHeight,
+    measuredContentHeight,
+    needsScroll,
+    extraTargetIds,
+    reasoningModel,
+  ])
 
   const pick = useCallback(
     (modelId: string) => {

@@ -23,6 +23,7 @@ import {
   FREEBUFF_PICKER_SECTIONS,
   freebuffPickerPlacement,
   freebuffPickerSections,
+  freebuffPickerSectionsFor,
   freebuffRowPlacement,
 } from '../freebuff-picker-sections'
 
@@ -98,6 +99,15 @@ describe('freebuffPickerSections', () => {
         [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID, FREEBUFF_GEMINI_38_FLASH_MODEL_ID],
       ],
     ])
+  })
+})
+
+describe('freebuffPickerSectionsFor', () => {
+  test('Unlimited is last, except at the limited tier, where it leads', () => {
+    const ids = (tier: 'full' | 'limited') =>
+      freebuffPickerSectionsFor(tier).map(({ id }) => id)
+    expect(ids('full')).toEqual(['optimized', 'powerful', 'unlimited'])
+    expect(ids('limited')).toEqual(['unlimited', 'optimized', 'powerful'])
   })
 })
 

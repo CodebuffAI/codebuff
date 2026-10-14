@@ -31,14 +31,10 @@ export interface FreebuffPickerSection {
   tooltip: string
 }
 
-/** In display order. */
+/** In display order. Unlimited last (product, 2026-10-14), except at the
+ *  limited tier (`freebuffPickerSectionsFor`). */
 export const FREEBUFF_PICKER_SECTIONS: readonly FreebuffPickerSection[] =
   Object.freeze([
-    {
-      id: 'unlimited',
-      label: 'Unlimited',
-      tooltip: 'Experimental models with unlimited usage',
-    },
     {
       id: 'optimized',
       label: 'Optimized',
@@ -49,7 +45,25 @@ export const FREEBUFF_PICKER_SECTIONS: readonly FreebuffPickerSection[] =
       label: 'Powerful',
       tooltip: 'Frontier models like GPT-6.1 Sol and more',
     },
+    {
+      id: 'unlimited',
+      label: 'Unlimited',
+      tooltip: 'Experimental models with unlimited usage',
+    },
   ])
+
+/** The sections in one tier's display order: the limited tier keeps
+ *  Unlimited first (product, 2026-10-14). */
+export function freebuffPickerSectionsFor(
+  tier: 'full' | 'limited' | 'blocked' | undefined,
+  sections: readonly FreebuffPickerSection[] = FREEBUFF_PICKER_SECTIONS,
+): readonly FreebuffPickerSection[] {
+  if (tier !== 'limited') return sections
+  return [
+    ...sections.filter((section) => section.id === 'unlimited'),
+    ...sections.filter((section) => section.id !== 'unlimited'),
+  ]
+}
 
 export interface FreebuffPickerPlacement {
   section: FreebuffPickerSectionId
