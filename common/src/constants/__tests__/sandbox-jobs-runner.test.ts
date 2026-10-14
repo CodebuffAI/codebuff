@@ -9,11 +9,14 @@ import {
 import type { SandboxJobRunners } from '../sandbox-jobs-runner'
 
 describe('sandbox job runners (COD-742 E1)', () => {
-  test('ships dark: every job is still run by Convex', () => {
+  // Flipped one at a time on Owen's go (2026-10-14), storage sweep first.
+  const FLIPPED: readonly string[] = ['sweep_storage']
+
+  test('only the flipped jobs run on graphile; Convex runs the rest', () => {
     for (const job of SANDBOX_JOB_NAMES) {
       expect({ job, runner: SANDBOX_JOB_RUNNERS[job] }).toEqual({
         job,
-        runner: 'convex',
+        runner: FLIPPED.includes(job) ? 'graphile' : 'convex',
       })
     }
   })

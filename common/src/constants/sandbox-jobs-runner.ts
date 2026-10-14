@@ -60,7 +60,7 @@ export const SANDBOX_JOB_RUNNERS: SandboxJobRunners = {
   reconcile_pool: 'convex',
   provision_pool: 'convex',
   sweep_errored: 'convex',
-  sweep_storage: 'convex',
+  sweep_storage: 'graphile',
   sweep_run_leases: 'convex',
   sleep_idle: 'convex',
 }
