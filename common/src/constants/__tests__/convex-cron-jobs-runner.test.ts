@@ -22,10 +22,10 @@ describe('Convex cron job runners (COD-742)', () => {
       enforce_legacy_usage_limits: 'graphile',
       audit_fleet_usage: 'graphile',
       sweep_freebuff_runs: 'convex',
-      // Built dark 2026-10-07; no flip decided yet.
-      sweep_cli_agent_runs: 'convex',
-      rotate_github_tokens: 'convex',
-      sweep_request_intent_eval_cohorts: 'convex',
+      // Built dark 2026-10-07; triggers flipped on Owen's go, 2026-10-14.
+      sweep_cli_agent_runs: 'graphile',
+      rotate_github_tokens: 'graphile',
+      sweep_request_intent_eval_cohorts: 'graphile',
     })
   })
 
