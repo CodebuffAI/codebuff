@@ -26,7 +26,7 @@ import type { CodebuffRequestHeadersProvider } from './model-provider'
 import { byokModelLimits } from '../byok'
 import type { ResolvedByokConnection } from '../byok'
 import {
-  classifyProviderErrorRecovery,
+  classifyErrorChunkRecovery,
   classifyStreamEndRecovery,
   classifyThrownStreamRecovery,
   streamFinishInfoOf,
@@ -449,7 +449,7 @@ export async function* promptAiSdkStream(
   // iterator cleanly. Feed that through the same capped continuation path as a
   // clean end without a finish marker. A retryable provider error reported in
   // band (5xx/429 error chunk) takes the same path: see
-  // classifyProviderErrorRecovery.
+  // classifyErrorChunkRecovery.
   let thrownStreamRecovery: StreamEndRecovery | undefined
   const streamIterator = response.stream[Symbol.asyncIterator]()
   const recoverThrownStream = (
@@ -555,10 +555,13 @@ export async function* promptAiSdkStream(
       // A transport error can also arrive as an AI SDK error chunk instead of
       // making iterator.next() reject. Recover both runtime shapes identically.
       // So does a provider that reported a retryable failure (5xx/429) in
-      // band: the same outage, just announced instead of a cut body.
-      const recovery =
-        recoverThrownStream(chunkValue.error) ??
-        recoverThrownStream(chunkValue.error, classifyProviderErrorRecovery)
+      // band: the same outage, just announced instead of a cut body — and an
+      // announced failure outranks a guess from the error's wording, which is
+      // why classifyErrorChunkRecovery tries it first.
+      const recovery = recoverThrownStream(
+        chunkValue.error,
+        classifyErrorChunkRecovery,
+      )
       if (recovery) {
         thrownStreamRecovery = recovery
         break

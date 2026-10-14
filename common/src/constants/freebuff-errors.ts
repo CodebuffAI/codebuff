@@ -83,3 +83,30 @@ export const FREEBUFF_PROVIDER_UPSTREAM_RATE_LIMIT_ERROR_PATTERN =
  */
 export const FREEBUFF_PROVIDER_UPSTREAM_RATE_LIMIT_MESSAGE =
   'The provider serving this model is rate-limiting requests right now — this is not a problem with your account. Wait a minute and send it again, or continue with another model such as GLM 5.3 Flash or DeepSeek V4.1 Flash.'
+
+/**
+ * What a user is told when OUR server could not get a response out of the
+ * provider at all — the request timed out before any headers arrived, or the
+ * connection was refused or reset.
+ *
+ * The raw text for this is the runtime's, not a provider's: undici raises
+ * `TypeError: fetch failed` (cause `UND_ERR_HEADERS_TIMEOUT`, `ECONNRESET`),
+ * and once SSE headers are already flushed it travels to the client in band as
+ * "Upstream provider error: fetch failed". Two things were wrong with that:
+ *
+ * 1. "fetch failed" says nothing a user can act on, and
+ * 2. it is one of the phrases `isTransientNetworkError` keys on, so the client
+ *    read our upstream timeout as the user's own socket dying and told them to
+ *    check their connection and their provider settings — which a free-mode
+ *    user does not have. The user report that found this said, in as many
+ *    words, "the internet connection is stable".
+ *
+ * Measured over the 24 hours to 2026-10-14T15:57Z: 19 in-band upstream
+ * failures carried "fetch failed", on 19 runs by 19 distinct users, 18 of them
+ * in free mode and 18 of them an ~180s headers timeout.
+ *
+ * Says whose problem it is and what to DO, and names no upstream or served
+ * model id, so it is also correct for a presented (bait) request.
+ */
+export const FREEBUFF_PROVIDER_UNREACHABLE_MESSAGE =
+  'Freebuff could not get a response from the provider serving this model — the request timed out or the connection was dropped before any reply arrived. This is not a problem with your internet connection or your account. Send the message again, or continue with another model such as GLM 5.3 Flash or DeepSeek V4.1 Flash.'

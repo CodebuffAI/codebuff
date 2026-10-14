@@ -465,6 +465,24 @@ function isUndiciBodyTerminated(candidate: object): boolean {
 }
 
 /**
+ * Whether a message carries one of the phrases above, i.e. whether
+ * {@link isTransientNetworkError} would read this text as a dropped
+ * connection.
+ *
+ * Exported so a server that puts an upstream's error text in front of a client
+ * can check that it is not about to describe its own upstream failure in words
+ * the client will blame on the user's network: `fetch failed` is what undici
+ * raises when OUR fetch to a provider times out or is refused, and the client
+ * cannot tell that apart from its own socket dying.
+ */
+export function containsTransientNetworkPhrase(message: string): boolean {
+  const lower = message.toLowerCase()
+  return TRANSIENT_NETWORK_ERROR_MESSAGE_PATTERNS.some((pattern) =>
+    lower.includes(pattern),
+  )
+}
+
+/**
  * Detects transient connection-level failures (socket closed/reset, connection
  * refused, etc.) where no HTTP response was received. These are safe to retry
  * and should be shown to the user as a connectivity problem instead of a raw
@@ -482,15 +500,11 @@ export function isTransientNetworkError(error: unknown): boolean {
     if (typeof code === 'string' && TRANSIENT_NETWORK_ERROR_CODES.has(code)) {
       return true
     }
-    if (typeof message === 'string') {
-      const lower = message.toLowerCase()
-      if (
-        TRANSIENT_NETWORK_ERROR_MESSAGE_PATTERNS.some((pattern) =>
-          lower.includes(pattern),
-        )
-      ) {
-        return true
-      }
+    if (
+      typeof message === 'string' &&
+      containsTransientNetworkPhrase(message)
+    ) {
+      return true
     }
   }
   return false

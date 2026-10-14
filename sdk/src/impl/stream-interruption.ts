@@ -171,6 +171,38 @@ export function classifyThrownStreamRecovery(params: {
   }
 }
 
+/**
+ * Classify an `error` part of the completion stream, which can be either a
+ * transport drop surfaced as a chunk or a failure the provider (or our server,
+ * on its behalf) announced in band.
+ *
+ * The announcement wins. Both classifiers take the same capped retry path, but
+ * they differ in what the user is told and whether the retry waits, and an
+ * announced failure carries more information than a guess from the wording:
+ * {@link classifyProviderErrorRecovery} returns null unless the error really is
+ * an APICallError with a retryable status, a known retryable code or our
+ * server's `upstream_error` type, so trying it first can only reclassify an
+ * error that said so itself.
+ *
+ * It has to be first because the wording is not decisive: our server's in-band
+ * report of an upstream failure carries the runtime's text, and undici's
+ * "fetch failed" (a headers timeout against the provider) is one of the phrases
+ * {@link classifyThrownStreamRecovery} reads as a dropped connection. Measured
+ * in the 24h to 2026-10-14T15:57Z: 19 such reports, on 19 runs by 19 distinct
+ * users, each of whom was told a connection-level error had interrupted the
+ * request — i.e. that their own network, or a provider setting they do not
+ * have, was at fault — and whose step was retried with no backoff.
+ */
+export function classifyErrorChunkRecovery(params: {
+  aborted: boolean
+  error: unknown
+}): StreamEndRecovery | null {
+  return (
+    classifyProviderErrorRecovery(params) ??
+    classifyThrownStreamRecovery(params)
+  )
+}
+
 /** Upper bound on any wait before a provider-error retry, whatever the
  *  provider asked for. The user is watching a stalled turn meanwhile, and the
  *  retries are capped (MAX_CONSECUTIVE_STREAM_RECOVERIES), so a long
