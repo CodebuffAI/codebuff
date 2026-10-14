@@ -172,14 +172,18 @@ function classifySaveError(error: unknown): SaveErrorClass {
   return 'other'
 }
 
-/** Cheap shape summary so a failure log says what the payload looked like. */
+/** Cheap shape summary so a failure log says what the payload looked like.
+ *  Tolerates a non-array `messages`: this runs only when the state is already
+ *  suspect, and a diagnostic that throws on the shape it exists to describe
+ *  just replaces the real failure with its own. */
 function chatShapeSummary(runState: RunState, messages: ChatMessage[]) {
+  const list = Array.isArray(messages) ? messages : []
   let blockCount = 0
-  for (const message of messages) {
-    blockCount += message.blocks?.length ?? 0
+  for (const message of list) {
+    blockCount += message?.blocks?.length ?? 0
   }
   return {
-    messageCount: messages.length,
+    messageCount: Array.isArray(messages) ? messages.length : null,
     blockCount,
     runStateKeys:
       runState && typeof runState === 'object'
@@ -191,6 +195,33 @@ function chatShapeSummary(runState: RunState, messages: ChatMessage[]) {
 type SerializedChatState = {
   runStateJson?: string
   messagesJson?: string
+}
+
+/** The one character each file's JSON must start with. */
+const CHAT_STATE_JSON_PREFIX = { runState: '{', messages: '[' } as const
+
+/**
+ * Refuse to persist anything that is not the document the file is supposed to
+ * hold. `JSON.stringify` answers the four-byte string `null` for null, NaN and
+ * a value whose toJSON returns nothing, and `undefined` for undefined — and
+ * `'null'` is *truthy*, so it sailed through the `if (serialized.messagesJson)`
+ * guard below and replaced a user's whole transcript with the literal text
+ * `null`, with no crash involved. On the next load that parses to null and
+ * reads as "no transcript". Writing nothing leaves the previous good file in
+ * place, which is always the better of the two outcomes.
+ */
+// Returns a plain boolean, not a `json is string` predicate: the caller's
+// `json` is already typed `string`, so a predicate narrows the negative branch
+// to `never` and the defensive `typeof` checks in the refusal log stop
+// compiling. The runtime check stays, because SerializeResult's `string` comes
+// from JSON.stringify's lib type, which answers `undefined` for undefined.
+function isPersistableJson(
+  json: unknown,
+  part: 'runState' | 'messages',
+): boolean {
+  return (
+    typeof json === 'string' && json.startsWith(CHAT_STATE_JSON_PREFIX[part])
+  )
 }
 
 /**
@@ -210,6 +241,27 @@ function serializeChatState(
     const value = part === 'runState' ? runState : messages
     try {
       const { json, fallback } = serializeForPersistence(value)
+      if (!isPersistableJson(json, part)) {
+        // Rate-limited like every other save issue, but logged at error level:
+        // this is a bug in whatever handed us the state, and until ticket #180
+        // nothing reported it.
+        if (shouldLogSaveIssue(`${chatDir}|nonpersistable|${part}`)) {
+          bestEffortLog(
+            'error',
+            {
+              part,
+              // The first character and the length only. Anything more could
+              // be the user's prompt text, and this is a diagnostic.
+              jsonType: typeof json,
+              jsonPrefix: typeof json === 'string' ? json.slice(0, 1) : null,
+              jsonBytes: typeof json === 'string' ? json.length : null,
+              ...chatShapeSummary(runState, messages),
+            },
+            'Refusing to persist non-document chat state (keeping the file on disk)',
+          )
+        }
+        continue
+      }
       if (part === 'runState') {
         result.runStateJson = json
       } else {
@@ -412,6 +464,107 @@ export async function settleCheckpointSave(): Promise<void> {
   await checkpointDrain
 }
 
+type PersistedChatFile = {
+  /** The parsed document, or null when there was nothing usable to restore. */
+  value: unknown
+  outcome: 'ok' | 'missing' | 'damaged' | 'unpreserved' | 'unreadable'
+}
+
+/**
+ * Read one chat-state file, and set its bytes aside before anything can
+ * replace them.
+ *
+ * Substituting an empty transcript for an unreadable one used to be a one-way
+ * door: the load returned `messages: []`, the next turn's save wrote that empty
+ * array straight back over the file, and a transcript that a human (or a later
+ * fix) could still have read was gone. A partial write, a half-flushed file or
+ * a shape we simply do not recognise are all recoverable by hand — but only
+ * while the bytes exist. So quarantine first, exactly as
+ * freebuff-desktop's session journal and state file do, and only then let the
+ * caller carry on with a fallback.
+ *
+ * Quarantining happens on the read, not the write: the writer would have to
+ * re-read and re-parse a multi-MB transcript on every 5s checkpoint to notice,
+ * and the read is already the moment we know the file is unusable.
+ *
+ * A file that parses but is not the right kind of document counts as damaged.
+ * Four bytes of `null` parse perfectly well into `null`, and that is the exact
+ * artifact support ticket #180 reported — it must be preserved too, not nodded
+ * through as "no messages".
+ */
+function readPersistedChatFile(
+  filePath: string,
+  part: 'runState' | 'messages',
+): PersistedChatFile {
+  let raw: string
+  try {
+    raw = fs.readFileSync(filePath, 'utf8')
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT') {
+      return { value: null, outcome: 'missing' }
+    }
+    // EACCES, EISDIR, EIO: there may be perfectly good bytes behind this, and
+    // we cannot even copy them. Do not touch the file.
+    logger.warn({ filePath, part, code }, 'Could not open persisted chat state')
+    return { value: null, outcome: 'unreadable' }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch (error) {
+    return quarantinePersistedChatFile(filePath, part, {
+      reason: 'unparseable',
+      bytes: raw.length,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+
+  const shapeOk =
+    part === 'messages'
+      ? Array.isArray(parsed)
+      : !!parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+  if (!shapeOk) {
+    return quarantinePersistedChatFile(filePath, part, {
+      reason: 'wrong-shape',
+      bytes: raw.length,
+      parsedType: parsed === null ? 'null' : typeof parsed,
+    })
+  }
+
+  return { value: parsed, outcome: 'ok' }
+}
+
+function quarantinePersistedChatFile(
+  filePath: string,
+  part: 'runState' | 'messages',
+  detail: Record<string, unknown>,
+): PersistedChatFile {
+  const quarantine = `${filePath}.corrupt-${randomUUID()}`
+  try {
+    fs.renameSync(filePath, quarantine)
+  } catch (error) {
+    logger.error(
+      {
+        filePath,
+        part,
+        ...detail,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'Damaged chat state could not be set aside; leaving it untouched',
+    )
+    return { value: null, outcome: 'unpreserved' }
+  }
+  // Kept, not deleted: the user's transcript is in there, and a later fix or a
+  // support request can still get it back.
+  logger.warn(
+    { filePath, part, quarantine, ...detail },
+    'Damaged chat state moved aside; restoring what is left',
+  )
+  return { value: null, outcome: 'damaged' }
+}
+
 /**
  * Load both RunState and ChatMessage[] from a specific chat directory or the most recent one.
  * When chatId is provided, it is used to locate the chat directory; otherwise the most
@@ -455,33 +608,33 @@ export function loadMostRecentChatState(
     // Parse the two files independently: a missing or torn run-state.json
     // must not lose the transcript, and vice versa. Restore whatever is
     // readable and fall back for the rest.
-    let runState: RunState | null = null
-    try {
-      runState = JSON.parse(fs.readFileSync(runStatePath, 'utf8')) as RunState
-    } catch (error) {
-      logger.warn(
+    const loadedRunState = readPersistedChatFile(runStatePath, 'runState')
+    const loadedMessages = readPersistedChatFile(messagesPath, 'messages')
+
+    // Either file holds bytes we could neither read nor move aside. We must
+    // not hand back a state whose next save would land on top of them: a
+    // rename replaces a file the process cannot read, so "unreadable" is not
+    // "unwritable". Refusing the whole chat sends the session to a fresh chat
+    // directory, which leaves this one exactly as the user found it.
+    const unsafe = (outcome: PersistedChatFile['outcome']) =>
+      outcome === 'unpreserved' || outcome === 'unreadable'
+    if (unsafe(loadedRunState.outcome) || unsafe(loadedMessages.outcome)) {
+      logger.error(
         {
           runStatePath,
-          error: error instanceof Error ? error.message : String(error),
+          messagesPath,
+          runStateOutcome: loadedRunState.outcome,
+          messagesOutcome: loadedMessages.outcome,
         },
-        'Could not read run state; restoring transcript without agent context',
+        'Refusing to resume a chat whose state could not be read or set aside',
       )
+      return null
     }
 
-    let messages: ChatMessage[] | null = null
-    try {
-      messages = JSON.parse(
-        fs.readFileSync(messagesPath, 'utf8'),
-      ) as ChatMessage[]
-    } catch (error) {
-      logger.warn(
-        {
-          messagesPath,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        'Could not read chat messages; restoring agent context without transcript',
-      )
-    }
+    let runState: RunState | null = loadedRunState.value as RunState | null
+    let messages: ChatMessage[] | null = loadedMessages.value as
+      | ChatMessage[]
+      | null
 
     if (!runState && !messages) {
       logger.debug(
