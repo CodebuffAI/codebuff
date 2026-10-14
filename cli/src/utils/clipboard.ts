@@ -95,6 +95,7 @@ export interface CopyToClipboardOptions {
   signal?: AbortSignal
 }
 
+/** Returns 'unverified' when local Linux could only send a terminal request. */
 export async function copyTextToClipboard(
   text: string,
   {
@@ -105,7 +106,7 @@ export async function copyTextToClipboard(
     getOsc52Fallback,
     signal,
   }: CopyToClipboardOptions = {},
-) {
+): Promise<'unverified' | void> {
   if (!text || text.trim().length === 0) {
     return
   }
@@ -165,21 +166,25 @@ export async function copyTextToClipboard(
       throw new Error('No clipboard method available')
     }
 
+    if (unverifiedLocalOsc52) {
+      // This is guidance, not a success notification. Even callers with their
+      // own copy badge need it, and must not show that badge for this result.
+      showClipboardMessage(
+        copiedCandidate === primary
+          ? LINUX_OSC52_ONLY_MESSAGE
+          : `Text shortened to fit the terminal. ${LINUX_OSC52_ONLY_MESSAGE}`,
+        { durationMs: 6000 },
+      )
+      return 'unverified'
+    }
+
     if (!suppressGlobalMessage) {
       const message =
         copiedCandidate.successMessage !== undefined
           ? copiedCandidate.successMessage
           : getDefaultSuccessMessage(copiedCandidate.text)
       if (message) {
-        showClipboardMessage(
-          unverifiedLocalOsc52
-            ? `${message} ${LINUX_OSC52_ONLY_HINT}`
-            : message,
-          {
-            durationMs:
-              durationMs ?? (unverifiedLocalOsc52 ? 6000 : undefined),
-          },
-        )
+        showClipboardMessage(message, { durationMs })
       }
     }
   } catch (error) {
@@ -235,9 +240,9 @@ export function isRemoteSession(): boolean {
 export const OSC52_BLOCKED_MESSAGE =
   'Copy is blocked by this terminal — hold Shift and drag to select, then copy normally'
 
-/** Appended to a Linux "Copied" that only reached the terminal (OSC 52). */
-export const LINUX_OSC52_ONLY_HINT =
-  '(via terminal — if paste is empty, install wl-clipboard or xclip)'
+/** OSC 52 has no acknowledgement from the terminal. */
+export const LINUX_OSC52_ONLY_MESSAGE =
+  'Copy sent to terminal, not confirmed — if paste is empty, install wl-clipboard or xclip'
 
 export const LINUX_CLIPBOARD_ERROR_MESSAGE =
   'Clipboard unavailable — install wl-clipboard (Wayland) or xclip (X11)'

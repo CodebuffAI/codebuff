@@ -8,7 +8,7 @@ import {
   clearClipboardMessage,
   copyTextToClipboard,
   LINUX_CLIPBOARD_ERROR_MESSAGE,
-  LINUX_OSC52_ONLY_HINT,
+  LINUX_OSC52_ONLY_MESSAGE,
   registerClipboardRenderer,
   subscribeClipboardMessages,
   unregisterClipboardRenderer,
@@ -219,9 +219,18 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     const messages: (string | null)[] = []
     const unsubscribe = subscribeClipboardMessages((m) => messages.push(m))
 
-    await copyTextToClipboard('hello')
+    const result = await copyTextToClipboard('hello', {
+      suppressGlobalMessage: true,
+      successMessage: 'Copied!',
+      durationMs: 3000,
+    })
 
-    expect(messages.at(-1)).toBe(`Copied: "hello" ${LINUX_OSC52_ONLY_HINT}`)
+    expect(result).toBe('unverified')
+    expect(messages.at(-1)).toBe(LINUX_OSC52_ONLY_MESSAGE)
+    mockTimers.advanceBy(5999)
+    expect(messages.at(-1)).toBe(LINUX_OSC52_ONLY_MESSAGE)
+    mockTimers.advanceBy(1)
+    expect(messages.at(-1)).toBeNull()
     unsubscribe()
   })
 
@@ -366,8 +375,9 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     })
 
     expect(rendererCalls).toEqual(['bounded text'])
-    // Only OSC 52 ran, so the Linux hint rides along (it cannot be verified).
-    expect(messages).toContain(`Copied bounded text ${LINUX_OSC52_ONLY_HINT}`)
+    expect(messages).toContain(
+      `Text shortened to fit the terminal. ${LINUX_OSC52_ONLY_MESSAGE}`,
+    )
     expect(messages.some((m) => m?.startsWith('Copied full text'))).toBe(false)
     unsubscribe()
   })
