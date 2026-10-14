@@ -1,4 +1,5 @@
 import { IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
+import { toJsonSafeLogData } from '@codebuff/common/util/log-data'
 
 import { getApiClient } from './codebuff-api'
 import { getCliEnv } from './env'
@@ -101,13 +102,35 @@ function registerNaturalExitFlush(): void {
   process.once('beforeExit', onExit)
 }
 
+/**
+ * One record ready for the wire: every `Error` in `data` replaced by its JSON
+ * form.
+ *
+ * `/api/logs` is a second process, so the record goes through a
+ * `JSON.stringify` before the Axiom sink's own serializer ever sees it, and
+ * that hop is where an error's reason is lost: `name`, `message` and `stack`
+ * are non-enumerable, so a thrown `Error` arrives as `{}` and a Bun network
+ * error as bare `{ code, errno, path }`. Unwrapping before the record is
+ * buffered also keeps the buffer's memory bounded by the same cap the sink
+ * uses, instead of holding live error objects (and their stacks) in it.
+ */
+export function toShippableRecord(record: LogRecordInput): LogRecordInput {
+  if (record.data == null) return record
+  try {
+    return { ...record, data: toJsonSafeLogData(record.data) }
+  } catch {
+    // Shipping a summary-less row beats dropping the row.
+    return record
+  }
+}
+
 /** Buffer one record for shipping. Cheap, synchronous, never throws. */
 export function enqueueClientLog(record: LogRecordInput): void {
   if (!enabled()) return
   if (buffer.length >= MAX_BUFFER) {
     buffer.shift()
   }
-  buffer.push(record)
+  buffer.push(toShippableRecord(record))
   ensureTimer()
   registerNaturalExitFlush()
   if (buffer.length >= MAX_BATCH) {

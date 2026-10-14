@@ -213,3 +213,31 @@ export function serializeLogData(data: unknown): string | null {
   }
   return serialized
 }
+
+/**
+ * The same payload with every `Error` replaced by its JSON form, as plain
+ * JSON values rather than a string.
+ *
+ * For producers that hand their payload to ANOTHER process before it reaches
+ * {@link serializeLogData}: the CLI POSTs each log row to `/api/logs`, and
+ * that hop's `JSON.stringify` drops `name`, `message` and `stack` (they are
+ * non-enumerable), so the sink on the far side receives an error that has
+ * already lost its reason and cannot restore it. Measured on 2026-10-14, one
+ * hour of production CLI rows for `[ads] Failed to fetch ad`: 49 of 205
+ * carried `err: {}` — nothing at all — and the other 156 carried only Bun's
+ * enumerable `code`/`errno`/`path`, never the message.
+ *
+ * Unwrapping here also applies the redaction in `redactErrorFieldForLog` on
+ * the client, so a URL, header set or request body hanging off an error is
+ * trimmed before it leaves the machine instead of after.
+ */
+export function toJsonSafeLogData(data: unknown): unknown {
+  if (data == null || typeof data !== 'object') return data
+  const serialized = stringifyLogData(data)
+  if (serialized === undefined) return data
+  try {
+    return JSON.parse(serialized)
+  } catch {
+    return data
+  }
+}

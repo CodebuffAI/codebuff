@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { serializeLogData } from '../log-data'
+import { serializeLogData, toJsonSafeLogData } from '../log-data'
 
 const parse = (data: unknown) => JSON.parse(serializeLogData(data)!)
 
@@ -149,5 +149,49 @@ describe('serializeLogData', () => {
     const fromArray = parse(Array.from({ length: 20_000 }, (_, i) => i))
     expect(fromArray._truncated).toBe(true)
     expect(typeof fromArray.preview).toBe('string')
+  })
+})
+
+describe('toJsonSafeLogData', () => {
+  // The CLI ships this payload to `/api/logs`, so it is stringified once
+  // before the sink's serializer ever runs. Measured 2026-10-14: 49 of 205
+  // `[ads] Failed to fetch ad` rows in one hour arrived as `err: {}`.
+  test('an error survives a JSON round trip to another process', () => {
+    const wire = JSON.parse(
+      JSON.stringify(toJsonSafeLogData({ err: new TypeError('fetch failed') })),
+    )
+    expect(wire.err.name).toBe('TypeError')
+    expect(wire.err.message).toBe('fetch failed')
+  })
+
+  // Bun's fetch errors: `code`/`errno`/`path` are enumerable and already
+  // reached Axiom, the reason did not.
+  test('a bun network error keeps its code and gains its message', () => {
+    const err = Object.assign(
+      new Error('Unable to connect. Is the computer able to access the url?'),
+      { code: 'ECONNRESET', errno: 0, path: 'https://freebuff.com/api/ads' },
+    )
+    const wire = JSON.parse(JSON.stringify(toJsonSafeLogData({ err })))
+    expect(wire.err.code).toBe('ECONNRESET')
+    expect(wire.err.path).toBe('https://freebuff.com/api/ads')
+    expect(wire.err.message).toContain('Unable to connect')
+  })
+
+  test('redacts on the client, before the payload leaves the machine', () => {
+    const err = Object.assign(new Error('refused'), {
+      url: 'https://freebuff.com/api/ads?auth_code=secret',
+      headers: { authorization: 'Bearer abc' },
+    })
+    const wire = JSON.parse(JSON.stringify(toJsonSafeLogData({ err })))
+    expect(wire.err.url).toBe('https://freebuff.com/api/ads')
+    expect(wire.err.headers.authorization).toBe('[redacted]')
+  })
+
+  test('tolerates a circular payload and passes scalars through', () => {
+    const data: Record<string, unknown> = { a: 1 }
+    data.self = data
+    expect(toJsonSafeLogData(data)).toEqual({ a: 1, self: '[Circular]' })
+    expect(toJsonSafeLogData('plain')).toBe('plain')
+    expect(toJsonSafeLogData(undefined)).toBeUndefined()
   })
 })

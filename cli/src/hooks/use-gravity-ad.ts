@@ -638,7 +638,15 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         }
       }
     } catch (err) {
-      logger.error({ err, provider }, '[ads] Failed to fetch ad')
+      // `url` names which of the two ad routes threw. Only Bun's own network
+      // errors carry the request as `path`, so without it a parse failure or
+      // any other throw is unattributable to a host -- and the two routes do
+      // not fail alike (2026-10-14: every connection failure in six hours was
+      // against freebuff.com's `/api/ads`, none against `/api/v1/ads`).
+      logger.error(
+        { err, provider, url: request.url },
+        '[ads] Failed to fetch ad',
+      )
     }
 
     return null

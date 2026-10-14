@@ -6,7 +6,8 @@ import type { LogRecordInput } from '@codebuff/common/schemas/logs'
 
 ensureCliTestEnv()
 
-const { createClientLogFlusher } = await import('../log-shipper')
+const { createClientLogFlusher, toShippableRecord } =
+  await import('../log-shipper')
 
 describe('client log draining', () => {
   test('waits for an active request and drains every buffered batch', async () => {
@@ -49,5 +50,37 @@ describe('client log draining', () => {
     await drainPromise
 
     expect(batchSizes).toEqual([50, 50, 1])
+  })
+})
+
+describe('shipping an error', () => {
+  // `/api/logs` is another process: the record is stringified on the way out,
+  // and `name`/`message`/`stack` are non-enumerable, so an error buffered as
+  // itself arrives with no reason attached.
+  test('keeps the reason across the hop to /api/logs', () => {
+    const record = toShippableRecord({
+      level: 'error',
+      message: '[ads] Failed to fetch ad',
+      data: {
+        provider: 'gravity',
+        err: Object.assign(new Error('Unable to connect.'), {
+          code: 'ECONNRESET',
+          path: 'https://freebuff.com/api/ads',
+        }),
+      },
+    })
+
+    const wire = JSON.parse(JSON.stringify(record)) as {
+      data: { err: Record<string, unknown> }
+    }
+    expect(wire.data.err.message).toBe('Unable to connect.')
+    expect(wire.data.err.name).toBe('Error')
+    expect(wire.data.err.code).toBe('ECONNRESET')
+    expect(wire.data.err.path).toBe('https://freebuff.com/api/ads')
+  })
+
+  test('leaves a record without a payload alone', () => {
+    const record = { level: 'info' as const, message: 'app_launched' }
+    expect(toShippableRecord(record)).toBe(record)
   })
 })
