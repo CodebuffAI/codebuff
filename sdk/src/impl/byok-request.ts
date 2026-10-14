@@ -3,7 +3,11 @@ import { createHash } from 'node:crypto'
 import { byokCompletionUrl } from '../byok'
 
 import type { ResolvedByokConnection } from '../byok'
-import type { ByokReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
+import { isByokReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
+import type {
+  ByokReasoningEffort,
+  ReasoningEffort,
+} from '@codebuff/common/constants/reasoning-effort'
 
 /**
  * Which request field a connection's endpoint reads reasoning effort from.
@@ -40,17 +44,22 @@ export const BYOK_ANTHROPIC_THINKING_BUDGETS: Record<
   number
 > = { low: 2_048, medium: 8_192, high: 16_384 }
 
+/** The budget for a rung; only the three BYOK rungs reach Anthropic (`withByokReasoningEffort`). */
+function anthropicThinkingBudget(effort: ReasoningEffort): number {
+  return BYOK_ANTHROPIC_THINKING_BUDGETS[isByokReasoningEffort(effort) ? effort : 'high']
+}
+
 /** Fallback answer room when a request somehow carries no output cap. */
 const ANTHROPIC_ANSWER_TOKENS = 4_096
 
 function applyReasoningEffort(
   body: Record<string, unknown>,
   dialect: ByokReasoningDialect,
-  effort: ByokReasoningEffort,
+  effort: ReasoningEffort,
 ): Record<string, unknown> {
   if (dialect === 'openrouter') return { ...body, reasoning: { effort } }
   if (dialect === 'anthropic') {
-    const budget = BYOK_ANTHROPIC_THINKING_BUDGETS[effort]
+    const budget = anthropicThinkingBudget(effort)
     const answer =
       typeof body.max_tokens === 'number'
         ? body.max_tokens
@@ -200,7 +209,7 @@ export function byokReasoningReplayRetryBody(
 function stripReasoningEffort(
   body: Record<string, unknown>,
   dialect: ByokReasoningDialect,
-  effort: ByokReasoningEffort,
+  effort: ReasoningEffort,
 ): Record<string, unknown> | undefined {
   if (dialect === 'openrouter') {
     const reasoning = body.reasoning as { effort?: unknown } | undefined
@@ -210,7 +219,7 @@ function stripReasoningEffort(
   }
   if (dialect === 'anthropic') {
     const thinking = body.thinking as { budget_tokens?: unknown } | undefined
-    const budget = BYOK_ANTHROPIC_THINKING_BUDGETS[effort]
+    const budget = anthropicThinkingBudget(effort)
     if (thinking?.budget_tokens !== budget) return undefined
     const { thinking: _thinking, ...rest } = body
     return typeof rest.max_tokens === 'number'
