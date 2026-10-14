@@ -987,6 +987,8 @@ const PAID_API_REQUEST_FIELDS = {
   stream: 'boolean',
   input_tokens: 'number',
   cached_input_tokens: 'number',
+  /** Cache-write input, sent only when nonzero; part of input_tokens. */
+  cache_write_input_tokens: 'number',
   output_tokens: 'number',
   reasoning_tokens: 'number',
   upstream_cost_micros: 'number',
