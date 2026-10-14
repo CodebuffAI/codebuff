@@ -4,6 +4,7 @@ import { getAdUserAgent } from '@codebuff/common/util/ad-user-agent'
 import { FREEBUFF_EVENT_ID_HEADER } from '@codebuff/common/ads/ad-event-hygiene'
 import {
   acknowledgeFirstPartyView,
+  firstPartyViewAckSettled,
   type FirstPartyViewAckRequest,
 } from '@codebuff/common/ads/first-party-view-ack'
 import { createFirstPartyViewAckTelemetry } from '@codebuff/common/util/axiom-only-log'
@@ -239,6 +240,19 @@ export function dispatchFirstPartyViewAcknowledgement(
 }
 
 /**
+ * Send a click report once this ad's view ack has settled, or after
+ * `FIRST_PARTY_VIEW_BEFORE_CLICK_WAIT_MS`. Only first-party views are tracked
+ * in flight; any other ad, or one whose view already landed, sends at once.
+ */
+export function sendClickAfterView<T>(
+  impUrl: string,
+  send: () => Promise<T>,
+  viewSettled: (token: string) => Promise<void> = firstPartyViewAckSettled,
+): Promise<T> {
+  return viewSettled(impUrl).then(send)
+}
+
+/**
  * Report a click on any CLI ad.
  *
  * Module-level rather than a closure inside the hook because the PARTNER rows
@@ -246,6 +260,10 @@ export function dispatchFirstPartyViewAcknowledgement(
  * click path means an advertiser's click is counted the same way wherever it
  * was drawn. Never awaited by a caller — a click that waited on our own
  * telemetry before opening the link would be slower than the ad is worth.
+ *
+ * The report itself waits, bounded, behind this ad's view ack
+ * ({@link sendClickAfterView}): callers fire the view first, open the link,
+ * and the server still sees the view before the click (ad click IVT).
  */
 export function recordAdClick(
   ad: Pick<AdResponse, 'impUrl'> & { url?: string },
@@ -267,32 +285,34 @@ export function recordAdClick(
   // new gesture and a new id, and the server answers `alreadyRecorded`.
   const clientEventId = crypto.randomUUID()
   const dock = options?.dock
-  const ack = timedApiCall(() =>
-    fetch(`${WEBSITE_URL}/api/v1/ads/click`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-        'User-Agent': getCliAdRequestUserAgent(),
-        ...clientEnvironmentHeaders(),
-        [FREEBUFF_EVENT_ID_HEADER]: clientEventId,
-      },
-      body: JSON.stringify({
-        impUrl: ad.impUrl,
-        clientEventId,
-        ...(options?.surface ? { surface: options.surface } : {}),
-        // The dock's own fields ride the ACK (COD-457), so the canonical
-        // server-side `ads.clicked` carries them and one click stays one
-        // event. Emitting a second client-side click here double-counted.
-        ...(dock
-          ? {
-              dockFrom: dock.from,
-              dockDwellMs: dock.dwellMs,
-              dockAccidentalClick: dock.accidental,
-            }
-          : {}),
+  const ack = sendClickAfterView(ad.impUrl, () =>
+    timedApiCall(() =>
+      fetch(`${WEBSITE_URL}/api/v1/ads/click`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+          'User-Agent': getCliAdRequestUserAgent(),
+          ...clientEnvironmentHeaders(),
+          [FREEBUFF_EVENT_ID_HEADER]: clientEventId,
+        },
+        body: JSON.stringify({
+          impUrl: ad.impUrl,
+          clientEventId,
+          ...(options?.surface ? { surface: options.surface } : {}),
+          // The dock's own fields ride the ACK (COD-457), so the canonical
+          // server-side `ads.clicked` carries them and one click stays one
+          // event. Emitting a second client-side click here double-counted.
+          ...(dock
+            ? {
+                dockFrom: dock.from,
+                dockDwellMs: dock.dwellMs,
+                dockAccidentalClick: dock.accidental,
+              }
+            : {}),
+        }),
       }),
-    }),
+    ),
   )
     .then((res) => {
       if (!res.ok) {
@@ -569,6 +589,10 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
   }
 
   const recordClick = (ad: AdResponse, dock?: DockClickContext): void => {
+    // A click is proof the ad was on screen. Its view normally went out at
+    // mount; this sends it now if it never did (deduped otherwise), so the
+    // click report below has a view to wait behind.
+    recordImpressionOnce(ad)
     recordAdClick(ad, {
       ...(surface ? { surface } : {}),
       ...(dock ? { dock } : {}),

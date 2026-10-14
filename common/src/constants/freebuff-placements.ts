@@ -432,7 +432,7 @@ const ORIGINAL_PLACEMENT_SLOTS = [
 /** Web copies share formats and campaign eligibility, but own their delivery IDs. */
 export const PLACEMENT_SLOTS = [
   ...ORIGINAL_PLACEMENT_SLOTS,
-  ...ORIGINAL_PLACEMENT_SLOTS.flatMap(slot => {
+  ...ORIGINAL_PLACEMENT_SLOTS.flatMap((slot) => {
     const id = webDesktopPlacement(slot.id)
     return id ? [{ ...slot, id, surface: 'freebuff_web_chat' as const }] : []
   }),
@@ -521,9 +521,10 @@ export const PARTNER_PLACEMENT_IDS: readonly string[] = PLACEMENT_SLOTS.filter(
 ).map((slot) => slot.id)
 
 /** Every billboard slot in the registry, in catalog order. */
-export const BILLBOARD_PLACEMENT_IDS: readonly string[] = PLACEMENT_SLOTS.filter(
-  (slot) => slot.format === 'billboard',
-).map((slot) => slot.id)
+export const BILLBOARD_PLACEMENT_IDS: readonly string[] =
+  PLACEMENT_SLOTS.filter((slot) => slot.format === 'billboard').map(
+    (slot) => slot.id,
+  )
 
 /**
  * What a creative must look like to fill a SPONSOR BREAK.
@@ -736,6 +737,17 @@ export interface PlacementTotals {
    * Absent means zero.
    */
   invoicedValueCents?: number
+  /**
+   * Billed clicks the hourly invalid-traffic sweep later credited back, and
+   * the cents it returned (ledger reason `invalid_traffic_credit`, one row per
+   * click), attributed to the Pacific day the credit was written. Campaign
+   * grain only: the ledger has no creative, placement or country, so a finer
+   * row leaves these absent and the columns render a dash. Already netted out
+   * of {@link spendCents}; never out of {@link deliverySpendCents}.
+   * See docs/ads/invalid-traffic.md.
+   */
+  invalidClicksCredited?: number
+  invalidTrafficCreditCents?: number
 }
 
 /**

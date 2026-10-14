@@ -8,6 +8,7 @@ import {
   acknowledgeFirstPartyView,
   FIRST_PARTY_VIEW_ACK_MAX_DURATION_MS,
   FIRST_PARTY_VIEW_ACK_TIMEOUT_MS,
+  firstPartyViewAckSettled,
   getCompletedFirstPartyViewAckTokenCountForTests,
   MAX_COMPLETED_FIRST_PARTY_VIEW_ACK_TOKENS,
   resetFirstPartyViewAckRegistryForTests,
@@ -264,5 +265,46 @@ describe('acknowledgeFirstPartyView', () => {
     )
     expect(headers!.get(FREEBUFF_EVENT_ID_HEADER)).toBe('caller-minted-id')
     expect(headers!.has(FREEBUFF_RENDER_DELAY_HEADER)).toBe(false)
+  })
+})
+
+describe('firstPartyViewAckSettled', () => {
+  test('resolves at once when no view ack was ever started', async () => {
+    let settled = false
+    void firstPartyViewAckSettled('never-viewed', 60_000).then(() => {
+      settled = true
+    })
+    await Promise.resolve()
+    expect(settled).toBe(true)
+  })
+
+  test('holds a click until its in-flight view ack settles', async () => {
+    const order: string[] = []
+    let answer!: (response: Response) => void
+    void acknowledgeFirstPartyView(
+      request({
+        fetch: () =>
+          new Promise<Response>((resolve) => {
+            answer = resolve
+          }),
+      }),
+    ).then(() => order.push('view'))
+    const click = firstPartyViewAckSettled('opaque-token', 60_000).then(() =>
+      order.push('click'),
+    )
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    expect(order).toEqual([])
+    answer(new Response(null, { status: 204 }))
+    await click
+    expect(order).toEqual(['view', 'click'])
+  })
+
+  test('stops waiting on a slow view ack after the bound', async () => {
+    void acknowledgeFirstPartyView(
+      request({ fetch: () => new Promise<Response>(() => {}) }),
+    )
+    const startedAt = Date.now()
+    await firstPartyViewAckSettled('opaque-token', 20)
+    expect(Date.now() - startedAt).toBeLessThan(1_000)
   })
 })

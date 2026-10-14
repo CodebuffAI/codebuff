@@ -7,11 +7,17 @@ import {
   isInlineAdEligibleAnswer,
   NO_RESPONSE_ADS,
   renderDelaySinceReceipt,
+  sendClickAfterView,
   shouldHideGravityAds,
   visibleResponseAds,
 } from '../use-gravity-ad'
 
 import type { ChatMessage } from '../../types/chat'
+import {
+  acknowledgeFirstPartyView,
+  resetFirstPartyViewAckRegistryForTests,
+} from '@codebuff/common/ads/first-party-view-ack'
+
 import type { FirstPartyViewAckRequest } from '@codebuff/common/ads/first-party-view-ack'
 
 const msg = (over: Partial<ChatMessage>): ChatMessage => ({
@@ -217,5 +223,47 @@ describe('shouldHideGravityAds', () => {
         isFreeMode: false,
       }),
     ).toBe(false)
+  })
+})
+
+// Ad click IVT: a real click must not reach the server ahead of its own view,
+// or the sweep would later read it as a view that never arrived.
+describe('sendClickAfterView', () => {
+  test('sends the click only after the in-flight view ack settles', async () => {
+    resetFirstPartyViewAckRegistryForTests()
+    const order: string[] = []
+    let answerView!: (response: Response) => void
+    void acknowledgeFirstPartyView({
+      token: 'imp-1',
+      url: 'https://example.test/api/v1/ads/impression',
+      surface: 'cli_chat',
+      placementId: 'p',
+      clientFamily: 'cli',
+      fetch: () => {
+        order.push('view sent')
+        return new Promise<Response>((resolve) => {
+          answerView = resolve
+        })
+      },
+    })
+    const click = sendClickAfterView('imp-1', async () => {
+      order.push('click sent')
+      return 'ok'
+    })
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    expect(order).toEqual(['view sent'])
+    answerView(new Response(null, { status: 204 }))
+    expect(await click).toBe('ok')
+    expect(order).toEqual(['view sent', 'click sent'])
+    resetFirstPartyViewAckRegistryForTests()
+  })
+
+  test('sends at once when no view is in flight', async () => {
+    resetFirstPartyViewAckRegistryForTests()
+    let sent = false
+    await sendClickAfterView('never-viewed', async () => {
+      sent = true
+    })
+    expect(sent).toBe(true)
   })
 })
