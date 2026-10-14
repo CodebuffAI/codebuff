@@ -1,27 +1,56 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod/v4'
 import { bundleSite, readSiteSecret } from './local-files'
+import { SITE_ARGS } from './tools'
 
 import { SitesClientError } from './errors'
 export { SitesClientError } from './errors'
-const uuid = z.string().uuid()
-const environment = z.enum(['preview', 'production'])
-const key = z.string().regex(/^[a-zA-Z0-9_-]{8,128}$/)
-const name = z
-  .string()
-  .regex(/^[A-Z][A-Z0-9_]{0,63}$/)
-  .refine(
-    (s) =>
-      ![
-        'ASSETS',
-        'FREEBUFF_CLIENT_ID',
-        'FREEBUFF_ISSUER',
-        'APP_ORIGIN',
-      ].includes(s),
-  )
+// The SAME objects the tools publish as their input schemas, so a constraint
+// cannot be enforced here without the model being shown it. See `SITE_ARGS`.
+const uuid = SITE_ARGS.siteId
+const environment = SITE_ARGS.environment
+const key = SITE_ARGS.requestId
+const name = SITE_ARGS.bindingName
 const target = z.object({ siteId: uuid, environment })
 const invalid = (message: string) =>
   new SitesClientError(400, 'invalid_site_request', message)
+
+/**
+ * Parse ONE argument, keeping its name on the issue.
+ *
+ * `schema.parse(args.name)` produces an issue with an empty path, so a refusal
+ * could only ever name the failing CHECK and not the argument — the half of
+ * this that a model cannot work around.
+ */
+function field<T>(schema: z.ZodType<T>, argName: string, value: unknown): T {
+  return z.object({ [argName]: schema }).parse({ [argName]: value })[
+    argName
+  ] as T
+}
+
+/**
+ * Name the arguments a Zod check rejected, and nothing else.
+ *
+ * The opaque fallback below exists because a filesystem or validator error may
+ * carry file contents or a secret value. A Zod issue cannot: this reports only
+ * the argument's path and the kind of check that failed, never the value that
+ * failed it and never the issue's own message (`invalid_value` carries the
+ * received literal). Without this an argument the model can fix reads as
+ * "check arguments and workspace files", so it retries the same call.
+ */
+function rejectedArguments(error: z.ZodError): string {
+  const named = [
+    ...new Set(
+      error.issues.map((issue) => {
+        const path = issue.path.map(String).join('.')
+        return path ? `${path} (${issue.code})` : issue.code
+      }),
+    ),
+  ]
+  return named.length > 0
+    ? `Sites rejected these arguments: ${named.join(', ')}. Read the tool's input schema and send values that match it.`
+    : 'Could not prepare the Sites request. Check arguments and workspace files.'
+}
 const IDEMPOTENT_TOOLS = new Set([
   'sites_deploy',
   'sites_add_storage',
@@ -325,9 +354,13 @@ export class SitesClient {
           signal,
         )
       }
-      const requestId = key.parse(args.requestId)
+      const requestId = field(key, 'requestId', args.requestId)
       if (tool === 'sites_deploy') {
-        const manifestPath = z.string().min(1).parse(args.manifestPath)
+        const manifestPath = field(
+          SITE_ARGS.workspacePath,
+          'manifestPath',
+          args.manifestPath,
+        )
         const bundle = await (this.options.files?.bundle ?? bundleSite)(
           cwd,
           manifestPath,
@@ -341,20 +374,20 @@ export class SitesClient {
         )
       }
       if (tool === 'sites_add_storage') {
-        const kind = z.enum(['d1', 'r2']).parse(args.kind)
+        const kind = field(z.enum(['d1', 'r2']), 'kind', args.kind)
         return await this.request(
           path + '/' + kind,
           'POST',
-          { name: name.parse(args.name) },
+          { name: field(name, 'name', args.name) },
           requestId,
           signal,
         )
       }
       if (tool === 'sites_set_secret') {
-        const binding = name.parse(args.name)
+        const binding = field(name, 'name', args.name)
         const value = await (this.options.files?.secret ?? readSiteSecret)(
           cwd,
-          z.string().min(1).parse(args.valueFile),
+          field(SITE_ARGS.workspacePath, 'valueFile', args.valueFile),
         )
         return await this.request(
           path + '/secrets/' + binding,
@@ -381,7 +414,9 @@ export class SitesClient {
       return {
         error: 'invalid_site_request',
         message:
-          'Could not prepare the Sites request. Check arguments and workspace files.',
+          error instanceof z.ZodError
+            ? rejectedArguments(error)
+            : 'Could not prepare the Sites request. Check arguments and workspace files.',
       }
     }
   }
