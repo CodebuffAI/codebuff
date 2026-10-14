@@ -9,8 +9,8 @@ import {
 import type { SandboxJobRunners } from '../sandbox-jobs-runner'
 
 describe('sandbox job runners (COD-742 E1)', () => {
-  // Flipped one at a time on Owen's go (2026-10-14): storage sweep, run leases, errored sweep.
-  const FLIPPED: readonly string[] = ['sweep_storage', 'sweep_run_leases', 'sweep_errored']
+  // Flipped one at a time on Owen's go (2026-10-14): storage sweep, run leases, errored sweep, pool reconcile.
+  const FLIPPED: readonly string[] = ['sweep_storage', 'sweep_run_leases', 'sweep_errored', 'reconcile_pool']
 
   test('only the flipped jobs run on graphile; Convex runs the rest', () => {
     for (const job of SANDBOX_JOB_NAMES) {
@@ -45,6 +45,7 @@ describe('sandbox job runners (COD-742 E1)', () => {
     const runners: SandboxJobRunners = {
       ...SANDBOX_JOB_RUNNERS,
       sweep_errored: 'graphile',
+      reconcile_pool: 'convex',
     }
     expect(sandboxJobOwnedBy('sweep_errored', 'graphile', runners)).toBe(true)
     expect(sandboxJobOwnedBy('sweep_errored', 'convex', runners)).toBe(false)
