@@ -159,6 +159,13 @@ export const agenticOfferRequestSchema = z.object({
    * a malformed value is dropped instead of failing the request.
    */
   traceContext: z.unknown().optional(),
+  /**
+   * The conversation's project (`local:<sha256 prefix>`), or null for a chat
+   * with no folder: agentic relevance reads that project's understanding
+   * profile. Unknown here and read with `parseAdRequestProjectKey`, so a
+   * malformed value is dropped instead of failing the request.
+   */
+  projectKey: z.unknown().optional(),
 })
 
 export type AgenticOfferRequest = z.infer<typeof agenticOfferRequestSchema>
