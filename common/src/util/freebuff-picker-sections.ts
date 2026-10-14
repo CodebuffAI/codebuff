@@ -65,7 +65,9 @@ export interface FreebuffPickerPlacement {
 const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
   Object.freeze({
     // Unlimited
-    // Glyph Cluster (2026-10-07): the section's first row, never under More.
+    // Nemotron 3.5 Lightning (2026-10-14): new, the picker's first row.
+    'm-ddc687c50f': { section: 'unlimited', order: 1 }, // Nemotron 3.5 Lightning
+    // Glyph Cluster (2026-10-07): never under More.
     'm-02244092cb': { section: 'unlimited', order: 5 }, // Glyph Cluster
     // Solar Pro 4 (2026-10-05): free as a promotion, moved from Optimized.
     'upstage/solar-pro4': { section: 'unlimited', order: 15 },
