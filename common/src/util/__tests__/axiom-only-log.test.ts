@@ -13,6 +13,7 @@ import {
   ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT,
   ADS_ADVERTISER_REPORTING_READ_EVENT,
   ADS_MCP_TOOL_CALL_EVENT,
+  AD_CLICK_IVT_SCORED_EVENT,
   PAID_API_REQUEST_EVENT,
   ADS_SHOWCASE_PRESENTED_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
@@ -29,6 +30,83 @@ import {
 } from '../axiom-only-log'
 
 describe('getAxiomOnlyLogEvent', () => {
+  test('ships click quality facts with explicit unknowns and bounded reasons', () => {
+    const features = {
+      impressionId: 'impression-a',
+      advertiserId: 'advertiser-a',
+      verdict: 'suspect',
+      ivtVersion: 'v1',
+      reasons: ['view_pending', 'traffic_class_unknown'],
+      settlementStatus: 'charged',
+      settlementReason: null,
+      chargedCents: 150,
+      servedToClickMs: 1200,
+      viewToClickMs: null,
+      viewState: 'missing',
+      prefetchAvailable: true,
+      accountBanned: false,
+      bannedIdentityMatch: null,
+      thirdPartyClient: false,
+      hourOfDayPacific: 15,
+      accountAgeDays: 30,
+      trustLevel: 'trusted',
+      hasPaid: false,
+      emailVerified: true,
+      privacyFlagged: false,
+      privacyCorroborated: null,
+      emailDomainClass: 'ordinary',
+      asn: 123,
+      hosting: false,
+      anonymizing: null,
+      clickCountry: 'US',
+      signupCountry: 'US',
+      countryMatchesSignup: true,
+      deviceKind: 'cli',
+      deviceAccountsClickingCampaignToday: 1,
+      userPaidClicksToday: 2,
+      campaignId: 'campaign-a',
+      placementId: null,
+      surface: 'cli',
+      clientSurface: 'cli_api',
+      trafficClass: 'unknown',
+    }
+    const event = getAxiomOnlyLogEvent({
+      axiomEvent: AD_CLICK_IVT_SCORED_EVENT,
+      ...features,
+      userId: 'private-user',
+      user_id: 'private-user',
+      clientIp: '192.0.2.1',
+      deviceKey: 'cli:private-device',
+      ipPrefixHash: 'private-hash',
+      request: { token: 'secret' },
+    })
+    expect(event).toEqual({ event: AD_CLICK_IVT_SCORED_EVENT, data: features })
+    // Rechecking the wire row at the sink must retain the same feature shape.
+    expect(getAxiomOnlyLogEvent(event?.data, event?.event)).toEqual(event)
+  })
+
+  test('drops malformed click quality fields and unbounded reason payloads', () => {
+    for (const reasons of [
+      ['view_pending', { private: 'content' }],
+      ['private content with spaces'],
+      ['a'.repeat(65)],
+      Array(33).fill('view_pending'),
+      'view_pending',
+    ]) {
+      expect(
+        getAxiomOnlyLogEvent({
+          axiomEvent: AD_CLICK_IVT_SCORED_EVENT,
+          reasons,
+          servedToClickMs: Number.POSITIVE_INFINITY,
+          hasPaid: 'false',
+          trustLevel: 1,
+          campaignId: { secret: 'private' },
+          unknown: null,
+        }),
+      ).toEqual({ event: AD_CLICK_IVT_SCORED_EVENT, data: {} })
+    }
+  })
+
   test('preserves the optional validated browser inline cadence on completion', () => {
     const cadence = 'one_per_reply_90s_v1'
     expect(ADS_FETCH_COMPLETED_FIELD_NAMES).toContain('client_inline_cadence')

@@ -127,6 +127,9 @@ export const ADS_ADVERTISER_REPORTING_READ_EVENT =
   'ads.advertiser_reporting_read' as const
 /** Content-free advertiser MCP operation census; never arguments or results. */
 export const ADS_MCP_TOOL_CALL_EVENT = 'ads.mcp_tool_call' as const
+/** Settlement-time click quality features. Opaque join ids and bounded facts
+ * only; raw IPs, device identifiers and request content are never fields. */
+export const AD_CLICK_IVT_SCORED_EVENT = 'ad_click_ivt_scored' as const
 /**
  * One row per completed paid API chat completion (`POST /api/v1/paid/chat/
  * completions` on `web`), whatever the outcome: success, rejection at auth or
@@ -205,6 +208,69 @@ export function createGravityShowcasePresentationTelemetry(
 
 type AxiomOnlyFieldType = 'string' | 'number' | 'boolean'
 type AxiomOnlyFieldSchema = Record<string, AxiomOnlyFieldType>
+
+const AD_CLICK_IVT_SCORED_FIELDS = {
+  impressionId: 'string',
+  advertiserId: 'string',
+  verdict: 'string',
+  ivtVersion: 'string',
+  settlementStatus: 'string',
+  settlementReason: 'string',
+  chargedCents: 'number',
+  servedToClickMs: 'number',
+  viewToClickMs: 'number',
+  viewState: 'string',
+  prefetchAvailable: 'boolean',
+  accountBanned: 'boolean',
+  bannedIdentityMatch: 'boolean',
+  thirdPartyClient: 'boolean',
+  hourOfDayPacific: 'number',
+  accountAgeDays: 'number',
+  trustLevel: 'string',
+  hasPaid: 'boolean',
+  emailVerified: 'boolean',
+  privacyFlagged: 'boolean',
+  privacyCorroborated: 'boolean',
+  emailDomainClass: 'string',
+  asn: 'number',
+  hosting: 'boolean',
+  anonymizing: 'boolean',
+  clickCountry: 'string',
+  signupCountry: 'string',
+  countryMatchesSignup: 'boolean',
+  deviceKind: 'string',
+  deviceAccountsClickingCampaignToday: 'number',
+  userPaidClicksToday: 'number',
+  campaignId: 'string',
+  placementId: 'string',
+  surface: 'string',
+  clientSurface: 'string',
+  trafficClass: 'string',
+} as const satisfies AxiomOnlyFieldSchema
+
+function sanitizeAdClickIvtScoredFields(
+  record: Record<string, unknown>,
+): AxiomOnlyLogEvent['data'] {
+  const data: AxiomOnlyLogEvent['data'] = sanitizeAllowlistedFields(
+    record,
+    AD_CLICK_IVT_SCORED_FIELDS,
+  )
+  // Unknown is a feature value, not false or zero. Keep explicit nulls on
+  // this event only; other operational allowlists retain their scalar rules.
+  for (const key of Object.keys(AD_CLICK_IVT_SCORED_FIELDS)) {
+    if (record[key] === null) data[key] = null
+  }
+  if (
+    Array.isArray(record.reasons) &&
+    record.reasons.length <= 32 &&
+    record.reasons.every(
+      (reason) => typeof reason === 'string' && /^[a-z_]{1,64}$/.test(reason),
+    )
+  ) {
+    data.reasons = [...record.reasons]
+  }
+  return data
+}
 
 const CONTEXT_PRUNING_FIELDS = {
   agent_run_id: 'string',
@@ -1082,11 +1148,12 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT
     | typeof ADS_ADVERTISER_REPORTING_READ_EVENT
     | typeof ADS_MCP_TOOL_CALL_EVENT
+    | typeof AD_CLICK_IVT_SCORED_EVENT
     | typeof PAID_API_REQUEST_EVENT
     | typeof ADS_REQUEST_REJECTED_EVENT
     | typeof ADS_SHOWCASE_PRESENTED_EVENT
     | SponsorBreakEvent
-  data: Record<string, string | number | boolean>
+  data: Record<string, string | number | boolean | null | string[]>
 }
 
 /** Keep only the allowlisted keys whose value matches the declared type
@@ -1094,8 +1161,8 @@ export type AxiomOnlyLogEvent = {
 function sanitizeAllowlistedFields(
   record: Record<string, unknown>,
   fields: AxiomOnlyFieldSchema,
-): AxiomOnlyLogEvent['data'] {
-  const sanitized: AxiomOnlyLogEvent['data'] = {}
+): Record<string, string | number | boolean> {
+  const sanitized: Record<string, string | number | boolean> = {}
   for (const [key, expectedType] of Object.entries(fields)) {
     const value = record[key]
     if (typeof value !== expectedType) continue
@@ -1279,6 +1346,12 @@ export function getAxiomOnlyLogEvent(
     return {
       event: eventName,
       data: sanitizeAllowlistedFields(record, ADS_MCP_TOOL_CALL_FIELDS),
+    }
+  }
+  if (eventName === AD_CLICK_IVT_SCORED_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAdClickIvtScoredFields(record),
     }
   }
   if (eventName === PAID_API_REQUEST_EVENT) {
