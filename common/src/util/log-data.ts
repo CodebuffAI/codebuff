@@ -87,11 +87,110 @@ function errorToJson(error: Error): Record<string, unknown> {
   }
 }
 
+/** Stringify a log payload, tolerating circular refs and unwrapping Errors. */
+export function stringifyLogData(data: unknown): string | undefined {
+  try {
+    const seen = new WeakSet()
+    return JSON.stringify(data, (_k, v) => {
+      if (typeof v === 'object' && v !== null) {
+        if (seen.has(v)) return '[Circular]'
+        seen.add(v)
+        if (v instanceof Error) return errorToJson(v)
+      }
+      return v
+    })
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Fit an oversized log payload inside MAX_LOG_DATA_BYTES **without losing the
+ * fields that identify it.**
+ *
+ * The whole payload used to be replaced by one `preview` string, so a single
+ * oversized field took every small field beside it down with it. Measured on
+ * 2026-10-14 against one hour of production: **171 of 281 `Agent execution
+ * failed` rows (61%, 149 distinct users) carried no queryable `error`,
+ * `agentType`, `agentId` or `runId`** — the CLI's failure line logs
+ * `messageHistory` and `systemPrompt`, which alone run past the cap (121 KB in
+ * the sampled row), so every row of the busiest error line in the dataset was
+ * unattributable. `errorToJson`'s comment above records the same accident
+ * happening to a drizzle `cause` on 2026-10-02 and fixes it for that one
+ * shape; this fixes it for every shape.
+ *
+ * Keeps fields smallest-first until the budget is spent, so the scalars that
+ * identify a row (ids, counts, status codes) survive by construction and only
+ * the payloads are dropped. `_omitted` names each dropped field and its size,
+ * because "this row had no error" and "this row's error did not fit" are
+ * different facts and the old shape could not tell them apart. The byte cap is
+ * unchanged, so ingest cost is unchanged.
+ */
+function fitLogDataToCap(data: unknown, originalBytes: number): string {
+  const wholePayloadPreview = (serialized: string) =>
+    JSON.stringify({
+      _truncated: true,
+      original_bytes: originalBytes,
+      preview: serialized.slice(0, MAX_LOG_DATA_BYTES),
+    })
+
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return wholePayloadPreview(stringifyLogData(data) ?? '')
+  }
+
+  const sized: { key: string; value: unknown; bytes: number }[] = []
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined) continue
+    const serialized = stringifyLogData(value)
+    if (serialized === undefined) continue
+    // `"key":` plus a separator, so the budget counts what the row will cost.
+    sized.push({ key, value, bytes: serialized.length + key.length + 4 })
+  }
+  sized.sort((a, b) => a.bytes - b.bytes)
+
+  const kept: Record<string, unknown> = {}
+  const omitted: Record<string, number> = {}
+  // Headroom for the `_truncated` / `original_bytes` / `_omitted` markers.
+  let budget = MAX_LOG_DATA_BYTES - 256
+  for (const field of sized) {
+    if (field.bytes <= budget) {
+      kept[field.key] = field.value
+      budget -= field.bytes
+    } else {
+      omitted[field.key] = field.bytes
+      // A dropped field still costs its name in `_omitted`.
+      budget -= field.key.length + 12
+    }
+  }
+
+  // Nothing fit: fall back to a preview, so a single enormous field still
+  // leaves a readable head rather than only its byte count.
+  if (Object.keys(kept).length === 0) {
+    return wholePayloadPreview(stringifyLogData(data) ?? '')
+  }
+
+  const fitted = stringifyLogData({
+    ...kept,
+    _truncated: true,
+    original_bytes: originalBytes,
+    _omitted: omitted,
+  })
+  // The budget arithmetic should make this unreachable; a payload whose
+  // serialization grew anyway falls back rather than breaking the cap.
+  if (fitted === undefined || fitted.length > MAX_LOG_DATA_BYTES) {
+    return wholePayloadPreview(stringifyLogData(data) ?? '')
+  }
+  return fitted
+}
+
 /**
  * Serialize a log payload to a single string field, tolerating circular refs
  * and capping size. The cap applies to ALL sources so a large `data` payload
  * can't inflate Axiom ingest cost. The truncated form is still valid JSON so
  * query scripts can `parse_json(data)`.
+ *
+ * An oversized object keeps the fields that fit (see {@link fitLogDataToCap});
+ * only an oversized string or array collapses to a `preview`.
  */
 export function serializeLogData(data: unknown): string | null {
   if (data == null) return null
@@ -99,26 +198,18 @@ export function serializeLogData(data: unknown): string | null {
   if (typeof data === 'string') {
     serialized = data
   } else {
-    try {
-      const seen = new WeakSet()
-      serialized = JSON.stringify(data, (_k, v) => {
-        if (typeof v === 'object' && v !== null) {
-          if (seen.has(v)) return '[Circular]'
-          seen.add(v)
-          if (v instanceof Error) return errorToJson(v)
-        }
-        return v
-      })
-    } catch {
-      return null
-    }
+    const stringified = stringifyLogData(data)
+    if (stringified === undefined) return null
+    serialized = stringified
   }
   if (serialized.length > MAX_LOG_DATA_BYTES) {
-    return JSON.stringify({
-      _truncated: true,
-      original_bytes: serialized.length,
-      preview: serialized.slice(0, MAX_LOG_DATA_BYTES),
-    })
+    return typeof data === 'string'
+      ? JSON.stringify({
+          _truncated: true,
+          original_bytes: serialized.length,
+          preview: serialized.slice(0, MAX_LOG_DATA_BYTES),
+        })
+      : fitLogDataToCap(data, serialized.length)
   }
   return serialized
 }

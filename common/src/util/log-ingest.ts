@@ -1,4 +1,5 @@
 import { MAX_LOG_DATA_BYTES } from '../schemas/logs'
+import { serializeLogData } from './log-data'
 import {
   ADS_FIRST_PARTY_VIEW_ACK_EVENT,
   ADS_SHOWCASE_PRESENTED_EVENT,
@@ -12,6 +13,12 @@ import type { LogRow, LogSource } from '../types/contracts/logs'
 /**
  * Truncate an oversized payload so a single client cannot bloat ingest volume.
  * Returns the original value when small.
+ *
+ * Oversized goes through the same field-wise fit as the server-side sink
+ * (`serializeLogData`), so a client row keeps the fields that identify it
+ * instead of collapsing to one `preview` string. The CLI is the producer that
+ * made this matter: its `Agent execution failed` line carries `messageHistory`
+ * and `systemPrompt`, and arrives here as `source: cli`.
  */
 function truncateData(data: unknown): unknown {
   if (data === undefined) return null
@@ -22,6 +29,14 @@ function truncateData(data: unknown): unknown {
     return { _unserializable: true }
   }
   if (serialized.length <= MAX_LOG_DATA_BYTES) return data
+  const fitted = serializeLogData(data)
+  if (fitted !== null) {
+    try {
+      return JSON.parse(fitted)
+    } catch {
+      // fall through to the preview below
+    }
+  }
   return {
     _truncated: true,
     original_bytes: serialized.length,

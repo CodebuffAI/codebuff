@@ -52,3 +52,34 @@ export const FREEBUFF_PROVIDER_CYBER_RISK_ERROR_PATTERN =
  *  it used to surface as an unrelated "organization" 401 instead. */
 export const FREEBUFF_PROVIDER_CYBER_RISK_MESSAGE =
   "OpenAI declined this request: it was flagged as a possible cybersecurity risk. The same conversation will be declined again, so rephrase the request (for example, say what you are securing and why), or continue with another model such as DeepSeek V4.1 Flash or GLM 5.3 Flash."
+
+/**
+ * OpenRouter's upstream-429 template, which every lane behind it reproduces
+ * verbatim: "Provider returned error [<Upstream>: <model> is temporarily
+ * rate-limited upstream. Please retry shortly, or add your own key to
+ * accumulate your rate limits: https://openrouter.ai/settings/integrations]".
+ *
+ * Both clauses are matched because either one alone identifies the class, and
+ * a gateway that re-words one still means the same thing: the upstream is
+ * rate-limiting us, not this user.
+ *
+ * Measured in the 12.3 hours to 2026-10-14T14:51Z: 3,217 requests, 265
+ * distinct users, 543 agent runs, on Gemini 4 Argon (Google AI Studio) and
+ * MiMo (Xiaomi). **None of them had sent their own provider key**, so the
+ * link's advice could not work for a single one of them.
+ */
+export const FREEBUFF_PROVIDER_UPSTREAM_RATE_LIMIT_ERROR_PATTERN =
+  /\brate-limited upstream\b|\badd your own key to accumulate your rate limits\b/i
+
+/**
+ * Says whose problem it is and what to DO. The provider's own sentence points
+ * at an account page on a gateway the user has no relationship with — the same
+ * defect as {@link FREEBUFF_PROVIDER_CYBER_RISK_MESSAGE}'s Daybreak link — and
+ * its only advice, "retry shortly", is what a user does for an hour while
+ * every attempt is refused for the same reason.
+ *
+ * Names no model, so it is also correct for a presented (bait) request, where
+ * the served model's id may never be shown.
+ */
+export const FREEBUFF_PROVIDER_UPSTREAM_RATE_LIMIT_MESSAGE =
+  'The provider serving this model is rate-limiting requests right now — this is not a problem with your account. Wait a minute and send it again, or continue with another model such as GLM 5.3 Flash or DeepSeek V4.1 Flash.'

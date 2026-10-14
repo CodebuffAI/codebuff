@@ -83,4 +83,71 @@ describe('serializeLogData', () => {
     error.self = error
     expect(parse({ error }).error.message).toBe('loop')
   })
+
+  // The CLI's `Agent execution failed` line, as production emits it. Measured
+  // 2026-10-14: 171 of 281 rows in one hour (61%, 149 distinct users) reached
+  // Axiom with no queryable error, agent or run id, because `messageHistory`
+  // and `systemPrompt` alone run past the cap and the whole payload collapsed
+  // to one `preview` string.
+  test('an oversized payload keeps the fields that identify it', () => {
+    const row = parse({
+      error: new Error('The operation timed out.'),
+      agentType: 'base3-free-catalog',
+      agentId: 'main-agent',
+      runId: '01a13ac8-f860-7923-8467-2bd9285a595e',
+      totalSteps: 14,
+      creditsUsed: 20,
+      systemPrompt: 'x'.repeat(40_000),
+      messageHistory: Array.from({ length: 400 }, (_, i) => ({
+        role: 'user',
+        content: `turn ${i} ${'y'.repeat(300)}`,
+      })),
+    })
+    // The small fields a query needs, every one of which used to be lost.
+    expect(row.error.message).toBe('The operation timed out.')
+    expect(row.agentType).toBe('base3-free-catalog')
+    expect(row.agentId).toBe('main-agent')
+    expect(row.runId).toBe('01a13ac8-f860-7923-8467-2bd9285a595e')
+    expect(row.totalSteps).toBe(14)
+    expect(row.creditsUsed).toBe(20)
+    // The payloads are what got dropped, and the row says so by name, so
+    // "no error" and "the error did not fit" stay distinguishable.
+    expect(row._truncated).toBe(true)
+    expect(Object.keys(row._omitted)).toContain('messageHistory')
+    expect(row.messageHistory).toBeUndefined()
+    expect(row.original_bytes).toBeGreaterThan(64_000)
+    // Never collapses to the old whole-payload preview when a field fits.
+    expect(row.preview).toBeUndefined()
+  })
+
+  test('still respects the byte cap', () => {
+    const serialized = serializeLogData({
+      runId: 'r',
+      a: 'x'.repeat(50_000),
+      b: 'y'.repeat(50_000),
+      c: 'z'.repeat(50_000),
+    })!
+    expect(serialized.length).toBeLessThanOrEqual(64_000)
+    const row = JSON.parse(serialized)
+    expect(row.runId).toBe('r')
+    // One of the three big fields fits in the remaining budget; the rest are
+    // named rather than silently absent.
+    expect(Object.keys(row._omitted).length).toBeGreaterThanOrEqual(2)
+  })
+
+  test('one field larger than the cap still leaves a readable head', () => {
+    const row = parse({ blob: 'x'.repeat(200_000) })
+    expect(row._truncated).toBe(true)
+    expect(typeof row.preview).toBe('string')
+    expect(row.original_bytes).toBeGreaterThan(200_000)
+  })
+
+  test('an oversized string or array still collapses to a preview', () => {
+    const fromString = JSON.parse(serializeLogData('x'.repeat(100_000))!)
+    expect(fromString._truncated).toBe(true)
+    expect(typeof fromString.preview).toBe('string')
+    const fromArray = parse(Array.from({ length: 20_000 }, (_, i) => i))
+    expect(fromArray._truncated).toBe(true)
+    expect(typeof fromArray.preview).toBe('string')
+  })
 })
