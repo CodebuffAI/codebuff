@@ -203,6 +203,23 @@ export const FREEBUFF_FREE_TIER_ALLOWANCE = Object.freeze({
   monthlySessions: 40,
 })
 
+/**
+ * The first-month introduction ENDS at the close of Oct 24, 2026, Pacific
+ * (23:59:59 PDT; this is the first instant it no longer applies). Every tier's
+ * intro ends together: offers quote list price and checkout attaches no intro
+ * coupon from this instant on.
+ */
+export const FREEBUFF_SUBSCRIPTION_INTRO_ENDS_AT = '2026-10-25T07:00:00.000Z'
+const INTRO_ENDS_AT_MS = Date.parse(FREEBUFF_SUBSCRIPTION_INTRO_ENDS_AT)
+
+/** Whether the first-month introduction is still offered at `now`. The
+ *  default reads `Date.now()`, so a test's clock spy reaches it. */
+export function freebuffSubscriptionIntroOpen(
+  now: Date = new Date(Date.now()),
+): boolean {
+  return now.getTime() < INTRO_ENDS_AT_MS
+}
+
 export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
   Object.freeze([
     // Retuned 2026-08-31 to the MARKETED-TOTALS model. The numbers users see
