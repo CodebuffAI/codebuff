@@ -1,6 +1,21 @@
-/** Provider billing failures observed from CrofAI, OpenRouter, and similar APIs. */
+/**
+ * Provider billing failures observed from CrofAI, OpenRouter, and similar APIs.
+ *
+ * "Purchase credits" is OpenRouter's own newer wording and the only credit
+ * phrase in one of its 402 bodies: "Free BYOK request cap exceeded for this
+ * month. Purchase credits at https://openrouter.ai/settings/credits". None of
+ * the verbs here matched it. Measured while Freebuff's OpenRouter balance sat
+ * at zero on 2026-10-14 (17:42:03Z-17:54:39Z): 915 of the window's 2,002 402s
+ * carried exactly that sentence, across 10 model ids, and not one of those
+ * requests had a user key — so there was no account any of those users could
+ * have purchased credits on. It is ours to refill.
+ *
+ * The reliable signal for this whole class is the status (HTTP 402), which is
+ * what a surface should test when it has one; this alternation is for the
+ * surfaces that only ever see the body.
+ */
 export const FREEBUFF_PROVIDER_USAGE_ERROR_PATTERN =
-  /\b(?:(?:not enough|insufficient|out of)\s+credits?|(?:add|refill|top up)\s+(?:more\s+)?credits?)\b/i
+  /\b(?:(?:not enough|insufficient|out of)\s+credits?|(?:add|purchase|refill|top up)\s+(?:more\s+)?credits?)\b/i
 
 /**
  * The Codebuff API's own 402 for a paid (non-free) request names the user's
