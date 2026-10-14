@@ -95,7 +95,7 @@ export interface CopyToClipboardOptions {
   signal?: AbortSignal
 }
 
-/** Returns 'unverified' when local Linux could only send a terminal request. */
+/** Returns 'unverified' when the copy could only be sent to the terminal. */
 export async function copyTextToClipboard(
   text: string,
   {
@@ -120,6 +120,7 @@ export async function copyTextToClipboard(
     : operationController.signal
 
   const osc52Blocked = isOsc52Blocked()
+  const remoteSession = isRemoteSession()
   try {
     throwIfClipboardAborted(operationSignal)
     const tryOsc52 = (candidate: string) =>
@@ -128,9 +129,14 @@ export async function copyTextToClipboard(
       (tryCopyViaRenderer(candidate) || tryCopyViaTtyOsc52(candidate))
 
     const primary: ClipboardCandidate = { text, successMessage }
-    const remoteSession = isRemoteSession()
-    const tryCandidateViaOsc52 = (candidate: ClipboardCandidate) =>
-      tryOsc52(candidate.text) ? candidate : null
+    // Set wherever OSC 52 was the method that "worked", including the remote
+    // branch below, which is reached before any native tool is tried.
+    let copiedViaOsc52 = false
+    const tryCandidateViaOsc52 = (candidate: ClipboardCandidate) => {
+      if (!tryOsc52(candidate.text)) return null
+      copiedViaOsc52 = true
+      return candidate
+    }
     const tryFallbackViaOsc52 = () => {
       if (!getOsc52Fallback) return null
       const fallback = getOsc52Fallback()
@@ -152,27 +158,29 @@ export async function copyTextToClipboard(
       copiedCandidate = primary
     }
     // A local session that reaches this OSC 52 fallback had no working native
-    // tool. OSC 52 is fire-and-forget: we cannot tell whether the terminal
-    // honoured it, so on Linux (a Chromebook's Linux terminal ships with no
-    // wl-copy or xclip) "Copied" alone can be a false claim — say how to fix it.
-    let unverifiedLocalOsc52 = false
+    // tool.
     if (!copiedCandidate && !remoteSession) {
       copiedCandidate = tryCandidateViaOsc52(primary) ?? tryFallbackViaOsc52()
-      unverifiedLocalOsc52 =
-        copiedCandidate !== null && process.platform === 'linux'
     }
 
     if (!copiedCandidate) {
       throw new Error('No clipboard method available')
     }
 
-    if (unverifiedLocalOsc52) {
+    if (copiedViaOsc52) {
       // This is guidance, not a success notification. Even callers with their
       // own copy badge need it, and must not show that badge for this result.
+      // A local Linux session can fix this by installing a clipboard tool; an
+      // SSH session cannot, because the clipboard to reach belongs to the
+      // machine running the terminal, and so does the permission to write it.
+      const guidance =
+        !remoteSession && process.platform === 'linux'
+          ? LINUX_OSC52_ONLY_MESSAGE
+          : OSC52_UNVERIFIED_MESSAGE
       showClipboardMessage(
         copiedCandidate === primary
-          ? LINUX_OSC52_ONLY_MESSAGE
-          : `Text shortened to fit the terminal. ${LINUX_OSC52_ONLY_MESSAGE}`,
+          ? guidance
+          : `Text shortened to fit the terminal. ${guidance}`,
         { durationMs: 6000 },
       )
       return 'unverified'
@@ -194,19 +202,21 @@ export async function copyTextToClipboard(
     // Codespaces), the Shift+drag guidance is the only way the user can copy,
     // so show it even for callers that suppress routine messages.
     if (!suppressGlobalMessage || osc52Blocked) {
-      const isLinux = process.platform === 'linux'
-      const defaultErrorMessage = isLinux
-        ? LINUX_CLIPBOARD_ERROR_MESSAGE
-        : 'Failed to copy to clipboard'
+      // Installing a Linux clipboard tool only helps when the clipboard to
+      // reach is on this machine; over SSH it is the terminal's to allow.
+      const defaultErrorMessage = remoteSession
+        ? REMOTE_CLIPBOARD_ERROR_MESSAGE
+        : process.platform === 'linux'
+          ? LINUX_CLIPBOARD_ERROR_MESSAGE
+          : 'Failed to copy to clipboard'
+      const hasGuidance =
+        osc52Blocked || remoteSession || process.platform === 'linux'
       showClipboardMessage(
         osc52Blocked
           ? OSC52_BLOCKED_MESSAGE
           : (errorMessage ?? defaultErrorMessage),
         // Give the longer guidance message extra time to be read
-        {
-          durationMs:
-            durationMs ?? (osc52Blocked || isLinux ? 6000 : undefined),
-        },
+        { durationMs: durationMs ?? (hasGuidance ? 6000 : undefined) },
       )
     }
     throw error
@@ -244,8 +254,19 @@ export const OSC52_BLOCKED_MESSAGE =
 export const LINUX_OSC52_ONLY_MESSAGE =
   'Copy sent to terminal, not confirmed — if paste is empty, install wl-clipboard or xclip'
 
+/**
+ * Shown instead when no local clipboard tool could have helped: an SSH
+ * session, where OSC 52 is the only route to the user's own clipboard, or a
+ * platform whose native tool failed.
+ */
+export const OSC52_UNVERIFIED_MESSAGE =
+  'Copy sent to terminal, not confirmed — if paste is empty, allow OSC 52 clipboard writes in your terminal'
+
 export const LINUX_CLIPBOARD_ERROR_MESSAGE =
   'Clipboard unavailable — install wl-clipboard (Wayland) or xclip (X11)'
+
+export const REMOTE_CLIPBOARD_ERROR_MESSAGE =
+  'Clipboard unavailable over SSH — allow OSC 52 clipboard writes in your terminal, or hold Shift and drag to select'
 
 // GitHub Codespaces and VS Code remote (SSH/tunnel) terminals silently drop
 // OSC 52 sequences, so a "successful" write never reaches the user's

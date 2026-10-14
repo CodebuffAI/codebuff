@@ -6,6 +6,7 @@ import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test'
 import {
   copyTextToClipboard,
   OSC52_BLOCKED_MESSAGE,
+  OSC52_UNVERIFIED_MESSAGE,
   showClipboardMessage,
   subscribeClipboardMessages,
   clearClipboardMessage,
@@ -521,15 +522,107 @@ describe('clipboard', () => {
       expect(calls).toEqual(['renderer'])
     })
 
-    test('shows success message when renderer copy succeeds', async () => {
+    test('renderer-only copy reports guidance, not success', async () => {
       registerClipboardRenderer({ copyToClipboardOSC52: () => true })
 
       const messages: (string | null)[] = []
       const unsubscribe = subscribeClipboardMessages((msg) => messages.push(msg))
 
-      await copyTextToClipboard('Hello world')
+      // Nothing here can confirm the write: the renderer only emitted OSC 52.
+      const result = await copyTextToClipboard('Hello world')
 
-      expect(messages).toContain('Copied: "Hello world"')
+      expect(result).toBe('unverified')
+      expect(messages).toContain(OSC52_UNVERIFIED_MESSAGE)
+      expect(messages).not.toContain('Copied: "Hello world"')
+
+      unsubscribe()
+    })
+  })
+
+  describe('copyTextToClipboard - unconfirmed OSC 52 outside local Linux', () => {
+    // Over SSH, OSC 52 is the only route to the clipboard of the machine the
+    // terminal runs on, and the terminal never acknowledges it: many
+    // terminals ignore the sequence or ship with clipboard writes disabled.
+    // A bare "Copied" there claims something we cannot know, and nothing logs
+    // it, because a false success looks exactly like a real one.
+
+    let originalPlatform: PropertyDescriptor | undefined
+    let originalEnv: Record<string, string | undefined>
+
+    beforeEach(() => {
+      originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
+      originalEnv = {
+        SSH_CLIENT: process.env.SSH_CLIENT,
+        SSH_TTY: process.env.SSH_TTY,
+        SSH_CONNECTION: process.env.SSH_CONNECTION,
+        TERM: process.env.TERM,
+        TMUX: process.env.TMUX,
+        STY: process.env.STY,
+        TERM_PROGRAM: process.env.TERM_PROGRAM,
+        CODESPACES: process.env.CODESPACES,
+      }
+
+      // freebsd + TERM=dumb leaves the registered renderer as the only
+      // clipboard route, so the OSC 52 branch is the one under test.
+      Object.defineProperty(process, 'platform', {
+        value: 'freebsd',
+        configurable: true,
+      })
+      delete process.env.SSH_CLIENT
+      delete process.env.SSH_TTY
+      delete process.env.SSH_CONNECTION
+      delete process.env.TMUX
+      delete process.env.STY
+      delete process.env.TERM_PROGRAM
+      delete process.env.CODESPACES
+      process.env.TERM = 'dumb'
+
+      clearClipboardMessage()
+      unregisterClipboardRenderer()
+    })
+
+    afterEach(() => {
+      unregisterClipboardRenderer()
+      if (originalPlatform) {
+        Object.defineProperty(process, 'platform', originalPlatform)
+      }
+      for (const [key, value] of Object.entries(originalEnv)) {
+        if (value !== undefined) process.env[key] = value
+        else delete process.env[key]
+      }
+      clearClipboardMessage()
+    })
+
+    test('an SSH copy is reported as sent to the terminal, not copied', async () => {
+      process.env.SSH_TTY = '/dev/pts/0'
+      registerClipboardRenderer({ copyToClipboardOSC52: () => true })
+      const messages: (string | null)[] = []
+      const unsubscribe = subscribeClipboardMessages((msg) =>
+        messages.push(msg),
+      )
+
+      const result = await copyTextToClipboard('hello')
+
+      expect(result).toBe('unverified')
+      expect(messages.at(-1)).toBe(OSC52_UNVERIFIED_MESSAGE)
+
+      unsubscribe()
+    })
+
+    test("an SSH copy drops the caller's success message", async () => {
+      process.env.SSH_CONNECTION = '10.0.0.2 54321 10.0.0.1 22'
+      registerClipboardRenderer({ copyToClipboardOSC52: () => true })
+      const messages: (string | null)[] = []
+      const unsubscribe = subscribeClipboardMessages((msg) =>
+        messages.push(msg),
+      )
+
+      const result = await copyTextToClipboard('hello', {
+        successMessage: 'Copied code',
+      })
+
+      expect(result).toBe('unverified')
+      expect(messages).not.toContain('Copied code')
 
       unsubscribe()
     })

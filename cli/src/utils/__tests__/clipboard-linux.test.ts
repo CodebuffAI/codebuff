@@ -9,7 +9,9 @@ import {
   copyTextToClipboard,
   LINUX_CLIPBOARD_ERROR_MESSAGE,
   LINUX_OSC52_ONLY_MESSAGE,
+  OSC52_UNVERIFIED_MESSAGE,
   registerClipboardRenderer,
+  REMOTE_CLIPBOARD_ERROR_MESSAGE,
   subscribeClipboardMessages,
   unregisterClipboardRenderer,
 } from '../clipboard'
@@ -231,6 +233,46 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     expect(messages.at(-1)).toBe(LINUX_OSC52_ONLY_MESSAGE)
     mockTimers.advanceBy(1)
     expect(messages.at(-1)).toBeNull()
+    unsubscribe()
+  })
+
+  // Over SSH the clipboard to reach belongs to the machine running the
+  // terminal, so OSC 52 is the only route and a package on this host cannot
+  // help — neither as guidance after a copy nor as advice after a failure.
+  test('an SSH copy is unconfirmed without naming a local clipboard tool', async () => {
+    process.env.SSH_TTY = '/dev/pts/0'
+    process.env.WAYLAND_DISPLAY = 'wayland-0'
+    mockBackends(() => 1)
+    registerClipboardRenderer({ copyToClipboardOSC52: () => true })
+    const messages: (string | null)[] = []
+    const unsubscribe = subscribeClipboardMessages((m) => messages.push(m))
+
+    const result = await copyTextToClipboard('hello', {
+      suppressGlobalMessage: true,
+      successMessage: 'Copied!',
+    })
+
+    expect(result).toBe('unverified')
+    expect(messages.at(-1)).toBe(OSC52_UNVERIFIED_MESSAGE)
+    expect(messages.at(-1)).not.toBe(LINUX_OSC52_ONLY_MESSAGE)
+    // A native tool is never even reached: OSC 52 runs first over SSH.
+    expect(attempts).toEqual([])
+    unsubscribe()
+  })
+
+  test('an SSH failure is not told to install a local clipboard tool', async () => {
+    process.env.SSH_TTY = '/dev/pts/0'
+    process.env.WAYLAND_DISPLAY = 'wayland-0'
+    mockBackends(() => 1) // no native tool works, and TERM=dumb blocks OSC 52
+    const messages: (string | null)[] = []
+    const unsubscribe = subscribeClipboardMessages((m) => messages.push(m))
+
+    await expect(copyTextToClipboard('hello')).rejects.toThrow(
+      'No clipboard method available',
+    )
+
+    expect(messages).toContain(REMOTE_CLIPBOARD_ERROR_MESSAGE)
+    expect(messages).not.toContain(LINUX_CLIPBOARD_ERROR_MESSAGE)
     unsubscribe()
   })
 
