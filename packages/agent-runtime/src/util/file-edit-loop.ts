@@ -10,9 +10,28 @@ export const FILE_EDIT_LOOP_RECOVERY_MESSAGE =
 export const FILE_EDIT_LOOP_STOP_MESSAGE =
   'The model got stuck re-sending the same rejected file edit without making progress. This turn was stopped to avoid wasting more of your session. Try a different model or reasoning level, then continue.'
 
-/** The tools that share `postStreamProcessing` and its `errorMessage` result.
- * A rejected call here is a no-op the handler already explained to the model. */
-const FILE_EDIT_LOOP_TOOL_NAMES = ['write_file', 'str_replace', 'create_plan']
+/** The tools whose rejection is reported as an `errorMessage` result: a no-op
+ * the handler already explained to the model, so re-sending the same call
+ * cannot do anything but earn the same answer.
+ *
+ * `write_file`, `str_replace` and `create_plan` get it from the
+ * `postStreamProcessing` they share. `propose_str_replace` is the review-mode
+ * twin of `str_replace` (`agents/base2`, the best-of-n editors) and builds the
+ * same `{ file, errorMessage }` itself, in
+ * `tools/handlers/tool/propose-str-replace.ts` — so an identical failing
+ * proposal loops exactly like a `str_replace` one, and went uncounted here
+ * until 2026-10-14.
+ *
+ * `apply_patch` and `propose_write_file` are deliberately absent, even though
+ * `truncated-write-guard.ts`'s `FILE_MUTATING_TOOL_NAMES` lists them: neither
+ * ever answers with `errorMessage`, so `isRejectedEdit` could not match one
+ * and adding them would only widen the guard's precondition for nothing. */
+const FILE_EDIT_LOOP_TOOL_NAMES = [
+  'write_file',
+  'str_replace',
+  'create_plan',
+  'propose_str_replace',
+]
 
 export function isFileEditLoopTool(toolName: string): boolean {
   return FILE_EDIT_LOOP_TOOL_NAMES.includes(toolName)

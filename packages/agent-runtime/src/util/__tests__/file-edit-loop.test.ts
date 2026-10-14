@@ -91,6 +91,44 @@ describe('trailingIdenticalRejectedEdits', () => {
     ).toBe(2)
   })
 
+  // The review-mode twin of str_replace: its handler builds the same
+  // `{ file, errorMessage }` itself, so an identical failing proposal is the
+  // same loop and must count the same.
+  it('counts a propose_str_replace streak', () => {
+    const propose = (id: string) =>
+      edit(
+        id,
+        { path: 'a.ts', replacements: [{ old: 'q', new: 'r' }] },
+        { file: 'a.ts', errorMessage: 'old string not found' },
+        'propose_str_replace',
+      )
+    expect(
+      trailingIdenticalRejectedEdits([
+        ...propose('a'),
+        ...propose('b'),
+        ...propose('c'),
+      ]),
+    ).toBe(3)
+  })
+
+  // Pins the list against being "completed" from
+  // `truncated-write-guard.ts`'s `FILE_MUTATING_TOOL_NAMES`: these two mutate
+  // files but never answer with `errorMessage`, so in production this shape
+  // cannot occur for them and counting them would only widen the guard's
+  // precondition. The fixture supplies the shape anyway, so what is asserted
+  // is the list membership itself.
+  it.each(['apply_patch', 'propose_write_file'])(
+    'leaves %s out of the loop tools',
+    (toolName) => {
+      expect(
+        trailingIdenticalRejectedEdits([
+          ...edit('a', { path: 'a.ts', content: 'x' }, undefined, toolName),
+          ...edit('b', { path: 'a.ts', content: 'x' }, undefined, toolName),
+        ]),
+      ).toBe(0)
+    },
+  )
+
   it.each([
     ['user steering', [userMessage('Do something else')]],
     ['another tool', edit('read', { paths: ['a.ts'] }, {}, 'read_files')],
