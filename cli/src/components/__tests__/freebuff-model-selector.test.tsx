@@ -600,6 +600,8 @@ describe('FreebuffModelSelector tier layout', () => {
       lines.findIndex((line) => line.startsWith('UNLIMITED · Experimental models')),
       cardLine('Solar Pro 4'),
       lines.findIndex((line) => line.startsWith('OPTIMIZED · Strongest')),
+      // DeepSeek V4.1 Flash leads Optimized as its pick since 2026-10-14.
+      cardLine('DeepSeek V4.1 Flash'),
       cardLine('MiMo 2.6 Flash'),
       // GPT-6 Luna sits in Optimized since 2026-10-13.
       cardLine('GPT-6 Luna'),
@@ -608,7 +610,8 @@ describe('FreebuffModelSelector tier layout', () => {
     ]
     expect(order.every((at) => at >= 0)).toBe(true)
     expect(order).toEqual([...order].sort((a, b) => a - b))
-    expect(lines[cardLine('MiMo 2.6 Flash') + 1]).toContain('Recommended')
+    expect(lines[cardLine('DeepSeek V4.1 Flash') + 1]).toContain('Recommended')
+    expect(lines[cardLine('MiMo 2.6 Flash') + 1]).not.toContain('Recommended')
     // Flash Fast is not badged Recommended since 2026-10-07.
     if (FREEBUFF_ENABLE_FAST_MODE_IN_UI) {
       expect(lines[cardLine('DeepSeek V4.1 Flash Fast') + 1]).not.toContain('Recommended')

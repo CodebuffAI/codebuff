@@ -33,9 +33,10 @@ describe('freebuffPickerPlacement', () => {
     const at = (id: string) => freebuffPickerPlacement([id], none)
     expect(at(FREEBUFF_SOLAR_PRO_4_MODEL_ID)).toEqual({ section: 'unlimited', order: expect.any(Number) })
     expect(at(FREEBUFF_SOLAR_MINI_4_MODEL_ID).section).toBe('unlimited')
-    expect(at(FREEBUFF_MIMO_V25_MODEL_ID)).toMatchObject({ section: 'optimized', recommended: true })
+    // DeepSeek V4.1 Flash leads Optimized as its pick since 2026-10-14.
+    expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toEqual({ section: 'optimized', order: 5, recommended: true })
+    expect(at(FREEBUFF_MIMO_V25_MODEL_ID)).toEqual({ section: 'optimized', order: 10 })
     expect(at(FREEBUFF_GLM_V53_FLASH_MODEL_ID).section).toBe('optimized')
-    expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID).section).toBe('optimized')
     // Muse Spark 1.3 and GPT-6 Luna moved to Optimized on 2026-10-13.
     for (const id of [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID, FREEBUFF_GPT_6_LUNA_MODEL_ID]) {
       expect(at(id)).toEqual({ section: 'optimized', order: expect.any(Number) })
@@ -46,7 +47,7 @@ describe('freebuffPickerPlacement', () => {
     expect(at(FREEBUFF_GEMINI_38_FLASH_MODEL_ID)).toMatchObject({ section: 'powerful', more: true })
     expect(at(FREEBUFF_GPT_61_SOL_MODEL_ID)).toMatchObject({ section: 'powerful', more: true })
     expect(at(FREEBUFF_GEMINI_38_FLASH_MODEL_ID).order).toBeLessThan(at(FREEBUFF_GPT_61_SOL_MODEL_ID).order)
-    // Not badged Recommended since 2026-10-07: Optimized's MiMo is the one pick.
+    // Not badged Recommended since 2026-10-07: Optimized's own pick is the one.
     expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID)).toEqual({ section: 'powerful', order: 20 })
   })
 

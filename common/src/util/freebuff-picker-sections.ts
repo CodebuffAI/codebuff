@@ -76,9 +76,12 @@ const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
     'm-916b95b337': { section: 'unlimited', order: 30, more: true }, // Ling 3.1 Flash
     'm-a273b5e513': { section: 'unlimited', order: 40, more: true }, // Laguna S 2.1
     // Optimized
-    'mimo/mimo-v2.5': { section: 'optimized', order: 10, recommended: true }, // MiMo 2.6 Flash
+    // DeepSeek V4.1 Flash leads Optimized as its pick (product, 2026-10-14):
+    // on the Luminal lane it is our cheapest Flash-class model ($0.91 per 1k
+    // messages over 10-07..13, against MiMo 2.6 Flash's $1.35 on OpenRouter).
+    'deepseek/deepseek-v4-flash': { section: 'optimized', order: 5, recommended: true }, // V4.1 Flash
+    'mimo/mimo-v2.5': { section: 'optimized', order: 10 }, // MiMo 2.6 Flash
     'z-ai/glm-5.3-flash': { section: 'optimized', order: 20 },
-    'deepseek/deepseek-v4-flash': { section: 'optimized', order: 30 }, // V4.1 Flash
     // Muse Spark 1.3 and GPT-6 Luna moved here from Powerful (2026-10-13).
     // Placement only: both stay plan-only at limited access.
     'meta/muse-spark-1.3-contributor': { section: 'optimized', order: 40 },
