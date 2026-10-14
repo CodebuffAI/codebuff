@@ -9,8 +9,8 @@ import {
 import type { SandboxJobRunners } from '../sandbox-jobs-runner'
 
 describe('sandbox job runners (COD-742 E1)', () => {
-  // Flipped one at a time on Owen's go (2026-10-14): storage sweep, run leases, errored sweep, pool reconcile.
-  const FLIPPED: readonly string[] = ['sweep_storage', 'sweep_run_leases', 'sweep_errored', 'reconcile_pool']
+  // Flipped one at a time on Owen's go (2026-10-14): storage sweep, run leases, errored sweep, pool reconcile, pool provisioning.
+  const FLIPPED: readonly string[] = ['sweep_storage', 'sweep_run_leases', 'sweep_errored', 'reconcile_pool', 'provision_pool']
 
   test('only the flipped jobs run on graphile; Convex runs the rest', () => {
     for (const job of SANDBOX_JOB_NAMES) {
