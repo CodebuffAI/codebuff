@@ -62,7 +62,7 @@ export const SANDBOX_JOB_RUNNERS: SandboxJobRunners = {
   sweep_errored: 'graphile',
   sweep_storage: 'graphile',
   sweep_run_leases: 'graphile',
-  sleep_idle: 'convex',
+  sleep_idle: 'graphile',
 }
 
 /**
