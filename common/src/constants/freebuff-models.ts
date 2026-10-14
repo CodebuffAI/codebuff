@@ -3847,9 +3847,13 @@ export const FREEBUFF_SESSION_GRACE_MS = 30 * 60 * 1000
  *  change model here".
  *
  *  Ending early is not a forfeit: the server re-stamps `session_units` to the
- *  fraction actually elapsed (`buildAdmitStampStatement`), so this REFUNDS the
- *  unused window and the next send re-admits on the same instance id. Getting it
- *  wrong costs one extra admission, not a session.
+ *  fraction actually elapsed (`buildAdmitStampStatement`), so the unused window
+ *  returns to the DAILY POOL and the next send re-admits on the same instance
+ *  id. Getting it wrong costs one extra admission, not a session.
+ *
+ *  That is the pool only. The Freebucks charged for the hour settle on provider
+ *  cost instead (`FREEBUCKS_SESSION_REFUND_REASON`), so the two refunds do not
+ *  agree and must not be described as one.
  *
  *  Ten minutes is measured against reading a long answer and typing the next
  *  prompt. Only a turn keeps the clock alive — scrolling and typing are
