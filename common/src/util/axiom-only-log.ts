@@ -66,6 +66,14 @@ export const CONTEXT_COMPACTION_COMPLETED_EVENT =
  *  tool calls (packages/agent-runtime/src/util/todo-progress-reminder.ts).
  *  Counts and labels only, never the to-dos or a user id. */
 export const TODO_PROGRESS_REMINDER_EVENT = 'todo_progress_reminder' as const
+/** A turn sitting on repeated rejected edits to the same file
+ *  (packages/agent-runtime/src/util/file-edit-loop.ts), emitted for
+ *  MEASUREMENT: it never stops a turn. `strictConsecutive` and `guardEligible`
+ *  are what the stopping guard scored at the same moment, so the share of
+ *  loops it does not see is a division rather than a guess, and
+ *  `varied`/`interleaved`/`mixedStep` say which of its three preconditions the
+ *  episode broke. Counts and labels only, never a path, an edit or a user id. */
+export const FILE_EDIT_LOOP_EVENT = 'file_edit_loop' as const
 /** The runtime reminded a model, as its turn was ending, to report a Gravity
  *  integration it had been recommended and then edited files for
  *  (packages/agent-runtime/src/util/gravity-report-nudge.ts). Counts and
@@ -314,6 +322,23 @@ const TODO_PROGRESS_REMINDER_FIELDS = {
   done: 'number',
   total: 'number',
   callsSinceUpdate: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+const FILE_EDIT_LOOP_FIELDS = {
+  metric: 'string',
+  model: 'string',
+  agentId: 'string',
+  runId: 'string',
+  toolName: 'string',
+  /** Trailing steps that re-sent a rejected edit to the same file. */
+  consecutive: 'number',
+  /** The stopping guard's own count at the same moment. */
+  strictConsecutive: 'number',
+  /** Whether the step even met the stopping guard's precondition. */
+  guardEligible: 'boolean',
+  varied: 'boolean',
+  interleaved: 'boolean',
+  mixedStep: 'boolean',
 } as const satisfies AxiomOnlyFieldSchema
 
 const GRAVITY_REPORT_NUDGE_FIELDS = {
@@ -1043,6 +1068,7 @@ export type AxiomOnlyLogEvent = {
     | typeof CONTEXT_COMPACTION_COMPLETED_EVENT
     | typeof COMPACTION_FOLLOWUP_EVENT
     | typeof TODO_PROGRESS_REMINDER_EVENT
+    | typeof FILE_EDIT_LOOP_EVENT
     | typeof GRAVITY_REPORT_NUDGE_EVENT
     | typeof ADS_FETCH_COMPLETED_EVENT
     | typeof ADS_FIRST_PARTY_DECISION_EVENT
@@ -1144,6 +1170,12 @@ export function getAxiomOnlyLogEvent(
     return {
       event: eventName,
       data: sanitizeAllowlistedFields(record, COMPACTION_FOLLOWUP_FIELDS),
+    }
+  }
+  if (eventName === FILE_EDIT_LOOP_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, FILE_EDIT_LOOP_FIELDS),
     }
   }
   if (eventName === TODO_PROGRESS_REMINDER_EVENT) {

@@ -118,3 +118,127 @@ export function trailingIdenticalRejectedEdits(messages: Message[]): number {
 
   return count
 }
+
+/** What a near-miss of the guard above looked like. Counts and flags only: no
+ *  path, no file content, no edit arguments. */
+export type FileEditLoopNearMiss = {
+  /** Trailing steps that re-sent a rejected edit to the same file set. */
+  consecutive: number
+  /** Which of the holes this episode fell through, so the miss rate can be
+   *  attributed rather than guessed. */
+  varied: boolean
+  interleaved: boolean
+  mixedStep: boolean
+  /** The edit tool of the most recent counted step. */
+  toolName: string
+}
+
+/** A loop is edits with the odd read between them, not a long stretch of other
+ *  work with one failed edit at each end — and this runs on every step that
+ *  edits a file, so the walk back has to stay short. Consecutive steps that
+ *  made no file edit at all, beyond this many, end the count. */
+const NEAR_MISS_MAX_INTERLEAVED_STEPS = 2
+
+function editPath(input: Record<string, unknown>): string {
+  return typeof input.path === 'string' ? input.path : ''
+}
+
+/** The same shape as `trailingIdenticalRejectedEdits`, counted the way the
+ * loops users actually photograph look — FOR MEASUREMENT ONLY. Nothing stops a
+ * turn on this count.
+ *
+ * Three things the strict counter requires and a real loop often lacks:
+ *   - byte-identical arguments, so a model that nudges `old_string` each
+ *     attempt scores 1 forever (`varied`);
+ *   - an unbroken run of edit steps, so one `read_files` between two attempts
+ *     resets it (`interleaved`);
+ *   - a step whose calls are *all* edit tools, which is the caller's
+ *     precondition, so an edit batched with a read is never even looked at
+ *     (`mixedStep`).
+ *
+ * This counts trailing steps that kept sending rejected edits to the SAME file
+ * set, tolerating all three. An accepted edit, a different file set, or a real
+ * user message still ends the count: those are progress. Returns null when
+ * there is no trailing rejected edit at all. */
+export function trailingRejectedEditsToSameFiles(
+  messages: Message[],
+): FileEditLoopNearMiss | null {
+  let count = 0
+  let latestPaths: string | undefined
+  let latestKeys: string | undefined
+  let varied = false
+  let interleaved = false
+  let mixedStep = false
+  let toolName = ''
+  let interleavedRun = 0
+  const rejected = new Set<string>()
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]!
+    if (message.role === 'user') {
+      if (
+        message.tags?.includes('STEP_PROMPT') ||
+        message.tags?.includes(FILE_EDIT_LOOP_RECOVERY_TAG)
+      ) {
+        continue
+      }
+      break
+    }
+    if (message.role === 'tool') {
+      // An edit that landed is progress, whichever step it belonged to.
+      // Other tools' results are ignored: their call decides the step.
+      if (isFileEditLoopTool(message.toolName)) {
+        if (!isRejectedEdit(message)) break
+        rejected.add(message.toolCallId)
+      }
+      continue
+    }
+    if (message.role !== 'assistant' || !Array.isArray(message.content))
+      continue
+
+    const paths: string[] = []
+    const keys: string[] = []
+    let others = 0
+    let unmatched = false
+    for (const part of message.content) {
+      if (part.type !== 'tool-call') continue
+      if (!isFileEditLoopTool(part.toolName)) {
+        others++
+        continue
+      }
+      // A call with no matching rejection is either still open or was
+      // answered some other way; either way this is not the loop.
+      if (!rejected.delete(part.toolCallId)) {
+        unmatched = true
+        continue
+      }
+      paths.push(editPath(part.input))
+      keys.push(editKey(part.toolName, part.input))
+      toolName = part.toolName
+    }
+    if (unmatched) break
+    if (keys.length === 0) {
+      // A step of nothing but other tools. Before the first counted step it
+      // means the turn is not sitting on a rejected edit at all.
+      if (count === 0) return null
+      if (others > 0) interleaved = true
+      if (++interleavedRun > NEAR_MISS_MAX_INTERLEAVED_STEPS) break
+      continue
+    }
+    interleavedRun = 0
+    if (others > 0) mixedStep = true
+
+    const stepPaths = JSON.stringify([...paths].sort())
+    if (latestPaths !== undefined && stepPaths !== latestPaths) break
+    const stepKeys = JSON.stringify([...keys].sort())
+    // The whole point of this counter: a varied edit is still the same loop.
+    if (latestKeys !== undefined && stepKeys !== latestKeys) varied = true
+    latestPaths = stepPaths
+    latestKeys = stepKeys
+    count++
+    if (count >= FILE_EDIT_LOOP_STOP_THRESHOLD) break
+  }
+
+  if (count === 0) return null
+  return { consecutive: count, varied, interleaved, mixedStep, toolName }
+}

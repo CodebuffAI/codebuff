@@ -21,6 +21,7 @@ import {
   MECHANICAL_COMPACTION_SKIPPED_EVENT,
   CONTEXT_COMPACTION_COMPLETED_EVENT,
   COMPACTION_FOLLOWUP_EVENT,
+  FILE_EDIT_LOOP_EVENT,
   TODO_PROGRESS_REMINDER_EVENT,
   ADS_CLIENT_EVENT_HYGIENE_FIELDS,
   ADS_FIRST_PARTY_TRACKING_FIELD_NAMES,
@@ -383,6 +384,44 @@ describe('getAxiomOnlyLogEvent', () => {
         elided_read_paths: 12,
         reread_paths: 4,
         read_tokens_after: 90_000,
+      },
+    })
+  })
+
+  test('file-edit loop ships counts and flags, never a path or an edit', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: FILE_EDIT_LOOP_EVENT,
+        metric: 'file_edit_loop_same_file',
+        consecutive: 3,
+        strictConsecutive: 1,
+        guardEligible: true,
+        varied: true,
+        interleaved: false,
+        mixedStep: false,
+        toolName: 'str_replace',
+        model: 'upstage/solar-pro-4',
+        agentId: 'base3',
+        runId: 'run-1',
+        // Not in the allowlist.
+        path: 'src/engine.js',
+        oldString: 'const secret = 1',
+        userId: 'user-1',
+      }),
+    ).toEqual({
+      event: FILE_EDIT_LOOP_EVENT,
+      data: {
+        metric: 'file_edit_loop_same_file',
+        consecutive: 3,
+        strictConsecutive: 1,
+        guardEligible: true,
+        varied: true,
+        interleaved: false,
+        mixedStep: false,
+        toolName: 'str_replace',
+        model: 'upstage/solar-pro-4',
+        agentId: 'base3',
+        runId: 'run-1',
       },
     })
   })
