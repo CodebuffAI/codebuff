@@ -1,5 +1,5 @@
 import { trackEvent as trackCommonEvent } from '@codebuff/common/analytics'
-import { BYOK_LOCAL_USER_ID } from '@codebuff/common/constants/byok'
+import { BYOK_LOCAL_USER_ID, BYOK_RUN_ID_PREFIX } from '@codebuff/common/constants/byok'
 import { env as clientEnvDefault } from '@codebuff/common/env'
 import { getCiEnv } from '@codebuff/common/env-ci'
 import { shouldTrackAnalyticsEvent } from '@codebuff/common/util/analytics-sampling'
@@ -132,7 +132,7 @@ export function getAgentRuntimeImpl(
       ? async () => null
       : (fetchParams) =>
           fetchAgentFromDatabase({ ...fetchParams, trustedAgentPublishers }),
-    startAgentRun: byok ? async () => `byok-${crypto.randomUUID()}` : startAgentRun,
+    startAgentRun: byok ? async () => `${BYOK_RUN_ID_PREFIX}${crypto.randomUUID()}` : startAgentRun,
     finishAgentRun: byok ? async () => {} : finishAgentRun,
     addAgentStep: byok ? async () => `byok-step-${crypto.randomUUID()}` : addAgentStep,
 

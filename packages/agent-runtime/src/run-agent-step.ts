@@ -1,5 +1,6 @@
 import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 import { compactionThreshold } from '@codebuff/common/constants/compaction-policy'
+import { BYOK_RUN_ID_PREFIX } from '@codebuff/common/constants/byok'
 import {
   supportsAssistantPrefill,
   supportsCacheControl,
@@ -45,6 +46,7 @@ import {
 import type { CompactionWindow } from './compaction-followup'
 import {
   automaticCompactionIsWorthwhile,
+  compactionOverBudgetMessage,
   compactMechanically,
 } from './compaction'
 import { CACHE_DEBUG_FULL_LOGGING } from './constants'
@@ -1478,7 +1480,10 @@ export async function loopAgentSteps(
             currentAgentState.contextTokenCount > maxContextLength
           ) {
             throw new Error(
-              `Compaction could not bring this conversation under the model's ${maxContextLength.toLocaleString('en-US')}-token context budget. History has been preserved. Start a new thread, or give a BYOK connection a larger context window if its model supports one.`,
+              compactionOverBudgetMessage({
+                maxContextLength,
+                byok: runId.startsWith(BYOK_RUN_ID_PREFIX),
+              }),
             )
           }
           totalSteps++

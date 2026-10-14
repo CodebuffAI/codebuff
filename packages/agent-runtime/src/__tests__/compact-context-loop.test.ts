@@ -5,6 +5,7 @@
  */
 
 import * as analytics from '@codebuff/common/analytics'
+import { BYOK_RUN_ID_PREFIX } from '@codebuff/common/constants/byok'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { clearMockedModules } from '@codebuff/common/testing/mock-modules'
@@ -119,6 +120,7 @@ describe('compactContext in loopAgentSteps', () => {
     messageHistory: Message[],
     prompt?: string,
     logged?: unknown[],
+    runtimeOverrides: Record<string, unknown> = {},
   ) => {
     const {
       agentTemplate: _,
@@ -126,7 +128,7 @@ describe('compactContext in loopAgentSteps', () => {
       ...baseRuntimeParams
     } = createTestAgentRuntimeParams()
 
-    runtimeImpl = { ...baseRuntimeParams }
+    runtimeImpl = { ...baseRuntimeParams, ...runtimeOverrides }
     if (logged)
       runtimeImpl.logger = {
         ...baseRuntimeParams.logger,
@@ -207,6 +209,41 @@ describe('compactContext in loopAgentSteps', () => {
     ).toEqual([
       expect.objectContaining({ trigger_reason: 'context_limit' }),
     ])
+  })
+
+  describe('when compaction cannot get under the budget', () => {
+    /** The run's error output appends the stack after the message. */
+    const firstLine = (output: { type: string; message?: string }) =>
+      output.message?.split('\n')[0]
+
+    /** The live request is kept verbatim, so one this large cannot shrink. */
+    const unshrinkable = (): Message[] => [
+      {
+        ...userMessage('LIVE REQUEST BODY '.repeat(5_000)),
+        tags: ['USER_PROMPT'],
+        sentAt: 1_000_000,
+      },
+    ]
+
+    it('points a hosted run at a larger-context model', async () => {
+      const result = await runLoop(overBudget, unshrinkable())
+      expect(runtimeImpl.promptAiSdkStream).not.toHaveBeenCalled()
+      expect(result.output.type).toBe('error')
+      expect(firstLine(result.output)).toBe(
+        "Agent run error: Compaction could not bring this conversation under the model's 4,096-token context budget. History has been preserved. Start a new thread, or switch to a model with a larger context window.",
+      )
+    })
+
+    it('keeps the context window hint for a BYOK run', async () => {
+      const result = await runLoop(overBudget, unshrinkable(), undefined, [], {
+        startAgentRun: async () => `${BYOK_RUN_ID_PREFIX}test-run`,
+      })
+      expect(runtimeImpl.promptAiSdkStream).not.toHaveBeenCalled()
+      expect(result.output.type).toBe('error')
+      expect(firstLine(result.output)).toBe(
+        "Agent run error: Compaction could not bring this conversation under the model's 4,096-token context budget. History has been preserved. Start a new thread, or give a BYOK connection a larger context window if its model supports one.",
+      )
+    })
   })
 
   it('leaves the history alone when the agent has not opted in', async () => {

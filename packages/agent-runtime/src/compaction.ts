@@ -98,6 +98,22 @@ export function automaticCompactionIsWorthwhile(params: {
   )
 }
 
+/**
+ * Why the run stops when compaction left it over the hard budget, and the way
+ * out. A BYOK connection's window is the user's own setting; a hosted model's
+ * is fixed, so there the way out is another model. web's Desktop Cloud error
+ * passthrough matches the opening words.
+ */
+export function compactionOverBudgetMessage(params: {
+  maxContextLength: number
+  byok: boolean
+}): string {
+  const remedy = params.byok
+    ? 'give a BYOK connection a larger context window if its model supports one'
+    : 'switch to a model with a larger context window'
+  return `Compaction could not bring this conversation under the model's ${params.maxContextLength.toLocaleString('en-US')}-token context budget. History has been preserved. Start a new thread, or ${remedy}.`
+}
+
 export function compactMechanically(params: {
   messages: Message[]
   maxContextLength: number
