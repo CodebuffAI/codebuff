@@ -87,6 +87,16 @@ export const terminalCommandOutputSchema = z.union([
  *
  * Both variants share the same task-authorization guidance. This option only
  * changes commit attribution.
+ *
+ * `attribution: true` is still the shipped default, and it is still a footer
+ * the agent adds without being asked. What it is NOT is unconditional: a user
+ * who asks for no AI attribution, or a repository whose instruction file says
+ * so, gets none. That exception is stated inside step 4 and repeated beside
+ * the worked example, for the reason above — a user's prose instruction
+ * arriving in the run's prompt loses to a concrete example in the tool
+ * description, which is how a user came to report (2026-10-14) that there was
+ * no way to turn the trailer off. There is no user-facing switch for it yet;
+ * `suppressCommitAttribution` is an agent-definition field, not a setting.
  */
 export function buildGitCommitGuidePrompt(options: {
   attribution: boolean
@@ -102,6 +112,7 @@ const GIT_COMMIT_ATTRIBUTION_STEP = `4. **Create the commit, ending with this sp
    Generated with Codebuff 🤖
    Co-Authored-By: Codebuff <noreply@codebuff.com>
    \`\`\`
+   **Unless this repository or this user has asked for no attribution.** If the user says so, or an instruction file you have read (AGENTS.md, CLAUDE.md, a knowledge file) says not to add AI attribution, co-author lines or trailers, then end the message at its own last line: no footer, no \`Co-Authored-By\`, no "Generated with" line, and the footer in the examples below does not apply.
    Commands run in bash on every OS (Git Bash on Windows), so always use HEREDOC syntax to format the message:
    \`\`\`
    git commit -m "$(cat <<'EOF'
@@ -111,7 +122,8 @@ const GIT_COMMIT_ATTRIBUTION_STEP = `4. **Create the commit, ending with this sp
    Co-Authored-By: Codebuff <noreply@codebuff.com>
    EOF
    )"
-   \`\`\``
+   \`\`\`
+   The same HEREDOC, with the two footer lines omitted, is the form to use when attribution has been declined.`
 
 const GIT_COMMIT_PLAIN_STEP = `4. **Create the commit.** Do NOT add any trailer, footer, co-author line or attribution of any kind to the commit message — no \`Co-Authored-By\`, no "Generated with" line. The message is the message and nothing else.
    Commands run in bash on every OS (Git Bash on Windows), so always use HEREDOC syntax to format the message:
