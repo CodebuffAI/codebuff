@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { codeSearchExecFlagRefusal } from '../../../common/src/util/code-search-flags'
+import { isSensitiveEnvFilePath } from '../../../common/src/util/env-file-path'
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
 
@@ -323,6 +324,17 @@ export function codeSearch({
         if (evt.type === 'match' || evt.type === 'context') {
           // Handle both text and bytes for non-UTF8 paths
           const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
+          // `read_files` refuses the env family outright
+          // (`isSensitiveEnvFilePath`), and a code_search match line IS the
+          // file's content -- for a `.env` it is the whole `KEY=secret` pair.
+          // Ripgrep only skips those files because they are hidden and usually
+          // gitignored, and the model writes the flags: `-uu` (or `--hidden
+          // --no-ignore`) brings them back, which the tool neither refuses nor
+          // mentions. Drop them here, before grouping and before any counter,
+          // so the output is identical to a search that matched nothing in
+          // them. Templates (`.env.example` and family) stay searchable, by the
+          // same rule the read policy uses, so the two cannot drift.
+          if (isSensitiveEnvFilePath(filePath)) continue
           const lineNumber = evt.data.line_number ?? 0
           // Strip trailing newlines to prevent blank lines in output
           const rawText = evt.data.lines?.text ?? ''
@@ -425,6 +437,9 @@ export function codeSearch({
                 if (evt?.type === 'match' || evt?.type === 'context') {
                   const filePath =
                     evt.data.path?.text ?? evt.data.path?.bytes ?? ''
+                  // Same env-family refusal as the streaming branch above; the
+                  // tail of ripgrep's output arrives here, so both need it.
+                  if (isSensitiveEnvFilePath(filePath)) continue
                   const lineNumber = evt.data.line_number ?? 0
                   const rawText = evt.data.lines?.text ?? ''
                   const lineText = rawText.replace(/\r?\n$/, '')
