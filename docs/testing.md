@@ -2,7 +2,7 @@
 
 - Prefer dependency injection over module mocking; define contracts in `common/src/types/contracts/`.
 - Use `spyOn()` only for globals / legacy seams.
-- Avoid `mock.module()` for functions; use `@codebuff/common/testing/mock-modules.ts` helpers for constants only.
+- Avoid `mock.module()` for functions; use `@codebuff/common/testing/mock-modules.ts` helpers for constants only. A module mock lasts for the rest of the `bun test` process, and `mock.restore()` does not undo it (see "the FILE ORDER").
 
 CLI hook testing note: React 19 + Bun + RTL `renderHook()` is unreliable; prefer integration tests via components for hook behavior.
 
@@ -786,6 +786,37 @@ and keep that in module state behind a reset seam (`resetWorkspaceProfileSurveyS
 spend it. So a test that needs the card resets it in `beforeEach`, not only
 `afterEach`. Otherwise its first test renders nothing whenever bun loads it after
 `workspace-app.dom` or `workspace-queue.dom` (2026-10-13, `sponsored-survey.dom`).
+
+**`mock.module()` is the same hazard, and nothing in bun undoes it.** Measured on
+Bun 1.3.14 (2026-10-13):
+
+- **`mock.restore()` does not restore a module mock.** It restores spies. A file
+  that ends `afterAll(() => mock.restore())` leaves its module fakes in place for
+  every file after it. Only `clearMockedModules()` from
+  `@codebuff/common/testing/mock-modules.ts` puts a module back.
+- **The fake behaves two ways, depending on whether anything loaded the module
+  first.** If nothing did, later importers get only the factory's exports, and
+  any file that imports another one fails to load:
+  `SyntaxError: Export named 'db' not found in module '.../db/index.ts'`. If an
+  earlier file did, bun patches the factory's exports into the loaded module in
+  place and keeps the rest. Later files, and earlier importers through their live
+  bindings, then run silently against the fake. A two-file run usually shows the
+  first; the full suite usually the second.
+- **Bun walks directories breadth-first.** Shallower directories come first;
+  within a directory, files and subdirectories come in readdir order, which is
+  fixed per tree on APFS and ext4 but differs between them. So
+  `bun test leaker.test.ts victim.test.ts` runs the pair in that tree order, whatever
+  the command line says (`--reporter=junit` lists it). A file can leak only into
+  files bun loads after it: at the same depth, later in that order, or deeper.
+
+So inject the dependency instead: a handler that takes its collaborators (the
+`_post.ts` + `route.ts` split), or an optional `deps` argument. To reproduce a
+suspected module-mock leak, run the leaking file with the victim. If bun orders
+the victim first, put the leaking file's `mock.module` calls in a preload beside
+it, so relative paths and `@/` resolve the same way. Then run the victim with
+web's own preloads, since `--preload` on the command line replaces bunfig's list.
+For the in-place case, `await import()` each module in that preload before
+mocking it.
 
 **An eighth shape, and one where the wait is fast and the CHECK is slow: a
 failing matcher handed a mounted DOM node.** `expect(node).toBe(other)` and
