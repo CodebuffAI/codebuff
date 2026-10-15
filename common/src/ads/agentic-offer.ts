@@ -46,6 +46,12 @@ import { genericSetupInvitationSchema } from './generic-setup-invitation'
 import { sponsoredEnvironmentWarningSchema } from './sponsored-environment-warning'
 import { SPONSORED_IN_PLACE_VERSION } from './sponsored-in-place'
 import { SPONSORED_RUN_SPEC_VERSION } from './sponsored-run-spec'
+import {
+  MAX_REPO_FACT_DEPENDENCY_NAMES,
+  MAX_REPO_FACT_MANIFESTS,
+  MAX_REPO_FACT_PATHS,
+  type SponsoredRepoFacts,
+} from './sponsored-skill-fit'
 
 /** `agenticOfferRoute` on an `/api/ads` request, and `v` on this route's wire. */
 export const AGENTIC_OFFER_ROUTE_VERSION = 1
@@ -106,6 +112,56 @@ export const agenticOfferDeviceSchema = z
     locale: z.string().max(100).optional(),
   })
   .strict()
+
+const repoFactPath = z
+  .string()
+  .min(1)
+  .max(400)
+  .refine((path) => !path.startsWith('/') && !path.split('/').includes('..'))
+
+/**
+ * The repository's fit facts (`sponsoredRepoFacts`, `sponsored-skill-fit.ts`):
+ * fit-file paths and the manifests' dependency names, capped. The names are
+ * used in memory to decide fit and NEVER logged, persisted or put in the
+ * training log (Owen, 2026-10-14). Sent top-level, beside the strict
+ * capabilities, so a server that predates it ignores it rather than 400ing.
+ */
+export const sponsoredRepoFactsSchema: z.ZodType<SponsoredRepoFacts> = z
+  .object({
+    v: z.literal(1),
+    paths: z.array(repoFactPath).max(MAX_REPO_FACT_PATHS),
+    complete: z.boolean(),
+    absent: z.array(repoFactPath).max(16).optional(),
+    manifests: z
+      .array(
+        z
+          .object({
+            path: repoFactPath,
+            ecosystem: z.enum(['npm', 'pypi']),
+            names: z
+              .array(z.string().min(1).max(214))
+              .max(MAX_REPO_FACT_DEPENDENCY_NAMES),
+            complete: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(MAX_REPO_FACT_MANIFESTS)
+      .refine(
+        (manifests) =>
+          manifests.reduce((n, manifest) => n + manifest.names.length, 0) <=
+          MAX_REPO_FACT_DEPENDENCY_NAMES,
+      ),
+    empty: z.array(repoFactPath).max(MAX_REPO_FACT_PATHS).optional(),
+  })
+  .strict()
+
+/** A request's `repoFacts`, or null when absent or malformed (never a 400). */
+export function parseAgenticOfferRepoFacts(
+  value: unknown,
+): SponsoredRepoFacts | null {
+  const parsed = sponsoredRepoFactsSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
+}
 
 export const agenticOfferRequestSchema = z.object({
   v: z.literal(AGENTIC_OFFER_ROUTE_VERSION),
@@ -174,6 +230,12 @@ export const agenticOfferRequestSchema = z.object({
    * malformed value is dropped instead of failing the request.
    */
   projectKey: z.unknown().optional(),
+  /**
+   * The repository's fit facts (`sponsoredRepoFactsSchema`). Unknown here and
+   * read with `parseAgenticOfferRepoFacts`, so a malformed value is dropped
+   * instead of failing the request.
+   */
+  repoFacts: z.unknown().optional(),
 })
 
 export type AgenticOfferRequest = z.infer<typeof agenticOfferRequestSchema>
