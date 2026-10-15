@@ -308,7 +308,7 @@ const AuthedSurface = (props: AuthedSurfaceProps) => {
   )
   // Before the session: its first request waits for the first catalog.
   useFreebuffModelCatalog({ enabled: !hasSelectedByokConnection })
-  const { session } = useFreebuffSession({
+  const { session, lastRefund, refundPending } = useFreebuffSession({
     enabled: !hasSelectedByokConnection,
   })
 
@@ -320,7 +320,12 @@ const AuthedSurface = (props: AuthedSurfaceProps) => {
       continueChat={props.continueChat}
       continueChatId={props.continueChatId}
     >
-      <AuthedSurfaceRoutes {...props} session={session} />
+      <AuthedSurfaceRoutes
+        {...props}
+        session={session}
+        lastRefund={lastRefund}
+        refundPending={refundPending}
+      />
     </ChatRuntimeProvider>
   )
 }
@@ -341,8 +346,12 @@ export const AuthedSurfaceRoutes = ({
   onCancelChatHistory,
   onNewChat,
   session,
+  lastRefund,
+  refundPending,
 }: AuthedSurfaceProps & {
   session: ReturnType<typeof useFreebuffSession>['session']
+  lastRefund: ReturnType<typeof useFreebuffSession>['lastRefund']
+  refundPending: boolean
 }) => {
   // Local history is readable independently of model admission. Keep this
   // inside the runtime so browsing never tears down a running session.
@@ -369,6 +378,8 @@ export const AuthedSurfaceRoutes = ({
       gitRoot={gitRoot}
       onSwitchToGitRoot={onSwitchToGitRoot}
       freebuffSession={session}
+      freebuffLastRefund={lastRefund}
+      freebuffRefundPending={refundPending}
     />
   )
 }

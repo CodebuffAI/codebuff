@@ -26,7 +26,11 @@ import {
   useFreebuffChatStore,
   selectFreebuffChatModel,
 } from '../state/freebuff-chat-store'
-import { freebucksOf, formatFreebucks } from '../utils/freebucks'
+import {
+  freebucksOf,
+  formatFreebucks,
+  freebucksRefundLine,
+} from '../utils/freebucks'
 import {
   getFreebuffStreakBonusNoteForLayout,
   getFreebuffStreakBonusStatusForLayout,
@@ -45,9 +49,14 @@ const wordmarkVariants = [FREEBUFF_WORDMARK, FREEBUFF_WORDMARK_COMPACT].map(
 
 export function FreebuffChatHeader({
   session,
+  lastRefund = null,
+  refundPending = false,
 }: {
   projectRoot: string
   session: FreebuffSessionResponse | null
+  /** The ended hour's receipt, from `useFreebuffSession`. */
+  lastRefund?: number | null
+  refundPending?: boolean
 }) {
   const theme = useTheme()
   const { terminalWidth, terminalHeight } = useTerminalDimensions()
@@ -56,6 +65,9 @@ export function FreebuffChatHeader({
   const directory = useFreebuffModelDirectory()
   const model = directory.get(nextModel ?? selected)
   const freebucks = freebucksOf(session)
+  // The session store clears the receipt the moment a new session goes
+  // active, so this only ever describes the hour just finished.
+  const refund = freebucksRefundLine(lastRefund, refundPending)
   const plan = freebuffPlanSummary(getSubscriptionInfo(session))
   const windows = freebuffFreeWindowsSummary(getFreeWindowsInfo(session))
   const streak = useFreebuffStreakQuery({
@@ -128,6 +140,11 @@ export function FreebuffChatHeader({
         )}
         {freebucks === null && (
           <text style={{ fg: theme.secondary }}>Balance unavailable</text>
+        )}
+        {refund && (
+          <text style={{ fg: theme.secondary, wrapMode: 'word' }}>
+            {refund}
+          </text>
         )}
         {plan && (
           <text style={{ fg: theme.muted, wrapMode: 'word' }}>

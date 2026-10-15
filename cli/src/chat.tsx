@@ -166,6 +166,8 @@ export const Chat = ({
   gitRoot,
   onSwitchToGitRoot,
   freebuffSession,
+  freebuffLastRefund = null,
+  freebuffRefundPending = false,
 }: {
   consumeInitialPrompt: () => string | null
   fileTree: FileTreeNode[]
@@ -178,6 +180,9 @@ export const Chat = ({
   gitRoot?: string | null
   onSwitchToGitRoot?: () => void
   freebuffSession: FreebuffSessionResponse | null
+  /** The ended hour's Freebucks receipt, shown in the Freebuff panel. */
+  freebuffLastRefund?: number | null
+  freebuffRefundPending?: boolean
 }) => {
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
   const headerRef = useRef<BoxRenderable | null>(null)
@@ -2242,6 +2247,8 @@ export const Chat = ({
             <FreebuffChatHeader
               projectRoot={getProjectRoot()}
               session={freebuffSession}
+              lastRefund={freebuffLastRefund}
+              refundPending={freebuffRefundPending}
             />
           ) : (
             <ChatHeader

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   freebucksHeaderLine,
+  freebucksRefundLine,
   freebucksResetCountdown,
   freebucksPriceFor,
   freebucksPriceLabel,
@@ -252,5 +253,40 @@ describe('freebucksPriceFor', () => {
   test('is undefined off the meter and for a row the map omits', () => {
     expect(freebucksPriceFor(undefined, 'glm')).toBeUndefined()
     expect(freebucksPriceFor(metered(), 'nope')).toBeUndefined()
+  })
+})
+
+describe('the refund receipt', () => {
+  test('names the unspent charge, never the time left on the hour', () => {
+    // The whole point of the line: six reports in two hours read the refund as
+    // pro-rated by elapsed minutes.
+    expect(freebucksRefundLine(37, false)).toBe(
+      "37 Freebucks returned: what the hour's price did not spend, not the time left on it.",
+    )
+    expect(freebucksRefundLine(1, false)).toBe(
+      "1 Freebuck returned: what the hour's price did not spend, not the time left on it.",
+    )
+  })
+
+  test('a settled zero says so, and says what a refund returns', () => {
+    // The reported case. Silence here is what users read as "the feature was
+    // removed"; it must not read as an error either.
+    expect(freebucksRefundLine(0, false)).toBe(
+      'No Freebucks returned: this hour used up its full price. A refund returns unspent Freebucks, never unused time.',
+    )
+  })
+
+  test('a pending receipt promises the unspent charge, not a number', () => {
+    expect(freebucksRefundLine(null, true)).toBe(
+      'Refund settling: the Freebucks this hour did not spend come back.',
+    )
+    // Pending outranks a stale amount: the settled figure is not known yet.
+    expect(freebucksRefundLine(4, true)).toBe(
+      'Refund settling: the Freebucks this hour did not spend come back.',
+    )
+  })
+
+  test('says nothing when no receipt exists', () => {
+    expect(freebucksRefundLine(null, false)).toBeNull()
   })
 })

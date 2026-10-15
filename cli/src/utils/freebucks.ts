@@ -194,3 +194,32 @@ export function freebucksResetCountdown(
   if (hours > 0) return `${hours}h ${minutes}m`
   return `${minutes}m`
 }
+
+/**
+ * The end-of-session refund receipt, or null when there is nothing to report.
+ *
+ * Users read the refund as pro-rated by TIME — "I ended 20 minutes early and
+ * still lost all 100" — because nothing told them otherwise. It is not: the
+ * server returns `charge - final provider cost`, so ending early returns the
+ * charge the hour did not spend and never minutes. Every line below therefore
+ * names the quantity, and the zero case says so out loud instead of leaving
+ * the user to infer that the feature was removed.
+ *
+ * `0` is a settled receipt: the hour's usage cost as much as its price, which
+ * is the ordinary outcome on a cheap row and the one that gets reported as a
+ * bug. An unsettled or dropped receipt is `null` and says nothing.
+ */
+export function freebucksRefundLine(
+  lastRefund: number | null,
+  refundPending: boolean,
+): string | null {
+  if (refundPending) {
+    return `Refund settling: the ${FREEBUCKS_LABEL} this hour did not spend come back.`
+  }
+  if (lastRefund === null) return null
+  if (lastRefund <= 0) {
+    return `No ${FREEBUCKS_LABEL} returned: this hour used up its full price. A refund returns unspent ${FREEBUCKS_LABEL}, never unused time.`
+  }
+  const label = lastRefund === 1 ? 'Freebuck' : FREEBUCKS_LABEL
+  return `${formatFreebucks(lastRefund)} ${label} returned: what the hour's price did not spend, not the time left on it.`
+}
