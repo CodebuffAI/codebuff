@@ -128,6 +128,8 @@ function staticallyDecidable(
 ): boolean {
   if (!sponsoredFitCheckDecidable(check)) return false
   if (check.kind === 'file_contains') {
+    // `^` matches any text, so an absent `^` check is decided by presence alone.
+    if (check.absent && check.pattern === '^') return true
     const re = sponsoredSkillGlob(check.path)
     if (contentless(snapshot).some((path) => re.test(path))) return false
   }
