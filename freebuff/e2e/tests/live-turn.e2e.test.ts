@@ -65,9 +65,13 @@ async function focusModelRow(
   session: FreebuffSession,
   name: string,
 ): Promise<void> {
+  // "DeepSeek V4.1 Flash Fast" shares the prefix, and badges may follow the name
+  const focused = new RegExp(
+    `› ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\s*Fast\\b)`,
+  )
   for (let step = 0; step < 30; step++) {
     const output = await session.capture()
-    if (output.includes(`› ${name}`)) return
+    if (focused.test(output)) return
     await session.sendKey('Down')
     await sleep(300)
   }

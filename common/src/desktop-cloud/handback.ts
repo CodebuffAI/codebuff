@@ -49,3 +49,41 @@ export const HANDED_BACK_RUN_ERROR =
 /** The 409 a handback gets when Cloud moved on after the export; export again. */
 export const STALE_EXPORT_ERROR =
   'This chat changed in Cloud after its files were copied. Retry Continue locally.'
+
+/**
+ * Export v2 (`GET …/export?v=2`). The tar is the same working-tree copy, plus two entries under
+ * this directory, which a worktree never exports itself:
+ *
+ * - `meta.json` (`CloudExportMeta`): the commit the chat's worktree started from, its HEAD, and the
+ *   files tracked at HEAD that the working tree no longer has.
+ * - `commits.bundle`: `git bundle` of HEAD excluding `base` (absent when HEAD is the base; with
+ *   `history=full`, HEAD's whole history, for a Cloud project's first landing on a computer), under
+ *   the ref `CLOUD_EXPORT_BUNDLE_REF`. Its prerequisites are reachable from `base`, which the
+ *   computer that uploaded the chat has. Without a known base it holds HEAD's whole history.
+ *
+ * With them, Continue locally lands Cloud's commits as commits and merges Cloud's work with the
+ * computer's own, instead of flattening it over the current branch tip. An older server ignores
+ * `v` and sends v1 (no `meta.json`); Desktop then lands the files as before.
+ */
+export const CLOUD_EXPORT_V2_DIR = '.freebuff-export'
+/** The ref name inside `commits.bundle`. */
+export const CLOUD_EXPORT_BUNDLE_REF = 'HEAD'
+
+const commitSchema = z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/)
+
+export const cloudExportMetaSchema = z
+  .object({
+    version: z.literal(2),
+    /** The commit the worktree started from (its marker), or null for a chat initialized before it was recorded. */
+    base: commitSchema.nullable(),
+    /** The worktree's HEAD, or null for an empty repository. */
+    head: commitSchema.nullable(),
+    /** The worktree's branch. */
+    branch: z.string().max(400).nullable(),
+    /** Whether `commits.bundle` is in the tar. */
+    bundle: z.boolean(),
+    /** Tracked at HEAD, absent from the working tree. */
+    deleted: z.array(z.string().max(4096)).max(200_000),
+  })
+  .strict()
+export type CloudExportMeta = z.infer<typeof cloudExportMetaSchema>
