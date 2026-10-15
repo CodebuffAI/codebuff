@@ -513,13 +513,19 @@ export async function runSponsoredSkillPreflight(
   const reason = `Preflight failed before any edit: ${failed
     .map((result) => preflightFailureLine(skill, result))
     .join(' ')}`
+  // A wrong OS or a file/package check is the project not fitting the skill;
+  // only a command or script check is a missing toolchain.
+  const declaredChecks = sponsoredSkillPreflightChecks(skill)
+  const toolchainOnly = failed.every((result) => {
+    const declared = declaredChecks.find((c) => c.id === result.id)
+    return (
+      declared?.kind === 'command_succeeds' ||
+      declared?.kind === 'script_passes'
+    )
+  })
   deps.onFriction?.({
     blocking: true,
-    category: failed.some(
-      (result) => result.id === SPONSORED_PREFLIGHT_OS_CHECK_ID,
-    )
-      ? 'project_mismatch'
-      : 'missing_toolchain',
+    category: toolchainOnly ? 'missing_toolchain' : 'project_mismatch',
     // The server keeps the first SPONSORED_FRICTION_DETAIL_MAX characters.
     detail: reason.slice(0, SPONSORED_FRICTION_DETAIL_MAX),
   })
@@ -544,6 +550,40 @@ export async function runSponsoredSkillPreflight(
       preflight: checks,
     },
   }
+}
+
+/** The run error's opening, as {@link runSponsoredSkillPreflight} writes it. */
+export const SPONSORED_PREFLIGHT_FAILED_PREFIX = 'Preflight failed before any edit:'
+
+/**
+ * What a preflight refusal was, read back from its run error (also its
+ * SCRUBBED funnel copy, `scrubSponsoredDiagnostic`, which keeps these
+ * phrases): `os` when the skill does not support the OS, `fit` when a
+ * file or package check refused the project (the skill does not fit it),
+ * `command` when only a command or script check failed (a missing
+ * toolchain). Null for anything that is not a preflight refusal. The phrases
+ * are the evaluator's own details (`sponsored-skill-checks.ts`).
+ */
+export function sponsoredPreflightRefusalKind(
+  text: string | null | undefined,
+): 'os' | 'fit' | 'command' | null {
+  if (!text) return null
+  const lower = text.toLowerCase()
+  const at = lower.indexOf(SPONSORED_PREFLIGHT_FAILED_PREFIX.toLowerCase())
+  if (at < 0) return null
+  const body = lower.slice(at)
+  if (/this skill supports [^;]*; this run is on/.test(body)) return 'os'
+  if (
+    /no file matches |no (?:changed )?file matching .*? contains |no (?:changed )?file matches |, which must not appear|package\.json is missing|package\.json does not declare|declares [a-z0-9_]+=/.test(
+      body,
+    )
+  )
+    return 'fit'
+  if (/could not run |exited -?(?:\d+|n)\b|has no [a-z]+ script/.test(body))
+    return 'command'
+  // A preflight refusal whose detail was cut: the project did not pass a
+  // check before any edit, which is a fit question first.
+  return 'fit'
 }
 
 /** What the agent reads when a step's checks failed. */
