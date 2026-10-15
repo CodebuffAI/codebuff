@@ -1,9 +1,10 @@
 
 import { describe, test, expect } from 'bun:test'
 
-import { GEMINI_3_5_FLASH_LITE_MODEL_ID } from '@codebuff/common/constants/gemini'
+import { FREEBUFF_GPT_6_LUNA_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
 
 import fileLister from '../file-explorer/file-lister'
+import fileListerMax from '../file-explorer/file-lister-max'
 import filePicker, { createFilePicker } from '../file-explorer/file-picker'
 
 import type { AgentState, ToolCall, StepText } from '../types/agent-definition'
@@ -38,23 +39,27 @@ describe('file-picker agent', () => {
       expect(filePicker.includeMessageHistory).toBe(false)
     })
 
-    test('has spawn_agents tool', () => {
-      expect(filePicker.toolNames).toContain('spawn_agents')
+    test('offers its report step no tools', () => {
+      expect(filePicker.toolNames).toEqual([])
+      expect(createFilePicker('max').toolNames).toEqual([])
     })
 
     test('can spawn file-lister agent', () => {
       expect(filePicker.spawnableAgents).toContain('file-lister')
     })
 
-    test('has disabled reasoning', () => {
-      expect(filePicker.reasoningOptions?.enabled).toBe(false)
+    test('runs without reasoning', () => {
+      expect(filePicker.reasoningOptions).toMatchObject({ effort: 'none' })
+      expect(fileLister.reasoningOptions).toMatchObject({ effort: 'none' })
     })
   })
 
   describe('createFilePicker - default mode', () => {
-    test('uses flash-lite model', () => {
-      const defaultPicker = createFilePicker('default')
-      expect(defaultPicker.model).toBe('google/gemini-2.5-flash-lite')
+    test('uses GPT-6 Luna, as its lister does', () => {
+      expect(createFilePicker('default').model).toBe(
+        FREEBUFF_GPT_6_LUNA_MODEL_ID,
+      )
+      expect(fileLister.model).toBe(FREEBUFF_GPT_6_LUNA_MODEL_ID)
     })
 
     test('spawns single file-lister', () => {
@@ -83,9 +88,9 @@ describe('file-picker agent', () => {
   })
 
   describe('createFilePicker - max mode', () => {
-    test('uses the stable Gemini Flash-Lite model', () => {
-      expect(createFilePicker('max').model).toBe(GEMINI_3_5_FLASH_LITE_MODEL_ID)
-      expect(fileLister.model).toBe(GEMINI_3_5_FLASH_LITE_MODEL_ID)
+    test('uses GPT-6 Luna, as its lister does', () => {
+      expect(createFilePicker('max').model).toBe(FREEBUFF_GPT_6_LUNA_MODEL_ID)
+      expect(fileListerMax.model).toBe(FREEBUFF_GPT_6_LUNA_MODEL_ID)
     })
 
     test('spawns single file-lister-max', () => {
@@ -249,17 +254,7 @@ describe('file-picker agent', () => {
               {
                 agentName: 'File Lister',
                 agentType: 'file-lister',
-                value: {
-                  type: 'lastMessage',
-                  value: [
-                    {
-                      role: 'assistant',
-                      content: [
-                        { type: 'text', text: 'src/auth.ts\nsrc/login.ts' },
-                      ],
-                    },
-                  ],
-                },
+                value: 'src/auth.ts\nsrc/login.ts',
               },
             ],
           },
@@ -303,17 +298,7 @@ describe('file-picker agent', () => {
               {
                 agentName: 'File Lister',
                 agentType: 'file-lister',
-                value: {
-                  type: 'lastMessage',
-                  value: [
-                    {
-                      role: 'assistant',
-                      content: [
-                        { type: 'text', text: 'src/file.ts\nsrc/file.ts\nsrc/other.ts' },
-                      ],
-                    },
-                  ],
-                },
+                value: 'src/file.ts\nsrc/file.ts\nsrc/other.ts',
               },
             ],
           },
@@ -358,15 +343,7 @@ describe('file-picker agent', () => {
               {
                 agentName: 'File Lister',
                 agentType: 'file-lister',
-                value: {
-                  type: 'lastMessage',
-                  value: [
-                    {
-                      role: 'assistant',
-                      content: [{ type: 'text', text: 'src/file.ts' }],
-                    },
-                  ],
-                },
+                value: 'src/file.ts',
               },
             ],
           },
@@ -485,17 +462,7 @@ describe('file-picker agent', () => {
               {
                 agentName: 'File Lister',
                 agentType: 'file-lister-max',
-                value: {
-                  type: 'lastMessage',
-                  value: [
-                    {
-                      role: 'assistant',
-                      content: [
-                        { type: 'text', text: 'src/auth.ts\nsrc/login.ts\nsrc/user.ts' },
-                      ],
-                    },
-                  ],
-                },
+                value: 'src/auth.ts\nsrc/login.ts\nsrc/user.ts',
               },
             ],
           },

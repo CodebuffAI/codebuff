@@ -6,7 +6,9 @@ import {
 } from '@codebuff/common/constants/freebuff-errors'
 
 import {
+  getFreebuffGateErrorKind,
   getFreebuffRateLimitErrorMessage,
+  getFreebuffSupersededReason,
   getFreeModeUnavailableErrorMessage,
   isOutOfCreditsError,
   isFreeModeUnavailableError,
@@ -309,6 +311,28 @@ describe('error-handling', () => {
         },
       ]) {
         expect(isFreebuffProviderUsageError(error)).toBe(true)
+      }
+    })
+
+    // Prod 2026-09-26: a paid (lite) Codebuff request answered 402 with the
+    // user's OWN balance message; the CLI said "this is on us, not your
+    // account" instead of the out-of-credits flow.
+    test("the user's own Codebuff out-of-credits 402 is not a provider problem", () => {
+      for (const error of [
+        {
+          statusCode: 402,
+          responseBody: JSON.stringify({
+            message:
+              'Out of credits. Please add credits at https://www.codebuff.com/usage.',
+          }),
+        },
+        {
+          statusCode: 402,
+          message:
+            'Out of credits. Please add credits at https://www.codebuff.com/usage.',
+        },
+      ]) {
+        expect(isFreebuffProviderUsageError(error)).toBe(false)
       }
     })
 
@@ -669,5 +693,78 @@ describe('error-handling', () => {
       const result = createErrorMessage(conflictError, 'msg-409')
       expect(result.content).toContain('Conflict detected')
     })
+  })
+})
+
+describe('getFreebuffGateErrorKind', () => {
+  test('classifies a 410 model_unavailable refusal', () => {
+    expect(
+      getFreebuffGateErrorKind({ error: 'model_unavailable', statusCode: 410 }),
+    ).toBe('model_unavailable')
+  })
+
+  test('requires the code and its status to match', () => {
+    expect(
+      getFreebuffGateErrorKind({ error: 'model_unavailable', statusCode: 409 }),
+    ).toBe(null)
+    expect(getFreebuffGateErrorKind({ error: 'model_unavailable' })).toBe(null)
+  })
+
+  test('leaves session_limit_reached to its own handler', () => {
+    expect(
+      getFreebuffGateErrorKind({
+        error: 'session_limit_reached',
+        statusCode: 409,
+      }),
+    ).toBe(null)
+  })
+})
+
+describe('getFreebuffSupersededReason', () => {
+  // The three messages the server sends with 409 session_superseded.
+  test('a refunded start (chat/completions, beginDesktopStart refunded)', () => {
+    expect(
+      getFreebuffSupersededReason(
+        'This model purchase was refunded. Start a new session to try again.',
+      ),
+    ).toBe('refunded_start')
+  })
+
+  test('an hour that closed before the request (RefundAdmissionClosedError)', () => {
+    expect(
+      getFreebuffSupersededReason(
+        'Your session ended before this request started. Send your message again to start a new one.',
+      ),
+    ).toBe('session_closed')
+  })
+
+  test('a takeover, and any message naming neither, stays a takeover', () => {
+    expect(
+      getFreebuffSupersededReason(
+        'Another instance of freebuff has taken over this session. Only one instance per account is allowed.',
+      ),
+    ).toBe('taken_over')
+    expect(getFreebuffSupersededReason(undefined)).toBe('taken_over')
+  })
+})
+
+describe('model_at_capacity is not a session gate', () => {
+  test('neither the 503 nor the in-band shape classifies as a gate code', () => {
+    expect(
+      getFreebuffGateErrorKind({ error: 'model_at_capacity', statusCode: 503 }),
+    ).toBe(null)
+    expect(getFreebuffGateErrorKind({ error: 'model_at_capacity' })).toBe(null)
+  })
+
+  test('a 503 capacity refusal is not mistaken for a rate limit or provider billing', () => {
+    const output = {
+      type: 'error',
+      error: 'model_at_capacity',
+      statusCode: 503,
+      message:
+        'Space Bunny is at capacity right now. Please try again in a few minutes or pick another model.',
+    }
+    expect(getFreebuffRateLimitErrorMessage(output)).toBe(null)
+    expect(isFreebuffProviderUsageError(output)).toBe(false)
   })
 })

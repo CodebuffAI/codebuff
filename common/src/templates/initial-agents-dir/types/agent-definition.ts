@@ -51,6 +51,11 @@ export interface AgentDefinition {
       }
   )
 
+  /** Ceiling on output tokens for each model call this agent makes. Unset
+   * leaves the model's default. Reasoning tokens count against it on most
+   * providers, so set it only on an agent that does not think. */
+  maxOutputTokens?: number
+
   /**
    * Provider routing options for OpenRouter.
    * Controls which providers to use and fallback behavior.
@@ -154,7 +159,7 @@ export interface AgentDefinition {
 
   /** How the agent should output a response to its parent (defaults to 'last_message')
    *
-   * last_message: The last message from the agent, typically after using tools.
+   * last_message: The text of the agent's last turn, without reasoning. A parent receives it as a plain string in the spawn result's `value` (or an error, 'No response from agent', if that turn had no text).
    *
    * all_messages: All messages from the agent, including tool calls and results.
    *
@@ -195,6 +200,8 @@ export interface AgentDefinition {
    * style. Defaults to false, which keeps the legacy read behavior.
    */
   windowedFileReads?: boolean
+  /** One final verification opportunity after tool work, within the existing step budget. */
+  completionCheck?: boolean
 
   /** Drop the agent-attribution trailer from the run_terminal_command commit
    * guidance, so a commit this agent makes carries no `Co-Authored-By` or
@@ -203,12 +210,10 @@ export interface AgentDefinition {
    */
   suppressCommitAttribution?: boolean
 
-  /** Opt in to mechanical context compaction: the runtime rewrites old history
-   * into a condensed summary before the next step. Defaults to false.
+  /** Opt in to in-process context compaction. Defaults to false.
    *
-   * Compaction runs when the context grows past the model's budget, and also
-   * once the prompt cache has gone cold — the next request re-reads the whole
-   * history at full price anyway, so rewriting it there is free. Pass
+   * Compaction reserves input headroom and also runs after an idle gap. It is
+   * a mechanical rewrite of the history (no model call). Pass
    * `{ cacheExpiryMs }` to tune that idle threshold, or `{ cacheExpiryMs: null }`
    * to compact on the context limit only.
    *
@@ -220,6 +225,11 @@ export interface AgentDefinition {
   compactContext?:
     | boolean
     | {
+        /** Explicit input budget for a custom model, after reserving output tokens. */
+        maxContextLength?: number
+        /** The model's output token cap, when it is below 16,384. Model
+         * compaction asks for a summary that fits in it. */
+        maxOutputTokens?: number
         cacheExpiryMs?: number | null
         cacheExpiryMinTokens?: number | null
       }
@@ -328,8 +338,10 @@ export interface AgentState {
   >
 
   /**
-   * The token count from the Anthropic API.
-   * This is updated on every agent step via the /api/v1/token-count endpoint.
+   * Latest model call's reported input + output tokens, adjusted with cheap
+   * length estimates for subsequent tool results and history edits. Before a
+   * receipt (or after compaction/model change), entirely a length estimate.
+   * This is context occupancy, never accumulated/billed usage across calls.
    */
   contextTokenCount: number
 }
@@ -436,6 +448,7 @@ export type ModelName =
 
   // Anthropic
   | 'anthropic/claude-fable-5'
+  | 'anthropic/claude-fable-5.1'
   | 'anthropic/claude-opus-5'
   | 'anthropic/claude-sonnet-4.6'
   | 'anthropic/claude-opus-4.8'
@@ -444,7 +457,6 @@ export type ModelName =
   | 'anthropic/claude-opus-4.5'
   | 'anthropic/claude-haiku-4.5'
   | 'anthropic/claude-sonnet-4.5'
-  | 'anthropic/claude-opus-4.1'
 
   // Gemini
   | 'google/gemini-3.1-pro-preview'

@@ -1,7 +1,10 @@
 import { MAX_LOG_DATA_BYTES } from '../schemas/logs'
+import { serializeLogData } from './log-data'
 import {
   ADS_FIRST_PARTY_VIEW_ACK_EVENT,
+  ADS_SHOWCASE_PRESENTED_EVENT,
   createFirstPartyViewAckTelemetry,
+  createGravityShowcasePresentationTelemetry,
 } from './axiom-only-log'
 
 import type { LogRecordInput } from '../schemas/logs'
@@ -10,6 +13,12 @@ import type { LogRow, LogSource } from '../types/contracts/logs'
 /**
  * Truncate an oversized payload so a single client cannot bloat ingest volume.
  * Returns the original value when small.
+ *
+ * Oversized goes through the same field-wise fit as the server-side sink
+ * (`serializeLogData`), so a client row keeps the fields that identify it
+ * instead of collapsing to one `preview` string. The CLI is the producer that
+ * made this matter: its `Agent execution failed` line carries `messageHistory`
+ * and `systemPrompt`, and arrives here as `source: cli`.
  */
 function truncateData(data: unknown): unknown {
   if (data === undefined) return null
@@ -20,6 +29,14 @@ function truncateData(data: unknown): unknown {
     return { _unserializable: true }
   }
   if (serialized.length <= MAX_LOG_DATA_BYTES) return data
+  const fitted = serializeLogData(data)
+  if (fitted !== null) {
+    try {
+      return JSON.parse(fitted)
+    } catch {
+      // fall through to the preview below
+    }
+  }
   return {
     _truncated: true,
     original_bytes: serialized.length,
@@ -45,6 +62,44 @@ export function buildLogRows(params: {
   const { records, source, service, env, userId = null, now } = params
   return records.flatMap((record) => {
     const ts = record.timestamp ? new Date(record.timestamp) : now
+    const dataEvent =
+      record.data &&
+      typeof record.data === 'object' &&
+      !Array.isArray(record.data) &&
+      typeof (record.data as Record<string, unknown>).axiomEvent === 'string'
+        ? (record.data as Record<string, unknown>).axiomEvent
+        : undefined
+    if (
+      record.event === ADS_SHOWCASE_PRESENTED_EVENT ||
+      dataEvent === ADS_SHOWCASE_PRESENTED_EVENT
+    ) {
+      const telemetry = createGravityShowcasePresentationTelemetry(record.data)
+      if (
+        !userId ||
+        record.event !== ADS_SHOWCASE_PRESENTED_EVENT ||
+        (dataEvent !== undefined &&
+          dataEvent !== ADS_SHOWCASE_PRESENTED_EVENT) ||
+        !telemetry
+      )
+        return []
+      return [
+        {
+          id: crypto.randomUUID(),
+          timestamp: now,
+          level: record.level,
+          source,
+          service,
+          env,
+          event: ADS_SHOWCASE_PRESENTED_EVENT,
+          message: null,
+          user_id: userId,
+          client_session_id: null,
+          client_request_id: null,
+          fingerprint_id: null,
+          data: telemetry,
+        },
+      ]
+    }
     if (record.event === ADS_FIRST_PARTY_VIEW_ACK_EVENT) {
       const telemetry = createFirstPartyViewAckTelemetry(record.data)
       // This client-originated operational event must never inherit an

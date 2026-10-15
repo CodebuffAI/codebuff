@@ -23,8 +23,6 @@ import {
   initializeAgentRegistry,
   findAgentsDirectory,
   getLoadedAgentsData,
-  getLoadedAgentsMessage,
-  announceLoadedAgents,
   __resetLocalAgentRegistryForTests,
 } from '../../utils/local-agent-registry'
 
@@ -372,6 +370,76 @@ describe('Local Agent Integration', () => {
     expect(authlessAgent!.displayName).toBe('Authless Agent')
   })
 
+  test('custom agents do not make bundled fast-mode workers fail validation', async () => {
+    mkdirSync(agentsDir, { recursive: true })
+    writeAgentFile(
+      agentsDir,
+      'custom.ts',
+      `export default {
+        id: 'test-custom-agent',
+        displayName: 'Custom Agent',
+        model: '${MODEL_NAME}',
+        toolNames: [],
+      }`,
+    )
+
+    await initializeAgentRegistry({ agentDirs: [agentsDir] })
+    const definitions = loadAgentDefinitions()
+
+    for (const id of [
+      'base3-fast-worker-deepseek-flash',
+      'base3-fast-worker-deepseek-flash-evals',
+    ]) {
+      const worker = definitions.find((definition) => definition.id === id)
+      expect(worker).toBeDefined()
+      expect(worker!.spawnableAgents).toEqual([])
+      expect(worker!.toolNames).not.toContain('spawn_agents')
+    }
+    expect(
+      definitions.find(
+        (definition) => definition.id === 'base3-fast-free-deepseek-flash',
+      )?.spawnableAgents,
+    ).toContain('test-custom-agent')
+
+    const result = await validateAgents(definitions, { remote: false })
+    expect(result.validationErrors).toEqual([])
+    expect(result.success).toBe(true)
+  })
+
+  test.each([
+    ['spawn tool', "toolNames: ['spawn_agents']"],
+    ['inline spawn tool', "toolNames: ['spawn_agent_inline']"],
+    [
+      'programmatic spawning',
+      "toolNames: [], handleSteps: function* () { yield 'STEP' }",
+    ],
+  ])(
+    'preserves custom agent registration for base agents with %s',
+    async (_name, spawning) => {
+      mkdirSync(agentsDir, { recursive: true })
+      writeAgentFile(
+        agentsDir,
+        'base-custom.ts',
+        `export default {
+        id: 'base-test-custom',
+        displayName: 'Custom Base Agent',
+        model: '${MODEL_NAME}',
+        spawnableAgents: ['codebuff/file-picker@0.0.1'],
+        ${spawning},
+      }`,
+      )
+
+      await initializeAgentRegistry({ agentDirs: [agentsDir] })
+      const registered = () =>
+        loadAgentDefinitions().find(
+          (definition) => definition.id === 'base-test-custom',
+        )!.spawnableAgents
+      const expected = ['codebuff/file-picker@0.0.1', 'base-test-custom']
+      expect(registered()).toEqual(expected)
+      expect(registered()).toEqual(expected)
+    },
+  )
+
   // ============================================================================
   // loadLocalAgents tests (for UI/menu display)
   // ============================================================================
@@ -666,73 +734,6 @@ describe('Local Agent Integration', () => {
     expect(data!.agentsDir).toBe(agentsDir)
     expect(data!.agents.length).toBeGreaterThan(0)
     expect(data!.agents.some((a) => a.id === 'test-data-agent')).toBe(true)
-  })
-
-  test('getLoadedAgentsMessage returns null when no user agents', async () => {
-    await initializeAgentRegistry()
-    // Note: Returns bundled agents message even when no local .agents directory exists
-    const message = getLoadedAgentsMessage()
-    // With bundled agents, this will return a message (not null)
-    // The key is that user agents from test-* should not be present
-    if (message) {
-      expect(message).not.toContain('test-')
-    }
-  })
-
-  test('getLoadedAgentsMessage returns formatted message with agents', async () => {
-    mkdirSync(agentsDir, { recursive: true })
-
-    writeAgentFile(
-      agentsDir,
-      'message-test.ts',
-      `
-        export default {
-          id: 'test-message-agent',
-          displayName: 'Message Test Agent',
-          model: '${MODEL_NAME}',
-          instructions: 'For getLoadedAgentsMessage test'
-        }
-      `,
-    )
-
-    await initializeAgentRegistry()
-    const message = getLoadedAgentsMessage()
-
-    expect(message).not.toBeNull()
-    expect(message).toContain('Loaded')
-    expect(message).toContain('local agent')
-    expect(message).toContain(agentsDir)
-    expect(message).toContain('Message Test Agent')
-  })
-
-  test('announceLoadedAgents logs agent information', async () => {
-    mkdirSync(agentsDir, { recursive: true })
-
-    writeAgentFile(
-      agentsDir,
-      'announce-test.ts',
-      `
-        export default {
-          id: 'test-announce-agent',
-          displayName: 'Announce Test Agent',
-          model: '${MODEL_NAME}',
-          instructions: 'For announceLoadedAgents test'
-        }
-      `,
-    )
-
-    await initializeAgentRegistry()
-
-    // announceLoadedAgents uses logger.debug internally
-    // We verify it runs without error and the data is available via getLoadedAgentsData
-    announceLoadedAgents()
-
-    const data = getLoadedAgentsData()
-    expect(data).not.toBeNull()
-    expect(data!.agents.some((a) => a.id === 'test-announce-agent')).toBe(true)
-    expect(
-      data!.agents.some((a) => a.displayName === 'Announce Test Agent'),
-    ).toBe(true)
   })
 
   // ============================================================================

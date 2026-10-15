@@ -5,6 +5,38 @@ import path from 'path'
 
 import { getErrorObject } from '@codebuff/common/util/error'
 
+const CLONE_RETRY_DELAYS_MS = [5_000, 20_000]
+
+/** The task's commit and nothing after it, retried: a failed fetch is nearly
+ *  always the network, and a task without its repository would be scored as
+ *  an agent that did nothing. Fetched by URL rather than cloned, so there is
+ *  no `origin/main` holding the answer and no remote to fetch it from. */
+export async function cloneAtCommit(params: {
+  repoUrl: string
+  repoDir: string
+  sha: string
+}): Promise<void> {
+  const { repoUrl, repoDir, sha } = params
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.rmSync(repoDir, { recursive: true, force: true })
+      fs.mkdirSync(repoDir, { recursive: true })
+      execSync(
+        `git init -q && git fetch -q --depth 1 ${repoUrl} ${sha} && git checkout -q --detach FETCH_HEAD`,
+        { cwd: repoDir, stdio: 'ignore' },
+      )
+      return
+    } catch (error) {
+      const delay = CLONE_RETRY_DELAYS_MS[attempt]
+      if (delay === undefined) throw error
+      console.warn(
+        `Clone of ${repoUrl} at ${sha.slice(0, 8)} failed (${getErrorObject(error).message}); retrying in ${delay / 1000}s`,
+      )
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+  }
+}
+
 /**
  * Helper function to manage test repository lifecycle
  * Sets up a test repo, runs a function with the repo cwd, then cleans up
@@ -26,13 +58,7 @@ export const withTestRepo = async <T>(
   const repoDir = path.join(tempDir, 'repo')
 
   try {
-    execSync(`git clone --depth 1 ${repoUrl} ${repoDir}`, { stdio: 'ignore' })
-
-    execSync(`git fetch --depth 1 origin ${parentSha}`, {
-      cwd: repoDir,
-      stdio: 'ignore',
-    })
-    execSync(`git checkout ${parentSha}`, { cwd: repoDir, stdio: 'ignore' })
+    await cloneAtCommit({ repoUrl, repoDir, sha: parentSha })
 
     if (initCommand) {
       console.log(`Running init command: ${initCommand}...`)

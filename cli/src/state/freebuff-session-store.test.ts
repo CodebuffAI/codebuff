@@ -60,6 +60,22 @@ test('failed release is retryable and never invents a receipt', async () => {
   expect(useFreebuffSessionStore.getState().lastRefund).toBeNull()
 })
 
+test('an update restart keeps the held slot on every exit path', async () => {
+  useFreebuffSessionStore.getState().setFailure(null)
+  try {
+    useFreebuffSessionStore.getState().keepSlotForRelaunch()
+    // exitCliCleanly and the hook's unmount cleanup both land here; neither
+    // may end the hour the relaunched binary is about to take over.
+    await useFreebuffSessionStore.getState().releaseSlot()
+    await useFreebuffSessionStore.getState().releaseSlot(activeSession)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(useFreebuffSessionStore.getState().session).toEqual(activeSession)
+    expect(useFreebuffSessionStore.getState().failure).toBeNull()
+  } finally {
+    useFreebuffSessionStore.setState({ slotKeptForRelaunch: false })
+  }
+})
+
 test('release does nothing without a held slot or authentication', async () => {
   authSpy.mockReturnValue({ source: null })
   await expect(
@@ -191,4 +207,32 @@ test('a receipt poll cannot publish into a replacement session', async () => {
   respond(Response.json({ status: 'ended', freebucksRefund: 1 }))
   await poll
   expect(useFreebuffSessionStore.getState().lastRefund).toBeNull()
+})
+
+test('a settled receipt with no amount is not a zero refund', async () => {
+  // The abandoned settlement: the purchase was dropped, so the hour's receipt
+  // never names an amount. Zero would tell the user their usage spent the
+  // whole price, which is a claim this receipt does not make.
+  fetchSpy.mockResolvedValue(
+    Response.json({ status: 'ended', freebucksRefundPending: true }),
+  )
+  await useFreebuffSessionStore.getState().releaseSlot()
+  expect(useFreebuffSessionStore.getState().pendingRefund).not.toBeNull()
+  fetchSpy.mockResolvedValue(Response.json({ status: 'ended' }))
+  await useFreebuffSessionStore.getState().refreshRefund()
+  expect(useFreebuffSessionStore.getState().lastRefund).toBeNull()
+  // Settled is settled: the poll stops either way.
+  expect(useFreebuffSessionStore.getState().pendingRefund).toBeNull()
+})
+
+test('a settled zero is kept as a zero', async () => {
+  fetchSpy.mockResolvedValue(
+    Response.json({ status: 'ended', freebucksRefundPending: true }),
+  )
+  await useFreebuffSessionStore.getState().releaseSlot()
+  fetchSpy.mockResolvedValue(
+    Response.json({ status: 'ended', freebucksRefund: 0 }),
+  )
+  await useFreebuffSessionStore.getState().refreshRefund()
+  expect(useFreebuffSessionStore.getState().lastRefund).toBe(0)
 })

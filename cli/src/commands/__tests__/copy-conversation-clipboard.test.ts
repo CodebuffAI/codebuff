@@ -4,6 +4,7 @@ import { handleCopyConversationCommand } from '../copy-conversation'
 import { useChatStore } from '../../state/chat-store'
 import {
   clearClipboardMessage,
+  OSC52_UNVERIFIED_MESSAGE,
   registerClipboardRenderer,
   subscribeClipboardMessages,
   unregisterClipboardRenderer,
@@ -81,9 +82,13 @@ describe('/copy OSC 52 fallback', () => {
       22_000,
     )
     expect(clipboardWrites[0]).toContain('truncated to fit clipboard')
+    // Only OSC 52 ran, so the status is guidance and names no copy.
     expect(statusMessages).toContain(
-      'Copied conversation · 1 message (older messages truncated to fit clipboard)',
+      `Text shortened to fit the terminal. ${OSC52_UNVERIFIED_MESSAGE}`,
     )
+    expect(
+      statusMessages.some((message) => message?.startsWith('Copied')),
+    ).toBe(false)
     unsubscribe()
   })
 

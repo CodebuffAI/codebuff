@@ -2,9 +2,10 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   freebucksHeaderLine,
+  freebucksRefundLine,
   freebucksResetCountdown,
   freebucksPriceFor,
-  freebucksPriceLabel,
+  freebucksPriceText,
   freebucksRowIntent,
   sortModelsByPrice,
 } from '../freebucks'
@@ -186,7 +187,7 @@ describe('ordering', () => {
   test('equal prices break on name, so the order is stable', () => {
     const tied = [
       { id: 'solar', displayName: 'Solar Pro 4' },
-      { id: 'luna', displayName: 'GPT-5.6 Luna' },
+      { id: 'luna', displayName: 'GPT-6 Luna' },
     ]
     const prices = { solar: 20, luna: 20 }
     expect(
@@ -198,7 +199,7 @@ describe('ordering', () => {
 describe('the header line', () => {
   test('shows session balances and ignores legacy dollar caps', () => {
     expect(freebucksHeaderLine(metered())).toBe(
-      '30/75 Freebucks daily · 20 in wallet',
+      '6/15 hours daily · 4 hours in wallet',
     )
   })
 
@@ -206,38 +207,69 @@ describe('the header line', () => {
     // "$0 left" to somebody with a full allowance is worse than saying nothing.
     const { monthly: _drop, ...rest } = metered()
     expect(freebucksHeaderLine(rest as FreebuffFreebucksInfo)).toBe(
-      '30/75 Freebucks daily · 20 in wallet',
+      '6/15 hours daily · 4 hours in wallet',
     )
   })
 
   test('carries the reset countdown when given a clock', () => {
     const now = Date.parse('2026-09-05T02:48:00Z') // 4h 12m before the fixture's reset
     expect(freebucksHeaderLine(metered(), now)).toBe(
-      '30/75 Freebucks daily · resets in 4h 12m · 20 in wallet',
+      '6/15 hours daily · resets in 4h 12m · 4 hours in wallet',
     )
   })
 
   test('the countdown reads hours and minutes, then days, then "now"', () => {
     const reset = '2026-09-05T07:00:00Z'
-    expect(freebucksResetCountdown(reset, Date.parse('2026-09-05T06:22:00Z'))).toBe('38m')
-    expect(freebucksResetCountdown(reset, Date.parse('2026-09-05T02:48:00Z'))).toBe('4h 12m')
-    expect(freebucksResetCountdown(reset, Date.parse('2026-09-03T01:00:00Z'))).toBe('2d 6h')
-    expect(freebucksResetCountdown(reset, Date.parse('2026-09-05T07:00:01Z'))).toBe('now')
+    expect(
+      freebucksResetCountdown(reset, Date.parse('2026-09-05T06:22:00Z')),
+    ).toBe('38m')
+    expect(
+      freebucksResetCountdown(reset, Date.parse('2026-09-05T02:48:00Z')),
+    ).toBe('4h 12m')
+    expect(
+      freebucksResetCountdown(reset, Date.parse('2026-09-03T01:00:00Z')),
+    ).toBe('2d 6h')
+    expect(
+      freebucksResetCountdown(reset, Date.parse('2026-09-05T07:00:01Z')),
+    ).toBe('now')
   })
 
   test('hides an empty wallet, as Web and Desktop do', () => {
     expect(
       freebucksHeaderLine(metered({ wallet: { balance: 0, monthlyBonus: 0 } })),
-    ).toBe('30/75 Freebucks daily')
+    ).toBe('6/15 hours daily')
   })
 
+  test('rounds hours down, so a balance never reads as more than it buys', () => {
+    expect(
+      freebucksHeaderLine(
+        metered({
+          daily: { limit: 75, spent: 46, remaining: 29, resetAt: 'x' },
+          wallet: { balance: 6, monthlyBonus: 0 },
+        }),
+      ),
+    ).toBe('5.8/15 hours daily · 1.2 hours in wallet')
+  })
+
+  test('a wallet under a tenth of an hour is hidden, never "0 hours"', () => {
+    expect(
+      freebucksHeaderLine(metered({ wallet: { balance: 0.4, monthlyBonus: 0 } })),
+    ).toBe('6/15 hours daily')
+    expect(
+      freebucksHeaderLine(metered({ wallet: { balance: 5, monthlyBonus: 0 } })),
+    ).toBe('6/15 hours daily · 1 hour in wallet')
+  })
 })
 
-describe('the price label', () => {
-  test('says what a Freebuck buys — an HOUR', () => {
-    // A bare "15" reads as a per-message rate, the most expensive
-    // misunderstanding this menu can create.
-    expect(freebucksPriceLabel(15)).toBe('15 Freebucks/hr')
+describe('the price text', () => {
+  test('is the multiplier of the 1x hour', () => {
+    expect(freebucksPriceText(10)).toBe('2x')
+    expect(freebucksPriceText(15)).toBe('3x')
+  })
+
+  test('says "1x" and "Free" where a row label stays blank, never "0x"', () => {
+    expect(freebucksPriceText(5)).toBe('1x')
+    expect(freebucksPriceText(0)).toBe('Free')
   })
 })
 
@@ -245,5 +277,40 @@ describe('freebucksPriceFor', () => {
   test('is undefined off the meter and for a row the map omits', () => {
     expect(freebucksPriceFor(undefined, 'glm')).toBeUndefined()
     expect(freebucksPriceFor(metered(), 'nope')).toBeUndefined()
+  })
+})
+
+describe('the refund receipt', () => {
+  test('names the unspent charge, never the time left on the hour', () => {
+    // The whole point of the line: six reports in two hours read the refund as
+    // pro-rated by elapsed minutes.
+    expect(freebucksRefundLine(10, false)).toBe(
+      "2 hours of balance returned: what the session's price did not spend, not the time left on it.",
+    )
+    expect(freebucksRefundLine(5, false)).toBe(
+      "1 hour of balance returned: what the session's price did not spend, not the time left on it.",
+    )
+  })
+
+  test('a settled zero says so, and says what a refund returns', () => {
+    // The reported case. Silence here is what users read as "the feature was
+    // removed"; it must not read as an error either.
+    expect(freebucksRefundLine(0, false)).toBe(
+      'No hours returned: this session used up its full price. A refund returns whole hours of balance it did not spend, never unused time.',
+    )
+  })
+
+  test('a pending receipt promises the unspent charge, not a number', () => {
+    expect(freebucksRefundLine(null, true)).toBe(
+      'Refund settling: the whole hours of balance this session did not spend come back.',
+    )
+    // Pending outranks a stale amount: the settled figure is not known yet.
+    expect(freebucksRefundLine(4, true)).toBe(
+      'Refund settling: the whole hours of balance this session did not spend come back.',
+    )
+  })
+
+  test('says nothing when no receipt exists', () => {
+    expect(freebucksRefundLine(null, false)).toBeNull()
   })
 })

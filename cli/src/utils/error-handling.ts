@@ -1,4 +1,5 @@
 import {
+  CODEBUFF_OWN_CREDITS_ERROR_PATTERN,
   FREEBUFF_PROVIDER_USAGE_ERROR_PATTERN,
   FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE,
   FREEBUFF_TURN_SPEND_LIMIT_MESSAGE,
@@ -164,6 +165,9 @@ export const getFreebuffRateLimitErrorMessage = (
 export const isFreebuffProviderUsageError = (error: unknown): boolean => {
   const details = getCliApiErrorDetails(error)
   const message = details.message ?? extractErrorMessage(error, '')
+  // The user's own Codebuff balance, not our provider: leave it to the
+  // out-of-credits flow.
+  if (CODEBUFF_OWN_CREDITS_ERROR_PATTERN.test(message)) return false
   return (
     details.statusCode === 402 ||
     FREEBUFF_PROVIDER_USAGE_ERROR_PATTERN.test(message)
@@ -240,10 +244,46 @@ export const getFreebuffGateErrorKind = (
   return code && code !== 'session_limit_reached' ? code : null
 }
 
-export const OUT_OF_CREDITS_MESSAGE = `Out of credits. Please add credits at ${defaultAppUrl}/usage`
+/**
+ * What a `session_superseded` refusal actually means. The server sends that
+ * one code for three different things, and only its message tells them apart:
+ *  - a model start that failed and was REFUNDED ("This model purchase was
+ *    refunded. ..."), usually because the model is busy or down;
+ *  - an hour that had already closed when the request arrived ("Your session
+ *    ended before this request started. ...", RefundAdmissionClosedError);
+ *  - another instance TAKING OVER the session ("Another instance of freebuff
+ *    has taken over this session. ...").
+ * Only the last is a takeover. Desktop draws the same refund line
+ * (isRefundedStart in freebuff-desktop's session-errors.ts). A message that
+ * names neither keeps the takeover reading, as before.
+ */
+export type FreebuffSupersededReason =
+  | 'refunded_start'
+  | 'session_closed'
+  | 'taken_over'
+
+export const getFreebuffSupersededReason = (
+  serverMessage: string | undefined,
+): FreebuffSupersededReason => {
+  const message = serverMessage ?? ''
+  if (/refund/i.test(message)) return 'refunded_start'
+  if (/ended before this request started/i.test(message)) return 'session_closed'
+  return 'taken_over'
+}
+
+/** Appended to the server's refund message: retrying the same model may only
+ *  fail again, so name the way out. */
+export const FREEBUFF_REFUNDED_START_HINT =
+  'The model may be busy or unavailable right now: send your message again to retry, or pick another model with /model.'
+
+export const OUT_OF_CREDITS_MESSAGE =`Out of credits. Please add credits at ${defaultAppUrl}/usage`
 
 export const FREEBUFF_RATE_LIMIT_MESSAGE =
   'Freebuff is temporarily busy. Please try again in a moment.'
+
+/** Fallback for a `model_unavailable` gate refusal without a server message. */
+export const FREEBUFF_MODEL_UNAVAILABLE_MESSAGE =
+  'This model is no longer available in Freebuff. Pick another model with /model and send your message again.'
 
 export const FREE_MODE_UNAVAILABLE_MESSAGE = IS_FREEBUFF
   ? 'Freebuff is not available in your country.'

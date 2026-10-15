@@ -3,6 +3,8 @@ import { statSync } from 'fs'
 import { useKeyboard } from '@opentui/react'
 import { useCallback, useRef } from 'react'
 
+import { useChatStore } from '../state/chat-store'
+import { getProfileSurveyKeyContext } from '../state/profile-survey-store'
 import { getProjectRoot } from '../project-files'
 import { reportActivity } from '../utils/activity-tracker'
 import { hasClipboardImage, readClipboardText, readClipboardFilePath, getImageFilePathFromText } from '../utils/clipboard-image'
@@ -14,6 +16,7 @@ import {
 } from '../utils/keyboard-actions'
 import { markReturnKeySeenForKey } from '../utils/terminal-enter-detection'
 
+import type { ProfileSurveyInput } from '../utils/profile-survey-machine'
 import type { KeyEvent } from '@opentui/core'
 
 // Throttle interval for keyboard activity reporting (ms)
@@ -52,6 +55,9 @@ export type ChatKeyboardHandlers = {
 
   // File menu handler
   onOpenFileMenuWithTab: () => boolean // Returns true if menu was opened
+
+  onShowHelp: () => void
+  onOpenChatHistory: () => void
 
   // History handlers
   onHistoryUp: () => void
@@ -92,6 +98,11 @@ export type ChatKeyboardHandlers = {
   // Sponsor dock (COD-457)
   onToggleDockPanel: () => void
   onCloseDockPanel: () => void
+  /** Ctrl+O while a sponsored proposal holds the dock: open its details. */
+  onToggleSponsoredDock?: () => void
+
+  /** A key the profile survey box claimed (COD-779). */
+  onProfileSurveyInput?: (input: ProfileSurveyInput) => void
 }
 
 /**
@@ -118,6 +129,12 @@ function dispatchAction(
   handlers: ChatKeyboardHandlers,
 ): boolean {
   switch (action.type) {
+    case 'show-help':
+      handlers.onShowHelp()
+      return true
+    case 'open-chat-history':
+      handlers.onOpenChatHistory()
+      return true
     case 'exit-input-mode':
       handlers.onExitInputMode()
       return true
@@ -204,6 +221,15 @@ function dispatchAction(
       handlers.onBashHistoryDown()
       return true
     case 'paste': {
+      const survey = getProfileSurveyKeyContext()
+      const draft = useChatStore.getState()
+      if (
+        survey?.question.sponsoredKind === 'text' && survey.textEditing &&
+        draft.inputMode === 'default' && !draft.inputValue
+      ) {
+        handlers.onProfileSurveyInput?.({ type: 'text', text: readClipboardText() ?? '', now: Date.now() })
+        return true
+      }
       const cwd = getProjectRoot() ?? process.cwd()
       
       // First, check if clipboard contains a copied file (e.g., from Finder)
@@ -270,6 +296,12 @@ function dispatchAction(
     case 'close-dock-panel':
       handlers.onCloseDockPanel()
       return true
+    case 'toggle-sponsored-dock':
+      handlers.onToggleSponsoredDock?.()
+      return true
+    case 'profile-survey':
+      handlers.onProfileSurveyInput?.(action.input)
+      return true
     case 'none':
       return false
   }
@@ -313,7 +345,16 @@ export function useChatKeyboard({
 
         markReturnKeySeenForKey(key)
 
-        const action = resolveChatKeyboardAction(key, state)
+        // Multiple key events can arrive before React commits a render.
+        const draft = useChatStore.getState()
+        const action = resolveChatKeyboardAction(key, {
+          ...state,
+          inputValue: draft.inputValue,
+          cursorPosition: draft.cursorPosition,
+          inputMode: draft.inputMode,
+          lastEditDueToNav: draft.lastEditDueToNav,
+          profileSurvey: getProfileSurveyKeyContext(),
+        })
         const handled = dispatchAction(action, handlers)
 
         // Prevent default for handled actions

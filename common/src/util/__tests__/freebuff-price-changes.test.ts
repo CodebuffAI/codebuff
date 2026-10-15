@@ -1,7 +1,8 @@
-import { describe, expect, it, spyOn } from 'bun:test'
+import { describe, expect, it, test, spyOn } from 'bun:test'
 import { freebucksFixture } from '../../testing/freebuff'
 import {
   SOLAR_PRICE_CHANGES,
+  SOLAR_PROMOTIONAL,
   SOLAR_REGULAR_OFFER,
 } from '../../constants/freebuff-solar-promo'
 import {
@@ -14,10 +15,14 @@ const solar = 'upstage/solar-pro4'
 const start = Date.parse('2026-09-05T07:00:00Z')
 const end = Date.parse('2026-09-08T07:00:00Z')
 const restored = Date.parse('2026-09-09T15:49:00Z')
+const metered = Date.parse('2026-09-13T05:00:00Z')
+const increased = Date.parse('2026-09-14T03:46:00Z')
+const returned = Date.parse('2026-09-25T19:00:00Z')
+const promoted = Date.parse('2026-10-05T07:15:00Z')
 const quoteBeforeStart = () => ({
   ...freebucksFixture(0, { [solar]: SOLAR_REGULAR_OFFER.price }),
   priceNotices: { [solar]: SOLAR_REGULAR_OFFER.tagline },
-  priceChanges: [...SOLAR_PRICE_CHANGES],
+  priceChanges: SOLAR_PRICE_CHANGES.filter((c) => c.modelId === solar),
 })
 
 describe('announced Freebucks price changes', () => {
@@ -38,9 +43,56 @@ describe('announced Freebucks price changes', () => {
     const freeAgain = applyFreebucksPriceChanges(expired, restored)
     expect(freeAgain.prices[solar]).toBe(0)
     expect(freeAgain.priceNotices[solar]).toBe('0 Freebucks')
-    expect(nextFreebucksPriceChange(freeAgain)).toBe(Infinity)
+    expect(nextFreebucksPriceChange(freeAgain)).toBe(metered)
+    const meteredAgain = applyFreebucksPriceChanges(freeAgain, metered)
+    expect(meteredAgain.prices[solar]).toBe(5)
+    expect(meteredAgain.priceNotices[solar]).toBe('Limited-time trial')
+    expect(nextFreebucksPriceChange(meteredAgain)).toBe(increased)
+    expect(applyFreebucksPriceChanges(meteredAgain, increased - 1)).toBe(
+      meteredAgain,
+    )
+    const increasedQuote = applyFreebucksPriceChanges(meteredAgain, increased)
+    expect(increasedQuote.prices[solar]).toBe(10)
+    expect(increasedQuote.priceNotices[solar]).toBe('Limited-time trial')
+    expect(nextFreebucksPriceChange(increasedQuote)).toBe(returned)
+    // The return to the pickers keeps the price and replaces only the copy.
+    const returnedQuote = applyFreebucksPriceChanges(increasedQuote, returned)
+    expect(returnedQuote).toEqual({
+      ...increasedQuote,
+      priceNotices: { ...increasedQuote.priceNotices, [solar]: 'Upstage flagship' },
+      priceChanges: [expect.objectContaining({ at: '2026-10-05T07:15:00Z' })],
+    })
+    expect(nextFreebucksPriceChange(returnedQuote)).toBe(promoted)
+    const promotedQuote = applyFreebucksPriceChanges(returnedQuote, promoted)
+    expect(promotedQuote.prices[solar]).toBe(0)
+    expect(promotedQuote.priceNotices[solar]).toBe('Promotional')
+    expect(promotedQuote.priceChanges).toEqual([])
     expect(quote.prices[solar]).toBe(5)
-    expect(quote.priceChanges).toHaveLength(3)
+    expect(quote.priceChanges).toHaveLength(7)
+  })
+
+  it("applies Solar Mini 4's promotion to Mini's row only", () => {
+    const mini = 'upstage/solar-mini4'
+    const quote = {
+      ...freebucksFixture(0, { [solar]: 10, [mini]: 5 }),
+      priceNotices: { [solar]: 'Upstage flagship', [mini]: 'Fast and light' },
+      priceChanges: SOLAR_PRICE_CHANGES.filter((c) => c.modelId === mini),
+    }
+    const free = applyFreebucksPriceChanges(quote, Date.parse('2026-10-02T18:00:00Z'))
+    expect(free.prices).toEqual({ [solar]: 10, [mini]: 0 })
+    expect(free.priceNotices[mini]).toBe('Free through Sunday, Oct 4 PT')
+    const ended = Date.parse('2026-10-05T07:00:00Z')
+    expect(nextFreebucksPriceChange(free)).toBe(ended)
+    const back = applyFreebucksPriceChanges(free, ended)
+    expect(back.prices).toEqual({ [solar]: 10, [mini]: 5 })
+    expect(back.priceNotices[mini]).toBe('Fast and light')
+    // Then free again, open-ended, from 2026-10-08.
+    const promo = Date.parse('2026-10-08T21:30:00Z')
+    expect(nextFreebucksPriceChange(back)).toBe(promo)
+    const promoted = applyFreebucksPriceChanges(back, promo)
+    expect(promoted.prices).toEqual({ [solar]: 10, [mini]: 0 })
+    expect(promoted.priceNotices[mini]).toBe(SOLAR_PROMOTIONAL.short)
+    expect(promoted.priceChanges).toEqual([])
   })
 
   it('catches up across all transitions, even when a delayed response lists them out of order', () => {
@@ -48,6 +100,8 @@ describe('announced Freebucks price changes', () => {
     quote.priceChanges.reverse()
     expect(applyFreebucksPriceChanges(quote, end).prices[solar]).toBe(5)
     expect(applyFreebucksPriceChanges(quote, restored).prices[solar]).toBe(0)
+    expect(applyFreebucksPriceChanges(quote, metered).prices[solar]).toBe(5)
+    expect(applyFreebucksPriceChanges(quote, increased).prices[solar]).toBe(10)
   })
 
   it('does not add an unpriced model or invent metadata on older server responses', () => {
@@ -57,6 +111,7 @@ describe('announced Freebucks price changes', () => {
     const missing = {
       ...old,
       priceChanges: SOLAR_PRICE_CHANGES,
+      offPeak: { [solar]: flashPolicy },
     }
     expect(
       applyFreebucksPriceChanges(missing, end).prices[solar],
@@ -78,6 +133,77 @@ describe('announced Freebucks price changes', () => {
     } finally {
       clock.mockRestore()
       clear.mockRestore()
+    }
+  })
+})
+
+const flashPolicy = {
+  startHourUtc: 22,
+  endHourUtc: 6,
+  price: 10,
+  regularPrice: 15,
+}
+
+describe('recurring server prices', () => {
+  test.each([
+    ['2026-09-19T06:00:00Z', 10, 15, '2026-09-19T22:00:00Z'],
+    ['2026-09-18T22:00:00Z', 15, 10, '2026-09-19T06:00:00Z'],
+  ] as const)(
+    'repairs an exhausted quote at %s without touching the balance',
+    (at, stale, price, next) => {
+      const quote = {
+        ...freebucksFixture(25, { flash: stale }),
+        offPeak: { flash: flashPolicy },
+        priceChanges: [],
+      }
+      const now = Date.parse(at)
+      const current = applyFreebucksPriceChanges(quote, now)
+      expect(current.prices.flash).toBe(price)
+      expect(current.balance).toBe(quote.balance)
+      expect(current.daily).toBe(quote.daily)
+      expect(current.wallet).toBe(quote.wallet)
+      expect(quote.prices.flash).toBe(stale)
+      expect(applyFreebucksPriceChanges(current, now)).toBe(current)
+      expect(nextFreebucksPriceChange(current, now)).toBe(Date.parse(next))
+    },
+  )
+
+  it('keeps waking when a multi-day sleep returns to the same price with no dated changes left', () => {
+    const clock = spyOn(Date, 'now').mockReturnValue(
+      Date.parse('2026-09-18T07:00:00Z'),
+    )
+    const realTimeout = globalThis.setTimeout
+    let wake: (() => void) | undefined
+    const timer = spyOn(globalThis, 'setTimeout').mockImplementation(((
+      fn: () => void,
+      ms: number,
+    ) => {
+      wake = fn
+      return realTimeout(fn, ms)
+    }) as typeof setTimeout)
+    const quote = applyFreebucksPriceChanges({
+      prices: { flash: 15 },
+      offPeak: { flash: flashPolicy },
+      priceChanges: [],
+    })
+    const seen: number[] = []
+    const stop = watchFreebucksPriceChanges(quote, () => {
+      seen.push(applyFreebucksPriceChanges(quote).prices.flash)
+    })
+    try {
+      clock.mockReturnValue(Date.parse('2026-09-20T07:00:00Z'))
+      wake!()
+      expect(applyFreebucksPriceChanges(quote)).toBe(quote)
+      expect(seen).toEqual([15])
+      expect(timer.mock.calls.at(-1)?.[1]).toBe(15 * 3_600_000)
+      clock.mockReturnValue(Date.parse('2026-09-20T22:00:00Z'))
+      wake!()
+      expect(seen).toEqual([15, 10])
+      expect(timer.mock.calls.at(-1)?.[1]).toBe(8 * 3_600_000)
+    } finally {
+      stop()
+      timer.mockRestore()
+      clock.mockRestore()
     }
   })
 })

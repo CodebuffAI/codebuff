@@ -6,9 +6,9 @@ import {
   SUPPORTED_IMAGE_EXTENSIONS,
   MAX_IMAGE_FILE_SIZE,
   MAX_IMAGE_BASE64_SIZE,
-  MAX_TOTAL_IMAGE_SIZE,
   IMAGE_EXTENSIONS_PATTERN,
   getImageMimeType,
+  isProviderSupportedImageMediaType,
 } from '@codebuff/common/constants/images'
 import { Jimp } from 'jimp'
 
@@ -45,27 +45,6 @@ interface CompressionResult {
 // Compression settings for iterative compression
 const COMPRESSION_QUALITIES = [85, 70, 50, 30]
 const DIMENSION_LIMITS = [1500, 1200, 800, 600]
-
-/**
- * Validates total size of multiple images
- */
-export function validateTotalImageSize(imageParts: Array<{ size?: number }>): {
-  valid: boolean
-  error?: string
-} {
-  const totalSize = imageParts.reduce((sum, part) => sum + (part.size || 0), 0)
-
-  if (totalSize > MAX_TOTAL_IMAGE_SIZE) {
-    const totalMB = (totalSize / (1024 * 1024)).toFixed(1)
-    const maxMB = (MAX_TOTAL_IMAGE_SIZE / (1024 * 1024)).toFixed(1)
-    return {
-      valid: false,
-      error: `Total image size too large: ${totalMB}MB (max ${maxMB}MB)`,
-    }
-  }
-
-  return { valid: true }
-}
 
 /**
  * Normalizes a user-provided file path by handling escape sequences.
@@ -244,14 +223,33 @@ export async function processImageFile(
     // Continue without dimensions if we can't read them
   }
 
-  // Check if compression is needed
-  let base64Data = fileBuffer.toString('base64')
   let processedBuffer = fileBuffer
   let finalMediaType = mediaType
+
+  // A BMP or TIFF is recognised above but no vision provider decodes it — sent
+  // as-is it 400s the turn, and every later turn of the session too, since the
+  // history is replayed. Jimp reads both, so transcode to PNG; a file it
+  // cannot read was never going to be seen by the model either.
+  if (!isProviderSupportedImageMediaType(mediaType)) {
+    try {
+      const image = await Jimp.read(fileBuffer)
+      processedBuffer = Buffer.from(await image.getBuffer('image/png'))
+      finalMediaType = 'image/png'
+    } catch (error) {
+      logger.debug({ resolvedPath, error }, 'Image handler: Failed to transcode to PNG')
+      return {
+        success: false,
+        error: `Unsupported image format: ${filePath}. Convert it to PNG or JPEG and try again.`,
+      }
+    }
+  }
+
+  // Check if compression is needed
+  let base64Data = processedBuffer.toString('base64')
   let wasCompressed = false
 
   if (base64Data.length > MAX_IMAGE_BASE64_SIZE) {
-    const compressionResult = await compressImageToFitSize(fileBuffer)
+    const compressionResult = await compressImageToFitSize(processedBuffer)
     
     if (!compressionResult.success) {
       return { success: false, error: compressionResult.error }

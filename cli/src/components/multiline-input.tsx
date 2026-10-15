@@ -14,6 +14,7 @@ import {
 } from 'react'
 
 import { InputCursor } from './input-cursor'
+import { noteAdKeystroke } from '../ads/ad-signals'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import {
@@ -184,6 +185,8 @@ interface MultilineInputProps {
   onSubmit: () => void
   onKeyIntercept?: (key: KeyEvent) => boolean
   onPaste: (fallbackText?: string) => void
+  /** Called with the text each key event inserts (not pastes). */
+  onTypedText?: (text: string) => void
   placeholder?: string
   focused?: boolean
   shouldBlinkCursor?: boolean
@@ -207,6 +210,7 @@ export const MultilineInput = forwardRef<
     onChange,
     onSubmit,
     onPaste,
+    onTypedText,
     placeholder = '',
     focused = true,
     shouldBlinkCursor,
@@ -1037,12 +1041,13 @@ export const MultilineInput = forwardRef<
       if (textToInsert !== null) {
         preventKeyDefault(key)
         insertTextAtCursor(textToInsert)
+        onTypedText?.(textToInsert)
         return true
       }
 
       return false
     },
-    [insertTextAtCursor],
+    [insertTextAtCursor, onTypedText],
   )
 
   // Increase StdinParser timeout from default 10ms to 100ms.
@@ -1108,9 +1113,17 @@ export const MultilineInput = forwardRef<
 
         // Delegate to specialized handlers
         if (handleEnterKeys(key)) return
-        if (handleDeletionKeys(key)) return
+        // COD-757: THAT a key edited the draft, and whether it deleted; never
+        // which key. Navigation and Enter are not typing.
+        if (handleDeletionKeys(key)) {
+          noteAdKeystroke(true)
+          return
+        }
         if (handleNavigationKeys(key)) return
-        if (handleCharacterInput(key)) return
+        if (handleCharacterInput(key)) {
+          noteAdKeystroke(false)
+          return
+        }
       },
       [
         focused,

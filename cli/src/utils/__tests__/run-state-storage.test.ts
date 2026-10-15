@@ -1,15 +1,11 @@
-import { describe, test, expect, afterAll, beforeEach, afterEach, mock } from 'bun:test'
+import { describe, test, expect, afterAll, beforeEach, afterEach } from 'bun:test'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 
 import {
-  getAllToggleIdsFromMessages,
-  getRunStatePath,
-  getChatMessagesPath,
   saveChatState,
   loadMostRecentChatState,
-  clearChatState,
   setChatDirOverrideForTesting,
   setLiveChatStateProvider,
   clearLiveChatStateProvider,
@@ -17,7 +13,7 @@ import {
   scheduleCheckpointSave,
   settleCheckpointSave,
 } from '../run-state-storage'
-import type { ChatMessage, ContentBlock } from '../../types/chat'
+import type { ChatMessage } from '../../types/chat'
 import type { RunState } from '@codebuff/sdk'
 
 /** Every directory below hangs off a root this run owns. They were fixed
@@ -40,10 +36,6 @@ const mockCurrentChatDir = path.join(
   'test-chat-123',
 )
 
-// Mock the module before importing
-const originalGetProjectDataDir = () => mockProjectDataDir
-const originalGetCurrentChatDir = () => mockCurrentChatDir
-
 describe('run-state-storage', () => {
   beforeEach(() => {
     // Create test directories
@@ -58,227 +50,6 @@ describe('run-state-storage', () => {
     if (fs.existsSync(mockProjectDataDir)) {
       fs.rmSync(mockProjectDataDir, { recursive: true })
     }
-  })
-
-  describe('getAllToggleIdsFromMessages', () => {
-    test('extracts agent IDs from messages', () => {
-      const messages: ChatMessage[] = [
-        {
-          id: 'msg-1',
-          variant: 'agent',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [
-            {
-              type: 'agent',
-              agentId: 'agent-1',
-              agentName: 'TestAgent',
-              agentType: 'inline',
-              content: '',
-              status: 'complete',
-              blocks: [],
-            },
-          ],
-        },
-      ]
-
-      const ids = getAllToggleIdsFromMessages(messages)
-
-      expect(ids).toContain('agent-1')
-    })
-
-    test('extracts tool call IDs from messages', () => {
-      const messages: ChatMessage[] = [
-        {
-          id: 'msg-1',
-          variant: 'agent',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [
-            {
-              type: 'tool',
-              toolCallId: 'tool-1',
-              toolName: 'glob',
-              input: {},
-              output: '',
-            },
-          ],
-        },
-      ]
-
-      const ids = getAllToggleIdsFromMessages(messages)
-
-      expect(ids).toContain('tool-1')
-    })
-
-    test('recursively extracts IDs from nested agent blocks', () => {
-      const messages: ChatMessage[] = [
-        {
-          id: 'msg-1',
-          variant: 'agent',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [
-            {
-              type: 'agent',
-              agentId: 'parent-agent',
-              agentName: 'ParentAgent',
-              agentType: 'inline',
-              content: '',
-              status: 'complete',
-              blocks: [
-                {
-                  type: 'tool',
-                  toolCallId: 'nested-tool',
-                  toolName: 'glob',
-                  input: {},
-                  output: '',
-                },
-                {
-                  type: 'agent',
-                  agentId: 'child-agent',
-                  agentName: 'ChildAgent',
-                  agentType: 'inline',
-                  content: '',
-                  status: 'complete',
-                  blocks: [
-                    {
-                      type: 'tool',
-                      toolCallId: 'deep-tool',
-                      toolName: 'glob',
-                      input: {},
-                      output: '',
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ]
-
-      const ids = getAllToggleIdsFromMessages(messages)
-
-      expect(ids).toContain('parent-agent')
-      expect(ids).toContain('nested-tool')
-      expect(ids).toContain('child-agent')
-      expect(ids).toContain('deep-tool')
-    })
-
-    test('handles messages with no blocks', () => {
-      const messages: ChatMessage[] = [
-        {
-          id: 'msg-1',
-          variant: 'user',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [],
-        },
-      ]
-
-      const ids = getAllToggleIdsFromMessages(messages)
-
-      expect(ids).toHaveLength(0)
-    })
-
-    test('handles empty messages array', () => {
-      const ids = getAllToggleIdsFromMessages([])
-      expect(ids).toHaveLength(0)
-    })
-
-    test('handles mixed block types in single message', () => {
-      const messages: ChatMessage[] = [
-        {
-          id: 'msg-1',
-          variant: 'agent',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [
-            { type: 'text', content: 'Some text' },
-            {
-              type: 'agent',
-              agentId: 'agent-1',
-              agentName: 'TestAgent',
-              agentType: 'inline',
-              content: '',
-              status: 'complete',
-              blocks: [],
-            },
-            {
-              type: 'tool',
-              toolCallId: 'tool-1',
-              toolName: 'glob',
-              input: {},
-              output: '',
-            },
-          ],
-        },
-      ]
-
-      const ids = getAllToggleIdsFromMessages(messages)
-
-      expect(ids).toContain('agent-1')
-      expect(ids).toContain('tool-1')
-      expect(ids).toHaveLength(2)
-    })
-
-    test('does not deduplicate IDs (returns all occurrences)', () => {
-      const messages: ChatMessage[] = [
-        {
-          id: 'msg-1',
-          variant: 'agent',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [
-            {
-              type: 'agent',
-              agentId: 'shared-id',
-              agentName: 'TestAgent',
-              agentType: 'inline',
-              content: '',
-              status: 'complete',
-              blocks: [],
-            },
-          ],
-        },
-        {
-          id: 'msg-2',
-          variant: 'agent',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [
-            {
-              type: 'tool',
-              toolCallId: 'shared-id',
-              toolName: 'glob',
-              input: {},
-              output: '',
-            },
-          ],
-        },
-      ]
-
-      const ids = getAllToggleIdsFromMessages(messages)
-
-      // Current implementation returns all occurrences without deduplication
-      expect(ids.filter((id) => id === 'shared-id')).toHaveLength(2)
-    })
-  })
-
-  describe('getRunStatePath', () => {
-    test('returns path with correct filename', () => {
-      // We need to mock the internal functions
-      // This is a simplified test - in reality we'd need to mock the module
-      const testPath = path.join(mockCurrentChatDir, 'run-state.json')
-      expect(testPath).toContain('run-state.json')
-    })
-  })
-
-  describe('getChatMessagesPath', () => {
-    test('returns path with correct filename', () => {
-      const testPath = path.join(mockCurrentChatDir, 'chat-messages.json')
-      expect(testPath).toContain('chat-messages.json')
-    })
   })
 
   describe('file serialization format', () => {
@@ -353,124 +124,6 @@ describe('run-state-storage', () => {
       const savedMessages = JSON.parse(fs.readFileSync(messagesPath, 'utf8'))
       expect(savedMessages[0].blocks[0].type).toBe('agent')
       expect(savedMessages[0].blocks[0].blocks).toHaveLength(2)
-    })
-  })
-
-  describe('edge cases', () => {
-    test('handles empty blocks array', () => {
-      const messages: ChatMessage[] = [
-        {
-          id: 'msg-1',
-          variant: 'agent',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [],
-        },
-      ]
-
-      const ids = getAllToggleIdsFromMessages(messages)
-      expect(ids).toHaveLength(0)
-    })
-
-    test('handles deeply nested structure', () => {
-      const deepBlock: ContentBlock = {
-        type: 'agent',
-        agentId: 'level-0',
-        agentName: 'Level0Agent',
-        agentType: 'inline',
-        content: '',
-        status: 'complete',
-        blocks: [
-          {
-            type: 'agent',
-            agentId: 'level-1',
-            agentName: 'Level1Agent',
-            agentType: 'inline',
-            content: '',
-            status: 'complete',
-            blocks: [
-              {
-                type: 'agent',
-                agentId: 'level-2',
-                agentName: 'Level2Agent',
-                agentType: 'inline',
-                content: '',
-                status: 'complete',
-                blocks: [
-                  {
-                    type: 'tool',
-                    toolCallId: 'deep-tool',
-                    toolName: 'glob',
-                    input: {},
-                    output: '',
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      }
-
-      const messages: ChatMessage[] = [
-        {
-          id: 'msg-1',
-          variant: 'agent',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [deepBlock],
-        },
-      ]
-
-      const ids = getAllToggleIdsFromMessages(messages)
-
-      expect(ids).toContain('level-0')
-      expect(ids).toContain('level-1')
-      expect(ids).toContain('level-2')
-      expect(ids).toContain('deep-tool')
-    })
-
-    test('preserves order of IDs as encountered', () => {
-      const messages: ChatMessage[] = [
-        {
-          id: 'msg-1',
-          variant: 'agent',
-          content: '',
-          timestamp: new Date().toISOString(),
-          blocks: [
-            {
-              type: 'agent',
-              agentId: 'first',
-              agentName: 'FirstAgent',
-              agentType: 'inline',
-              content: '',
-              status: 'complete',
-              blocks: [],
-            },
-            {
-              type: 'tool',
-              toolCallId: 'second',
-              toolName: 'glob',
-              input: {},
-              output: '',
-            },
-            {
-              type: 'agent',
-              agentId: 'third',
-              agentName: 'ThirdAgent',
-              agentType: 'inline',
-              content: '',
-              status: 'complete',
-              blocks: [],
-            },
-          ],
-        },
-      ]
-
-      const ids = getAllToggleIdsFromMessages(messages)
-
-      expect(ids[0]).toBe('first')
-      expect(ids[1]).toBe('second')
-      expect(ids[2]).toBe('third')
     })
   })
 })
@@ -915,5 +568,143 @@ describe('poisoned payload persistence', () => {
     ) as ChatMessage[]
     const block = savedMessages[0].blocks?.[0] as any
     expect(block.outputRaw.self).toBe('[Circular]')
+  })
+})
+
+/**
+ * Support ticket #180: a user's session files were present but held the four
+ * bytes `null` — the whole transcript gone. Two independent paths produced
+ * that, and both of them are one-way doors unless the bytes are kept.
+ */
+describe('a transcript is never destroyed', () => {
+  const chatDir = path.join(TEST_ROOT, 'codebuff-test-nulled-chatdir')
+
+  const runState = { output: { type: 'error', message: 'x' } } as RunState
+  const messages: ChatMessage[] = [
+    {
+      id: 'msg-1',
+      variant: 'user',
+      content: 'the prompt',
+      timestamp: new Date().toISOString(),
+    },
+  ]
+
+  const messagesPath = () => path.join(chatDir, 'chat-messages.json')
+  const runStatePath = () => path.join(chatDir, 'run-state.json')
+  const quarantined = (file: string) =>
+    fs
+      .readdirSync(chatDir)
+      .filter((name) => name.startsWith(`${file}.corrupt-`))
+
+  beforeEach(() => {
+    fs.rmSync(chatDir, { recursive: true, force: true })
+    setChatDirOverrideForTesting(chatDir)
+  })
+
+  afterEach(() => {
+    setChatDirOverrideForTesting(undefined)
+    fs.rmSync(chatDir, { recursive: true, force: true })
+  })
+
+  test('saveChatState never writes the literal text null over a transcript', () => {
+    saveChatState(runState, messages)
+
+    // `JSON.stringify(null)` is the string 'null', which is truthy — so this
+    // used to sail through the save's own guard and replace the transcript
+    // with four bytes, no crash required.
+    saveChatState(runState, null as unknown as ChatMessage[], chatDir)
+
+    expect(fs.readFileSync(messagesPath(), 'utf8')).not.toBe('null')
+    expect(JSON.parse(fs.readFileSync(messagesPath(), 'utf8'))).toHaveLength(1)
+  })
+
+  test('saveChatState never writes the literal text null over a run state', () => {
+    saveChatState(runState, messages)
+
+    saveChatState(null as unknown as RunState, messages, chatDir)
+
+    expect(fs.readFileSync(runStatePath(), 'utf8')).not.toBe('null')
+    expect(
+      JSON.parse(fs.readFileSync(runStatePath(), 'utf8')).output.type,
+    ).toBe('error')
+  })
+
+  test('a null-content transcript survives the load instead of being replaced', () => {
+    saveChatState(runState, messages)
+    // Exactly what the user's machine was left holding.
+    fs.writeFileSync(messagesPath(), 'null')
+
+    const loaded = loadMostRecentChatState()
+
+    // Four bytes are not much, but they are the user's bytes: the load must
+    // not nod `null` through as "no messages" and let the next turn's save
+    // write an empty array over whatever is there.
+    expect(quarantined('chat-messages.json')).toHaveLength(1)
+    expect(
+      fs.readFileSync(
+        path.join(chatDir, quarantined('chat-messages.json')[0]),
+        'utf8',
+      ),
+    ).toBe('null')
+    expect(loaded!.messages).toHaveLength(0)
+  })
+
+  test('an unparseable transcript is kept, not replaced with an empty array', () => {
+    saveChatState(runState, messages)
+    // A half-flushed multi-MB write: the tail is missing, the head is the
+    // user's conversation and a human can still read it out.
+    const partial = '[{"id":"msg-1","variant":"user","content":"the prompt"'
+    fs.writeFileSync(messagesPath(), partial)
+
+    const loaded = loadMostRecentChatState()
+    // The next turn's save, which is what used to destroy it.
+    saveChatState(loaded!.runState, loaded!.messages, chatDir)
+
+    const aside = quarantined('chat-messages.json')
+    expect(aside).toHaveLength(1)
+    expect(fs.readFileSync(path.join(chatDir, aside[0]), 'utf8')).toBe(partial)
+  })
+
+  test('an unparseable run state is kept too', () => {
+    saveChatState(runState, messages)
+    fs.writeFileSync(runStatePath(), '{"sessionState": {"trunc')
+
+    const loaded = loadMostRecentChatState()
+
+    expect(quarantined('run-state.json')).toHaveLength(1)
+    expect(loaded!.messages[0].content).toBe('the prompt')
+  })
+
+  test('a transcript that is readable is never moved aside', () => {
+    saveChatState(runState, messages)
+
+    expect(loadMostRecentChatState()!.messages).toHaveLength(1)
+    expect(quarantined('chat-messages.json')).toHaveLength(0)
+    expect(quarantined('run-state.json')).toHaveLength(0)
+  })
+
+  test('a first load with no files on disk quarantines nothing', () => {
+    fs.mkdirSync(chatDir, { recursive: true })
+
+    expect(loadMostRecentChatState()).toBeNull()
+    expect(
+      fs.readdirSync(chatDir).filter((name) => name.includes('.corrupt-')),
+    ).toHaveLength(0)
+  })
+
+  test('refuses to resume rather than hand back a state that would overwrite unreadable bytes', () => {
+    saveChatState(runState, messages)
+    // A file we can neither parse nor move aside (its directory is read-only,
+    // so the quarantine rename fails). A rename would still have *replaced*
+    // it, so resuming here is what destroys the transcript.
+    fs.writeFileSync(messagesPath(), '[{"id":')
+    fs.chmodSync(chatDir, 0o500)
+    try {
+      expect(loadMostRecentChatState()).toBeNull()
+    } finally {
+      fs.chmodSync(chatDir, 0o700)
+    }
+
+    expect(fs.readFileSync(messagesPath(), 'utf8')).toBe('[{"id":')
   })
 })

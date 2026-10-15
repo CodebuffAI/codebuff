@@ -4,9 +4,17 @@ import path from 'path'
 
 import { tmuxCapture, tmuxSend, tmuxSendKey, tmuxStart, tmuxStop } from './tmux-helpers'
 
+/** The chat header's line while no session is admitted: on launch, and again once
+ *  `/end-session` has released the slot. Chat-first since #4170. */
+export const FREEBUFF_CHAT_READY_TEXT = 'Your first message starts the session.'
+
 /** Static strings that prove the CLI reached a post-init boot screen. */
 export const FREEBUFF_BOOT_SIGNALS = [
   '█████╗  ██████╔╝', // ASCII logo (full or small variant)
+  // Chat-first startup (#4170): Freebuff opens straight into chat, whose header
+  // box says the first send admits a session and whose footer names the model.
+  FREEBUFF_CHAT_READY_TEXT,
+  '/model to change',
   'Start coding for free',
   'Enter a coding task',
   'Pick a model to start',
@@ -20,9 +28,12 @@ export class FreebuffSession {
   public readonly name: string
   public readonly workDir: string
 
-  private constructor(sessionName: string, workDir: string) {
+  private readonly envDir: string | null
+
+  private constructor(sessionName: string, workDir: string, envDir: string | null) {
     this.name = sessionName
     this.workDir = workDir
+    this.envDir = envDir
   }
 
   /**
@@ -36,6 +47,11 @@ export class FreebuffSession {
       width?: number
       height?: number
       initialFiles?: Record<string, string>
+      /** Extra environment for the binary (a credential, a config dir). Written
+       *  to a 0600 file OUTSIDE the project directory and sourced by the tmux
+       *  shell, so a secret never lands in the project the CLI indexes, nor in
+       *  the session's recorded command line. */
+      env?: Record<string, string>
     },
   ): Promise<FreebuffSession> {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'freebuff-e2e-'))
@@ -59,7 +75,9 @@ export class FreebuffSession {
       }
     }
 
-    const command = `cd '${tmpDir}' && '${binaryPath}'`
+    const envDir = writeEnvFile(options?.env)
+    const prelude = envDir ? `. '${path.join(envDir, 'env.sh')}' && ` : ''
+    const command = `${prelude}cd '${tmpDir}' && '${binaryPath}'`
     const sessionName = tmuxStart({
       command,
       waitSeconds: options?.waitSeconds ?? 4,
@@ -67,7 +85,7 @@ export class FreebuffSession {
       height: options?.height ?? 30,
     })
 
-    return new FreebuffSession(sessionName, tmpDir)
+    return new FreebuffSession(sessionName, tmpDir, envDir)
   }
 
   /** Write a file into the session's working directory. */
@@ -170,9 +188,9 @@ export class FreebuffSession {
 
   /**
    * Poll until the terminal shows any known boot-screen marker.
-   * More reliable than waiting for a single ASCII logo line — CI runners
-   * often land on the model picker wordmark ("Start coding for free") instead
-   * of the full ASCII art.
+   * More reliable than waiting for a single ASCII logo line: the screen a run
+   * lands on depends on auth and on the build (chat header, login prompt, or
+   * the older landing picker).
    */
   async waitForBootSignal(timeoutMs = 30_000): Promise<string> {
     const start = Date.now()
@@ -209,13 +227,53 @@ export class FreebuffSession {
     )
   }
 
+  /**
+   * Poll until the terminal output contains any of `patterns`; returns the one
+   * that matched (first in `patterns` order) with the output it matched in.
+   */
+  async waitForAnyText<const P extends string>(
+    patterns: readonly P[],
+    timeoutMs = 30_000,
+  ): Promise<{ match: P; output: string }> {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+      const output = await this.capture()
+      const match = patterns.find((pattern) => output.includes(pattern))
+      if (match !== undefined) return { match, output }
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+    const finalOutput = await this.capture()
+    throw new Error(
+      `Timed out after ${timeoutMs}ms waiting for any of ${JSON.stringify(patterns)}.\n` +
+        `Last output:\n${finalOutput}`,
+    )
+  }
+
   /** Stop the tmux session and clean up the temp directory. */
   async stop(): Promise<void> {
     tmuxStop(this.name)
-    try {
-      fs.rmSync(this.workDir, { recursive: true, force: true })
-    } catch {
-      // Ignore cleanup errors
+    for (const dir of [this.workDir, this.envDir]) {
+      if (!dir) continue
+      try {
+        fs.rmSync(dir, { recursive: true, force: true })
+      } catch {
+        // Ignore cleanup errors
+      }
     }
   }
+}
+
+const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`
+
+/** Materialize `env` as a sourceable file in its own temp dir; null when there is nothing to set. */
+function writeEnvFile(env: Record<string, string> | undefined): string | null {
+  const entries = Object.entries(env ?? {})
+  if (entries.length === 0) return null
+  const envDir = fs.mkdtempSync(path.join(os.tmpdir(), 'freebuff-e2e-env-'))
+  fs.writeFileSync(
+    path.join(envDir, 'env.sh'),
+    entries.map(([name, value]) => `export ${name}=${shellQuote(value)}`).join('\n') + '\n',
+    { encoding: 'utf-8', mode: 0o600 },
+  )
+  return envDir
 }

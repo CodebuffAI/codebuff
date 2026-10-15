@@ -34,6 +34,21 @@ describe('classifyStreamEndRecovery', () => {
     ).toBe('stream-interrupted')
   })
 
+  it('describes missing completion metadata without claiming a connection dropped', () => {
+    for (const finish of [
+      undefined,
+      { finishReason: 'unknown', hasUsage: false },
+    ]) {
+      const recovery = classifyStreamEndRecovery({
+        aborted: false, finish, ...noYields,
+      })
+      expect(recovery?.message).toContain('without a supported completion signal')
+      expect(recovery?.message).not.toContain('connection dropped')
+      expect(recovery?.detail).toContain('completion status')
+      expect(recovery?.detail).not.toContain('connection-level error')
+    }
+  })
+
   it('classifies a reasoning-only length stop as output-limit', () => {
     const recovery = classifyStreamEndRecovery({
       aborted: false,
@@ -165,6 +180,17 @@ describe('streamFinishInfoOf', () => {
 })
 
 describe('classifyThrownStreamRecovery', () => {
+  it('identifies a transport exception without exposing its raw details', () => {
+    const error = Object.assign(new Error('secret-key at https://private.example'), {
+      code: 'ECONNRESET',
+    })
+    const recovery = classifyThrownStreamRecovery({ aborted: false, error })
+    expect(recovery?.message).toContain('connection-level error')
+    expect(recovery?.detail).toContain('connection-level error')
+    expect(JSON.stringify(recovery)).not.toContain('secret-key')
+    expect(JSON.stringify(recovery)).not.toContain('private.example')
+  })
+
   it('classifies Bun socket-close exceptions as interrupted streams', () => {
     const error = new Error(
       'The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()',

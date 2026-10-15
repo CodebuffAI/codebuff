@@ -1,0 +1,590 @@
+import { afterEach, describe, expect, test } from 'bun:test'
+
+import { clearByokReasoningRejections } from '../byok-request'
+import { getModelForRequest } from '../model-provider'
+
+import type {
+  LanguageModelV2,
+  LanguageModelV2CallOptions,
+} from '@ai-sdk/provider'
+import type { ResolvedByokConnection } from '../../byok'
+
+const originalFetch = globalThis.fetch
+afterEach(() => {
+  globalThis.fetch = originalFetch
+  clearByokReasoningRejections()
+})
+
+const connection: ResolvedByokConnection = {
+  id: 'connection-1',
+  revision: 1,
+  name: 'Luna',
+  provider: 'openai-compatible',
+  baseUrl: 'https://api.openai.com/v1/',
+  model: 'gpt-5.6-luna',
+  apiKey: 'provider-key-canary',
+  credentialRef: 'env:PROVIDER_KEY',
+  createdAt: 'x',
+  updatedAt: 'x',
+}
+const options: LanguageModelV2CallOptions = {
+  prompt: [
+    { role: 'user', content: [{ type: 'text', text: 'Reply with OK.' }] },
+  ],
+  maxOutputTokens: 4096,
+  stopSequences: ['"cb_easp"'],
+  tools: [
+    { type: 'function', name: 'read_files', inputSchema: { type: 'object' } },
+  ],
+  toolChoice: { type: 'auto' },
+}
+
+async function request(
+  mode: 'stream' | 'generate',
+  overrides: Partial<ResolvedByokConnection> = {},
+  callOptions: Partial<LanguageModelV2CallOptions> = {},
+) {
+  const selected = { ...connection, ...overrides }
+  let body: Record<string, unknown> = {}
+  let url = ''
+  let headers = new Headers()
+  globalThis.fetch = (async (input, init) => {
+    url = String(input)
+    headers = new Headers(init?.headers)
+    body = JSON.parse(String(init?.body))
+    const message = { role: 'assistant', content: 'OK' }
+    if (mode === 'stream') {
+      return new Response(
+        `data: ${JSON.stringify({ choices: [{ delta: message, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`,
+        {
+          headers: { 'content-type': 'text/event-stream' },
+        },
+      )
+    }
+    return Response.json({ choices: [{ message, finish_reason: 'stop' }] })
+  }) as typeof fetch
+  const model = getModelForRequest({
+    apiKey: 'hosted-key-must-not-be-sent',
+    model: 'ignored',
+    byok: selected,
+  }) as LanguageModelV2
+  let serialized: unknown
+  if (mode === 'stream') {
+    const result = await model.doStream({ ...options, ...callOptions })
+    const reader = result.stream.getReader()
+    let text = ''
+    while (true) {
+      const next = await reader.read()
+      if (next.done) break
+      if (next.value.type === 'error') throw next.value.error
+      if (next.value.type === 'text-delta') text += next.value.delta
+    }
+    expect(text).toBe('OK')
+    serialized = result.request?.body
+  } else {
+    const result = await model.doGenerate({ ...options, ...callOptions })
+    expect(result.content).toContainEqual({ type: 'text', text: 'OK' })
+    serialized = result.request?.body
+  }
+  // Diagnostics must describe the body actually sent, not pre-transform fields.
+  expect(
+    JSON.parse(
+      typeof serialized === 'string' ? serialized : JSON.stringify(serialized),
+    ),
+  ).toEqual(body)
+  expect(body.model).toBe(selected.model)
+  expect(headers.get('authorization')).toBe(`Bearer ${selected.apiKey}`)
+  expect(JSON.stringify(body)).not.toContain(selected.apiKey)
+  expect(JSON.stringify(body)).not.toContain('hosted-key-must-not-be-sent')
+  return { body, url }
+}
+
+const toolLoopPrompt: LanguageModelV2CallOptions['prompt'] = [
+  { role: 'user', content: [{ type: 'text', text: 'Read a file.' }] },
+  {
+    role: 'assistant',
+    content: [
+      {
+        type: 'tool-call',
+        toolCallId: 'call-1',
+        toolName: 'read_files',
+        input: { paths: ['a.ts'] },
+      },
+    ],
+  },
+  {
+    role: 'tool',
+    content: [
+      {
+        type: 'tool-result',
+        toolCallId: 'call-1',
+        toolName: 'read_files',
+        output: { type: 'text', value: 'contents' },
+      },
+    ],
+  },
+]
+
+describe('BYOK DeepSeek thinking-mode replay', () => {
+  // Real report (2026-09-24): direct DeepSeek BYOK answered the first request,
+  // then every follow-up after a tool call failed with HTTP 400 because the
+  // assistant tool-call message carried no `reasoning_content`.
+  for (const mode of ['stream', 'generate'] as const) {
+    test(`${mode}: a direct DeepSeek connection backfills reasoning_content on the tool-call message`, async () => {
+      const { body } = await request(
+        mode,
+        {
+          baseUrl: 'https://api.deepseek.com/v1',
+          model: 'deepseek-v4-flash',
+        },
+        { prompt: toolLoopPrompt },
+      )
+      const messages = body.messages as Array<Record<string, unknown>>
+      const assistant = messages.find((m) => m.role === 'assistant')
+      expect(assistant?.tool_calls).toBeDefined()
+      expect(assistant?.reasoning_content).toBe('')
+    })
+  }
+
+  test('non-DeepSeek connections are untouched', async () => {
+    const { body } = await request('generate', {}, { prompt: toolLoopPrompt })
+    const messages = body.messages as Array<Record<string, unknown>>
+    const assistant = messages.find((m) => m.role === 'assistant')
+    expect('reasoning_content' in (assistant ?? {})).toBe(false)
+  })
+})
+
+/** A reasoning model's tool-call step, as the agent runtime keeps it. */
+const reasoningLoopPrompt: LanguageModelV2CallOptions['prompt'] = [
+  toolLoopPrompt[0]!,
+  {
+    role: 'assistant',
+    content: [
+      { type: 'reasoning', text: 'I should read a.ts.' },
+      {
+        type: 'tool-call',
+        toolCallId: 'call-1',
+        toolName: 'read_files',
+        input: { paths: ['a.ts'] },
+      },
+    ],
+  },
+  toolLoopPrompt[2]!,
+]
+
+const assistantOf = (body: Record<string, unknown>) =>
+  (body.messages as Array<Record<string, unknown>>).find(
+    (m) => m.role === 'assistant',
+  )
+
+const groqRefusal =
+  "'messages.2' : for 'role:assistant' the following must be satisfied[('messages.2' : property 'reasoning_content' is unsupported)]"
+
+describe('BYOK reasoning replay', () => {
+  // Real report (2026-10-08, Desktop + Groq): every follow-up after a
+  // reasoning step failed with "property 'reasoning_content' is unsupported".
+  for (const mode of ['stream', 'generate'] as const) {
+    test(`${mode}: Groq never receives replayed reasoning`, async () => {
+      const { body } = await request(
+        mode,
+        {
+          baseUrl: 'https://api.groq.com/openai/v1',
+          model: 'openai/gpt-oss-120b',
+        },
+        { prompt: reasoningLoopPrompt },
+      )
+      const assistant = assistantOf(body)
+      expect(assistant?.tool_calls).toBeDefined()
+      expect(assistant).not.toHaveProperty('reasoning_content')
+    })
+  }
+
+  test('a DeepSeek-named model on Groq is not backfilled either', async () => {
+    const { body } = await request(
+      'generate',
+      {
+        baseUrl: 'https://api.groq.com/openai/v1',
+        model: 'deepseek-r1-distill-llama-70b',
+      },
+      { prompt: toolLoopPrompt },
+    )
+    expect(assistantOf(body)).not.toHaveProperty('reasoning_content')
+  })
+
+  function model(
+    overrides: Partial<ResolvedByokConnection>,
+    answer: (body: Record<string, unknown>) => Response,
+  ) {
+    const bodies: Array<Record<string, unknown>> = []
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>
+      bodies.push(body)
+      return answer(body)
+    }) as typeof fetch
+    const languageModel = getModelForRequest({
+      apiKey: 'hosted-key-must-not-be-sent',
+      model: 'ignored',
+      byok: { ...connection, ...overrides },
+    }) as LanguageModelV2
+    return { languageModel, bodies }
+  }
+
+  test('another endpoint that refuses it is retried once without it, and is not sent it again', async () => {
+    const { languageModel, bodies } = model(
+      { baseUrl: 'https://api.example.com/v1', model: 'some-reasoning-model' },
+      (body) =>
+        assistantOf(body)?.reasoning_content === undefined
+          ? Response.json({
+              choices: [
+                {
+                  message: { role: 'assistant', content: 'OK' },
+                  finish_reason: 'stop',
+                },
+              ],
+            })
+          : Response.json(
+              { error: { message: groqRefusal } },
+              { status: 400 },
+            ),
+    )
+    for (let step = 0; step < 2; step++) {
+      const result = await languageModel.doGenerate({
+        ...options,
+        prompt: reasoningLoopPrompt,
+      })
+      expect(result.content).toContainEqual({ type: 'text', text: 'OK' })
+    }
+    expect(bodies.map((b) => assistantOf(b)?.reasoning_content)).toEqual([
+      'I should read a.ts.',
+      undefined,
+      undefined,
+    ])
+  })
+
+  test(`DeepSeek's "must be passed back" error is not taken for a refusal`, async () => {
+    const { languageModel, bodies } = model(
+      { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-v4-flash' },
+      () =>
+        Response.json(
+          {
+            error: {
+              message:
+                'The `reasoning_content` in the thinking mode must be passed back to the API.',
+            },
+          },
+          { status: 400 },
+        ),
+    )
+    await expect(
+      languageModel.doGenerate({ ...options, prompt: reasoningLoopPrompt }),
+    ).rejects.toThrow()
+    expect(bodies).toHaveLength(1)
+    expect(assistantOf(bodies[0]!)?.reasoning_content).toBe(
+      'I should read a.ts.',
+    )
+  })
+})
+
+describe('BYOK provider compatibility', () => {
+  for (const mode of ['stream', 'generate'] as const) {
+    test(`${mode}: direct Luna uses completion tokens and omits unsupported stop`, async () => {
+      const { body, url } = await request(mode)
+      expect(url).toBe('https://api.openai.com/v1/chat/completions')
+      expect(body.max_completion_tokens).toBe(4096)
+      expect(body).not.toHaveProperty('max_tokens')
+      expect(body).not.toHaveProperty('stop')
+      expect(body).not.toHaveProperty('safety_identifier')
+      expect(body.tools).toEqual([
+        {
+          type: 'function',
+          function: { name: 'read_files', parameters: { type: 'object' } },
+        },
+      ])
+      expect(body.tool_choice).toBe('auto')
+      expect(body.reasoning_effort).toBe('none')
+    })
+
+    test(`${mode}: OpenRouter Luna gets stable attribution with either connection kind`, async () => {
+      const native = await request(mode, {
+        provider: 'openrouter',
+        model: 'openai/gpt-5.6-luna',
+      })
+      const custom = await request(mode, {
+        baseUrl: 'https://openrouter.ai/api/v1/',
+        model: 'openai/gpt-5.6-luna',
+        id: 'recreated-connection',
+        revision: 4,
+      })
+      expect(native.url).toBe('https://openrouter.ai/api/v1/chat/completions')
+      expect(custom.url).toBe(native.url)
+      expect(native.body.user).toMatch(/^[a-f0-9]{64}$/)
+      expect(native.body.safety_identifier).toBe(native.body.user)
+      expect(custom.body.user).toBe(native.body.user)
+      expect(custom.body.safety_identifier).toBe(native.body.user)
+      expect(native.body.max_tokens).toBe(4096)
+      expect(native.body.stop).toEqual(options.stopSequences)
+      expect(native.body).not.toHaveProperty('max_completion_tokens')
+    })
+  }
+
+  test('structured requests retain their schema and configured output limit', async () => {
+    const responseFormat: LanguageModelV2CallOptions['responseFormat'] = {
+      type: 'json',
+      schema: { type: 'object', properties: { ok: { type: 'boolean' } } },
+      name: 'answer',
+    }
+    const { body } = await request(
+      'generate',
+      {},
+      { responseFormat, maxOutputTokens: 128 },
+    )
+    expect(body.max_completion_tokens).toBe(128)
+    expect(body.response_format).toEqual({
+      type: 'json_schema',
+      json_schema: { schema: responseFormat.schema, name: 'answer' },
+    })
+  })
+
+  test('direct Luna disables reasoning for tools but preserves it for tool-free helpers', async () => {
+    const providerOptions = { byok: { reasoningEffort: 'high' as const } }
+    const withTools = await request('stream', {}, { providerOptions })
+    const withoutTools = await request(
+      'generate',
+      {},
+      { providerOptions, tools: [] },
+    )
+    expect(withTools.body.reasoning_effort).toBe('none')
+    expect(withoutTools.body.reasoning_effort).toBe('high')
+  })
+
+  test('attribution is credential-scoped across models and cannot be replaced by per-call options', async () => {
+    const router = {
+      provider: 'openrouter' as const,
+      model: 'openai/gpt-5.6-luna',
+    }
+    const first = await request('stream', router)
+    const next = await request(
+      'generate',
+      { ...router, model: 'openai/gpt-4.1-mini' },
+      {
+        providerOptions: {
+          byok: { user: 'per-call-user', safety_identifier: 'per-call-safety' },
+        },
+      },
+    )
+    const other = await request('generate', {
+      ...router,
+      apiKey: 'another-provider-key',
+    })
+    expect(next.body.user).toBe(first.body.user)
+    expect(next.body.safety_identifier).toBe(first.body.user)
+    expect(other.body.user).not.toBe(first.body.user)
+  })
+
+  test.each([
+    { baseUrl: 'http://localhost:1234/v1' },
+    { baseUrl: 'https://api.openai.com.example/v1' },
+    { baseUrl: 'https://api.openai.com/custom/v1' },
+    { model: 'gpt-4.1-mini' },
+    { provider: 'openrouter' as const, model: 'anthropic/claude-haiku-4.5' },
+    {
+      baseUrl: 'https://openrouter.ai.example/api/v1',
+      model: 'openai/gpt-5.6-luna',
+    },
+  ])(
+    'preserves the generic request for other endpoints/models: %j',
+    async (overrides) => {
+      const { body } = await request('generate', overrides)
+      expect(body.max_tokens).toBe(4096)
+      expect(body.stop).toEqual(options.stopSequences)
+      expect(body).not.toHaveProperty('max_completion_tokens')
+      expect(body).not.toHaveProperty('user')
+      expect(body).not.toHaveProperty('safety_identifier')
+    },
+  )
+})
+
+describe('BYOK Gemini thought signatures', () => {
+  // Real report (2026-10-06, Desktop + Gemini 3.5 Flash-Lite): every task
+  // failed with HTTP 400 on the request after the first tool call, because the
+  // call's thought signature was dropped on the way into history.
+  const gemini = {
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    model: 'gemini-3.5-flash-lite',
+  }
+  const signed = (signature: string) => ({
+    google: { thought_signature: signature },
+  })
+
+  function geminiModel(
+    overrides: Partial<ResolvedByokConnection>,
+    answer: () => Response = () =>
+      Response.json({
+        choices: [
+          { message: { role: 'assistant', content: 'OK' }, finish_reason: 'stop' },
+        ],
+      }),
+  ) {
+    const bodies: Array<Record<string, unknown>> = []
+    globalThis.fetch = (async (_input, init) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>)
+      return answer()
+    }) as typeof fetch
+    const languageModel = getModelForRequest({
+      apiKey: 'hosted-key-must-not-be-sent',
+      model: 'ignored',
+      byok: { ...connection, ...overrides },
+    }) as LanguageModelV2
+    return { languageModel, bodies }
+  }
+
+  const geminiToolCall = {
+    id: 'call_1',
+    type: 'function',
+    function: { name: 'read_files', arguments: '{"paths":["AGENTS.md"]}' },
+    extra_content: signed('sig-A'),
+  }
+
+  test('stream: the signature arrives on the tool call', async () => {
+    const { languageModel } = geminiModel(gemini, () =>
+      new Response(
+        `data: ${JSON.stringify({
+          choices: [
+            {
+              delta: { role: 'assistant', tool_calls: [{ index: 0, ...geminiToolCall }] },
+              finish_reason: 'tool_calls',
+            },
+          ],
+        })}\n\ndata: [DONE]\n\n`,
+        { headers: { 'content-type': 'text/event-stream' } },
+      ),
+    )
+    const result = await languageModel.doStream(options)
+    const reader = result.stream.getReader()
+    const calls: unknown[] = []
+    while (true) {
+      const next = await reader.read()
+      if (next.done) break
+      if (next.value.type === 'tool-call') calls.push(next.value)
+    }
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({
+      toolName: 'read_files',
+      providerMetadata: {
+        byok: { extra_content: signed('sig-A'), model: gemini.model },
+      },
+    })
+  })
+
+  test('generate: the signature arrives on the tool call', async () => {
+    const { languageModel } = geminiModel(gemini, () =>
+      Response.json({
+        choices: [
+          {
+            message: { role: 'assistant', tool_calls: [geminiToolCall] },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      }),
+    )
+    const result = await languageModel.doGenerate(options)
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+        providerMetadata: {
+          byok: { extra_content: signed('sig-A'), model: gemini.model },
+        },
+      }),
+    )
+  })
+
+  const signedLoopPrompt = (model: string): LanguageModelV2CallOptions['prompt'] => [
+    toolLoopPrompt[0]!,
+    {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'call-1',
+          toolName: 'read_files',
+          input: { paths: ['a.ts'] },
+          providerOptions: {
+            byok: { extra_content: signed('sig-A'), model },
+          },
+        },
+      ],
+    },
+    toolLoopPrompt[2]!,
+  ]
+
+  const firstCallOf = (body: Record<string, unknown>) =>
+    (assistantOf(body)?.tool_calls as Array<Record<string, unknown>>)[0]
+
+  test('the next request replays the real signature', async () => {
+    const { languageModel, bodies } = geminiModel(gemini)
+    await languageModel.doGenerate({
+      ...options,
+      prompt: signedLoopPrompt(gemini.model),
+    })
+    expect(firstCallOf(bodies[0]!).extra_content).toEqual(signed('sig-A'))
+  })
+
+  test("another model's signature is not replayed; the call gets the placeholder", async () => {
+    const { languageModel, bodies } = geminiModel(gemini)
+    await languageModel.doGenerate({
+      ...options,
+      prompt: signedLoopPrompt('gemini-3.1-flash-lite'),
+    })
+    expect(firstCallOf(bodies[0]!).extra_content).toEqual(
+      signed('skip_thought_signature_validator'),
+    )
+  })
+
+  test('an unsigned call (older history, runtime-added) gets the placeholder', async () => {
+    const { languageModel, bodies } = geminiModel(gemini)
+    await languageModel.doGenerate({ ...options, prompt: toolLoopPrompt })
+    expect(firstCallOf(bodies[0]!).extra_content).toEqual(
+      signed('skip_thought_signature_validator'),
+    )
+  })
+
+  test('only the first of parallel unsigned calls is given one', async () => {
+    const { languageModel, bodies } = geminiModel(gemini)
+    const call = (id: string) => ({
+      type: 'tool-call' as const,
+      toolCallId: id,
+      toolName: 'read_files',
+      input: { paths: [`${id}.ts`] },
+    })
+    const result = (id: string) => ({
+      type: 'tool-result' as const,
+      toolCallId: id,
+      toolName: 'read_files',
+      output: { type: 'text' as const, value: 'contents' },
+    })
+    await languageModel.doGenerate({
+      ...options,
+      prompt: [
+        toolLoopPrompt[0]!,
+        { role: 'assistant', content: [call('a'), call('b')] },
+        { role: 'tool', content: [result('a'), result('b')] },
+      ],
+    })
+    const calls = assistantOf(bodies[0]!)?.tool_calls as Array<
+      Record<string, unknown>
+    >
+    expect(calls[0]!.extra_content).toEqual(
+      signed('skip_thought_signature_validator'),
+    )
+    expect(calls[1]).not.toHaveProperty('extra_content')
+  })
+
+  test('other endpoints get no signature field', async () => {
+    const { languageModel, bodies } = geminiModel({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'some-model',
+    })
+    await languageModel.doGenerate({ ...options, prompt: toolLoopPrompt })
+    expect(firstCallOf(bodies[0]!)).not.toHaveProperty('extra_content')
+  })
+})

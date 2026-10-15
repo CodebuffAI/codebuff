@@ -5,6 +5,7 @@ import {
 
 import type { StreamParserState } from './util/stream-xml-parser'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+import type { ProviderMetadata } from '@codebuff/common/types/messages/provider-metadata'
 import type {
   PrintModeError,
   PrintModeText,
@@ -23,6 +24,7 @@ export async function* processStreamWithTools(params: {
       onTagEnd: (
         tagName: string,
         params: Record<string, any>,
+        providerOptions?: ProviderMetadata,
       ) => void | Promise<void>
     }
   >
@@ -34,6 +36,7 @@ export async function* processStreamWithTools(params: {
     onTagEnd: (
       tagName: string,
       params: Record<string, any>,
+      providerOptions?: ProviderMetadata,
     ) => void | Promise<void>
   }
   onResponseChunk: (chunk: PrintModeText | PrintModeError) => void
@@ -59,8 +62,9 @@ export async function* processStreamWithTools(params: {
   async function processToolCallObject(params: {
     toolName: string
     input: any
+    providerOptions?: ProviderMetadata
   }): Promise<void> {
-    const { toolName } = params
+    const { toolName, providerOptions } = params
     let { input } = params
 
     // AI SDK sometimes emits tool-call chunks with a raw JSON string as `input`
@@ -75,7 +79,7 @@ export async function* processStreamWithTools(params: {
     const processor = processors[toolName] ?? defaultProcessor(toolName)
 
     await processor.onTagStart(toolName, {})
-    await processor.onTagEnd(toolName, input)
+    await processor.onTagEnd(toolName, input, providerOptions)
   }
 
   function flush() {

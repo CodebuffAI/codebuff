@@ -3,6 +3,9 @@ import {
   FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+  FREEBUFF_GPT_6_LUNA_MODEL_ID,
+  FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS,
   FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS,
   getFreebuffWebModel,
@@ -40,18 +43,11 @@ export const FREEBUFF_SUBSCRIPTION_MODEL_IDS: readonly string[] =
 /**
  * The expensive half of the pool, sub-capped within each day.
  *
- * Measured 2026-08-21: Luna and DeepSeek V4 Pro each cost roughly 4-5x Flash
- * per hour-session (dollar figures live in the internal cost notes, not in
- * this exported file). Without a sub-cap a subscriber
- * spending every daily session on Luna costs 5x one spending them on Flash, at
- * the same price, so the daily allowance would have to be priced for the worst
- * case and would be small for everyone.
- *
- * Kimi K3 Eco is deliberately NOT here. It is one of the god-only models in
- * `GOD_ONLY_BAIT_MODEL_IDS` (web/src/llm-api/honeypot-models.ts) reached
- * mostly by API probers, so its measured cost describes short aborted
- * sessions rather than real use and cannot be priced against. Revisit once it
- * carries genuine client traffic.
+ * These rows cost several times Flash per hour-session (figures live in the
+ * internal cost notes, not in this exported file). Without a sub-cap a
+ * subscriber spending every daily session on them would cost several times
+ * one spending them on Flash, at the same price, so the daily allowance would
+ * have to be priced for the worst case and would be small for everyone.
  */
 export const FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS: readonly string[] =
   Object.freeze([
@@ -59,12 +55,19 @@ export const FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS: readonly string[] =
     // users. It remains in this subscription-only classification because that
     // list controls the plan's daily sub-cap, not free-tier entitlement.
     FREEBUFF_GLM_V53_FLASH_MODEL_ID,
-    FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
+    // GPT-6 Luna replaced 5.6 here on 2026-09-22. Priced at 20 like the row it
+    // replaces, so a subscriber spending every daily session on it is exactly
+    // what this sub-cap exists to bound.
+    FREEBUFF_GPT_6_LUNA_MODEL_ID,
     // Gemini 3.8 Flash is the dearest row in the catalog per message, so it
     // belongs in the sub-capped half for exactly the reason this list exists:
     // without the cap, a subscriber spending every daily session here would
     // have to be priced for, and the allowance would shrink for everyone.
     FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+    // GPT-6.1 Sol (2026-09-29) and Gemini 4 Argon (2026-10-13) are dearer
+    // still, for the same reason.
+    FREEBUFF_GPT_61_SOL_MODEL_ID,
+    FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   ])
 
 export function isFreebuffSubscriptionPremiumModelId(modelId: string): boolean {
@@ -97,12 +100,6 @@ export function isFreebuffSubscriptionPremiumModelId(modelId: string): boolean {
 export const FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS: readonly string[] =
   Object.freeze([])
 
-export function isFreebuffSubscriptionPeakPausedModelId(
-  modelId: string,
-): boolean {
-  return FREEBUFF_SUBSCRIPTION_PEAK_PAUSED_MODEL_IDS.includes(modelId)
-}
-
 export function isFreebuffSubscriptionModelId(modelId: string): boolean {
   return FREEBUFF_SUBSCRIPTION_MODEL_IDS.includes(modelId)
 }
@@ -118,11 +115,31 @@ export const FREEBUFF_SUBSCRIPTION_TIER_IDS = [
 export type FreebuffSubscriptionTierId =
   (typeof FREEBUFF_SUBSCRIPTION_TIER_IDS)[number]
 
+export const FREEBUFF_SUBSCRIPTION_BILLING_INTERVALS = [
+  'monthly',
+  'yearly',
+] as const
+export type FreebuffSubscriptionBillingInterval =
+  (typeof FREEBUFF_SUBSCRIPTION_BILLING_INTERVALS)[number]
+
+export function isFreebuffSubscriptionBillingInterval(
+  value: unknown,
+): value is FreebuffSubscriptionBillingInterval {
+  return (
+    typeof value === 'string' &&
+    FREEBUFF_SUBSCRIPTION_BILLING_INTERVALS.includes(
+      value as FreebuffSubscriptionBillingInterval,
+    )
+  )
+}
+
 export interface FreebuffSubscriptionTier {
   id: FreebuffSubscriptionTierId
   displayName: string
   /** Every period after the first, in USD. */
   priceUsd: number
+  /** Annual charge in USD. Usage allowances still refresh monthly. */
+  yearlyPriceUsd: number
   /**
    * First billing period, in USD.
    *
@@ -186,6 +203,23 @@ export const FREEBUFF_FREE_TIER_ALLOWANCE = Object.freeze({
   monthlySessions: 40,
 })
 
+/**
+ * The first-month introduction ENDS at the close of Oct 24, 2026, Pacific
+ * (23:59:59 PDT; this is the first instant it no longer applies). Every tier's
+ * intro ends together: offers quote list price and checkout attaches no intro
+ * coupon from this instant on.
+ */
+export const FREEBUFF_SUBSCRIPTION_INTRO_ENDS_AT = '2026-10-25T07:00:00.000Z'
+const INTRO_ENDS_AT_MS = Date.parse(FREEBUFF_SUBSCRIPTION_INTRO_ENDS_AT)
+
+/** Whether the first-month introduction is still offered at `now`. The
+ *  default reads `Date.now()`, so a test's clock spy reaches it. */
+export function freebuffSubscriptionIntroOpen(
+  now: Date = new Date(Date.now()),
+): boolean {
+  return now.getTime() < INTRO_ENDS_AT_MS
+}
+
 export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
   Object.freeze([
     // Retuned 2026-08-31 to the MARKETED-TOTALS model. The numbers users see
@@ -199,6 +233,7 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       id: 'starter',
       displayName: 'Starter',
       priceUsd: 8,
+      yearlyPriceUsd: 75,
       introPriceUsd: 5,
       dailySessions: 3,
       fiveDaySessions: 10,
@@ -213,6 +248,7 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       id: 'plus',
       displayName: 'Plus',
       priceUsd: 25,
+      yearlyPriceUsd: 235,
       introPriceUsd: 19,
       dailySessions: 7,
       fiveDaySessions: 26,
@@ -224,6 +260,7 @@ export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
       id: 'pro',
       displayName: 'Pro',
       priceUsd: 60,
+      yearlyPriceUsd: 560,
       introPriceUsd: 45,
       dailySessions: 11,
       fiveDaySessions: 66,
@@ -239,6 +276,36 @@ export function freebuffSubscriptionTier(
   id: string | null | undefined,
 ): FreebuffSubscriptionTier | undefined {
   return id ? TIERS_BY_ID.get(id as FreebuffSubscriptionTierId) : undefined
+}
+
+/**
+ * The cadence a stored `billing_interval` bills at. The column is free text:
+ * anything but `yearly` is monthly, its default for every row written before
+ * annual billing, so an unknown value is never a crash or a year.
+ */
+export function freebuffSubscriptionBillingInterval(
+  value: string,
+): FreebuffSubscriptionBillingInterval {
+  return value === 'yearly' ? 'yearly' : 'monthly'
+}
+
+/**
+ * What one subscription adds to MRR at list price, the unit every MRR figure
+ * sums: a yearly plan is a twelfth of its annual charge. A grant is never
+ * revenue, and a tier the catalog no longer carries prices at 0 rather than a
+ * guess.
+ */
+export function freebuffSubscriptionMrrUsd(subscription: {
+  tier: string
+  billingInterval: string
+  source: string
+}): number {
+  const tier = freebuffSubscriptionTier(subscription.tier)
+  if (!tier || subscription.source === 'grant') return 0
+  const interval = freebuffSubscriptionBillingInterval(
+    subscription.billingInterval,
+  )
+  return interval === 'yearly' ? tier.yearlyPriceUsd / 12 : tier.priceUsd
 }
 
 /** The next tier up, or undefined at the top. Drives every upgrade CTA. */
@@ -273,7 +340,7 @@ export function freebuffSubscriptionTierDisclaimers(
     // sentence would describe a restriction that does not exist.
     ...(tier.dailyPremiumSessions < tier.dailySessions
       ? [
-          `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT 5.6 Luna or GLM 5.3 Flash; the rest use DeepSeek V4 Flash or Kimi K3 Eco`,
+          `${tier.dailyPremiumSessions} of your ${tier.dailySessions} daily sessions can be GPT-6 Luna or GLM 5.3 Flash; the rest use the standard models`,
         ]
       : []),
     // Says "weekly" and takes the length from the constant: the window widened
@@ -327,10 +394,15 @@ export const FREEBUFF_SUBSCRIPTION_FIVE_DAY_WINDOW_DAYS = 7
  *
  * ## Scope
  *
- * Enforced on FREEBUFF WEB ONLY — see FREEBUFF_PRO_ENFORCED_SURFACES. Gemini is
- * absent from the CLI/Desktop catalog, so the Web-only listing and Web-only
- * gate stay paired. Widening is one edit to that constant, and should be made
- * with a client release rather than ahead of one.
+ * Enforced on Freebuff Web by default (FREEBUFF_PRO_ENFORCED_SURFACES), and on
+ * the CLI and Desktop too for every row in
+ * FREEBUFF_PRO_ONLY_EVERY_SURFACE_MODEL_IDS — Gemini 3.8 Flash and GPT-6.1
+ * Sol, because they sit in the CLI/Desktop catalogs. Those pickers list it
+ * LOCKED to an account without a plan (`freebuffPlanRequired`). MiMo 2.6 Pro
+ * and GPT-6 Luna left this set on 2026-09-25, and Muse Spark 1.3 (with 1.2)
+ * on 2026-10-09: open to every full-access account, plan-only at limited
+ * access (FREEBUFF_LIMITED_TIER_PLAN_ONLY_MODEL_IDS). Gemini was Web-only
+ * until then.
  *
  * Withdrawn history: V4 Pro was the one entry for a few hours (#2254) and left
  * on 2026-08-26 with its withdrawal from free mode — a row nothing may admit
@@ -341,12 +413,13 @@ export const FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS: readonly string[] =
   FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS
 
 /**
- * The Pro rows are enforced on **Freebuff Web only**, for now.
+ * Where a Pro row is enforced BY DEFAULT: Freebuff Web.
  *
- * The current Pro row, Gemini 3.8 Flash, is Web-only too. A future native
- * rollout must add the surface here before adding the row to the shared
- * CLI/Desktop catalog, and must ship clients that understand the refusal
- * before the server can take a model away from them.
+ * A row in FREEBUFF_PRO_ONLY_EVERY_SURFACE_MODEL_IDS is enforced on the CLI
+ * and Desktop too, which is every current row (Gemini 3.8 Flash, GPT-6.1 Sol, Gemini 4
+ * Argon). A future Pro row that is Web-only needs nothing
+ * more; one added to the shared CLI/Desktop catalog must join that list, or it
+ * is served free on those surfaces.
  *
  * Luna is deliberately outside this policy: it is available from the shared
  * premium pool on every full-access surface.
@@ -510,35 +583,3 @@ export function freebuffPlanHours(count: number): string {
 export function freebuffPlanHrs(count: number): string {
   return `${count} ${count === 1 ? 'hr' : 'hrs'}`
 }
-
-/**
- * "3 hours/day · 10 hours/5 days · 50 hours/month"
- *
- * Takes the three fields structurally rather than the catalog type, so the
- * CATALOG tier and the wire `FreebuffSubscriptionTierOffer` both satisfy it —
- * the settings page renders the wire shape, and requiring the catalog type
- * there would mean either a cast or a second copy of this string.
- */
-export function freebuffPlanHoursSummary(tier: {
-  dailySessions: number
-  fiveDaySessions: number
-  monthlySessions: number
-}): string {
-  return [
-    `${freebuffPlanHours(tier.dailySessions)}/day`,
-    `${freebuffPlanHours(tier.fiveDaySessions)}/5 days`,
-    `${freebuffPlanHours(tier.monthlySessions)}/month`,
-  ].join(' · ')
-}
-
-/**
- * What the monthly ceiling is spent ON, in the user's words.
- *
- * "compute" is our word for it and meant nothing to the people reading the
- * plan. It was "tokens" for a while, until the account hub started showing
- * real token COUNTS on the same page as "$4.10 of $25 tokens" — one word for a
- * count and a dollar figure at once. "Model spend" is the canonical name for
- * the dollar quantity everywhere now (see CONTEXT.md); "tokens" only ever
- * means a count. Kept as a constant so the label moves in one place.
- */
-export const FREEBUFF_SPEND_UNIT_LABEL = 'model spend'

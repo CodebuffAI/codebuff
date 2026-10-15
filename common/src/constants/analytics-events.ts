@@ -9,6 +9,8 @@ export enum AnalyticsEvent {
   // per-surface DAU (filter on the `surface` property) and a combined DAU (no
   // filter). The `surface` property is one of: cli, web, chat, desktop, cloud
   // (web = the freebuff.com builder, cloud = connected-repo builder projects).
+  // Native sends additionally carry `client_platform: 'ios' | 'android'`;
+  // surface still describes the mode, and missing platform means unknown.
   // Emission points: cli client analytics; chat's stream route (server-side);
   // desktop's analytics module; web/cloud via the Convex send mutation
   // (PostHog + Axiom, both direct from Convex — see convex/analytics.ts).
@@ -24,6 +26,14 @@ export enum AnalyticsEvent {
   // user = "Average count per user" broken down by `surface`. See
   // common/src/util/engagement-tracker.ts.
   PRODUCT_ACTIVE_MINUTE = 'product_active_minute',
+
+  // Freebuff Cloud feature use: one event per publish, member invite,
+  // integration, custom link, AI credential connect or delivery step.
+  // Emitted from Convex's `recordCloudFeatureUsage` (PostHog + Axiom, via
+  // convex/analytics.ts) under the canonical codebuff user id. Properties:
+  // `feature` (one of CLOUD_FEATURES) and `project_id` (the Convex project id)
+  // when the use belongs to a project. Never carries the branch or PR detail.
+  CLOUD_FEATURE_USED = 'cloud_feature_used',
 
   // CLI
   APP_LAUNCHED = 'cli.app_launched',
@@ -44,7 +54,25 @@ export enum AnalyticsEvent {
   TERMINAL_BROKER_SPAWN_FAILED = 'cli.terminal_broker_spawn_failed',
   TERMINAL_WATCHDOG_FAILED = 'cli.terminal_watchdog_failed',
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
+  // Client-side process floods, which nothing server-side can see (the
+  // 2026-09-23 "conhost and powershell flood" report). HELPER_PROCESS_FLOOD
+  // fires when the live count of one KIND of helper crosses its threshold —
+  // `scope: 'owned'` counts children this process spawned and still holds;
+  // `scope: 'machine'` is a Windows-only count of powershell/conhost/bash
+  // processes on the whole machine, the symptom users actually see.
+  // HELPER_OUTLIVED_PARENT fires when a helper is found still running after the
+  // process that spawned it is gone (a leaked terminal watchdog). Counts only —
+  // never command lines, paths or process names beyond a fixed allowlist.
+  // Rate-limited per kind at the emit site; see common/src/util/helper-process-census.ts.
+  CLI_HELPER_PROCESS_FLOOD = 'cli.helper_process_flood',
+  CLI_HELPER_OUTLIVED_PARENT = 'cli.helper_outlived_parent',
   UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
+  // A fatal exit (uncaught exception / unhandled rejection) of the PREVIOUS
+  // launch, shipped by the next one: the crashing process can only write a
+  // local report before process.exit. Bounded payload: label, error name,
+  // truncated message and top stack frames, crashed version, platform,
+  // uptime, and whether a Freebuff hour was held (resumable).
+  CLI_FATAL_CRASH = 'cli.fatal_crash',
   FEEDBACK_BUTTON_HOVERED = 'cli.feedback_button_hovered',
   FOLLOWUP_CLICKED = 'cli.followup_clicked',
   SUGGESTED_PROMPT_SHOWN = 'cli.suggested_prompt_shown',
@@ -141,26 +169,46 @@ export enum AnalyticsEvent {
   WEB_SEARCH_VALIDATION_ERROR = 'api.web_search_validation_error',
   WEB_SEARCH_INSUFFICIENT_CREDITS = 'api.web_search_insufficient_credits',
   WEB_SEARCH_ERROR = 'api.web_search_error',
+  WEB_SEARCH_RATE_LIMITED = 'api.web_search_rate_limited',
 
   DOCS_SEARCH_REQUEST = 'api.docs_search_request',
   DOCS_SEARCH_AUTH_ERROR = 'api.docs_search_auth_error',
   DOCS_SEARCH_VALIDATION_ERROR = 'api.docs_search_validation_error',
   DOCS_SEARCH_INSUFFICIENT_CREDITS = 'api.docs_search_insufficient_credits',
   DOCS_SEARCH_ERROR = 'api.docs_search_error',
+  DOCS_SEARCH_RATE_LIMITED = 'api.docs_search_rate_limited',
 
   GRAVITY_INDEX_REQUEST = 'api.gravity_index_request',
   GRAVITY_INDEX_AUTH_ERROR = 'api.gravity_index_auth_error',
   GRAVITY_INDEX_VALIDATION_ERROR = 'api.gravity_index_validation_error',
   GRAVITY_INDEX_ERROR = 'api.gravity_index_error',
+  GRAVITY_INDEX_RATE_LIMITED = 'api.gravity_index_rate_limited',
 
   // Web - Feedback API
   FEEDBACK_SUBMITTED = 'api.feedback_submitted',
   FEEDBACK_AUTH_ERROR = 'api.feedback_auth_error',
   FEEDBACK_VALIDATION_ERROR = 'api.feedback_validation_error',
 
+  // Feedback hub - the Axiom mirror (docs/freebuff-feedback-hub.md §14).
+  // One row per feedback_item the hub inserted or changed, from EVERY source:
+  // support email, Discord, GitHub, the in-product forms, CLI and Desktop.
+  // STOPPED 2026-10-06 with the frozen hub; kept so its history stays promoted
+  // to the `event` column.
+  FEEDBACK_ITEM_INGESTED = 'feedback.item_ingested',
+  // Emitted at the door by the surface that RECEIVED the message, so a
+  // submission is queryable even when the store write fails or Convex is
+  // unconfigured. Three doors tell themselves apart by `data.source`: the
+  // CLI/Desktop/SDK POST (`cli` | `desktop` | `sdk`), the in-app issue form
+  // (`issue_report`) and the in-app feedback widget (`feedback_message`).
+  // Read it with `scripts/logs/feedback-stream.ts`. Deliberately a different
+  // name from the hub mirror above: one means "a person pressed send", the
+  // other "the hub holds this".
+  FEEDBACK_RECEIVED = 'feedback.received',
+
   // Web - Logs ingest API (client logs/events → BigQuery)
   LOGS_INGEST_AUTH_ERROR = 'api.logs_ingest_auth_error',
   LOGS_INGEST_VALIDATION_ERROR = 'api.logs_ingest_validation_error',
+  LOGS_INGEST_RATE_LIMITED = 'api.logs_ingest_rate_limited',
 
   // Web - Ads API
   ADS_API_AUTH_ERROR = 'api.ads_auth_error',
@@ -169,6 +217,9 @@ export enum AnalyticsEvent {
   ADS_CLICKED = 'ads.clicked',
   ADS_FIRST_PARTY_DECISION = 'ads.first_party_decision',
   ADS_FIRST_PARTY_SETTLEMENT = 'ads.first_party_settlement',
+  // Provider-ledger snapshot. Keep the latest fetched_at per UTC day before
+  // summing; today's row is explicitly partial. No per-user identity.
+  ADS_GRAVITY_REVENUE_DAILY = 'ads.gravity_revenue_daily',
   ADS_FIRST_PARTY_VIEW_ACK = 'ads.first_party_view_ack',
   /**
    * The CLI dock was expanded into its detail panel (COD-457). A UI gesture,
@@ -178,6 +229,62 @@ export enum AnalyticsEvent {
   ADS_DOCK_EXPANDED = 'ads.dock_expanded',
   /** The detail panel closed, with the method that closed it and the dwell. */
   ADS_DOCK_COLLAPSED = 'ads.dock_collapsed',
+
+  // Web - Advertiser funnel (the BUYER side: /advertisers pitch → /ads console).
+  // Distinct from the `ads.*` serving events above, which are the viewer side.
+  // Properties are enums, lengths, amounts and ids only — never advertiser
+  // free text, URLs or emails. See
+  // freebuff/web/src/components/advertisers/analytics.knowledge.md.
+  ADVERTISER_LANDING_VIEWED = 'advertiser.landing_viewed',
+  ADVERTISER_LANDING_CTA_CLICKED = 'advertiser.landing_cta_clicked',
+  /** A hero surface tab (CLI/Desktop/Web/Mobile) was picked by hand. */
+  ADVERTISER_LANDING_SURFACE_SELECTED = 'advertiser.landing_surface_selected',
+  ADVERTISER_EXPERT_FORM_OPENED = 'advertiser.expert_form_opened',
+  ADVERTISER_EXPERT_FORM_SUBMITTED = 'advertiser.expert_form_submitted',
+  ADVERTISER_EXPERT_FORM_FAILED = 'advertiser.expert_form_failed',
+  /** Authenticated advertiser signup reached (also covers an existing login). */
+  ADVERTISER_SIGNED_IN = 'advertiser.signed_in',
+  ADVERTISER_CAMPAIGN_PREVIEW_ACCEPTED = 'advertiser.campaign_preview_accepted',
+  /** Server-confirmed outcomes, using the browser's email identity. */
+  ADVERTISER_CARD_SETUP_COMPLETED = 'advertiser.card_setup_completed',
+  ADVERTISER_CAMPAIGN_SUBMITTED = 'advertiser.campaign_submitted',
+  ADVERTISER_SIGNUP_STARTED = 'advertiser.signup_started',
+  ADVERTISER_SIGNUP_SUBMITTED = 'advertiser.signup_submitted',
+  ADVERTISER_SIGNUP_FAILED = 'advertiser.signup_failed',
+  ADVERTISER_EMAIL_VERIFIED = 'advertiser.email_verified',
+  ADVERTISER_EMAIL_VERIFY_FAILED = 'advertiser.email_verify_failed',
+  ADVERTISER_AGREEMENT_ACCEPTED = 'advertiser.agreement_accepted',
+  /** A step of the guided setup (CampaignSetupProgress) was shown. */
+  ADVERTISER_ONBOARDING_STEP_VIEWED = 'advertiser.onboarding_step_viewed',
+  /** Guided setup could not draft a campaign from the advertiser's website. */
+  ADVERTISER_CAMPAIGN_PREFILL_FAILED = 'advertiser.campaign_prefill_failed',
+  ADVERTISER_CAMPAIGN_TYPE_SELECTED = 'advertiser.campaign_type_selected',
+  ADVERTISER_BUILDER_OPENED = 'advertiser.builder_opened',
+  ADVERTISER_BUILDER_SECTION_TOUCHED = 'advertiser.builder_section_touched',
+  /** The builder's preview was switched to another ad format. */
+  ADVERTISER_BUILDER_PREVIEW_SWITCHED = 'advertiser.builder_preview_switched',
+  ADVERTISER_BUILDER_VALIDATION_FAILED = 'advertiser.builder_validation_failed',
+  /** Left the builder (navigated away, closed the tab) without saving. */
+  ADVERTISER_BUILDER_ABANDONED = 'advertiser.builder_abandoned',
+  ADVERTISER_CAMPAIGN_SAVED = 'advertiser.campaign_saved',
+  ADVERTISER_CAMPAIGN_SAVE_FAILED = 'advertiser.campaign_save_failed',
+  ADVERTISER_CREATIVE_SAVED = 'advertiser.creative_saved',
+  ADVERTISER_CAMPAIGN_LIFECYCLE_ACTION = 'advertiser.campaign_lifecycle_action',
+  ADVERTISER_TOPUP_OPENED = 'advertiser.topup_opened',
+  ADVERTISER_TOPUP_CHECKOUT_STARTED = 'advertiser.topup_checkout_started',
+  ADVERTISER_TOPUP_CHECKOUT_FAILED = 'advertiser.topup_checkout_failed',
+  ADVERTISER_CARD_SETUP_STARTED = 'advertiser.card_setup_started',
+  ADVERTISER_CARD_SETUP_FAILED = 'advertiser.card_setup_failed',
+  ADVERTISER_API_KEY_CREATED = 'advertiser.api_key_created',
+  ADVERTISER_MEMBER_INVITED = 'advertiser.member_invited',
+  // Server-side: the off-page facts the browser cannot see. distinct_id is the
+  // Postgres user id (the browser identifies by email), so these count and
+  // trend but do not join a browser funnel. Top-up CREDITS are not here: the
+  // Stripe webhook runs in the `web` service; read `ad_spend_ledger` instead.
+  ADVERTISER_CREATED = 'advertiser.created',
+  ADVERTISER_CAMPAIGN_APPROVED = 'advertiser.campaign_approved',
+  ADVERTISER_CAMPAIGN_REJECTED = 'advertiser.campaign_rejected',
+  ADVERTISER_CAMPAIGN_CHANGES_REQUESTED = 'advertiser.campaign_changes_requested',
 
   // Web - Token Count API
   TOKEN_COUNT_REQUEST = 'api.token_count_request',
@@ -192,8 +299,7 @@ export enum AnalyticsEvent {
   // via the server logger → Axiom `event` column).
   FREEBUFF_REFERRAL_REDEEMED = 'freebuff.referral.redeemed',
   // A redemption attempt that hit one of the one-shot eligibility guards
-  // (signup_too_old, user_banned, referrer_limit_reached, reverse_referral,
-  // self_referral). Deliberately EXCLUDES the two repeat-prone errors —
+  // (signup_too_old, user_banned, reverse_referral, self_referral). Deliberately EXCLUDES the two repeat-prone errors —
   // invalid_code (cookie intentionally kept for legacy codes) and
   // already_referred (cookie can outlive redemption on the /onboard RSC hop)
   // — which would otherwise re-fire on every <=10-min token mint; those log
@@ -201,11 +307,9 @@ export enum AnalyticsEvent {
   // support case is undiagnosable — the guards otherwise return silently.
   FREEBUFF_REFERRAL_REDEEM_FAILED = 'freebuff.referral.redeem_failed',
   // Attribution went through and the referred user redeemed from an IP or
-  // browser the REFERRER was recently seen on. Evidence, NOT a verdict: this
-  // is also exactly what a genuine in-person referral looks like ("try it,
-  // here's my laptop" — a sibling on the family computer shares both). Only
-  // suspicious when corroborated by real farm signals (dormant GitHub, burst
-  // velocity, no product use); the sweep + scripts do that weighing.
+  // browser the REFERRER was recently seen on. Informational only: this is
+  // also exactly what a genuine in-person referral looks like ("try it,
+  // here's my laptop").
   FREEBUFF_REFERRAL_SOCK_SIGNAL = 'freebuff.referral.sock_signal',
   // Freebuff - Get Started Page (referral onboarding funnel, in order:
   //   viewed → sign_in_clicked → signed_in → eligibility_resolved →
@@ -229,6 +333,7 @@ export enum AnalyticsEvent {
   // aborted. Carries `latencyMs`, `model`, and `titleLength` so the failure/
   // fallback rate and added latency are queryable.
   FREEBUFF_CHAT_TITLE_GENERATED = 'freebuff.chat_title_generated',
+  FREEBUFF_TITLE_RATE_LIMITED = 'api.freebuff_title_rate_limited',
 
   // Freebuff - CLI landing page (/cli). Fired when the install command is
   // copied; `location` distinguishes hero vs install section. Lets us measure
@@ -268,21 +373,15 @@ export enum AnalyticsEvent {
   // people bail on. `_FINISHED` carries `answered` (0-4) and `sent`.
   FREEBUFF_WEB_ONBOARDING_STEP = 'freebuff.web_onboarding_step',
   FREEBUFF_WEB_ONBOARDING_FINISHED = 'freebuff.web_onboarding_finished',
+  // PostHog's own person-update event: carries only `$set`, so it updates the
+  // person (here `onboarding_source`) without adding a custom event.
+  PERSON_PROPERTIES_SET = '$set',
 
   // The workspace spotlight tour that follows the first build. `_STEP` fires
   // per pane shown (preview/database/logs/publish/chat); `_FINISHED` records
   // completed vs skipped and where they stopped.
   FREEBUFF_WEB_TOUR_STEP = 'freebuff.web_tour_step',
   FREEBUFF_WEB_TOUR_FINISHED = 'freebuff.web_tour_finished',
-
-  // The bookmark gate: a blocking card shown once per browser, right after the
-  // user's first prompt in a Web or Cloud workspace, asking them to bookmark
-  // the page before continuing. `surface` is web | cloud and `variant` is
-  // pointer | touch (the two illustrations). `_SHOWN` minus `_CONFIRMED` is the
-  // abandon rate — the number to watch, since the card has no other exit and a
-  // gap between the two means people are closing the tab instead.
-  FREEBUFF_BOOKMARK_GATE_SHOWN = 'freebuff.bookmark_gate_shown',
-  FREEBUFF_BOOKMARK_GATE_CONFIRMED = 'freebuff.bookmark_gate_confirmed',
 
   // Freebuff - Cloud landing page (/cloud). Fired when a logged-out visitor
   // clicks a "Continue with GitHub" / "Connect your repo" CTA; `location`
@@ -296,6 +395,12 @@ export enum AnalyticsEvent {
   FREEBUFF_HOME_GITHUB_CLICKED = 'freebuff.home_github_clicked',
   FREEBUFF_HOME_INSTALL_GUIDE_EXPANDED = 'freebuff.home_install_guide_expanded',
   FREEBUFF_HOME_FAQ_OPENED = 'freebuff.home_faq_opened',
+
+  // Freebuff - Home hero: the visitor committed to a product (`tab`, `surface`,
+  // `action`; see HeroTabs.tsx). A hero Desktop download is instead
+  // FREEBUFF_DESKTOP_DOWNLOAD_CLICKED at HOME_HERO_DOWNLOAD_LOCATION.
+  // Report: `bun scripts/home-hero-funnel.ts`.
+  FREEBUFF_HOME_HERO_SURFACE_CHOSEN = 'freebuff.home_hero_surface_chosen',
 
   // Freebuff - Home savings calculator CTA. Fires alongside
   // FREEBUFF_DESKTOP_DOWNLOAD_CLICKED (location: savings_calculator) but adds
@@ -365,7 +470,7 @@ export enum AnalyticsEvent {
   // Feature-adoption catch-all. ONE event for the long tail of desktop
   // features (panels, worktrees, diffs, skills, terminal, preview, …), keyed
   // by a bounded `feature` property from
-  // `freebuff-desktop/src/core/features.ts`. A single PostHog insight
+  // `freebuff-desktop/src/shared/features.ts`. A single PostHog insight
   // ("desktop.feature_used, broken down by feature", unique users) answers
   // "what do people actually use?" for the whole app, and adding a feature
   // never means adding an event to this enum or to the sampling lists.
@@ -376,6 +481,9 @@ export enum AnalyticsEvent {
   DESKTOP_FEATURE_USED = 'desktop.feature_used',
   DESKTOP_AUTORUN_TOGGLED = 'desktop.autorun_toggled',
   DESKTOP_AUTORUN_SCOPE_SET = 'desktop.autorun_scope_set',
+  // One per project understanding Desktop attempts, with its outcome (not_due,
+  // check_failed, reported, …): services/project-understanding.ts.
+  DESKTOP_PROJECT_UNDERSTANDING = 'desktop.project_understanding',
   // One-shot per process: which codex CLI the Codex harness resolved (or why
   // none). Answers "is the packaged app finding users' codex?" in the field,
   // where the stdout breadcrumb is unavailable.
@@ -387,6 +495,9 @@ export enum AnalyticsEvent {
   // MAX_MESSAGE_AD_COUNT); historical rows exist but nothing emits it. The
   // CLI's `cli.inline_ad_pool_reused` sibling remains Axiom-only.
   DESKTOP_AD_SHOWN = 'desktop.ad_shown',
+  /** Disjoint focused/visible chat milliseconds and physical ad-count integrals. Axiom only. */
+  DESKTOP_AD_DENSITY = 'desktop.ad_density',
+  ADS_SHOWCASE_PRESENTED = 'ads.showcase_presented',
   DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
   DESKTOP_INLINE_AD_SLOT_ELIGIBLE = 'desktop.inline_ad_slot_eligible',
   // Shutdown/crash lifecycle of harness CLI children: turns aborted at quit so
@@ -423,7 +534,11 @@ export enum AnalyticsEvent {
   // emit only on transitions, so periodic scans do not create cardinality or volume churn.
   DESKTOP_THREADS_AUTO_ARCHIVED = 'desktop.threads_auto_archived',
   DESKTOP_DELIVERY_CONFLICT_CHANGED = 'desktop.delivery_conflict_changed',
+  // Desktop sibling of CLI_HELPER_PROCESS_FLOOD (same payload, same census).
+  DESKTOP_HELPER_PROCESS_FLOOD = 'desktop.helper_process_flood',
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 }
+
+export const HOME_HERO_DOWNLOAD_LOCATION = 'home_hero'

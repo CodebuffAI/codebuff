@@ -1,0 +1,395 @@
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+
+import { afterEach, describe, expect, test } from 'bun:test'
+
+import { CodebuffClient } from '../client'
+import { ByokConnectionStateError, createByokConnectionStore, type ByokConnection } from '../byok'
+import { getWebsiteUrl } from '../constants'
+import type { RunState } from '../run-state'
+
+import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+
+const agent: AgentDefinition = {
+  id: 'byok-scripted-agent',
+  displayName: 'BYOK scripted agent',
+  model: 'ignored-by-byok',
+  reasoningOptions: { effort: 'minimal' },
+  toolNames: ['read_files', 'write_file', 'run_terminal_command'],
+  systemPrompt: 'Read, edit, test, then state that the file is complete.',
+}
+
+function sse(body: unknown): Response {
+  return new Response(`data: ${JSON.stringify(body)}\n\ndata: [DONE]\n\n`, {
+    headers: { 'content-type': 'text/event-stream' },
+  })
+}
+
+function connection(overrides: Partial<ConstructorParameters<typeof CodebuffClient>[0]['byok']> = {}) {
+  return {
+    id: 'failure-connection', revision: 1, name: 'failure test', provider: 'openai-compatible' as const,
+    baseUrl: 'http://127.0.0.1:9876/v1', model: 'scripted/model',
+    credentialRef: 'connection:failure-connection:1', createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z', apiKey: 'provider-key-canary',
+    ...overrides,
+  }
+}
+
+describe('direct BYOK SDK runs', () => {
+  const originalFetch = globalThis.fetch
+  afterEach(() => { globalThis.fetch = originalFetch })
+
+  test('manual compaction makes no provider request and resumes from the saved summary', async () => {
+    const requests: any[] = []
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input)).toBe('http://127.0.0.1:9876/v1/chat/completions')
+      const body = JSON.parse(String(init?.body))
+      requests.push(body)
+      return sse({ id: 'work', object: 'chat.completion.chunk', created: 1, model: body.model,
+        choices: [{ index: 0, delta: { content: requests.length === 1 ? 'READ_FINDING: timeout uses milliseconds. '.repeat(1000) : 'Documented.' }, finish_reason: 'stop' }] })
+    }) as typeof fetch
+    const client = new CodebuffClient({ byok: connection({ contextWindow: 32_768, maxOutputTokens: 4096 }), agentDefinitions: [agent] })
+    const original = await client.run({ agent: agent.id, prompt: 'Document retry behavior.' })
+    expect(original.output.type).not.toBe('error')
+    const saved = JSON.stringify(original)
+    const receipts: Array<{ trigger: string; summary?: string }> = []
+    const compacted = await client.run({ agent: agent.id, prompt: '/compact', previousRun: original, onCompaction: (receipt) => receipts.push(receipt) })
+    expect(compacted.output.type).not.toBe('error')
+    expect(requests).toHaveLength(1)
+    expect(receipts).toHaveLength(1)
+    expect(receipts[0].trigger).toBe('manual')
+    expect(receipts[0].summary).toContain('READ_FINDING')
+    expect(receipts[0].summary).toContain('[...truncated')
+    expect(JSON.stringify(original)).toBe(saved)
+    const resumed = await client.run({ agent: agent.id, prompt: 'Continue.', previousRun: JSON.parse(JSON.stringify(compacted)) })
+    expect(resumed.output.type).not.toBe('error')
+    expect(requests).toHaveLength(2)
+    expect(JSON.stringify(requests.at(-1).messages)).toContain('<conversation_summary>')
+    expect(JSON.stringify(requests.at(-1).messages).length).toBeLessThan(JSON.stringify(requests[0].messages).length + 40_000)
+  })
+
+  test('runs a real local write-file tool loop without any Codebuff request', async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), 'freebuff-byok-'))
+    await writeFile(path.join(cwd, 'input.txt'), 'source value')
+    const seen: Array<{ url: string; auth: string; body: string }> = []
+    let completion = 0
+    globalThis.fetch = (async (
+      input: Parameters<typeof fetch>[0],
+      init: Parameters<typeof fetch>[1],
+    ) => {
+      const url = String(input)
+      seen.push({
+        url,
+        auth: new Headers(init?.headers).get('authorization') ?? '',
+        body: String(init?.body),
+      })
+      completion += 1
+      const toolCall = (name: string, input: unknown) => sse({
+        id: `step-${completion}`, object: 'chat.completion.chunk', created: 1, model: 'scripted/model',
+        choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{
+          index: 0, id: `call-${completion}`, type: 'function',
+          function: { name, arguments: JSON.stringify(input) },
+        }] }, finish_reason: 'tool_calls' }],
+      })
+      if (completion === 1) {
+        return toolCall('read_files', { paths: ['input.txt'] })
+      }
+      if (completion === 2) {
+        return toolCall('write_file', {
+          path: 'result.txt', instructions: 'Create the requested file.', content: 'written by BYOK',
+        })
+      }
+      if (completion === 3) {
+        return toolCall('run_terminal_command', {
+          command: 'test "$(cat result.txt)" = "written by BYOK"',
+          process_type: 'SYNC', cwd: '.', timeout_seconds: 5,
+        })
+      }
+      return sse({
+        id: 'second', object: 'chat.completion.chunk', created: 1, model: 'scripted/model',
+        choices: [{ index: 0, delta: { role: 'assistant', content: 'Complete.' }, finish_reason: 'stop' }],
+      })
+    }) as unknown as typeof fetch
+
+    const client = new CodebuffClient({
+      cwd,
+      agentDefinitions: [agent],
+      byok: {
+        id: 'connection-id', revision: 1, name: 'scripted', provider: 'openai-compatible',
+        baseUrl: 'http://127.0.0.1:9876/v1', model: 'scripted/model',
+        credentialRef: 'connection:connection-id:1', createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z', apiKey: 'byok-loop-canary',
+      },
+    })
+    const result = await client.run({ agent: agent.id, prompt: 'Create result.txt.' })
+
+    expect(result.output.type).not.toBe('error')
+    expect(await readFile(path.join(cwd, 'result.txt'), 'utf8')).toBe('written by BYOK')
+    expect(seen).toHaveLength(4)
+    expect(seen.every((request) => request.url === 'http://127.0.0.1:9876/v1/chat/completions')).toBe(true)
+    expect(seen.every((request) => request.auth === 'Bearer byok-loop-canary')).toBe(true)
+    expect(seen.every((request) => request.body.includes('scripted/model'))).toBe(true)
+    expect(JSON.stringify(result)).not.toContain('byok-loop-canary')
+
+    const resumed = await client.run({ agent: agent.id, prompt: 'Continue.', previousRun: result })
+    expect(resumed.output.type).not.toBe('error')
+    expect(resumed.inference).toEqual(result.inference)
+
+    const changed = await client.run({
+      agent: agent.id, prompt: 'Switch.', previousRun: result,
+      byok: { ...client.options.byok!, id: 'different-connection' },
+    })
+    expect(changed.output.type).toBe('error')
+    if (changed.output.type !== 'error') throw new Error('expected inference pin error')
+    expect(changed.output.message).toContain('different inference connection')
+
+    const beforeSwitch = seen.length
+    const hostedHistory = { ...result, inference: { source: 'codebuff' as const } }
+    const switched = await client.run({ agent: agent.id, prompt: 'Continue with my key.', previousRun: hostedHistory })
+    expect(switched.output.type).not.toBe('error')
+    expect(switched.inference).toEqual(result.inference)
+    expect(seen.length).toBeGreaterThan(beforeSwitch)
+    expect(seen.at(-1)!.body).toContain('Create result.txt.')
+    expect(seen.slice(beforeSwitch).every(request => request.url === 'http://127.0.0.1:9876/v1/chat/completions')).toBe(true)
+    const hostedClient = new CodebuffClient({ cwd, apiKey: 'hosted-test-key', agentDefinitions: [agent] })
+    const beforeReverse = seen.length
+    const reverse = await hostedClient.run({ agent: agent.id, prompt: 'Go back.', previousRun: switched })
+    expect(reverse.output.type).toBe('error')
+    expect(seen).toHaveLength(beforeReverse)
+
+    const legacy = await client.run({
+      agent: agent.id, prompt: 'Legacy.', previousRun: { ...result, inference: undefined },
+    })
+    expect(legacy.output.type).toBe('error')
+    if (legacy.output.type !== 'error') throw new Error('expected legacy pin error')
+    expect(legacy.output.message).toContain('no inference source pin')
+  }, 30_000)
+
+  test('refuses server-side web_search without contacting a hosted backend', async () => {
+    const requests: string[] = []
+    const bodies: string[] = []
+    let step = 0
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      requests.push(String(input))
+      bodies.push(String(init?.body))
+      step += 1
+      if (step === 1) {
+        return sse({ id: 'tool', object: 'chat.completion.chunk', created: 1, model: 'm', choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'search', type: 'function', function: { name: 'web_search', arguments: JSON.stringify({ query: 'test' }) } }] }, finish_reason: 'tool_calls' }] })
+      }
+      return sse({ id: 'done', object: 'chat.completion.chunk', created: 1, model: 'm', choices: [{ index: 0, delta: { content: 'done' }, finish_reason: 'stop' }] })
+    }) as unknown as typeof fetch
+    const client = new CodebuffClient({
+      agentDefinitions: [{ ...agent, id: 'byok-web-agent', toolNames: ['web_search'] }],
+      byok: { id: 'web-connection', revision: 1, name: 'web', provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:9876/v1', model: 'm', credentialRef: 'connection:web-connection:1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', apiKey: 'web-canary' },
+    })
+    const result = await client.run({ agent: 'byok-web-agent', prompt: 'Search.' })
+    expect(result.output.type).not.toBe('error')
+    expect(requests).toHaveLength(2)
+    expect(requests.every((url) => url === 'http://127.0.0.1:9876/v1/chat/completions')).toBe(true)
+    // The refusal is what the model sees as the tool result.
+    expect(bodies[1]).toContain('unavailable in a direct BYOK run')
+  })
+
+  test('explicit connection recovery retains history, repins checkpoints, and can return to hosted inference', async () => {
+    let metadata: ByokConnection[] = []
+    const keys = new Map<string, string>()
+    const store = createByokConnectionStore({
+      metadataStore: { get: async () => metadata, set: async value => { metadata = value } },
+      secretStore: { get: async ref => keys.get(ref), set: async (ref, value) => { keys.set(ref, value) }, delete: async ref => { keys.delete(ref) } },
+    })
+    const requests: Array<{ url: string; auth: string | null; body: string }> = []
+    globalThis.fetch = (async (input, init) => {
+      const url = new URL(String(input))
+      if (url.pathname === '/api/v1/me') return Response.json({ id: 'recovery-user' })
+      if (url.pathname === '/api/v1/agent-runs') return Response.json({ runId: 'recovery-run', success: true })
+      if (!url.pathname.endsWith('/chat/completions')) return new Response('Unexpected fixture request', { status: 400 })
+      requests.push({ url: url.toString(), auth: new Headers(init?.headers).get('authorization'), body: String(init?.body) })
+      return sse({ id: 'reply', object: 'chat.completion.chunk', created: 1, model: 'fixture', choices: [{ index: 0, delta: { role: 'assistant', content: 'Remembered.' }, finish_reason: 'stop' }] })
+    }) as typeof fetch
+
+    const original = await store.create({ name: 'Original', provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:9876/v1', model: 'original/model', apiKey: 'original-canary' })
+    const client = new CodebuffClient({ byok: await store.resolve(original), agentDefinitions: [agent] })
+    const first = await client.run({ agent: agent.id, prompt: 'Remember the recovery marker: violet-otter.' })
+    expect(first.output.type).not.toBe('error')
+    const saved = JSON.stringify(first)
+    await store.remove(original)
+    await expect(store.resolve(original)).rejects.toThrow('was removed')
+
+    const replacement = await store.create({ name: 'Replacement', provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:9877/v1', model: 'replacement/model', apiKey: 'replacement-canary' })
+    const replacementClient = new CodebuffClient({ byok: await store.resolve(replacement), agentDefinitions: [agent] })
+    const beforeRejected = requests.length
+    const rejected = await replacementClient.run({ agent: agent.id, prompt: 'Unapproved switch.', previousRun: first })
+    expect(rejected.output.type).toBe('error')
+    expect(requests).toHaveLength(beforeRejected)
+
+    const checkpoints: RunState[] = []
+    const recovered = await replacementClient.run({ agent: agent.id, prompt: 'Continue on the selected connection.', previousRun: JSON.parse(saved), allowInferenceSourceChange: true, onStateSnapshot: state => { checkpoints.push(state) } })
+    expect(recovered.output.type).not.toBe('error')
+    expect(recovered.inference).toEqual({ source: 'byok', connectionId: replacement.id, revision: 1, model: replacement.model })
+    expect(checkpoints.length).toBeGreaterThan(0)
+    expect(checkpoints.every(state => JSON.stringify(state.inference) === JSON.stringify(recovered.inference))).toBe(true)
+    expect(requests.at(-1)).toMatchObject({ url: 'http://127.0.0.1:9877/v1/chat/completions', auth: 'Bearer replacement-canary' })
+    expect(requests.at(-1)!.body).toContain('violet-otter')
+    expect(requests.at(-1)!.body).toContain('replacement/model')
+    expect(JSON.stringify(first)).toBe(saved)
+
+    const updated = await store.update({ ...replacement, patch: { apiKey: 'rotated-canary', model: 'updated/model' } })
+    const updatedClient = new CodebuffClient({ byok: await store.resolve(updated), agentDefinitions: [agent] })
+    const rotated = await updatedClient.run({ agent: agent.id, prompt: 'Use my updated key and model.', previousRun: recovered, allowInferenceSourceChange: true })
+    expect(rotated.output.type).not.toBe('error')
+    expect(rotated.inference).toMatchObject({ connectionId: replacement.id, revision: 2, model: 'updated/model' })
+    expect(requests.at(-1)!.auth).toBe('Bearer rotated-canary')
+    expect(requests.at(-1)!.body).toContain('updated/model')
+    expect(requests.at(-1)!.body).toContain('violet-otter')
+
+    const hosted = new CodebuffClient({ apiKey: 'hosted-recovery-canary', agentDefinitions: [agent] })
+    const returned = await hosted.run({ agent: agent.id, prompt: 'Continue with Freebuff.', previousRun: rotated, allowInferenceSourceChange: true })
+    expect(returned.output.type).not.toBe('error')
+    expect(returned.inference).toEqual({ source: 'codebuff' })
+    expect(requests.at(-1)).toMatchObject({ url: new URL('/api/v1/chat/completions', getWebsiteUrl()).toString(), auth: 'Bearer hosted-recovery-canary' })
+    expect(requests.at(-1)!.body).toContain(agent.model!)
+    expect(requests.at(-1)!.body).toContain('violet-otter')
+    expect(requests.at(-1)!.body).not.toContain('rotated-canary')
+
+    const legacy = await replacementClient.run({ agent: agent.id, prompt: 'Continue older history.', previousRun: { ...returned, inference: undefined }, allowInferenceSourceChange: true, byok: await store.resolve(updated) })
+    expect(legacy.output.type).not.toBe('error')
+    expect(requests.at(-1)!.body).toContain('violet-otter')
+  }, 30_000)
+
+  test.each([
+    [401, 'Check or replace the key.'],
+    [402, 'Add provider credit or choose another model.'],
+    [429, 'Wait, then retry the task.'],
+  ])('keeps provider HTTP %i failures local and actionable', async (status, expected) => {
+    const requests: string[] = []
+    globalThis.fetch = (async (input) => {
+      requests.push(String(input))
+      return new Response(JSON.stringify({ error: { message: 'provider-key-canary must not leak' } }), {
+        status,
+        // The AI SDK retries a 429 three times, 2s/4s/8s apart unless the
+        // provider says otherwise; `retry-after-ms` (OpenAI's header) keeps
+        // every retry and none of the 14s wait.
+        headers: { 'content-type': 'application/json', 'retry-after-ms': '0' },
+      })
+    }) as typeof fetch
+
+    const client = new CodebuffClient({ agentDefinitions: [agent], byok: connection() })
+    const result = await client.run({ agent: agent.id, prompt: 'Fail safely.' })
+
+    expect(result.output.type).toBe('error')
+    if (result.output.type !== 'error') throw new Error('expected BYOK provider error')
+    expect(result.output.message).toContain(expected)
+    expect(result.output.message).not.toContain('provider-key-canary')
+    // 401/402 are final; a 429 is the first try plus the AI SDK's three retries.
+    expect(requests).toHaveLength(status === 429 ? 4 : 1)
+    expect(requests.every((url) => url === 'http://127.0.0.1:9876/v1/chat/completions')).toBe(true)
+  }, 30_000)
+
+  test.each([
+    ['changed', 'BYOK connection changed; select its current revision to continue'],
+    ['removed', 'BYOK connection was removed; select another provider or a Freebuff model to continue'],
+    ['corrupt', 'BYOK connection metadata is corrupt; restore it before continuing'],
+    ['locked', 'BYOK settings are locked. Close other Freebuff processes and retry.'],
+    ['unknown', 'Could not verify the saved BYOK connection. Reselect the provider and retry.'],
+  ])('reports a %s local connection failure without provider dispatch', async (failure, expected) => {
+    let requests = 0
+    globalThis.fetch = (async () => {
+      requests += 1
+      return sse({ id: 'unexpected', object: 'chat.completion.chunk', created: 1, model: 'm', choices: [] })
+    }) as unknown as typeof fetch
+    let records: ByokConnection[] = []
+    let failCheck = false
+    const store = createByokConnectionStore({
+      metadataStore: {
+        async get() { return records },
+        async set(next) { records = next },
+        async withLock(operation) {
+          if (failCheck && failure === 'locked')
+            throw new ByokConnectionStateError(expected)
+          if (failCheck && failure === 'unknown')
+            throw new Error('provider-key-canary must not leak')
+          return operation()
+        },
+      },
+      secretStore: {
+        async get() { return 'provider-key-canary' },
+        async set() {},
+        async delete() {},
+      },
+    })
+    const saved = await store.create({
+      name: 'Local failure test', provider: 'openrouter', model: 'scripted/model',
+      credentialRef: 'env:PROVIDER_KEY',
+    })
+    const resolved = await store.resolve(saved)
+    if (failure === 'changed') await store.update({ ...saved, patch: { model: 'new/model' } })
+    if (failure === 'removed') await store.remove(saved)
+    if (failure === 'corrupt') records = [{ ...saved, model: '' }]
+    failCheck = true
+    const client = new CodebuffClient({
+      agentDefinitions: [agent],
+      byok: resolved,
+    })
+
+    const result = await client.run({ agent: agent.id, prompt: 'Do not use the unavailable connection.' })
+    expect(result.output.type).toBe('error')
+    if (result.output.type !== 'error') throw new Error('expected BYOK connection error')
+    expect(result.output.message).toContain(expected)
+    expect(result.output.message).not.toContain('provider-key-canary')
+    expect(result.output.message).not.toContain('network connection')
+    expect(requests).toBe(0)
+  }, 30_000)
+
+  test.each(['missing-finish', 'empty', 'transport'])('reports repeated %s responses without blaming the user network', async (ending) => {
+    const requests: string[] = []
+    globalThis.fetch = (async (input) => {
+      requests.push(String(input))
+      if (ending === 'transport') {
+        return new Response(new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(Object.assign(new Error('provider-key-canary must not leak'), {
+              code: 'ECONNRESET',
+            }))
+          },
+        }), { headers: { 'content-type': 'text/event-stream' } })
+      }
+      // [DONE] alone is not a supported finish_reason, even when text arrived.
+      return ending === 'empty'
+        ? new Response('', { headers: { 'content-type': 'text/event-stream' } })
+        : sse({ choices: [{ delta: { content: 'Partial output.' }, finish_reason: null }] })
+    }) as typeof fetch
+    const client = new CodebuffClient({
+      agentDefinitions: [agent], byok: connection(), handleEvent: () => {},
+    })
+    const result = await client.run({ agent: agent.id, prompt: 'Fail safely on repeated incomplete responses.' })
+
+    expect(result.output.type).toBe('error')
+    if (result.output.type !== 'error') throw new Error('expected incomplete BYOK response error')
+    expect(result.output.message).toContain('could not confirm that the provider finished')
+    expect(result.output.message).toContain('connection problem or an incompatible provider response')
+    expect(result.output.message).toContain(ending === 'transport'
+      ? 'Last error: A connection-level error occurred'
+      : 'Last error: The provider response had no recognised completion status or token usage.')
+    expect(result.output.message).not.toContain('Please check your network connection')
+    expect(result.output.message).not.toContain('provider-key-canary')
+    expect(requests).toHaveLength(4)
+    expect(requests.every((url) => url === 'http://127.0.0.1:9876/v1/chat/completions')).toBe(true)
+  }, 30_000)
+
+  test('returns a local cancellation result without provider or hosted fallback requests', async () => {
+    const controller = new AbortController()
+    controller.abort(new Error('Cancelled by user'))
+    let requests = 0
+    globalThis.fetch = (async () => {
+      requests += 1
+      throw new Error('unexpected request')
+    }) as unknown as typeof fetch
+    const client = new CodebuffClient({ agentDefinitions: [agent], byok: connection() })
+
+    const result = await client.run({ agent: agent.id, prompt: 'Cancel.', signal: controller.signal })
+    expect(result.output).toMatchObject({ type: 'error', message: 'Cancelled by user' })
+    expect(result.inference).toMatchObject({ source: 'byok', connectionId: 'failure-connection' })
+    expect(requests).toBe(0)
+  })
+})

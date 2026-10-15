@@ -5,6 +5,7 @@
  */
 
 import * as analytics from '@codebuff/common/analytics'
+import { BYOK_RUN_ID_PREFIX } from '@codebuff/common/constants/byok'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { clearMockedModules } from '@codebuff/common/testing/mock-modules'
@@ -66,14 +67,45 @@ describe('compactContext in loopAgentSteps', () => {
     handleSteps: undefined,
   } satisfies AgentTemplate as AgentTemplate
 
+  /** An old read whose result is most of the history: what a mechanical pass
+   * reclaims. Without it the history is too small to shrink. At ~53k tokens
+   * it is far over the working set's share of the 12k history cap (under
+   * 5k), so it comes back as a stub. */
+  const bulkyRead = (body = 'BULKY FILE BODY '): Message[] => [
+    {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'old-read',
+          toolName: 'read_files',
+          input: { paths: ['big.ts'] },
+        },
+      ],
+      sentAt: 1_000_000,
+    },
+    {
+      role: 'tool',
+      toolName: 'read_files',
+      toolCallId: 'old-read',
+      content: [
+        {
+          type: 'json',
+          value: [{ path: 'big.ts', content: body.repeat(10_000) }],
+        },
+      ],
+    },
+  ]
+
   /**
    * A conversation whose last assistant message landed `gapMinutes` before the
    * live user prompt — i.e. the prompt cache has had that long to expire.
    */
   const idleHistory = (gapMinutes: number): Message[] => [
     { ...userMessage('the first request'), sentAt: 1_000_000 },
+    ...bulkyRead(),
     {
-      ...assistantMessage('DISTINCTIVE PRIOR ANSWER'),
+      ...assistantMessage('DISTINCTIVE PRIOR ANSWER '.repeat(100)),
       sentAt: 1_000_000,
     },
     {
@@ -86,6 +118,9 @@ describe('compactContext in loopAgentSteps', () => {
   const runLoop = async (
     template: AgentTemplate,
     messageHistory: Message[],
+    prompt?: string,
+    logged?: unknown[],
+    runtimeOverrides: Record<string, unknown> = {},
   ) => {
     const {
       agentTemplate: _,
@@ -93,7 +128,12 @@ describe('compactContext in loopAgentSteps', () => {
       ...baseRuntimeParams
     } = createTestAgentRuntimeParams()
 
-    runtimeImpl = { ...baseRuntimeParams }
+    runtimeImpl = { ...baseRuntimeParams, ...runtimeOverrides }
+    if (logged)
+      runtimeImpl.logger = {
+        ...baseRuntimeParams.logger,
+        info: (data: unknown) => logged.push(data),
+      }
     runtimeImpl.promptAiSdkStream = mock(async function* (params: any) {
       seenMessages.push(params.messages)
       yield { type: 'text' as const, text: 'ok' }
@@ -116,7 +156,7 @@ describe('compactContext in loopAgentSteps', () => {
         output: undefined,
         stepsRemaining: 5,
       },
-      prompt: undefined,
+      prompt,
       spawnParams: undefined,
       fingerprintId: 'test-fingerprint',
       fileContext: mockFileContext,
@@ -144,12 +184,119 @@ describe('compactContext in loopAgentSteps', () => {
     clearMockedModules()
   })
 
+  const overBudget = {
+    ...baseTemplate,
+    compactContext: { maxContextLength: 4096, cacheExpiryMs: null },
+  }
+
+  it('compacts at the context limit with no model request of its own', async () => {
+    const logged: unknown[] = []
+    const result = await runLoop(overBudget, idleHistory(0), undefined, logged)
+    expect(result.output.type).not.toBe('error')
+    expect(runtimeImpl.promptAiSdkStream).toHaveBeenCalledTimes(1)
+    const sent = seenMessages[0].map(textOf).join('\n')
+    expect(sent).toContain('<conversation_summary>')
+    expect(sent).toContain('the live question')
+    expect(JSON.stringify(seenMessages[0])).not.toContain(
+      'BULKY FILE BODY '.repeat(50),
+    )
+    expect(
+      logged.filter(
+        (data) =>
+          (data as { axiomEvent?: string }).axiomEvent ===
+          'context_compaction.followup',
+      ),
+    ).toEqual([
+      expect.objectContaining({ trigger_reason: 'context_limit' }),
+    ])
+  })
+
+  describe('when compaction cannot get under the budget', () => {
+    /** The run's error output appends the stack after the message. */
+    const firstLine = (output: { type: string; message?: string }) =>
+      output.message?.split('\n')[0]
+
+    /** The live request is kept verbatim, so one this large cannot shrink. */
+    const unshrinkable = (): Message[] => [
+      {
+        ...userMessage('LIVE REQUEST BODY '.repeat(5_000)),
+        tags: ['USER_PROMPT'],
+        sentAt: 1_000_000,
+      },
+    ]
+
+    it('points a hosted run at a larger-context model', async () => {
+      const result = await runLoop(overBudget, unshrinkable())
+      expect(runtimeImpl.promptAiSdkStream).not.toHaveBeenCalled()
+      expect(result.output.type).toBe('error')
+      expect(firstLine(result.output)).toBe(
+        "Agent run error: Compaction could not bring this conversation under the model's 4,096-token context budget. History has been preserved. Start a new thread, or switch to a model with a larger context window.",
+      )
+    })
+
+    it('keeps the context window hint for a BYOK run', async () => {
+      const result = await runLoop(overBudget, unshrinkable(), undefined, [], {
+        startAgentRun: async () => `${BYOK_RUN_ID_PREFIX}test-run`,
+      })
+      expect(runtimeImpl.promptAiSdkStream).not.toHaveBeenCalled()
+      expect(result.output.type).toBe('error')
+      expect(firstLine(result.output)).toBe(
+        "Agent run error: Compaction could not bring this conversation under the model's 4,096-token context budget. History has been preserved. Start a new thread, or give a BYOK connection a larger context window if its model supports one.",
+      )
+    })
+  })
+
   it('leaves the history alone when the agent has not opted in', async () => {
     await runLoop(baseTemplate, idleHistory(120))
 
     const sent = seenMessages[0].map(textOf).join('\n')
     expect(sent).toContain('DISTINCTIVE PRIOR ANSWER')
     expect(sent).not.toContain('<conversation_summary>')
+  })
+
+  it('manual compaction makes no model request and preserves the live request', async () => {
+    const result = await runLoop(baseTemplate, idleHistory(0), '/compact')
+    expect(result.output.type).not.toBe('error')
+    expect(runtimeImpl.promptAiSdkStream).not.toHaveBeenCalled()
+    const history = result.agentState.messageHistory.map(textOf).join('\n')
+    expect(history).toContain('the live question')
+    expect(history).toContain('<conversation_summary>')
+    expect(history).not.toContain('/compact')
+  })
+
+  it('compacts on the idle trigger with no model request of its own', async () => {
+    const logged: unknown[] = []
+    const result = await runLoop(
+      { ...baseTemplate, compactContext: { cacheExpiryMinTokens: null } },
+      idleHistory(120),
+      undefined,
+      logged,
+    )
+    expect(result.output.type).not.toBe('error')
+    expect(runtimeImpl.promptAiSdkStream).toHaveBeenCalledTimes(1)
+    const sent = seenMessages[0].map(textOf).join('\n')
+    expect(sent).toContain('<conversation_summary>')
+    expect(sent).toContain('inspected files: big.ts')
+    expect(JSON.stringify(seenMessages[0])).not.toContain(
+      'BULKY FILE BODY '.repeat(50),
+    )
+    const events = (name: string) =>
+      logged.filter(
+        (data) => (data as { axiomEvent?: string }).axiomEvent === name,
+      )
+    expect(events('context_compaction_completed')).toEqual([
+      expect.objectContaining({ trigger_reason: 'cache_expiry' }),
+    ])
+    expect(events('context_compaction.followup')).toEqual([
+      expect.objectContaining({
+        trigger_reason: 'cache_expiry',
+        ended_by: 'run_end',
+        elided_read_paths: 1,
+        read_calls_after: 0,
+        reread_paths: 0,
+        tool_calls_after: 1,
+      }),
+    ])
   })
 
   it('leaves a small conversation alone however cold the cache is', async () => {
@@ -188,6 +335,27 @@ describe('compactContext in loopAgentSteps', () => {
     // ...and the state the caller gets back is the compacted one.
     const history = result.agentState.messageHistory.map(textOf).join('\n')
     expect(history).toContain('<conversation_summary>')
+  })
+
+  it('uses a custom model input budget rather than the hosted model default', async () => {
+    const history = idleHistory(0)
+    history.splice(1, 0, {
+      ...assistantMessage('old context '.repeat(2000)),
+      sentAt: 1_000_000,
+    })
+    await runLoop(
+      {
+        ...baseTemplate,
+        compactContext: { maxContextLength: 4096, cacheExpiryMs: null },
+      },
+      history,
+    )
+    expect(seenMessages[0].map(textOf).join('\n')).toContain(
+      '<conversation_summary>',
+    )
+    expect(seenMessages[0].map(textOf).join('\n')).toContain(
+      'the live question',
+    )
   })
 
   it('honours a per-agent cache TTL', async () => {
@@ -336,6 +504,76 @@ describe('compactContext in loopAgentSteps', () => {
         template: { ...definition, compactContext: { cacheExpiry: 1000 } },
       }).success,
     ).toBe(false)
+  })
+
+  // Desktop BYOK, 2026-09-24..27 ("compacts every 3-5 turns"): a 32k-default
+  // connection's budget is 25,804 tokens and its threshold 20,643, while the
+  // prompt and tool catalog take ~15k. Compacting at the threshold landed
+  // right back under it, so the next read or two compacted again.
+  describe('a small window under a large fixed prompt', () => {
+    const smallWindow = {
+      ...baseTemplate,
+      systemPrompt: 'Follow the project conventions carefully. '.repeat(1_100),
+      compactContext: { maxContextLength: 25_804, cacheExpiryMs: null },
+    } as AgentTemplate
+    const withReads = (count: number): Message[] => {
+      const history: Message[] = [
+        { ...userMessage('review the files'), tags: ['USER_PROMPT'] },
+      ]
+      for (let i = 0; i < count; i++) {
+        history.push(
+          {
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool-call',
+                toolCallId: `read-${i}`,
+                toolName: 'read_files',
+                input: { paths: [`file${i}.ts`] },
+              },
+            ],
+          },
+          {
+            role: 'tool',
+            toolName: 'read_files',
+            toolCallId: `read-${i}`,
+            content: [
+              {
+                type: 'json',
+                value: [
+                  {
+                    path: `file${i}.ts`,
+                    content: `READ ${i} BODY `.repeat(400),
+                  },
+                ],
+              },
+            ],
+          },
+        )
+      }
+      return history
+    }
+
+    it('keeps working past the threshold instead of compacting futilely', async () => {
+      // ~15k fixed + ~6k of reads: over the 20,643 threshold, under the budget.
+      const result = await runLoop(smallWindow, withReads(4))
+      expect(runtimeImpl.promptAiSdkStream).toHaveBeenCalledTimes(1)
+      const sent = JSON.stringify(seenMessages[0])
+      expect(sent.includes('<conversation_summary>')).toBe(false)
+      expect(sent.includes('READ 0 BODY')).toBe(true)
+      expect(result.output.type).not.toBe('error')
+    })
+
+    it('still compacts at the hard budget, keeping a summary and a note for every earlier read', async () => {
+      const result = await runLoop(smallWindow, withReads(8))
+      const sent = JSON.stringify(seenMessages[0])
+      expect(sent.includes('READ 0 BODY')).toBe(false)
+      expect(sent.includes('<conversation_summary>')).toBe(true)
+      for (let i = 0; i < 7; i++) expect(sent.includes(`"path":"file${i}.ts"`)).toBe(true)
+      expect(sent.match(/contents dropped at compaction/g)).toHaveLength(7)
+      expect(sent.includes('review the files')).toBe(true)
+      expect(result.output.type).not.toBe('error')
+    })
   })
 
   it('a null TTL opts out of the opportunistic trigger', async () => {

@@ -1,3 +1,5 @@
+import { hashMatchingEmail } from './matching-hash'
+
 export const GRAVITY_CAPI_ENDPOINT = 'https://api.trygravity.ai/gateway/events'
 export const GRAVITY_FIRST_MESSAGE_EVENT = 'FirstMessage'
 
@@ -118,6 +120,7 @@ export function buildGravityFirstMessagePayload(params: {
   eventTime?: number
 }) {
   const pixelUser = params.gravity?.user_data ?? {}
+  const hashedEmail = hashMatchingEmail(params.email)
   const userData = {
     ...(pixelUser.click_id ? { click_id: pixelUser.click_id } : {}),
     ...(pixelUser.visitor_id ? { visitor_id: pixelUser.visitor_id } : {}),
@@ -128,7 +131,9 @@ export function buildGravityFirstMessagePayload(params: {
             pixelUser.client_user_agent ?? params.userAgent ?? undefined,
         }
       : {}),
-    ...(params.email ? { em: [params.email] } : {}),
+    // Hashed like every other match key we send (Meta `em`, the Gravity
+    // auction's `hashed_email`): never the raw address (AB827V0 #293).
+    ...(hashedEmail ? { em: [hashedEmail] } : {}),
     external_id: [params.userId],
   }
 
@@ -198,7 +203,15 @@ export async function sendGravityFirstMessageConversion(params: {
   if (!result?.status) {
     throw new Error('Gravity CAPI returned no result for FirstMessage')
   }
-  if (!['ok', 'duplicate', 'test_ok', 'skipped'].includes(result.status)) {
+  // `accepted` is what production actually answers for a live FirstMessage
+  // (HTTP 200): queued for processing, not refused. Treating it as a failure
+  // made every first message send twice (the missing status code reads as
+  // retryable) and log ~5-10k false "Failed to track" errors a day.
+  if (
+    !['ok', 'accepted', 'duplicate', 'test_ok', 'skipped'].includes(
+      result.status,
+    )
+  ) {
     throw new Error(
       `Gravity CAPI failed FirstMessage with status ${result.status}`,
     )

@@ -37,7 +37,31 @@ describe('the availability notice', () => {
         countryBlockReason: 'anonymous_network',
         ipPrivacySignals: ['vpn'],
       }),
-    ).toBe('Using a VPN? More models are available on a direct connection')
+    ).toBe(
+      'Using a VPN? We lose money on every VPN user, so more models and Freebucks are available on a direct connection. Not on one? Confirm your country at freebuff.com/account?tab=country',
+    )
+    // A limited country has nothing to confirm.
+    expect(
+      getFreebuffModelAvailabilityNotice({
+        countryCode: 'IN',
+        countryBlockReason: 'anonymous_network',
+        ipPrivacySignals: ['vpn'],
+      }),
+    ).toBe(
+      'Using a VPN? We lose money on every VPN user, so more models and Freebucks are available on a direct connection',
+    )
+  })
+
+  test('a line listed only as a residential proxy names the likely cause, not a VPN', () => {
+    expect(
+      getFreebuffModelAvailabilityNotice({
+        countryCode: 'GB',
+        countryBlockReason: 'anonymous_network',
+        ipPrivacySignals: ['res_proxy', 'anonymous'],
+      }),
+    ).toBe(
+      "This network is listed as a residential proxy, often because of a bandwidth-sharing app on a device here, so some models aren't available on it. Confirm your country at freebuff.com/account?tab=country",
+    )
   })
 
   test('an inconclusive check reads as ours to explain, not as the user doing something wrong', () => {

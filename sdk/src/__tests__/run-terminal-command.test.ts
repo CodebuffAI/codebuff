@@ -175,6 +175,75 @@ describe('terminal command process diagnostics', () => {
     expect('exitCode' in value ? value.exitCode : null).toBe(0)
   })
 
+  test('a broker that owns its shell gets the command text, with no bash lookup or rewrite', async () => {
+    // The sponsored Windows floor runs PowerShell (COD-642). It must be handed
+    // the command as written -- not a bash invocation, and not with a
+    // cmd-style `> nul` rewritten to a `/dev/null` PowerShell cannot open.
+    const requests: Array<Record<string, unknown>> = []
+    const [{ value }] = await runTerminalCommand({
+      command: 'Write-Output brokered > nul',
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: 5,
+      terminalCommandBroker: {
+        ownsShell: true,
+        start: (request) => {
+          requests.push({ ...request })
+          const stdout = new PassThrough()
+          const stderr = new PassThrough()
+          queueMicrotask(() => {
+            stdout.end('brokered')
+            stderr.end()
+          })
+          return {
+            pid: 999_998,
+            stdout,
+            stderr,
+            completion: Promise.resolve(0),
+            kill: () => {},
+            isAlive: () => false,
+          }
+        },
+      },
+    })
+    expect(requests).toHaveLength(1)
+    expect(requests[0]!.command).toBe('Write-Output brokered > nul')
+    expect(requests[0]!.executable).toBe('')
+    expect(requests[0]!.args).toEqual([])
+    expect('stdout' in value ? value.stdout : '').toBe('brokered')
+  })
+
+  test('a broker that does not own its shell gets the bash request, unchanged', async () => {
+    const requests: Array<Record<string, unknown>> = []
+    await runTerminalCommand({
+      command: `printf 'x'`,
+      process_type: 'SYNC',
+      cwd: process.cwd(),
+      timeout_seconds: 5,
+      terminalCommandBroker: {
+        start: (request) => {
+          requests.push({ ...request })
+          const stdout = new PassThrough()
+          const stderr = new PassThrough()
+          queueMicrotask(() => {
+            stdout.end()
+            stderr.end()
+          })
+          return {
+            pid: 999_997,
+            stdout,
+            stderr,
+            completion: Promise.resolve(0),
+            kill: () => {},
+            isAlive: () => false,
+          }
+        },
+      },
+    })
+    expect('command' in requests[0]!).toBe(false)
+    expect(requests[0]!.args).toEqual(['-c', `printf 'x'`])
+  })
+
   test('bounds direct cleanup while reaping a stubborn background descendant', async () => {
     if (process.platform === 'win32') return
 
@@ -457,4 +526,133 @@ describe('terminal command process diagnostics', () => {
       rmSync(tempDir, { recursive: true, force: true })
     }
   }, 25_000)
+})
+
+describe('managed background commands', () => {
+  test('returns persistent logs and keeps cancellation scoped to its run', async () => {
+    const first = new AbortController()
+    const second = new AbortController()
+    const { releaseBackgroundTerminalCommands } =
+      await import('../tools/run-terminal-command')
+    const { terminalCommandOutputSchema } =
+      await import('../../../common/src/tools/params/tool/run-terminal-command')
+    const start = async (signal: AbortSignal) => {
+      const result = await runTerminalCommand({
+        command: 'printf ready; sleep 60',
+        process_type: 'BACKGROUND',
+        cwd: tmpdir(),
+        timeout_seconds: 0.01,
+        signal,
+      })
+      const output = result[0]
+      if (output.type !== 'json') throw new Error('Expected JSON')
+      const value = terminalCommandOutputSchema.parse(output.value)
+      if (!('processId' in value) || !value.stdoutPath)
+        throw new Error('Missing process/log info')
+      return value as typeof value & { stdoutPath: string }
+    }
+    const a = await start(first.signal)
+    const b = await start(second.signal)
+    try {
+      expect(
+        await waitFor(
+          () => readFileSync(a.stdoutPath, 'utf8').includes('ready'),
+          2000,
+        ),
+      ).toBe(true)
+      expect(isProcessRunning(a.processId)).toBe(true)
+      releaseBackgroundTerminalCommands(first.signal)
+      first.abort()
+      second.abort()
+      expect(await waitFor(() => !isProcessRunning(b.processId), 2000)).toBe(
+        true,
+      )
+      expect(isProcessRunning(a.processId)).toBe(true)
+    } finally {
+      try {
+        process.kill(
+          process.platform === 'win32' ? a.processId : -a.processId,
+          'SIGKILL',
+        )
+      } catch {}
+      second.abort()
+      for (const value of [a, b])
+        rmSync(join(value.stdoutPath, '..'), { recursive: true, force: true })
+    }
+  })
+
+  test('a sandbox can retain a service across SDK exit; ordinary exit reaps it', async () => {
+    // Keep the file URL: pathname alone is /D:/... on Windows and also
+    // leaves spaces percent-encoded, neither of which is a module path.
+    const moduleUrl = new URL('../tools/run-terminal-command.ts', import.meta.url)
+      .href
+    for (const transfer of [false, true]) {
+      const parent = Bun.spawn(
+        [
+          process.execPath,
+          '-e',
+          `
+        import { runTerminalCommand, releaseBackgroundTerminalCommands } from ${JSON.stringify(moduleUrl)};
+        const abort = new AbortController();
+        const result = await runTerminalCommand({command:'sleep 60', process_type:'BACKGROUND', cwd:${JSON.stringify(tmpdir())}, timeout_seconds:1, signal:abort.signal});
+        if (${transfer}) releaseBackgroundTerminalCommands(abort.signal);
+        console.log(JSON.stringify(result[0].value));
+        process.exit(0);
+      `,
+        ],
+        { stdout: 'pipe', stderr: 'pipe' },
+      )
+      const [output, stderr, exitCode] = await Promise.all([
+        new Response(parent.stdout).text(),
+        new Response(parent.stderr).text(),
+        parent.exited,
+      ])
+      if (exitCode !== 0) {
+        throw new Error(`SDK subprocess exited ${exitCode}: ${stderr}`)
+      }
+      const value = JSON.parse(output.trim().split('\n').at(-1)!)
+      try {
+        if (transfer) expect(isProcessRunning(value.processId)).toBe(true)
+        else
+          expect(
+            await waitFor(() => !isProcessRunning(value.processId), 2000),
+          ).toBe(true)
+      } finally {
+        try {
+          process.kill(
+            process.platform === 'win32' ? value.processId : -value.processId,
+            'SIGKILL',
+          )
+        } catch {}
+        rmSync(join(value.stdoutPath, '..'), { recursive: true, force: true })
+      }
+    }
+  })
+
+  test('never bypasses a failing background broker', async () => {
+    await expect(
+      runTerminalCommand({
+        command: 'echo must-not-run',
+        process_type: 'BACKGROUND',
+        cwd: tmpdir(),
+        timeout_seconds: 1,
+        terminalCommandBroker: {
+          start() {
+            throw new Error('broker denied')
+          },
+        },
+      }),
+    ).rejects.toThrow('broker denied')
+  })
+
+  test('reports background spawn errors instead of successful startup', async () => {
+    await expect(
+      runTerminalCommand({
+        command: 'echo impossible',
+        process_type: 'BACKGROUND',
+        cwd: '/nonexistent-codebuff-background-directory',
+        timeout_seconds: 1,
+      }),
+    ).rejects.toThrow()
+  })
 })

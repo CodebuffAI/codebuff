@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 
-import { FREEBUFF_SUBSCRIPTION_TIERS } from '../freebuff-subscriptions'
+import {
+  FREEBUFF_SUBSCRIPTION_INTRO_ENDS_AT,
+  FREEBUFF_SUBSCRIPTION_TIERS,
+  freebuffSubscriptionIntroOpen,
+} from '../freebuff-subscriptions'
 
 /**
  * The intro price a client DISPLAYS and the discount Stripe CHARGES are two
@@ -36,5 +40,17 @@ describe('intro pricing ↔ Stripe coupon ids', () => {
       expect(tier.introPriceUsd).toBeGreaterThan(0)
       expect(tier.introPriceUsd).toBeLessThan(tier.priceUsd)
     }
+  })
+})
+
+describe('the introduction end date', () => {
+  it('runs through 11:59:59 PM Pacific on Oct 24, 2026 and no further', () => {
+    expect(
+      freebuffSubscriptionIntroOpen(new Date('2026-10-24T23:59:59-07:00')),
+    ).toBe(true)
+    expect(
+      freebuffSubscriptionIntroOpen(new Date('2026-10-25T00:00:00-07:00')),
+    ).toBe(false)
+    expect(FREEBUFF_SUBSCRIPTION_INTRO_ENDS_AT).toBe('2026-10-25T07:00:00.000Z')
   })
 })

@@ -1,3 +1,4 @@
+import { freebuffChatNeedsAdmission } from '../state/freebuff-chat-store'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { runTerminalCommand } from '@codebuff/sdk'
 
@@ -8,15 +9,19 @@ import {
   type RouterParams,
   type CommandResult,
 } from './command-registry'
+import { isSlashCommand, parseCommandInput } from './router-utils'
 import {
-  isSlashCommand,
-  parseCommandInput,
-} from './router-utils'
-import { buildInterviewPrompt, buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
+  buildInterviewPrompt,
+  buildPlanPrompt,
+  buildReviewPrompt,
+} from './prompt-builders'
+import { noteUserTurnForAdClickReturn } from '../ads/click-return'
+import { noteAdUserSend } from '../ads/ad-signals'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
 import { trackEvent } from '../utils/analytics'
+import { hasSelectedByokConnection, isByokSetupOpen } from '../utils/byok'
 import {
   buildBashHistoryMessages,
   createRunTerminalToolResult,
@@ -87,7 +92,7 @@ export function runBashCommand(command: string) {
     .then(([{ value }]) => {
       const stdout = 'stdout' in value ? value.stdout || '' : ''
       const stderr = 'stderr' in value ? value.stderr || '' : ''
-      const exitCode = 'exitCode' in value ? value.exitCode ?? 0 : 0
+      const exitCode = 'exitCode' in value ? (value.exitCode ?? 0) : 0
 
       // Track terminal command completion
       const durationMs = Date.now() - startTime
@@ -281,6 +286,11 @@ export async function routeUserPrompt(
   const hasAttachments = pendingAttachments.length > 0
   if (!trimmed && !hasAttachments && inputMode !== 'skill') return
 
+  // COD-694: a submitted prompt is the CLI's "came back after an ad click".
+  noteUserTurnForAdClickReturn()
+  // COD-757: `attn.sinceSend` and the engagement records' send flags.
+  noteAdUserSend()
+
   // DAU signal: one un-sampled event per user-submitted prompt. The CLI's
   // distinct id resolves to the canonical codebuff user id (anonymous id is
   // aliased to the real user id on login), matching the web and chat surfaces
@@ -449,6 +459,24 @@ export async function routeUserPrompt(
     }
   }
 
+  // BYOK setup opened from a Freebuff wall holds no session, so a prompt has
+  // nowhere to run until a connection is selected. Keep the text in the input
+  // rather than consuming it.
+  if (
+    IS_FREEBUFF &&
+    isByokSetupOpen() &&
+    !hasSelectedByokConnection() &&
+    !isSlashCommand(trimmed)
+  ) {
+    setMessages((prev) => [
+      ...prev,
+      getSystemMessage(
+        'Select a BYOK connection first: `/byok add …`, then `/byok select <name>`. `/byok off` returns to Freebuff.',
+      ),
+    ])
+    return
+  }
+
   // Regular message or unknown slash command - send to agent
 
   // Block sending if attachments are still processing
@@ -477,6 +505,11 @@ export async function routeUserPrompt(
     // non-empty queue (steering would deliver this text ahead of earlier
     // submissions), and the window where no run is accepting steering.
     const canSteer =
+      !(
+        IS_FREEBUFF &&
+        !hasSelectedByokConnection() &&
+        freebuffChatNeedsAdmission()
+      ) &&
       !hasAttachments &&
       !isSlashCommand(trimmed) &&
       useChatStore.getState().pendingBashMessages.length === 0 &&

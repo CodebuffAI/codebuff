@@ -10,7 +10,7 @@ export const IS_FREEBUFF = getCliEnv().FREEBUFF_MODE === 'true'
 
 /** Message shown when the user ends a freebuff session early. */
 export const END_SESSION_MESSAGE =
-  'Ending session and returning to the model picker…'
+  'Ending session. Your next message starts a new one; /model changes the model.'
 
 // Agent IDs that should not be rendered in the CLI UI. Matched as substrings
 // so both bundled ids ('context-pruner') and publisher-qualified ids
@@ -119,11 +119,6 @@ export const MULTI_PROMPT_EDITOR_IDS = ['editor-multi-prompt'] as const
 export const isMultiPromptEditor = (agentType: string): boolean => {
   return MULTI_PROMPT_EDITOR_IDS.some((id) => agentType.includes(id))
 }
-
-/**
- * The parent agent ID for all root-level agents
- */
-export const MAIN_AGENT_ID = 'main-agent'
 
 /**
  * Which harness the CLI's DEFAULT and LITE modes run.

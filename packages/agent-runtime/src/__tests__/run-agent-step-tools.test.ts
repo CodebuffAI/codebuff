@@ -21,6 +21,14 @@ import {
 
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
+import {
+  FOLLOWUP_SUGGESTION_LIMIT_TAG,
+  MAX_FOLLOWUP_SUGGESTION_CALLS_PER_RESPONSE,
+} from '../tools/stream-parser'
+import {
+  SUGGEST_PROMPTS_BEFORE_ANSWER_MESSAGE,
+  SUGGEST_PROMPTS_BEFORE_ANSWER_TAG,
+} from '../util/suggest-prompts-before-answer'
 import { createToolCallChunk } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
@@ -300,53 +308,200 @@ describe('runAgentStep - set_output tool', () => {
     expect(result.agentState.output).toEqual({})
   })
 
-  it('ends the step after suggest_prompts without requiring a follow-up response', async () => {
-    const suggestAgent: AgentTemplate = {
+  describe('suggest_prompts and the answer', () => {
+    const suggestAgent = (): AgentTemplate => ({
       ...testAgent,
       toolNames: ['suggest_prompts', 'end_turn'],
-    }
+    })
     const fileContextWithSuggest: ProjectFileContext = {
       ...mockFileContext,
       customToolDefinitions: {
         suggest_prompts: {
           inputSchema: {
             type: 'object',
-            properties: {
-              response: { type: 'string' },
-              prompts: { type: 'array' },
-            },
-            required: ['response', 'prompts'],
+            properties: { prompts: { type: 'array' } },
+            required: ['prompts'],
           },
-          description: 'Finish with the answer and suggest next prompts',
+          description: 'Suggest follow-up prompts',
           // This legacy flag is intentionally false: loop termination comes
           // from TOOLS_WHICH_WONT_FORCE_NEXT_STEP, not the obsolete stop hint.
           endsAgentStep: false,
         },
       },
     }
-    const sessionState = getInitialSessionState(fileContextWithSuggest)
-    runAgentStepBaseParams.promptAiSdkStream = async function* () {
-      yield createToolCallChunk('suggest_prompts', {
-        response: 'Finished.',
-        prompts: [{ prompt: 'Add tests' }],
+
+    /** One step that writes `text`, then calls suggest_prompts. */
+    const step = (text: string, messageHistory: Message[] = []) => {
+      runAgentStepBaseParams.promptAiSdkStream = async function* () {
+        yield { type: 'text' as const, text }
+        yield createToolCallChunk('suggest_prompts', {
+          prompts: [{ prompt: 'Add tests' }],
+        })
+        return promptSuccess('mock-message-id')
+      }
+      runAgentStepBaseParams.requestToolCall = async () => ({
+        output: [{ type: 'json', value: { ok: true } }],
       })
-      return promptSuccess('mock-message-id')
+      const agent = suggestAgent()
+      return runAgentStep({
+        ...runAgentStepBaseParams,
+        agentType: agent.id,
+        localAgentTemplates: { [agent.id]: agent },
+        agentTemplate: agent,
+        agentState: {
+          ...getInitialSessionState(fileContextWithSuggest).mainAgentState,
+          messageHistory,
+        },
+        fileContext: fileContextWithSuggest,
+        prompt: 'Plan the helper',
+      })
     }
-    runAgentStepBaseParams.requestToolCall = async () => ({
-      output: [{ type: 'json', value: { ok: true } }],
+
+    const notes = (history: Message[]) =>
+      history.filter((m) => m.tags?.includes(SUGGEST_PROMPTS_BEFORE_ANSWER_TAG))
+
+    it('ends the turn on cards that follow a real answer, with no note', async () => {
+      const answer = `Here is the plan.\n\n${'1. A concrete step and why it is needed.\n'.repeat(10)}`
+      const result = await step(answer)
+      expect(result.shouldEndTurn).toBe(true)
+      expect(notes(result.agentState.messageHistory)).toHaveLength(0)
     })
 
-    const result = await runAgentStep({
-      ...runAgentStepBaseParams,
-      agentType: suggestAgent.id,
-      localAgentTemplates: { [suggestAgent.id]: suggestAgent },
-      agentTemplate: suggestAgent,
-      agentState: sessionState.mainAgentState,
-      fileContext: fileContextWithSuggest,
-      prompt: 'Finish the task',
+    it('continues a turn whose cards arrive before the answer, with the note', async () => {
+      const result = await step(
+        "Planning-only, no code changed — here's the proposal.",
+      )
+      expect(result.shouldEndTurn).toBe(false)
+      const [note] = notes(result.agentState.messageHistory)
+      expect(note?.role).toBe('user')
+      expect(JSON.stringify(note?.content)).toContain(
+        JSON.stringify(SUGGEST_PROMPTS_BEFORE_ANSWER_MESSAGE).slice(1, -1),
+      )
+      // After the step's own tool result, so it is the last thing read.
+      expect(result.agentState.messageHistory.at(-1)).toBe(note)
     })
 
-    expect(result.shouldEndTurn).toBe(true)
+    it('continues only once per prompt', async () => {
+      const result = await step("Here's the proposal.", [
+        userMessage({ content: 'Plan it', tags: ['USER_PROMPT'] }),
+        assistantMessage({
+          type: 'tool-call',
+          toolCallId: 'earlier',
+          toolName: 'suggest_prompts',
+          input: { prompts: [] },
+        }),
+        {
+          role: 'tool',
+          toolCallId: 'earlier',
+          toolName: 'suggest_prompts',
+          content: [],
+        },
+      ])
+      expect(result.shouldEndTurn).toBe(true)
+      expect(notes(result.agentState.messageHistory)).toHaveLength(0)
+    })
+  })
+
+  describe('follow-up suggestion cap', () => {
+    const suggestAgent = (): AgentTemplate => ({
+      ...testAgent,
+      id: 'suggest-cap-agent',
+      toolNames: ['suggest_prompts', 'read_files', 'end_turn'],
+    })
+    const fileContextWithSuggest = (): ProjectFileContext => ({
+      ...mockFileContext,
+      customToolDefinitions: {
+        suggest_prompts: {
+          inputSchema: {
+            type: 'object',
+            properties: { prompts: { type: 'array' } },
+            required: ['prompts'],
+          },
+          description: 'Suggest follow-up prompts',
+          endsAgentStep: false,
+        },
+      },
+    })
+
+    /** A response that calls suggest_prompts `calls` times, then writes text.
+     *  Records how far it was read and the signal its request was given. */
+    const runawayStream = (calls: number) => {
+      const seen = { pulled: 0, finished: false, signal: undefined as AbortSignal | undefined }
+      const promptAiSdkStream = async function* (params: { signal: AbortSignal }) {
+        seen.signal = params.signal
+        for (let i = 0; i < calls; i++) {
+          seen.pulled++
+          yield createToolCallChunk('suggest_prompts', {
+            prompts: [{ prompt: `Idea ${i}` }],
+          })
+        }
+        yield { type: 'text' as const, text: 'Done.' }
+        seen.finished = true
+        return promptSuccess('mock-message-id')
+      }
+      return { seen, promptAiSdkStream }
+    }
+
+    const run = async (calls: number) => {
+      const { seen, promptAiSdkStream } = runawayStream(calls)
+      runAgentStepBaseParams.promptAiSdkStream = promptAiSdkStream as any
+      const executed: string[] = []
+      runAgentStepBaseParams.requestToolCall = async ({ toolName }) => {
+        executed.push(toolName)
+        return { output: [{ type: 'json', value: { ok: true } }] }
+      }
+      const runSignal = new AbortController().signal
+      const agent = suggestAgent()
+      const fileContext = fileContextWithSuggest()
+      const result = await runAgentStep({
+        ...runAgentStepBaseParams,
+        signal: runSignal,
+        agentType: agent.id,
+        localAgentTemplates: { [agent.id]: agent },
+        agentTemplate: agent,
+        agentState: getInitialSessionState(fileContext).mainAgentState,
+        fileContext,
+        prompt: 'Finish the task',
+      })
+      return { result, seen, executed, runSignal }
+    }
+
+    const limitNotes = (messages: Message[]) =>
+      messages.filter((m) => m.tags?.includes(FOLLOWUP_SUGGESTION_LIMIT_TAG))
+
+    it('executes up to the cap without cutting the response', async () => {
+      const { result, seen, executed } = await run(
+        MAX_FOLLOWUP_SUGGESTION_CALLS_PER_RESPONSE,
+      )
+
+      expect(executed).toHaveLength(MAX_FOLLOWUP_SUGGESTION_CALLS_PER_RESPONSE)
+      expect(seen.finished).toBe(true)
+      expect(seen.signal?.aborted).toBe(false)
+      expect(limitNotes(result.agentState.messageHistory)).toHaveLength(0)
+      expect(result.shouldEndTurn).toBe(true)
+    })
+
+    it('stops a runaway response at the cap and cancels its request, not the run', async () => {
+      const { result, seen, executed, runSignal } = await run(500)
+
+      // Only the first MAX calls ran (and so rendered); the rest were never read.
+      expect(executed).toHaveLength(MAX_FOLLOWUP_SUGGESTION_CALLS_PER_RESPONSE)
+      expect(seen.pulled).toBe(MAX_FOLLOWUP_SUGGESTION_CALLS_PER_RESPONSE + 1)
+      expect(seen.finished).toBe(false)
+      expect(seen.signal?.aborted).toBe(true)
+      expect(runSignal.aborted).toBe(false)
+
+      const history = result.agentState.messageHistory
+      expect(limitNotes(history)).toHaveLength(1)
+      const toolCalls = history.flatMap((m) =>
+        m.role === 'assistant' && Array.isArray(m.content)
+          ? m.content.filter((part) => part.type === 'tool-call')
+          : [],
+      )
+      expect(toolCalls).toHaveLength(MAX_FOLLOWUP_SUGGESTION_CALLS_PER_RESPONSE)
+      // Suggestions never force another step, so the cut response ends the turn.
+      expect(result.shouldEndTurn).toBe(true)
+    })
   })
 
   it('should handle handleSteps with one tool call and STEP_ALL', async () => {

@@ -69,8 +69,8 @@ describe('the entry rule', () => {
 })
 
 describe('placements postpaid defaults', () => {
-  it('starts new card-on-file advertisers with at most one day of $100 debt', () => {
-    expect(AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS).toBe(10_000)
+  it('starts new card-on-file advertisers with a $200 credit line', () => {
+    expect(AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS).toBe(20_000)
   })
 })
 
@@ -113,13 +113,20 @@ describe('ledger reasons and what the advertiser is shown', () => {
     // opposite event and must not borrow the word.
     expect(statementKindForReason('chargeback')).toBe('adjustment')
     expect(statementKindForReason('refund')).toBe('refund')
+    expect(statementKindForReason('invalid_traffic_credit')).toBe('refund')
   })
 
   it('knows which direction each reason moves money', () => {
     expect(isCreditReason('topup')).toBe(true)
     expect(isCreditReason('refund')).toBe(true)
+    expect(isCreditReason('invalid_traffic_credit')).toBe(true)
     expect(isCreditReason('spend')).toBe(false)
     expect(isCreditReason('chargeback')).toBe(false)
+  })
+
+  it('shows a sweep credit for invalid traffic as a refund that adds money', () => {
+    expect(statementKindForReason('invalid_traffic_credit')).toBe('refund')
+    expect(isCreditReason('invalid_traffic_credit')).toBe(true)
   })
 
   it('has a distinct database reason for chargeback even though the UI does not', () => {

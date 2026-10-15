@@ -1,19 +1,20 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 
-import { pluralize } from '@codebuff/common/util/string'
 import {
+  getDefaultAgentDirs,
   loadLocalAgents as sdkLoadLocalAgents,
   loadMCPConfigSync,
 } from '@codebuff/sdk'
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 
+import { getFreebuffModelDirectory } from '../state/freebuff-catalog-store'
 import { getSelectedFreebuffModel } from '../state/freebuff-model-store'
 import { getProjectRoot } from '../project-files'
 import { IS_FREEBUFF, type AgentMode } from './constants'
 import { getAgentIdForMode } from './freebuff-agent-selection'
+import { freebuffCatalogRootAgent } from './freebuff-catalog-agent'
 import { logger } from './logger'
 import * as bundledAgentsModule from '../agents/bundled-agents.generated'
 
@@ -53,13 +54,19 @@ let mcpServersCache: Record<string, MCPConfig> = {}
  * - ~/.agents (global, user's home directory)
  *
  * Later directories take precedence, so project agents override global ones.
+ *
+ * @param options.agentDirs - The directories to load from. The CLI entry point
+ *   passes the set that survived the trust gate (`agent-dir-trust.ts`) so an
+ *   untrusted repository's agents and mcp.json are never imported; omitting it
+ *   loads every default directory.
  */
-export async function initializeAgentRegistry(): Promise<void> {
+export async function initializeAgentRegistry({
+  agentDirs = getDefaultAgentDirs(),
+}: { agentDirs?: string[] } = {}): Promise<void> {
   try {
-    // Let SDK load from all default directories (cwd, parent, home)
-    userAgentsCache = await sdkLoadLocalAgents({ verbose: false })
-    // Build ID-to-filepath map by scanning all agent directories
-    userAgentFilePaths = buildAgentFilePathMap(getDefaultAgentDirs())
+    userAgentsCache = await sdkLoadLocalAgents({ verbose: false, agentDirs })
+    // Build ID-to-filepath map by scanning the same agent directories
+    userAgentFilePaths = buildAgentFilePathMap(agentDirs)
   } catch (error) {
     // Fall back to empty cache if SDK loading fails, but log a warning
     logger.warn(
@@ -70,9 +77,12 @@ export async function initializeAgentRegistry(): Promise<void> {
     userAgentFilePaths = new Map()
   }
 
-  // Load MCP config from mcp.json files in .agents directories
+  // Load MCP config from mcp.json files in the same .agents directories
   try {
-    const mcpConfig = loadMCPConfigSync({ verbose: false })
+    const mcpConfig = loadMCPConfigSync({
+      verbose: false,
+      configDirs: agentDirs,
+    })
     mcpServersCache = mcpConfig.mcpServers
     if (Object.keys(mcpServersCache).length > 0) {
       logger.debug(
@@ -87,17 +97,6 @@ export async function initializeAgentRegistry(): Promise<void> {
     logger.warn({ error }, 'Failed to load MCP config from .agents directories')
     mcpServersCache = {}
   }
-}
-
-/**
- * Get default agent directories to scan.
- * Matches the SDK's getDefaultAgentDirs() to ensure consistency.
- */
-const getDefaultAgentDirs = (): string[] => {
-  const cwdAgents = path.join(process.cwd(), AGENTS_DIR_NAME)
-  const parentAgents = path.join(process.cwd(), '..', AGENTS_DIR_NAME)
-  const homeAgents = path.join(os.homedir(), AGENTS_DIR_NAME)
-  return [cwdAgents, parentAgents, homeAgents]
 }
 
 /**
@@ -316,8 +315,8 @@ export const loadLocalAgents = (
  * User agents can override bundled agents with the same ID.
  *
  * Additionally, all user agent IDs are automatically added to the spawnableAgents
- * of any base agent (agents with IDs starting with 'base'), so users can spawn
- * their custom agents without needing to modify the base agent definition.
+ * of base agents that support spawning, so users can spawn their custom agents
+ * without needing to modify the base agent definition.
  */
 export const loadAgentDefinitions = (): AgentDefinition[] => {
   // Start with bundled agents - these are the default Codebuff agents
@@ -326,6 +325,14 @@ export const loadAgentDefinitions = (): AgentDefinition[] => {
     (def) => ({ ...def }),
   )
   const bundledIds = new Set(Object.keys(bundledAgents))
+
+  // The catalog root (docs/freebuff-model-catalog.md) is not bundled: it is
+  // built from the selected catalog row, whose handle rotates, so it is
+  // rebuilt on every load and only exists while a catalog row is selected.
+  // Added before the merges below so it gets the same MCP servers and user
+  // agents as every bundled root.
+  const catalogRoot = IS_FREEBUFF ? selectedFreebuffCatalogRoot() : undefined
+  if (catalogRoot) definitions.push(catalogRoot)
 
   // Get user agents from the SDK-loaded cache
   const userAgentDefs = getUserAgentDefinitions()
@@ -348,8 +355,14 @@ export const loadAgentDefinitions = (): AgentDefinition[] => {
   // explicitly add them to the base agent's spawnableAgents list
   if (userAgentIds.length > 0) {
     for (const def of definitions) {
-      // Consider any agent with an ID starting with 'base' as a base agent
-      if (def.id.startsWith('base') && def.spawnableAgents) {
+      // Non-spawning workers also start with 'base'; keep their child list empty.
+      if (
+        def.id.startsWith('base') &&
+        def.spawnableAgents &&
+        (def.toolNames?.includes('spawn_agents') ||
+          def.toolNames?.includes('spawn_agent_inline') ||
+          def.handleSteps)
+      ) {
         const existingSpawnable = new Set(def.spawnableAgents)
         for (const userAgentId of userAgentIds) {
           if (!existingSpawnable.has(userAgentId)) {
@@ -382,58 +395,17 @@ export const loadAgentDefinitions = (): AgentDefinition[] => {
   return definitions
 }
 
+/** The runtime root for the selected catalog row, when one is selected. */
+const selectedFreebuffCatalogRoot = (): AgentDefinition | undefined => {
+  const selection = getSelectedFreebuffModel()
+  const row = getFreebuffModelDirectory().row(selection)
+  if (!row || row.key !== selection) return undefined
+  return freebuffCatalogRootAgent(row) as unknown as AgentDefinition
+}
+
 // ============================================================================
 // UI/Display utilities
 // ============================================================================
-
-export const announceLoadedAgents = (): void => {
-  const agents = loadLocalAgents()
-  const agentsDir = findAgentsDirectory()
-
-  if (!agentsDir) {
-    logger.debug('[agents] No .agents directory found in this project.')
-    return
-  }
-
-  if (!agents.length) {
-    logger.debug({ agentsDir }, '[agents] No agent files found')
-    return
-  }
-
-  const agentIdentifiers = agents.map((agent) =>
-    agent.displayName && agent.displayName !== agent.id
-      ? `${agent.displayName} (${agent.id})`
-      : agent.displayName || agent.id,
-  )
-
-  logger.debug(
-    { agentsDir, agents: agentIdentifiers },
-    `[agents] Loaded ${pluralize(agents.length, 'local agent')}`,
-  )
-}
-
-export const getLoadedAgentsMessage = (): string | null => {
-  const agents = loadLocalAgents()
-  const agentsDir = findAgentsDirectory()
-
-  if (!agentsDir || !agents.length) {
-    return null
-  }
-
-  const agentCount = agents.length
-  const header = `Loaded ${pluralize(agentCount, 'local agent')} from ${agentsDir}`
-  const agentList = agents
-    .map((agent) => {
-      const identifier =
-        agent.displayName && agent.displayName !== agent.id
-          ? `${agent.displayName} (${agent.id})`
-          : agent.displayName || agent.id
-      return `  - ${identifier}`
-    })
-    .join('\n')
-
-  return `${header}\n${agentList}`
-}
 
 export const getLoadedAgentsData = (): {
   agents: LocalAgentInfo[]
@@ -463,12 +435,4 @@ export const __resetLocalAgentRegistryForTests = (): void => {
   userAgentsCache = {}
   userAgentFilePaths = new Map()
   mcpServersCache = {}
-}
-
-/**
- * Get the currently loaded MCP servers from mcp.json.
- * Useful for debugging and displaying loaded MCP configuration.
- */
-export const getLoadedMCPServers = (): Record<string, MCPConfig> => {
-  return { ...mcpServersCache }
 }

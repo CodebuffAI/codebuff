@@ -1,3 +1,9 @@
+import { HelpBanner } from './components/help-banner'
+import { FreebuffChatFooter } from './components/freebuff-chat-footer'
+import { FreebuffChatHeader } from './components/freebuff-chat-header'
+import { FreebuffChatControls } from './components/freebuff-chat-controls'
+import { useFreebuffChatStore } from './state/freebuff-chat-store'
+import { freebuffAdmissionNotice } from './hooks/use-freebuff-chat-admission'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 import { setFreeModeCapacityDeferralListener } from '@codebuff/sdk'
@@ -5,8 +11,20 @@ import { safeOpen } from './utils/open-url'
 import { getAuthToken } from './utils/auth'
 import { isSponsoredProposalBlock } from './types/chat'
 import { runSponsoredProposalControl } from './utils/sponsored-proposal-control'
-import { sponsoredRunFor } from './utils/sponsored-run'
-import { useSponsoredProposal } from './hooks/use-sponsored-proposal'
+import {
+  replaySponsoredTerminalReports,
+  sponsoredRunFor,
+  sponsoredTaskEvidence,
+} from './utils/sponsored-run'
+import type { SponsoredRun } from './utils/sponsored-run'
+import {
+  refreshSponsoredProposalNow,
+  useSponsoredProposal,
+} from './hooks/use-sponsored-proposal'
+import { askAgenticOffer } from './utils/sponsored-offer'
+import { SponsoredProposalBlock } from './components/blocks/sponsored-proposal-block'
+import { setPendingSponsoredBrief } from './utils/sponsored-brief'
+import { useSponsoredRunStore } from './state/sponsored-run-store'
 import {
   useCallback,
   useEffect,
@@ -19,10 +37,10 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import {
-  SingleAdBanner,
-  dockPanelRowBudget,
-} from './components/ad-banner'
+import { SingleAdBanner, dockPanelRowBudget } from './components/ad-banner'
+import { PartnerAdRow } from './components/partner-ad-line'
+import { useComposerIntentAd } from './ads/use-composer-intent'
+import { CLI_PARTNER_PLACEMENT_IDS } from './ads/partner-ads'
 import {
   DOCK_PANEL_MAX_WIDTH,
   getDockPanelLayout,
@@ -36,13 +54,13 @@ import { ReviewScreen } from './components/review-screen'
 import { MessageWithAgents } from './components/message-with-agents'
 import { areCreditsRestored } from './components/out-of-credits-banner'
 import { PendingBashMessage } from './components/pending-bash-message'
-import { SessionEndedBanner } from './components/session-ended-banner'
 import { StatusBar } from './components/status-bar'
 import {
   SuggestedPrompts,
   DEFAULT_SUGGESTED_PROMPTS,
   type SuggestedPromptSelection,
 } from './components/suggested-prompts'
+import { TodoPanel } from './components/todo-panel'
 import { TopBanner } from './components/top-banner'
 import { useChatRuntime } from './contexts/chat-runtime-context'
 import { getSlashCommandsWithSkills } from './data/slash-commands'
@@ -58,14 +76,20 @@ import { useChatStreaming } from './hooks/use-chat-streaming'
 import { useChatUI } from './hooks/use-chat-ui'
 import { useClipboard } from './hooks/use-clipboard'
 import { useEvent } from './hooks/use-event'
-import { useGravityAd } from './hooks/use-gravity-ad'
+import { useGravityAd, visibleResponseAds } from './hooks/use-gravity-ad'
+import {
+  registerAdTranscriptViewport,
+  setAdTranscriptScrolledUp,
+} from './ads/ad-signals'
+import { useByokSelectionStore } from './utils/byok'
 import { DOCK_CHORD_HINT, useDockPanel } from './hooks/use-dock-panel'
 import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
+import { usePartnerSuggestion } from './hooks/use-partner-suggestion'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
 import { WEBSITE_URL } from './login/constants'
-import { getProjectRoot } from './project-files'
+import { getProjectRoot, tryGetProjectRoot } from './project-files'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useChatStore } from './state/chat-store'
 import { useQueuePanelStore } from './state/queue-panel-store'
@@ -81,7 +105,17 @@ import { readClipboardImage } from './utils/clipboard-image'
 import { returnToFreebuffLanding } from './hooks/use-freebuff-session'
 import { END_SESSION_MESSAGE, IS_FREEBUFF } from './utils/constants'
 import { getSystemMessage } from './utils/message-history'
+import { ProfileSurveyBox } from './components/profile-survey-box'
+import {
+  closeProfileSurveyForTyping,
+  dispatchProfileSurveyInput,
+  isProfileSurveyOnScreen,
+  setProfileSurveyEligible,
+  setProfileSurveyPrinter,
+  startProfileSurveyOnce,
+} from './state/profile-survey-store'
 import { getInputModeConfig } from './utils/input-modes'
+import { sealInputProfile, withPasteCount } from './utils/input-profile'
 import {
   hasSubmittedFirstPrompt,
   markFirstPromptSubmitted,
@@ -132,6 +166,8 @@ export const Chat = ({
   gitRoot,
   onSwitchToGitRoot,
   freebuffSession,
+  freebuffLastRefund = null,
+  freebuffRefundPending = false,
 }: {
   consumeInitialPrompt: () => string | null
   fileTree: FileTreeNode[]
@@ -144,10 +180,16 @@ export const Chat = ({
   gitRoot?: string | null
   onSwitchToGitRoot?: () => void
   freebuffSession: FreebuffSessionResponse | null
+  /** The ended hour's Freebucks receipt, shown in the Freebuff panel. */
+  freebuffLastRefund?: number | null
+  freebuffRefundPending?: boolean
 }) => {
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
   const headerRef = useRef<BoxRenderable | null>(null)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true)
+  const [todoPanelOpen, setTodoPanelOpen] = useState(false)
+  const chatSessionId = useChatStore((state) => state.chatSessionId)
+  useEffect(() => setTodoPanelOpen(false), [chatSessionId])
 
   // First-time onboarding: show clickable starter prompts until the user
   // submits their first prompt ever (persisted in settings). Freebuff only.
@@ -197,7 +239,36 @@ export const Chat = ({
     removeQueuedMessage,
     moveQueuedMessage,
   } = useChatRuntime()
+  const freebuffPickerOpen = useFreebuffChatStore((s) => s.pickerOpen)
+  const freebuffAdmission = useFreebuffChatStore((s) => s.admission)
+  const freebuffControlsOpen =
+    IS_FREEBUFF && (freebuffPickerOpen || freebuffAdmission !== null)
   const hasSubscription = subscriptionData?.hasSubscription ?? false
+  const hasSelectedByokConnection = useByokSelectionStore(
+    (state) => state.selected !== undefined,
+  )
+
+  // THE PROPOSAL THAT HOLDS THE DOCK, if any: an unanswered offer, or the one
+  // whose run is in flight or has just finished. It replaces the display ad
+  // for as long as it holds the slot -- one slot, one ad -- and gives it back
+  // once the user has moved on from a verdict (`dockReleased`).
+  const sponsoredRunSnapshot = useSponsoredRunStore((state) => state.snapshot)
+  // A sponsored run waiting on the user's sign-in or key: its prompt takes
+  // the composer's place and the keyboard, exactly as ask_user does.
+  const sponsoredAccountAsking = sponsoredRunSnapshot?.account != null
+  const dockProposal = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      for (const block of messages[i]!.blocks ?? []) {
+        if (!isSponsoredProposalBlock(block) || block.dockReleased) continue
+        const runs =
+          sponsoredRunSnapshot?.proposalId === block.proposal._id &&
+          sponsoredRunSnapshot.phase !== 'idle'
+        if (runs) return block
+        if (!block.answered && block.proposal.state === 'offered') return block
+      }
+    }
+    return null
+  }, [messages, sponsoredRunSnapshot])
 
   const {
     ads,
@@ -206,16 +277,21 @@ export const Chat = ({
     recordClick,
     recordImpression,
   } = useGravityAd({
-    enabled: IS_FREEBUFF || !hasSubscription,
+    enabled: !hasSelectedByokConnection && (IS_FREEBUFF || !hasSubscription),
     provider: 'gravity',
     inline: true,
     surface: 'cli_chat',
+    forceStart: IS_FREEBUFF,
     // Lazily fill a four-ad pool, then repeat it for later transcript slots.
     inlinePlacementId: 'CLI-Chat-Inline',
     // Keep the rotating above-input slot separate for reporting continuity.
     slotPlacementId: 'Single-Ad-Unit-1',
+    // The dock holds that slot while a proposal does: an ad fetched for it
+    // then would be served and never rendered.
+    slotPaused: dockProposal !== null,
   })
-  const showInlineAds = IS_FREEBUFF || getAdsEnabled()
+  const showInlineAds =
+    !hasSelectedByokConnection && (IS_FREEBUFF || getAdsEnabled())
 
   // Stable identities so the message-block callbacks (set once) always call
   // the latest recorder from the hook.
@@ -294,11 +370,28 @@ export const Chat = ({
     [messages],
   )
 
-  const handleSponsoredProposalMenu = useEvent((target: string, open: boolean) =>
-    patchProposalBlock(target, { menuOpen: open }),
+  const dockRun =
+    dockProposal &&
+    sponsoredRunSnapshot?.proposalId === dockProposal.proposal._id &&
+    sponsoredRunSnapshot.phase !== 'idle'
+      ? {
+          phase: sponsoredRunSnapshot.phase,
+          changedFiles: sponsoredRunSnapshot.changedFiles,
+          undone: sponsoredRunSnapshot.undone,
+          checkingStep: sponsoredRunSnapshot.checkingStep,
+          runningSince: sponsoredRunSnapshot.runningSince,
+          needsYou: sponsoredRunSnapshot.account !== null,
+          steps: sponsoredRunSnapshot.steps,
+        }
+      : null
+
+  const handleSponsoredProposalMenu = useEvent(
+    (target: string, open: boolean) =>
+      patchProposalBlock(target, { menuOpen: open }),
   )
   const handleSponsoredProposalDisclose = useEvent(
-    (target: string, open: boolean) => patchProposalBlock(target, { whyOpen: open }),
+    (target: string, open: boolean) =>
+      patchProposalBlock(target, { whyOpen: open }),
   )
 
   const handleSponsoredProposalControl = useEvent(
@@ -312,9 +405,13 @@ export const Chat = ({
       // press is synchronous, and a guard on the far side of a promise arrives
       // too late to stop the second call.
       if (
-        !block || block.busy || block.answered ||
-        block.refreshUnavailable || !authToken
-      ) return
+        !block ||
+        block.busy ||
+        block.answered ||
+        block.refreshUnavailable ||
+        !authToken
+      )
+        return
       patchProposalBlock(target, { busy: true, menuOpen: false })
       const proposalId = block.proposal._id
       const advertiserId = block.proposal.advertiser_id
@@ -362,29 +459,56 @@ export const Chat = ({
   /**
    * Accept, in two halves (COD-339, COD-336 item 4).
    *
-   * The first half OPENS the consent and writes nothing anywhere -- not
-   * upstream, not on disk. Everything the screen names is known before the
-   * accept, which is exactly what makes a refusal free: there is nothing to
-   * undo. The branch is minted here with the run id it will be created under,
-   * so the branch the screen names is the branch that is cut.
+   * The first half OPENS the consent and writes nothing upstream: it reads the
+   * exact reviewed procedure through the preview route and mints the run id
+   * the Accept will carry. A refusal is therefore free -- there is nothing to
+   * undo.
    */
   const handleSponsoredProposalAccept = useEvent((target: string) => {
     const block = findProposalBlock(target)
     if (
-      !block || block.busy || block.answered ||
-      block.refreshUnavailable || block.consent
-    ) return
+      !block ||
+      block.busy ||
+      block.answered ||
+      block.refreshUnavailable ||
+      block.consent
+    )
+      return
+    patchProposalBlock(target, { busy: true, menuOpen: false })
     void (async () => {
-      const run = sponsoredRunFor(getProjectRoot())
-      const consent = await run.consentFor(block.proposal)
+      // Anything that THROWS (the project folder gone, its identity
+      // unreadable) must still hand the card back, or it stays busy with
+      // both of its buttons dead until the CLI restarts.
+      let consent: Awaited<ReturnType<SponsoredRun['consentFor']>>
+      try {
+        consent = await sponsoredRunFor(getProjectRoot()).consentFor(
+          block.proposal,
+          sponsoredTaskEvidence(messagesRef.current),
+        )
+      } catch (error) {
+        logger.debug({ error }, '[sponsored-run] consent failed')
+        consent = {
+          ok: false,
+          message: 'Could not review this sponsored task. Try again.',
+        }
+      }
       if (!consent.ok) {
+        patchProposalBlock(target, { busy: false })
         setMessages((prev) => [...prev, getSystemMessage(consent.message)])
         return
       }
       patchProposalBlock(target, {
-        menuOpen: false,
-        consent: { ...consent.consent, runId: consent.runId },
+        busy: false,
+        consent: {
+          advertiserName: consent.consent.advertiserName,
+          headline: consent.consent.headline,
+          body: consent.consent.body,
+          folder: consent.consent.folder,
+          procedure: consent.consent.procedure,
+          runId: consent.runId,
+        },
         consentIndex: 0,
+        procedureOpen: false,
       })
     })()
   })
@@ -406,8 +530,22 @@ export const Chat = ({
       if (!approved) return
       patchProposalBlock(target, { busy: true })
       void (async () => {
-        const run = sponsoredRunFor(getProjectRoot())
-        const outcome = await run.accept(block.proposal, consent.runId)
+        // As at the consent: a throw must hand the card back, not leave it
+        // busy with both answers dead.
+        let outcome: Awaited<ReturnType<SponsoredRun['accept']>>
+        try {
+          outcome = await sponsoredRunFor(getProjectRoot()).accept(
+            block.proposal,
+            consent.runId,
+            sponsoredTaskEvidence(messagesRef.current),
+          )
+        } catch (error) {
+          logger.debug({ error }, '[sponsored-run] accept failed')
+          outcome = {
+            ok: false,
+            message: 'Could not start this sponsored task. Try again.',
+          }
+        }
         // `runStarted` is what makes the poller watch: the row upstream still
         // reads `offered` until the first poll after the accept, and keying the
         // cadence on the state alone would slow it down at exactly the moment
@@ -416,23 +554,123 @@ export const Chat = ({
           busy: false,
           ...(outcome.ok ? { runStarted: true } : {}),
         })
+        // THE TURN IS NOT STARTED HERE. The chat runtime starts it once the
+        // conversation is free, and holds the user's queue behind it.
+        if (outcome.ok) return
         setMessages((prev) => [
           ...prev,
           getSystemMessage(
-            outcome.ok
-              ? `Started ${consent.advertiserName}'s sponsored task on ${consent.branch}. Nothing will be pushed.`
-              : 'message' in outcome
-                ? outcome.message
-                : 'The sponsored task was not started.',
+            'message' in outcome
+              ? outcome.message
+              : 'The sponsored task was not started.',
           ),
         ])
+        // The procedure changed after review: show the new one rather than
+        // leaving a refusal on a card whose Accept would meet it again.
+        if ('reviewAgain' in outcome && outcome.reviewAgain) {
+          handleSponsoredProposalAccept(target)
+        }
       })()
     },
   )
 
+  const handleSponsoredProposalProcedure = useEvent(
+    (target: string, open: boolean) =>
+      patchProposalBlock(target, { procedureOpen: open }),
+  )
+
+  /**
+   * Undo, from the dock or `/ads:undo`. The run service reads its receipts
+   * from disk and restores what it can without clobbering later work; the
+   * conversation's agent is told on its next turn that the files moved back.
+   */
+  const handleSponsoredProposalUndo = useEvent(() => {
+    const outcome = sponsoredRunFor(getProjectRoot()).undo()
+    if (outcome.brief) setPendingSponsoredBrief(outcome.brief)
+    setMessages((prev) => [...prev, getSystemMessage(outcome.message)])
+  })
+
+  // ONE OFFER QUESTION PER USER TURN (#3989's flow). Keyed on the user's own
+  // newest message, so it fires once when they send one and never for the
+  // CLI's notices or a sponsored turn's rows. A proposal it mints is read at
+  // once rather than a poll interval later.
+  const newestUserMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]!.variant === 'user') return messages[i]!.id
+    }
+    return null
+  }, [messages])
+  // A TURN IS A USER MESSAGE WRITTEN SINCE THIS CHAT MOUNTED. Everything else
+  // in the transcript is history: a resume from /history or `--continue`
+  // loads it all at once -- after this component mounted with an empty
+  // transcript -- and must not ask for an offer on its own. A user message's
+  // id is its creation time (`getUserMessage`), so that is the test, and each
+  // message is asked about once.
+  const chatMountedAt = useRef(Date.now())
+  const askedForMessage = useRef<string | null>(null)
+  useEffect(() => {
+    if (!newestUserMessageId || newestUserMessageId === askedForMessage.current)
+      return
+    askedForMessage.current = newestUserMessageId
+    const createdAt = Number(/^user-(\d+)$/.exec(newestUserMessageId)?.[1])
+    if (!Number.isFinite(createdAt) || createdAt < chatMountedAt.current) return
+    // The user has moved on from a finished sponsored run: its card gives the
+    // dock back to display ads. It stays in history, and `/ads:undo` still
+    // works from any later turn.
+    const finished = useSponsoredRunStore.getState().snapshot
+    if (
+      finished?.proposalId &&
+      (finished.phase === 'delivered' || finished.phase === 'failed')
+    ) {
+      for (const message of messagesRef.current) {
+        for (const block of message.blocks ?? []) {
+          if (
+            isSponsoredProposalBlock(block) &&
+            block.proposal._id === finished.proposalId &&
+            !block.dockReleased
+          ) {
+            patchProposalBlock(block.target, { dockReleased: true })
+          }
+        }
+      }
+    }
+    if (hasSelectedByokConnection || !getAdsEnabled()) return
+    const projectRoot = tryGetProjectRoot()
+    if (!projectRoot) return
+    const { chatSessionId, adTraceContext } = useChatStore.getState()
+    void askAgenticOffer({
+      projectRoot,
+      conversationId: chatSessionId,
+      messages: messagesRef.current,
+      // Ids only: the last finished run's trace, interrupted runs included.
+      // A conversation's first turn has no run yet, so it carries none.
+      traceContext: adTraceContext,
+    }).then((offered) => {
+      if (offered) refreshSponsoredProposalNow()
+    })
+  }, [newestUserMessageId, hasSelectedByokConnection])
+
   // Mounted here rather than inside the card, because the card does not exist
   // until this hook puts it there (COD-339: nothing polled before it).
-  useSponsoredProposal()
+  useSponsoredProposal({ enabled: !hasSelectedByokConnection })
+
+  // A terminal report an earlier process could not deliver is still owed:
+  // until it lands the row sits on `running` and its compute grant stays live.
+  // Replayed on every signed-in mount -- chat only mounts with a session, so
+  // this covers both a launch and a sign-in -- rather than waiting for the
+  // next Accept in this folder to construct the run. Keyed on the project root
+  // too: switching to the git root re-renders chat without remounting it, and
+  // the new folder's outbox is owed the same replay.
+  const currentProjectRoot = tryGetProjectRoot()
+  useEffect(() => {
+    if (!currentProjectRoot) return
+    if (hasSelectedByokConnection || !getAuthToken()) return
+    try {
+      replaySponsoredTerminalReports(currentProjectRoot)
+    } catch (error) {
+      logger.debug({ error }, '[sponsored-run] outbox replay failed')
+    }
+  }, [hasSelectedByokConnection, currentProjectRoot])
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -474,6 +712,24 @@ export const Chat = ({
   useEffect(
     () => registerScrollToLatest(scrollToLatest),
     [registerScrollToLatest, scrollToLatest],
+  )
+
+  // COD-757: the ad client context's `attn.scrolledUp`, and the viewport an
+  // inline ad card tests itself against for its engagement record.
+  useEffect(() => {
+    setAdTranscriptScrolledUp(!isAtBottom)
+  }, [isAtBottom])
+  useEffect(
+    () =>
+      registerAdTranscriptViewport(() => {
+        const viewport = scrollRef.current?.viewport
+        if (!viewport) return null
+        return {
+          top: viewport.screenY,
+          bottom: viewport.screenY + viewport.height,
+        }
+      }),
+    [scrollRef],
   )
 
   // The sponsor dock's detail panel (COD-457). `enabled` is the surface gate,
@@ -570,7 +826,7 @@ export const Chat = ({
     slashMatches,
     agentMatches,
     fileMatches,
-    slashSuggestionItems,
+    slashSuggestionItems: slashCommandItems,
     agentSuggestionItems,
     fileSuggestionItems,
   } = useSuggestionEngine({
@@ -615,15 +871,6 @@ export const Chat = ({
     }
     setSlashSelectedIndex(0)
   }, [slashContext.active, slashContext.query, setSlashSelectedIndex])
-
-  useEffect(() => {
-    if (slashMatches.length > 0 && slashSelectedIndex >= slashMatches.length) {
-      setSlashSelectedIndex(slashMatches.length - 1)
-    }
-    if (slashMatches.length === 0 && slashSelectedIndex !== 0) {
-      setSlashSelectedIndex(0)
-    }
-  }, [slashMatches.length, slashSelectedIndex, setSlashSelectedIndex])
 
   useEffect(() => {
     if (!mentionContext.active) {
@@ -995,6 +1242,27 @@ export const Chat = ({
       })),
     )
 
+  const slashSuggestionItems = usePartnerSuggestion({
+    items: slashCommandItems,
+    selectedIndex: slashSelectedIndex,
+    setSelectedIndex: setSlashSelectedIndex,
+    maxVisible: isCompactHeight ? 5 : terminalHeight > 35 ? 15 : 10,
+    enabled:
+      showInlineAds && slashContext.active &&
+      !getInputModeConfig(inputMode).disableSlashSuggestions &&
+      !feedbackMode && !publishMode && !reviewMode && !queuePanelOpen &&
+      askUserState === null,
+  })
+
+  useEffect(() => {
+    if (slashSuggestionItems.length > 0 && slashSelectedIndex >= slashSuggestionItems.length) {
+      setSlashSelectedIndex(slashSuggestionItems.length - 1)
+    }
+    if (slashSuggestionItems.length === 0 && slashSelectedIndex !== 0) {
+      setSlashSelectedIndex(0)
+    }
+  }, [slashSuggestionItems.length, slashSelectedIndex, setSlashSelectedIndex])
+
   // Review and ask_user take the composer's place too. Leaving the panel
   // flagged open behind them would keep chat's keyboard disabled with nothing
   // rendered to handle keys, so hand the surface back for real.
@@ -1008,6 +1276,26 @@ export const Chat = ({
   // its own, unmounting chat mid-edit. Without this, the next session would
   // open onto a panel for a queue that no longer exists.
   useEffect(() => () => useQueuePanelStore.getState().closeQueuePanel(), [])
+
+  // An approval, question or another panel takes priority over this read-only
+  // view. Close it rather than leave its global keyboard listener active.
+  useEffect(() => {
+    if (
+      reviewMode ||
+      askUserState !== null ||
+      queuePanelOpen ||
+      freebuffControlsOpen ||
+      sponsoredProposalMenuOpen
+    ) {
+      setTodoPanelOpen(false)
+    }
+  }, [
+    reviewMode,
+    askUserState,
+    queuePanelOpen,
+    freebuffControlsOpen,
+    sponsoredProposalMenuOpen,
+  ])
 
   const publishMutation = usePublishMutation()
 
@@ -1049,8 +1337,11 @@ export const Chat = ({
         // The panel closes itself once the queue drains, so opening an empty
         // one would just flash. Say so instead.
         if (queuedCount > 0) useQueuePanelStore.getState().openQueuePanel()
-        else setMessages((prev) => [...prev, getSystemMessage('Nothing queued.')])
+        else
+          setMessages((prev) => [...prev, getSystemMessage('Nothing queued.')])
       }
+
+      if (result.openTodoPanel) setTodoPanelOpen(true)
     },
     [
       saveCurrentInput,
@@ -1086,7 +1377,12 @@ export const Chat = ({
   // Click handler for slash menu items - executes command or inserts text
   const handleSlashItemClick = useCallback(
     async (index: number) => {
-      const selected = slashMatches[index]
+      const item = slashSuggestionItems[index]
+      if (item?.activate) {
+        item.activate()
+        return
+      }
+      const selected = slashMatches.find((command) => command.id === item?.id)
       if (!selected) return
 
       // If the command has insertText, insert it instead of executing
@@ -1101,6 +1397,7 @@ export const Chat = ({
     },
     [
       slashMatches,
+      slashSuggestionItems,
       applySlashInsertText,
       setSlashSelectedIndex,
       onSubmitPrompt,
@@ -1220,6 +1517,12 @@ export const Chat = ({
     inputRef.current?.focus()
   }, [closeQueuePanel, setInputFocused, inputRef])
 
+  const handleCloseTodoPanel = useCallback(() => {
+    setTodoPanelOpen(false)
+    setInputFocused(true)
+    inputRef.current?.focus()
+  }, [setInputFocused, inputRef])
+
   const handleReviewCustom = useCallback(() => {
     closeReviewScreen()
     setInputMode('review')
@@ -1253,6 +1556,7 @@ export const Chat = ({
     if (inputValue.trim()) {
       setTerminalTitle(inputValue)
     }
+    sealInputProfile(inputValue)
     const result = await onSubmitPrompt(inputValue, agentMode)
     handleCommandResult(result)
   }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult, dockPanel])
@@ -1268,7 +1572,7 @@ export const Chat = ({
     lastEditDueToNav ||
     (cursorPosition === inputValue.length &&
       ((slashContext.active &&
-        slashSelectedIndex === slashMatches.length - 1) ||
+        slashSelectedIndex === slashSuggestionItems.length - 1) ||
         (mentionContext.active &&
           agentSelectedIndex === totalMentionMatches - 1) ||
         (!slashContext.active && !mentionContext.active)))
@@ -1288,7 +1592,7 @@ export const Chat = ({
       mentionMenuActive: mentionContext.active,
       slashSelectedIndex,
       agentSelectedIndex,
-      slashMatchesLength: slashMatches.length,
+      slashMatchesLength: slashSuggestionItems.length,
       totalMentionMatches: agentMatches.length + fileMatches.length,
       disableSlashSuggestions:
         getInputModeConfig(inputMode).disableSlashSuggestions,
@@ -1299,6 +1603,7 @@ export const Chat = ({
       queuedCount,
       dockExpandable: dockPanel.expandable,
       dockPanelOpen: dockPanel.expanded,
+      sponsoredDockActive: dockProposal !== null,
     }),
     [
       inputMode,
@@ -1313,7 +1618,7 @@ export const Chat = ({
       mentionContext.active,
       slashSelectedIndex,
       agentSelectedIndex,
-      slashMatches.length,
+      slashSuggestionItems.length,
       agentMatches.length,
       fileMatches.length,
       historyNavUpEnabled,
@@ -1323,6 +1628,7 @@ export const Chat = ({
       queuedCount,
       dockPanel.expandable,
       dockPanel.expanded,
+      dockProposal,
     ],
   )
 
@@ -1344,7 +1650,12 @@ export const Chat = ({
       onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
       onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
       onSlashMenuSelect: async () => {
-        const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
+        const item = slashSuggestionItems[slashSelectedIndex]
+        if (item?.activate) {
+          item.activate()
+          return
+        }
+        const selected = slashMatches.find((command) => command.id === item?.id)
         if (!selected) return
 
         // If the command has insertText, insert it instead of executing
@@ -1360,7 +1671,10 @@ export const Chat = ({
       },
       onSlashMenuComplete: () => {
         // Complete the word without executing - same as clicking on the item
-        const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
+        const item = slashSuggestionItems[slashSelectedIndex]
+        // Tab completes commands; only an explicit Enter or click opens an ad.
+        if (item?.activate) return
+        const selected = slashMatches.find((command) => command.id === item?.id)
         if (!selected || slashContext.startIndex < 0) return
 
         // If the command has insertText, insert it instead of the command
@@ -1469,6 +1783,8 @@ export const Chat = ({
         }
         return false
       },
+      onShowHelp: () => useChatStore.getState().setInputMode('help'),
+      onOpenChatHistory: () => useChatHistoryStore.getState().openChatHistory(),
       onHistoryUp: navigateUp,
       onHistoryDown: navigateDown,
       onToggleAgentMode: toggleAgentMode,
@@ -1541,15 +1857,23 @@ export const Chat = ({
       },
       onToggleDockPanel: () => dockPanel.toggle('key'),
       onCloseDockPanel: () => dockPanel.collapse('esc'),
+      onToggleSponsoredDock: () => {
+        if (!dockProposal) return
+        handleSponsoredProposalMenu(dockProposal.target, !dockProposal.menuOpen)
+      },
+      onProfileSurveyInput: dispatchProfileSurveyInput,
     }),
     [
       dockPanel,
+      dockProposal,
+      handleSponsoredProposalMenu,
       setInputMode,
       handleCloseFeedback,
       setFeedbackText,
       setInputValue,
       setSlashSelectedIndex,
       slashMatches,
+      slashSuggestionItems,
       slashSelectedIndex,
       slashContext,
       inputValue,
@@ -1592,9 +1916,12 @@ export const Chat = ({
     // chat's off for the span safe rather than a second overlap.
     disabled:
       askUserState !== null ||
+      sponsoredAccountAsking ||
       reviewMode ||
       queuePanelOpen ||
-      sponsoredProposalMenuOpen,
+      todoPanelOpen ||
+      sponsoredProposalMenuOpen ||
+      freebuffControlsOpen,
   })
 
   // Sync message block context to zustand store for child components
@@ -1609,13 +1936,14 @@ export const Chat = ({
   // to prevent message loss during rapid streaming (race condition fix)
   useLayoutEffect(() => {
     setMessageBlockContext({
+      readOnly: false,
       theme,
       markdownPalette,
       messageTree,
       isWaitingForResponse,
       timerStartTime,
       availableWidth: messageAvailableWidth,
-      responseAds: showInlineAds ? responseAds : {},
+      responseAds: visibleResponseAds(showInlineAds, responseAds),
     })
   }, [
     theme,
@@ -1645,6 +1973,8 @@ export const Chat = ({
       onSponsoredProposalDisclose: handleSponsoredProposalDisclose,
       onSponsoredProposalAccept: handleSponsoredProposalAccept,
       onSponsoredProposalConsent: handleSponsoredProposalConsent,
+      onSponsoredProposalProcedure: handleSponsoredProposalProcedure,
+      onSponsoredProposalUndo: handleSponsoredProposalUndo,
       onSponsoredProposalControl: handleSponsoredProposalControl,
     })
   }, [
@@ -1670,6 +2000,35 @@ export const Chat = ({
     mentionContext.active &&
     (agentSuggestionItems.length > 0 || fileSuggestionItems.length > 0)
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
+
+  /**
+   * The PARTNER row above the input, shown only while the server judges the
+   * draft to be about one composer partner's deal (the composer intent) and
+   * nothing else owns the space.
+   *
+   * Every exclusion here is a moment the user is in the middle of something
+   * the row would be interrupting rather than offering: a menu is open over
+   * this slot, a form or a review screen owns the keyboard, or the input is
+   * not a draft at all. `showInlineAds` is the same gate the rotating card
+   * above it reads, so a session with ads off never asks for this slot.
+   */
+  const composerPartnerRowAllowed =
+    showInlineAds &&
+    !hasSuggestionMenu &&
+    !feedbackMode &&
+    !publishMode &&
+    !reviewMode &&
+    askUserState === null
+  // One row at a time: the server answers with at most one composer partner
+  // fill, on the PR or the LAUNCH slot, for the settled draft.
+  const composerIntentAd = useComposerIntentAd(
+    inputValue,
+    composerPartnerRowAllowed,
+  )
+  const normalGreptileVisible =
+    !dockProposal && showInlineAds && ads?.[0]?.partnerBrand === 'greptile'
+  const showComposerPartnerAd = composerIntentAd !== null &&
+    !(composerIntentAd.placementId === CLI_PARTNER_PLACEMENT_IDS.composer && normalGreptileVisible)
 
   // Show first-time onboarding starter prompts only on a pristine, idle,
   // empty-input default-mode chat — and never while a menu/overlay is up.
@@ -1732,7 +2091,7 @@ export const Chat = ({
     showReconnectionMessage,
     isRetrying,
     isCapacityWait,
-    isAskUserActive: askUserState !== null,
+    isAskUserActive: askUserState !== null || sponsoredAccountAsking,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
 
@@ -1759,9 +2118,13 @@ export const Chat = ({
   }, [subscriptionRateLimit?.limited, fallbackToALaCarte])
 
   const hasActiveFreebuffSession =
-    IS_FREEBUFF && freebuffSession?.status === 'active'
+    !hasSelectedByokConnection &&
+    IS_FREEBUFF &&
+    freebuffSession?.status === 'active'
   const isFreebuffSessionOver =
-    IS_FREEBUFF && freebuffSession?.status === 'ended'
+    !hasSelectedByokConnection &&
+    IS_FREEBUFF &&
+    freebuffSession?.status === 'ended'
 
   // A takeover screen owns both the keyboard and the rows above the composer.
   // Rather than teach the panel to arbitrate with four other Escape handlers,
@@ -1769,13 +2132,44 @@ export const Chat = ({
   // already shut, so this fires exactly one `dock_collapsed`.
   const dockTakeoverActive =
     askUserState !== null ||
+    sponsoredAccountAsking ||
     reviewMode ||
     queuePanelOpen ||
+    todoPanelOpen ||
     sponsoredProposalMenuOpen ||
-    isFreebuffSessionOver
+    isFreebuffSessionOver ||
+    freebuffControlsOpen
   useEffect(() => {
     if (dockTakeoverActive) dockPanel.collapse('outside')
   }, [dockTakeoverActive, dockPanel])
+
+  // THE PROFILE SURVEY BOX (COD-779): Freebuff only, only while a turn is
+  // running, only over an empty default-mode draft with no takeover screen
+  // up. The first busy turn of the process fetches it once. Typing a prompt
+  // while it is up closes it silently (answers stay server-side). Its keys
+  // are routed in `keyboard-actions.ts`; it reports nothing to the ad rail.
+  const isTurnBusy = isStreaming || isWaitingForResponse
+  const profileSurveyEligible =
+    IS_FREEBUFF &&
+    isTurnBusy &&
+    inputMode === 'default' &&
+    inputValue.length === 0 &&
+    !feedbackMode &&
+    !publishMode &&
+    !dockTakeoverActive
+  const hasDraft = inputValue.length > 0
+  useEffect(() => {
+    if (IS_FREEBUFF && isTurnBusy) void startProfileSurveyOnce()
+  }, [isTurnBusy])
+  useEffect(() => {
+    if (hasDraft && isProfileSurveyOnScreen()) closeProfileSurveyForTyping()
+    setProfileSurveyEligible(profileSurveyEligible)
+  }, [hasDraft, profileSurveyEligible])
+  useEffect(() => {
+    setProfileSurveyPrinter((text) =>
+      setMessages((prev) => [...prev, getSystemMessage(text)]),
+    )
+  }, [setMessages])
 
   const shouldShowStatusLine =
     !feedbackMode &&
@@ -1836,7 +2230,7 @@ export const Chat = ({
             flexDirection: 'column',
             gap: 0,
             shouldFill: true,
-            justifyContent: 'flex-end',
+            justifyContent: IS_FREEBUFF ? 'flex-start' : 'flex-end',
             backgroundColor: 'transparent',
             paddingLeft: 1,
             paddingRight: 2,
@@ -1849,10 +2243,19 @@ export const Chat = ({
           ref={headerRef as React.Ref<BoxRenderable>}
           style={{ flexDirection: 'column' }}
         >
-          <ChatHeader
-            projectRoot={getProjectRoot()}
-            animationEnabled={isHeaderVisible && inputFocused}
-          />
+          {IS_FREEBUFF && !hasSelectedByokConnection ? (
+            <FreebuffChatHeader
+              projectRoot={getProjectRoot()}
+              session={freebuffSession}
+              lastRefund={freebuffLastRefund}
+              refundPending={freebuffRefundPending}
+            />
+          ) : (
+            <ChatHeader
+              projectRoot={getProjectRoot()}
+              animationEnabled={isHeaderVisible && inputFocused}
+            />
+          )}
         </box>
         {IS_FREEBUFF && (
           <FreebuffActiveSessionSummary session={freebuffSession} />
@@ -1886,32 +2289,25 @@ export const Chat = ({
           backgroundColor: 'transparent',
         }}
       >
-        {showOnboardingPrompts && !reviewMode && !isFreebuffSessionOver && (
+        {showOnboardingPrompts && !reviewMode && !freebuffControlsOpen && (
           <SuggestedPrompts
             onSelect={handleSelectSuggestedPrompt}
             maxItems={isCompactHeight ? 2 : undefined}
           />
         )}
 
-        {shouldShowStatusLine && (
-          <StatusBar
-            timerStartTime={timerStartTime}
-            isAtBottom={isAtBottom}
-            scrollToLatest={scrollToLatest}
-            statusIndicatorState={statusIndicatorState}
-            onStop={chatKeyboardHandlers.onInterruptStream}
-            onEndSession={() => {
-              setMessages((prev) => [
-                ...prev,
-                getSystemMessage(END_SESSION_MESSAGE),
-              ])
-              returnToFreebuffLanding({ resetChat: true }).catch(() => {})
-            }}
-            freebuffSession={freebuffSession}
+        {/* ONE SLOT, ONE AD: a sponsored proposal replaces the display ad for
+            as long as it holds the dock (`dockProposal`). */}
+        {dockProposal && (
+          <SponsoredProposalBlock
+            key={`sponsored-dock-${dockProposal.target}`}
+            block={dockProposal}
+            availableWidth={separatorWidth}
+            run={dockRun}
           />
         )}
 
-        {ads?.[0] && showInlineAds && (
+        {!dockProposal && ads?.[0] && showInlineAds && (
           <SingleAdBanner
             ad={ads[0]}
             onClick={recordClick}
@@ -1934,7 +2330,56 @@ export const Chat = ({
           />
         )}
 
-        {reviewMode ? (
+        {/* The partner row sits BELOW the rotating card and above the input,
+            in the advertiser's own colour — it is a piece of our chrome next
+            to the feature it is about, not a second banner, so it does not
+            take the card's slot. Renders nothing unless the deal is live and
+            the slot filled. Aligned to the card's margins above it. */}
+        {showComposerPartnerAd && composerIntentAd && (
+          <box style={{ marginLeft: 1, marginRight: 1 }}>
+            {/* Keyed by impression: one deal's row never carries over to
+                another's answer. */}
+            <PartnerAdRow
+              key={composerIntentAd.impUrl}
+              ad={composerIntentAd}
+              width={separatorWidth}
+            />
+          </box>
+        )}
+
+        {/* Beside the ad surfaces above, never in place of one. */}
+        {IS_FREEBUFF && <ProfileSurveyBox width={separatorWidth} />}
+
+        {IS_FREEBUFF &&
+          !freebuffControlsOpen &&
+          freebuffAdmissionNotice(freebuffSession) && (
+            <text style={{ fg: theme.secondary, wrapMode: 'word' }}>
+              {freebuffAdmissionNotice(freebuffSession)}
+            </text>
+          )}
+        {inputMode === 'help' && !freebuffControlsOpen && <HelpBanner />}
+
+        {shouldShowStatusLine && (
+          <StatusBar
+            timerStartTime={timerStartTime}
+            isAtBottom={isAtBottom}
+            scrollToLatest={scrollToLatest}
+            statusIndicatorState={statusIndicatorState}
+            onStop={chatKeyboardHandlers.onInterruptStream}
+            onEndSession={() => {
+              setMessages((prev) => [
+                ...prev,
+                getSystemMessage(END_SESSION_MESSAGE),
+              ])
+              returnToFreebuffLanding().catch(() => {})
+            }}
+            freebuffSession={freebuffSession}
+          />
+        )}
+
+        {freebuffControlsOpen && !askUserState ? (
+          <FreebuffChatControls />
+        ) : reviewMode ? (
           // Review and ask_user take precedence over the session-ended banner:
           // during the grace window the agent may still be asking to run tools
           // or asking the user a question, and those approvals/answers must be
@@ -1955,9 +2400,11 @@ export const Chat = ({
             width={separatorWidth}
             maxVisibleRows={isCompactHeight ? 4 : 8}
           />
-        ) : isFreebuffSessionOver && !askUserState ? (
-          <SessionEndedBanner
-            isStreaming={isStreaming || isWaitingForResponse}
+        ) : todoPanelOpen && !askUserState && !sponsoredProposalMenuOpen ? (
+          <TodoPanel
+            messages={messages}
+            onClose={handleCloseTodoPanel}
+            maxVisibleRows={isCompactHeight ? 4 : 8}
           />
         ) : (
           <>
@@ -1996,7 +2443,7 @@ export const Chat = ({
               handleExitPublish={handleExitPublish}
               handlePublish={handlePublish}
               handleSubmit={handleSubmit}
-              onPaste={createPasteHandler({
+              onPaste={withPasteCount(createPasteHandler({
                 text: inputValue,
                 cursorPosition,
                 onChange: setInputValue,
@@ -2019,11 +2466,12 @@ export const Chat = ({
                   )
                 },
                 cwd: getProjectRoot() ?? process.cwd(),
-              })}
+              }))}
               onInterruptStream={chatKeyboardHandlers.onInterruptStream}
             />
           </>
         )}
+        {IS_FREEBUFF && !hasSelectedByokConnection && <FreebuffChatFooter projectRoot={getProjectRoot()} />}
       </box>
     </box>
   )

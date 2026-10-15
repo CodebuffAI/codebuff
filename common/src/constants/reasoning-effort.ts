@@ -77,3 +77,51 @@ export function clampReasoningEffort(
       : lowest,
   )
 }
+
+/**
+ * The rungs a BYOK (the user's own API key) connection can be asked for.
+ *
+ * Three, because they are the only words every provider shape BYOK reaches
+ * understands: OpenAI-compatible `reasoning_effort`, OpenRouter's
+ * `reasoning.effort`, Gemini's OpenAI-compatible `reasoning_effort`, and an
+ * Anthropic thinking budget per rung. There is deliberately no "default" rung
+ * here: a BYOK thread with no pick sends nothing, so the provider's own default
+ * applies — exactly the request BYOK sent before this setting existed.
+ */
+export const BYOK_REASONING_EFFORTS = ['low', 'medium', 'high'] as const
+
+export type ByokReasoningEffort = (typeof BYOK_REASONING_EFFORTS)[number]
+
+export function isByokReasoningEffort(
+  value: unknown,
+): value is ByokReasoningEffort {
+  return BYOK_REASONING_EFFORTS.includes(value as ByokReasoningEffort)
+}
+
+/**
+ * The rungs a ChatGPT plan's models take (provider `chatgpt`). Their requests go to the same
+ * Responses backend Codex uses, whose `reasoning.effort` accepts every rung up to `ultra`, so the
+ * Freebuff agent offers what Codex offers rather than the three-rung BYOK ladder.
+ */
+export const CHATGPT_REASONING_EFFORTS = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+] as const satisfies readonly ReasoningEffort[]
+
+/** The rungs a saved provider connection can be asked for. */
+export function byokReasoningEfforts(
+  provider: string,
+): readonly ReasoningEffort[] {
+  return provider === 'chatgpt' ? CHATGPT_REASONING_EFFORTS : BYOK_REASONING_EFFORTS
+}
+
+/** Any rung some saved provider accepts: what a thread bound to one may store. */
+export function isProviderReasoningEffort(
+  value: unknown,
+): value is ReasoningEffort {
+  return (CHATGPT_REASONING_EFFORTS as readonly unknown[]).includes(value)
+}

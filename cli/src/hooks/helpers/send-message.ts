@@ -7,6 +7,7 @@ import {
   markFreebuffSessionSuperseded,
   refreshFreebuffSession,
 } from '../use-freebuff-session'
+import { noteAdTurnFailure } from '../../ads/ad-signals'
 import { getProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
 import { IS_FREEBUFF } from '../../utils/constants'
@@ -17,9 +18,12 @@ import {
   getFreeModeUnavailableErrorMessage,
   getFreebuffGateErrorKind,
   getFreebuffRateLimitErrorMessage,
+  getFreebuffSupersededReason,
   isOutOfCreditsError,
   isFreebuffProviderUsageError,
   isFreeModeUnavailableError,
+  FREEBUFF_MODEL_UNAVAILABLE_MESSAGE,
+  FREEBUFF_REFUNDED_START_HINT,
   OUT_OF_CREDITS_MESSAGE,
 } from '../../utils/error-handling'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
@@ -44,6 +48,7 @@ import type {
 } from '../../types/store'
 import type { ChatMessage } from '../../types/chat'
 import type { AgentMode } from '../../utils/constants'
+import type { FreebuffGateErrorKind } from '../../utils/error-handling'
 import type { SendMessageTimerController } from '../../utils/send-message-timer'
 import type { StreamController } from '../stream-state'
 import type { StreamStatus } from '../use-message-queue'
@@ -341,6 +346,8 @@ export const handleRunCompletion = (params: {
   updater: BatchedMessageUpdater
   aiMessageId: string
   wasAbortedByUser: boolean
+  /** Immutable inference source captured when this run started. */
+  isByokRun?: boolean
   /** Whether the run streamed any content before finishing. A freebuff gate
    *  rejection with no content means the prompt was consumed unprocessed —
    *  surfaced as an inline error instead of silently looking sent. */
@@ -360,6 +367,7 @@ export const handleRunCompletion = (params: {
     timerController,
     updater,
     wasAbortedByUser,
+    isByokRun = false,
     setStreamStatus,
     setCanProcessQueue,
     updateChainInProgress,
@@ -398,13 +406,15 @@ export const handleRunCompletion = (params: {
   }
 
   if (output.type === 'error') {
-    if (IS_FREEBUFF && isFreebuffProviderUsageError(output)) {
+    // COD-757: the failure's class and time only, never its text.
+    noteAdTurnFailure(output.message)
+    if (IS_FREEBUFF && !isByokRun && isFreebuffProviderUsageError(output)) {
       updater.setError(FREEBUFF_PROVIDER_USAGE_MESSAGE)
       finalizeAfterError()
       return
     }
 
-    if (isOutOfCreditsError(output)) {
+    if (!isByokRun && isOutOfCreditsError(output)) {
       updater.setError(OUT_OF_CREDITS_MESSAGE)
       useChatStore.getState().setInputMode('outOfCredits')
       invalidateActivityQuery(usageQueryKeys.current())
@@ -412,7 +422,7 @@ export const handleRunCompletion = (params: {
       return
     }
 
-    if (isFreeModeUnavailableError(output)) {
+    if (!isByokRun && isFreeModeUnavailableError(output)) {
       updater.setError(getFreeModeUnavailableErrorMessage(output))
       if (IS_FREEBUFF) {
         markFreebuffSessionCountryBlocked(
@@ -426,15 +436,16 @@ export const handleRunCompletion = (params: {
     }
 
     const gateKind = getFreebuffGateErrorKind(output)
-    if (gateKind) {
+    if (!isByokRun && gateKind) {
       handleFreebuffGateError(gateKind, updater, {
         messageWasDropped: params.hasReceivedContent === false,
+        serverMessage: output.message,
       })
       finalizeAfterError()
       return
     }
 
-    const freebuffRateLimitMessage = IS_FREEBUFF
+    const freebuffRateLimitMessage = IS_FREEBUFF && !isByokRun
       ? getFreebuffRateLimitErrorMessage(output)
       : null
     if (freebuffRateLimitMessage) {
@@ -494,6 +505,8 @@ export const handleRunError = (params: {
   isQueuePausedRef?: MutableRefObject<boolean>
   /** See handleRunCompletion — flags an unprocessed prompt on gate errors. */
   hasReceivedContent?: boolean
+  /** Immutable inference source captured when this run started. */
+  isByokRun?: boolean
 }) => {
   const {
     error,
@@ -506,11 +519,16 @@ export const handleRunError = (params: {
     isProcessingQueueRef,
     isQueuePausedRef,
     hasReceivedContent,
+    isByokRun = false,
   } = params
 
   const errorInfo = getErrorObject(error, { includeRawError: true })
 
   logger.error({ error: errorInfo }, 'SDK client.run() failed')
+  // COD-757: the failure's class and time only, never its text.
+  noteAdTurnFailure(
+    typeof errorInfo?.message === 'string' ? errorInfo.message : undefined,
+  )
   setIsRetrying(false)
   finalizeQueueState({
     setStreamStatus,
@@ -521,19 +539,19 @@ export const handleRunError = (params: {
   })
   timerController.stop('error')
 
-  if (IS_FREEBUFF && isFreebuffProviderUsageError(error)) {
+  if (IS_FREEBUFF && !isByokRun && isFreebuffProviderUsageError(error)) {
     updater.setError(FREEBUFF_PROVIDER_USAGE_MESSAGE)
     return
   }
 
-  if (isOutOfCreditsError(error)) {
+  if (!isByokRun && isOutOfCreditsError(error)) {
     updater.setError(OUT_OF_CREDITS_MESSAGE)
     useChatStore.getState().setInputMode('outOfCredits')
     invalidateActivityQuery(usageQueryKeys.current())
     return
   }
 
-  if (isFreeModeUnavailableError(error)) {
+  if (!isByokRun && isFreeModeUnavailableError(error)) {
     updater.setError(getFreeModeUnavailableErrorMessage(error))
     if (IS_FREEBUFF) {
       markFreebuffSessionCountryBlocked(
@@ -546,14 +564,15 @@ export const handleRunError = (params: {
   }
 
   const gateKind = getFreebuffGateErrorKind(error)
-  if (gateKind) {
+  if (!isByokRun && gateKind) {
     handleFreebuffGateError(gateKind, updater, {
       messageWasDropped: hasReceivedContent === false,
+      serverMessage: errorInfo.message,
     })
     return
   }
 
-  const freebuffRateLimitMessage = IS_FREEBUFF
+  const freebuffRateLimitMessage = IS_FREEBUFF && !isByokRun
     ? getFreebuffRateLimitErrorMessage(error)
     : null
   if (freebuffRateLimitMessage) {
@@ -572,9 +591,9 @@ export const handleRunError = (params: {
  * the UI reflects reality and we stop sending requests until we re-admit.
  */
 function handleFreebuffGateError(
-  kind: ReturnType<typeof getFreebuffGateErrorKind>,
+  kind: FreebuffGateErrorKind,
   updater: BatchedMessageUpdater,
-  opts: { messageWasDropped?: boolean } = {},
+  opts: { messageWasDropped?: boolean; serverMessage?: string } = {},
 ) {
   switch (kind) {
     case 'session_expired':
@@ -583,22 +602,22 @@ function handleFreebuffGateError(
       // Our seat is gone mid-chat. Finalize the AI message so its streaming
       // indicator stops — otherwise `isComplete` stays false and the message
       // keeps rendering a blinking cursor forever, making the user think the
-      // agent is still working even though the SessionEndedBanner is visible
-      // and actionable. Also disposes the batched-updater flush interval.
+      // agent is still working. Also disposes the batched-updater flush
+      // interval.
       updater.markComplete()
-      // Rejected before producing anything (the run-start guard missed
-      // because only the server knew the slot was gone): the prompt won't be
-      // processed and isn't re-queued, so say so instead of leaving it
-      // looking sent. Runs that got partway keep the quieter banner-only UX.
-      if (opts.messageWasDropped) {
-        updater.setError(
-          'Your free session ended before this message was processed. Send it again after starting a new session.',
-        )
-      }
-      // Flip to `ended` instead of auto re-queuing: the Chat surface stays
-      // mounted so any in-flight agent work can finish under the server-side
-      // grace period, and the session-ended banner prompts the user to press
-      // Enter when they're ready to rejoin.
+      // Always say why the turn stopped. Chat-first Freebuff has no
+      // session-ended banner, so a run that got partway (say, right after the
+      // user answered an ask_user question) otherwise just stops, and the
+      // next send's admission prompt reads as the CLI refusing it. A prompt
+      // rejected before producing anything is not re-queued, so say that too.
+      updater.setError(
+        opts.messageWasDropped
+          ? 'Your free session ended before this message was processed. Send it again after starting a new session.'
+          : 'Your free session ended, so the agent stopped here. Send a message to start a new session and continue.',
+      )
+      // Flip to `ended` instead of auto re-queuing: in-flight agent work can
+      // finish under the server-side grace period, and the next send admits a
+      // new session (use-freebuff-chat-admission.ts).
       markFreebuffSessionEnded()
       return
     case 'waiting_room_queued':
@@ -611,15 +630,50 @@ function handleFreebuffGateError(
       // "let's start fresh".
       refreshFreebuffSession().catch(() => {})
       return
-    case 'session_superseded':
+    case 'session_superseded': {
+      const reason = getFreebuffSupersededReason(opts.serverMessage)
+      if (reason !== 'taken_over') {
+        // A refunded start or an already-closed hour, not another instance:
+        // nothing is fighting us for the seat, and restarting Freebuff would
+        // not help. Say what the server said and end the session, so the next
+        // send admits a new one (possibly on another model). Both readings
+        // come from the message, so it is never empty here.
+        updater.markComplete()
+        const serverMessage = (opts.serverMessage ?? '').trim()
+        updater.setError(
+          reason === 'refunded_start'
+            ? `${serverMessage} ${FREEBUFF_REFUNDED_START_HINT}`
+            : serverMessage,
+        )
+        markFreebuffSessionEnded()
+        return
+      }
       updater.setError(
-        'Another freebuff CLI took over this account. Close the other instance, then restart.',
+        'This Freebuff session was released or taken over by another instance. Restart Freebuff to start another session.',
       )
       // Terminal state: stop polling and flip UI to a "please restart" screen
       // so we don't silently fight the other instance for the seat.
       markFreebuffSessionSuperseded()
       return
-    default:
+    }
+    case 'model_unavailable':
+      // The model was withdrawn from free mode. Terminal for this request
+      // only: the session survives (`endsTheSession: false`), so neither end it
+      // nor re-admit — that is the re-admission loop the code exists to avoid.
+      // The server's message names the replacement model.
+      updater.setError(
+        opts.serverMessage?.trim() || FREEBUFF_MODEL_UNAVAILABLE_MESSAGE,
+      )
       return
+    default: {
+      // A new gate code must get its own case, never a silent no-op.
+      const unhandled: never = kind
+      updater.setError(
+        opts.serverMessage?.trim() ||
+          'Freebuff could not run this turn on your free session.',
+      )
+      logger.warn({ kind: unhandled }, 'Unhandled freebuff gate error kind')
+      return
+    }
   }
 }

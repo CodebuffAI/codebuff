@@ -21,11 +21,15 @@ const { createLauncher } = require(
     : sourceLauncherPath,
 )
 
+const packageJson = require('./package.json')
+
 const launcher = createLauncher({
   packageName: 'freebuff',
   displayName: 'Freebuff',
-  wrapperVersion: require('./package.json').version,
+  wrapperVersion: packageJson.version,
+  binaryChecksums: packageJson.binaryChecksums ?? null,
   telemetryEvent: 'cli.update_freebuff_failed',
+  deferUpdatesUntilExit: true,
 })
 
 module.exports = launcher

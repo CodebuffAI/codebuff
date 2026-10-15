@@ -62,6 +62,7 @@ The pattern supports regular expressions and will search recursively through all
 - For case-sensitive searches like constants (e.g., ERROR vs error), omit the "-i" flag
 - Searches file content and filenames
 - Automatically ignores binary files, hidden files, and files in .gitignore
+- Environment files (.env, .env.local, and the rest of the .env family) are never searched, whatever flags you pass, because a match line would be the secret itself; read_files refuses them for the same reason. Templates (.env.example, .env.sample, .env.template) are searchable. If you need a value from one, ask the user for it
 
 
 Advanced ripgrep flags (use the flags parameter):

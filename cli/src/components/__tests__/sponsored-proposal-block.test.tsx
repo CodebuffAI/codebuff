@@ -122,7 +122,7 @@ describe('every state, at every width', () => {
       blockFor(SPONSORED_ROW_FIXTURES.offered, { menuOpen: true }),
       60,
     )
-    expect(acceptable).toContain('Start sponsored thread')
+    expect(acceptable).toContain('Set it up for me')
 
     // COD-336 item 3, as rendered: on Windows the card SAYS why instead of
     // offering an Accept that cannot work. The reason is the shared copy, so a
@@ -132,7 +132,7 @@ describe('every state, at every width', () => {
       blockFor(SPONSORED_ROW_FIXTURES.offered, { menuOpen: true }),
       60,
     )
-    expect(refused).not.toContain('Start sponsored thread')
+    expect(refused).not.toContain('Set it up for me')
     expect(refused).toContain('Windows')
 
     // And no state but `offered` offers one, on either machine.
@@ -149,7 +149,7 @@ describe('every state, at every width', () => {
             width,
           )
           expect(frame, `${state} at ${width}`).not.toContain(
-            'Start sponsored thread',
+            'Set it up for me',
           )
         }
       }
@@ -167,7 +167,7 @@ describe('every state, at every width', () => {
       60,
     )
     expect(frame).toContain('Could not refresh this proposal')
-    expect(frame).not.toContain('Start sponsored thread')
+    expect(frame).not.toContain('Set it up for me')
     expect(frame).not.toContain('/ads:accept-proposal')
     expect(frame).not.toContain('> No')
   })
@@ -175,7 +175,7 @@ describe('every state, at every width', () => {
   test('the run never starts from the Accept: it opens a consent that can refuse', async () => {
     // COD-336 item 4, adapted for a surface with no second process to draw a
     // dialog from. The property that has to hold is that the control which
-    // says "Start sponsored thread" reaches a SCREEN, and only the screen can
+    // says "Set it up for me" reaches a SCREEN, and only the screen can
     // approve — so a single keypress can never run an advertiser's procedure.
     setSponsoredCliAvailability('available')
     const calls: string[] = []
@@ -189,15 +189,32 @@ describe('every state, at every width', () => {
       blockFor(SPONSORED_ROW_FIXTURES.offered, { consent: CONSENT }),
       60,
     )
-    // One sentence and two choices (COD-410): who is asking, that it stays on
-    // its own branch, and that nothing is pushed. The field list this used to
-    // be -- folder, branch, a paragraph of assurances -- is gone on purpose.
-    expect(consented).toContain('Acme Deploys wants to integrate itself into')
-    expect(consented).toContain('Nothing is pushed until you')
-    expect(consented).not.toContain(CONSENT.branch)
-    expect(consented).not.toContain(CONSENT.folder)
+    // Two choices (COD-410) under the IN-PLACE words Desktop shows (#3989):
+    // who sponsors it, that it costs the user nothing, that it edits the
+    // files in this folder, that nothing is committed, and that it can be
+    // stopped and undone. The folder is named because it is now the whole of
+    // what changes; there is no branch to name.
+    // Read across the box's wrapped lines: borders and breaks are layout.
+    const flat = consented.replace(/[│\s]+/g, ' ')
+    expect(flat).toContain('Acme Deploys is sponsoring this agent run')
+    expect(flat).toContain('free for you')
+    expect(flat).toContain('edits the files in the folder below')
+    expect(flat).toContain('commits nothing')
+    expect(flat).toContain('stop it anytime and undo it after')
+    expect(consented).toContain(CONSENT.folder)
+    expect(consented).not.toContain('its own branch')
     expect(consented).toContain('> No')
     expect(consented).toContain('  Yes')
+    // The procedure is one key away, not on the screen by default.
+    expect(consented).not.toContain(CONSENT.procedure)
+    const withSteps = await render(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, {
+        consent: CONSENT,
+        procedureOpen: true,
+      }),
+      60,
+    )
+    expect(withSteps).toContain(CONSENT.procedure)
   })
 
   test('a hostile advertiser name cannot restyle the sentence or move the choices', async () => {
@@ -214,7 +231,7 @@ describe('every state, at every width', () => {
     )
     expect(out).not.toContain('\u202e')
     expect(out).toContain('\\u202e')
-    expect(out).toContain('wants to integrate itself into')
+    expect(out).toContain('is sponsoring this agent run')
     expect(out).toContain('> No')
     expect(out).toContain('  Yes')
   })
@@ -235,14 +252,153 @@ describe('every state, at every width', () => {
   })
 
   test('R-2 every state offers the same one decline, and names it', async () => {
-    // The decline is a COMMAND, not a key. The card used to say "esc dismiss",
-    // and `useKeyboard` is a global listener -- so that Esc reached the card at
-    // the same time as whatever the user was actually cancelling.
+    // Never a bare key: `useKeyboard` is a global listener, so an Esc decline
+    // reached the card at the same time as whatever the user was actually
+    // cancelling. On an offer it is the `Not now` BUTTON beside `Set it up`;
+    // everywhere else it is the command.
+    expect(
+      await render(blockFor(SPONSORED_ROW_FIXTURES.offered), 60),
+    ).toContain('Not now')
     for (const state of SPONSORED_FIXTURE_STATES) {
+      if (state === 'offered') continue
       expect(
         await render(blockFor(SPONSORED_ROW_FIXTURES[state]), 60),
       ).toContain('/ads:dismiss-proposal')
     }
+  })
+
+  test('the offer has a real button, and the chord is named beside it', async () => {
+    const frame = await render(blockFor(SPONSORED_ROW_FIXTURES.offered), 60)
+    expect(frame).toContain('[ Set it up ]')
+    expect(frame).toContain('⌃O details')
+  })
+
+  test('a delivered run offers the undo, and says nothing was committed', async () => {
+    const setup = await createTestRenderer({ width: 60, height: 24 })
+    const root = createRoot(setup.renderer)
+    flushSync(() => {
+      root.render(
+        <SponsoredProposalBlock
+          block={blockFor(SPONSORED_ROW_FIXTURES.offered, { runStarted: true })}
+          availableWidth={60}
+          run={{
+            phase: 'delivered',
+            changedFiles: ['src/db.ts', '.env.example'],
+            undone: false,
+          }}
+        />,
+      )
+    })
+    try {
+      await setup.renderOnce()
+      const frame = setup.captureCharFrame()
+      expect(frame).toContain('Sponsored changes applied to your files')
+      expect(frame).toContain('Changed 2 files. Nothing was committed.')
+      expect(frame).toContain('Undo')
+      expect(frame).not.toContain('[ Set it up ]')
+    } finally {
+      flushSync(() => root.unmount())
+      setup.renderer.destroy()
+    }
+  })
+
+  test('a driven run shows the step its checks are on, and only while running', async () => {
+    const draw = async (phase: 'running' | 'delivered') => {
+      const setup = await createTestRenderer({ width: 60, height: 24 })
+      const root = createRoot(setup.renderer)
+      flushSync(() => {
+        root.render(
+          <SponsoredProposalBlock
+            block={blockFor(SPONSORED_ROW_FIXTURES.offered, {
+              runStarted: true,
+            })}
+            availableWidth={60}
+            run={{
+              phase,
+              changedFiles: [],
+              undone: false,
+              checkingStep: { number: 2, total: 4, title: 'Wire the client' },
+            }}
+          />,
+        )
+      })
+      try {
+        await setup.renderOnce()
+        return setup.captureCharFrame()
+      } finally {
+        flushSync(() => root.unmount())
+        setup.renderer.destroy()
+      }
+    }
+    expect(await draw('running')).toContain(
+      'Checking step 2/4: Wire the client',
+    )
+    expect(await draw('delivered')).not.toContain('Checking step')
+  })
+})
+
+describe('a run that failed after changing files (R7 partial edits)', () => {
+  const renderWithRun = async (
+    row: SponsoredProposalRow,
+    run: React.ComponentProps<typeof SponsoredProposalBlock>['run'],
+  ): Promise<string> => {
+    const setup = await createTestRenderer({ width: 60, height: 24 })
+    const root = createRoot(setup.renderer)
+    flushSync(() => {
+      root.render(
+        <SponsoredProposalBlock
+          block={blockFor(row, { runStarted: true })}
+          availableWidth={60}
+          run={run}
+        />,
+      )
+    })
+    try {
+      await setup.renderOnce()
+      return setup.captureCharFrame()
+    } finally {
+      flushSync(() => root.unmount())
+      setup.renderer.destroy()
+    }
+  }
+
+  test('still names the changed files and offers the undo', async () => {
+    // Before the row catches up, and after: the files moved either way.
+    for (const row of [
+      SPONSORED_ROW_FIXTURES.offered,
+      SPONSORED_ROW_FIXTURES.failed,
+    ]) {
+      const frame = await renderWithRun(row, {
+        phase: 'failed',
+        changedFiles: ['src/db.ts'],
+        undone: false,
+      })
+      expect(frame).toContain('Changed 1 file. Nothing was committed.')
+      expect(frame).toContain('Undo')
+      expect(frame).not.toContain('Sponsored changes applied to your files')
+    }
+  })
+
+  test('once undone, says so and offers no second undo', async () => {
+    const frame = await renderWithRun(SPONSORED_ROW_FIXTURES.failed, {
+      phase: 'failed',
+      changedFiles: ['src/db.ts', 'src/new.ts'],
+      undone: true,
+    })
+    expect(frame).toContain('These changes were undone.')
+    expect(frame).not.toContain('Changed 2 files')
+    expect(frame).not.toContain('Undo')
+  })
+
+  test('a failed run that changed nothing offers no undo', async () => {
+    const frame = await renderWithRun(SPONSORED_ROW_FIXTURES.failed, {
+      phase: 'failed',
+      changedFiles: [],
+      undone: false,
+    })
+    expect(frame).not.toContain('Changed')
+    expect(frame).not.toContain('Undo')
+    expect(frame).not.toContain('undone')
   })
 })
 
@@ -287,7 +443,7 @@ describe('the advertiser CTA (COD-512)', () => {
       120,
     )
     expect(frame).toContain(
-      `Create your ${FIXTURE_ADVERTISER_NAME} project: ${FIXTURE_ADVERTISER_CTA_URL}`,
+      `Set up ${FIXTURE_ADVERTISER_NAME}: ${FIXTURE_ADVERTISER_CTA_URL}`,
     )
   })
 
@@ -452,7 +608,7 @@ describe('the block itself', () => {
     // A hint with nothing open may not name a bare key, because the card binds
     // none -- and a hint naming a key that does nothing is worse than no hint.
     const closed = hintFor('closed')
-    expect(closed).toContain('/ads:proposal')
+    expect(closed).toContain('⌃O details')
     expect(closed).toContain('/ads:dismiss-proposal')
     // Two columns of padding the card's own `inner` does not account for, so
     // the widest line it may emit is narrower than `inner` suggests.
@@ -480,11 +636,10 @@ describe('the block itself', () => {
     // A truncated `/ads:dismiss-propos` teaches a command that does not exist,
     // and `/ads:accept-proposa` is the same failure on the new command.
     const REAL = [
+      '⌃O details',
       '/ads:proposal',
       '/ads:dismiss-proposal',
       '/ads:accept-proposal',
-      '/ads:pull-request',
-      '/ads:remove-worktree',
     ]
     for (const mode of ['closed', 'acceptable'] as const) {
       for (const width of [0, 1, 5, 13, 17, 20, 30, 36, 37, 40, 44]) {
@@ -520,7 +675,7 @@ const CONSENT = {
   headline: 'Add one-click deploys',
   body: 'A sponsored agent can wire Acme Deploys into your repo.',
   folder: '/home/dev/app',
-  branch: 'freebuff/sponsored-acme-deploys-run-1',
+  procedure: 'Add the Acme deploy hook to package.json.',
   runId: 'run-1',
 }
 
@@ -561,6 +716,9 @@ describe('the card claims no bare keys while its menu is closed', () => {
         calls.push(['consent', target, approved]),
       onSponsoredProposalControl: (target, control) =>
         calls.push(['control', target, control]),
+      onSponsoredProposalProcedure: (target, open) =>
+        calls.push(['procedure', target, open]),
+      onSponsoredProposalUndo: () => calls.push(['undo']),
     })
     const setup = await createTestRenderer({
       width: 60,
@@ -596,16 +754,47 @@ describe('the card claims no bare keys while its menu is closed', () => {
         act()
         await settle()
       },
+      /** Click the first cell of `label` wherever it is drawn. */
+      async click(label: string) {
+        const lines = setup.captureCharFrame().split('\n')
+        const y = lines.findIndex((line) => line.includes(label))
+        if (y < 0) throw new Error(`"${label}" is not on screen`)
+        const x = lines[y]!.indexOf(label) + 1
+        await setup.mockMouse.click(x, y)
+        await settle()
+      },
     }
   }
 
-  test('m, esc, enter and the arrows all do nothing on a closed card', async () => {
+  test('m, v, esc, enter and the arrows all do nothing on a closed card', async () => {
     const card = await mount(blockFor(SPONSORED_ROW_FIXTURES.offered))
     await card.press(() => card.input.pressKey('m'))
+    await card.press(() => card.input.pressKey('v'))
     await card.press(() => card.input.pressEscape())
     await card.press(() => card.input.pressEnter())
     await card.press(() => card.input.pressArrow('down'))
     expect(card.calls).toEqual([])
+  })
+
+  test('clicking Set it up OPENS the consent; clicking Not now declines', async () => {
+    // The mouse is the terminal's button. It reaches the same two callbacks
+    // the keyboard does -- and `Set it up` reaches the SCREEN, never a run.
+    const card = await mount(blockFor(SPONSORED_ROW_FIXTURES.offered))
+    await card.click('[ Set it up ]')
+    expect(card.calls).toEqual([['accept', 'acme/deploys']])
+    await card.click('Not now')
+    expect(card.calls).toEqual([
+      ['accept', 'acme/deploys'],
+      ['control', 'acme/deploys', 'dismiss'],
+    ])
+  })
+
+  test('v shows the reviewed procedure while the consent is open', async () => {
+    const card = await mount(
+      blockFor(SPONSORED_ROW_FIXTURES.offered, { consent: CONSENT }),
+    )
+    await card.press(() => card.input.pressKey('v'))
+    expect(card.calls).toEqual([['procedure', 'acme/deploys', true]])
   })
 
   test('enter does not open a pull request either, even when the row has one', async () => {
@@ -708,5 +897,123 @@ describe('the card claims no bare keys while its menu is closed', () => {
     expect(card.calls).toEqual([])
     await card.press(() => card.input.pressEscape())
     expect(card.calls).toEqual([['menu', 'acme/deploys', false]])
+  })
+})
+
+// COD-824: the same strings as Desktop, from the shared view model.
+describe('steps, estimate and who is needed, before Accept', () => {
+  const PLAN = {
+    step_count: 6,
+    needs_user: ['Archil account'],
+    estimate_seconds: 240,
+  }
+
+  test('the offer says its steps, estimate and the step that needs the user', async () => {
+    const frame = await render(
+      blockFor({ ...SPONSORED_ROW_FIXTURES.offered, offer_plan: PLAN }),
+      60,
+    )
+    expect(frame).toContain('6 steps · ~4 min · 1 needs you (Archil account)')
+  })
+
+  test('the pill follows this machine’s run from Accept onwards', async () => {
+    const row = { ...SPONSORED_ROW_FIXTURES.offered, offer_plan: PLAN }
+    const queued = await renderWithRun(row, 'queued')
+    expect(queued).toContain('0/6 · Starting')
+    // The offer line goes once a run exists: the pill speaks from here.
+    expect(queued).not.toContain('needs you (Archil account)')
+    expect(await renderWithRun(row, 'delivered')).toContain('6/6 ✓')
+  })
+})
+
+async function renderWithRun(
+  row: SponsoredProposalRow,
+  phase: 'queued' | 'delivered',
+): Promise<string> {
+  const setup = await createTestRenderer({ width: 60, height: 24 })
+  const root = createRoot(setup.renderer)
+  flushSync(() => {
+    root.render(
+      <SponsoredProposalBlock
+        block={blockFor(row)}
+        availableWidth={60}
+        run={{ phase, changedFiles: [], undone: false }}
+      />,
+    )
+  })
+  try {
+    await setup.renderOnce()
+    return setup.captureCharFrame()
+  } finally {
+    flushSync(() => root.unmount())
+    setup.renderer.destroy()
+  }
+}
+
+describe('the run, live and finished (Desktop parity)', () => {
+  const draw = async (
+    run: React.ComponentProps<typeof SponsoredProposalBlock>['run'],
+  ): Promise<string> => {
+    const setup = await createTestRenderer({ width: 60, height: 30 })
+    const root = createRoot(setup.renderer)
+    flushSync(() => {
+      root.render(
+        <SponsoredProposalBlock
+          block={blockFor(SPONSORED_ROW_FIXTURES.offered, { runStarted: true })}
+          availableWidth={60}
+          run={run}
+        />,
+      )
+    })
+    try {
+      await setup.renderOnce()
+      return setup.captureCharFrame()
+    } finally {
+      flushSync(() => root.unmount())
+      setup.renderer.destroy()
+    }
+  }
+
+  test('a running pill counts the time since the turn started', async () => {
+    const frame = await draw({
+      phase: 'running',
+      changedFiles: [],
+      undone: false,
+      runningSince: Date.now() - 125_000,
+    })
+    expect(frame).toMatch(/2m/)
+    expect(frame).toContain('Esc stops it')
+  })
+
+  test('a run waiting on the user says Needs you and points below', async () => {
+    const frame = await draw({
+      phase: 'running',
+      changedFiles: [],
+      undone: false,
+      runningSince: Date.now(),
+      needsYou: true,
+    })
+    expect(frame).toContain('Needs you')
+    expect(frame).toContain('Waiting for you below')
+    expect(frame).not.toContain('Esc stops it')
+  })
+
+  test('a finished driven run keeps its step results and names its files', async () => {
+    const frame = await draw({
+      phase: 'delivered',
+      changedFiles: ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts', 'g.ts'],
+      undone: false,
+      steps: [
+        { text: 'Install the SDK', state: 'done' },
+        { text: 'Add your API key', state: 'needs_you' },
+      ],
+    })
+    expect(frame).toContain('Done  Install the SDK')
+    expect(frame).toContain('Needs you  Add your API key')
+    expect(frame).toContain('Changed 7 files. Nothing was committed.')
+    expect(frame).toContain('  e.ts')
+    expect(frame).not.toContain('f.ts')
+    expect(frame).toContain('and 2 more')
+    expect(frame).toContain('Review them with git diff')
   })
 })

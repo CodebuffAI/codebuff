@@ -95,6 +95,8 @@ const defaultCallbacks = {
   onSponsoredProposalDisclose: () => {},
   onSponsoredProposalAccept: () => {},
   onSponsoredProposalConsent: () => {},
+  onSponsoredProposalProcedure: () => {},
+  onSponsoredProposalUndo: () => {},
   onSponsoredProposalControl: () => {},
 }
 
@@ -106,6 +108,7 @@ const initializeStore = (overrides: {
 } = {}) => {
   useMessageBlockStore.setState({
     context: {
+      readOnly: false,
       theme,
       markdownPalette: basePalette,
       messageTree: overrides.messageTree ?? new Map<string, ChatMessage[]>(),
@@ -217,6 +220,8 @@ describe('MessageBlockStore', () => {
   onSponsoredProposalDisclose: () => {},
   onSponsoredProposalAccept: () => {},
   onSponsoredProposalConsent: () => {},
+  onSponsoredProposalProcedure: () => {},
+  onSponsoredProposalUndo: () => {},
   onSponsoredProposalControl: () => {},
       })
 
@@ -277,6 +282,8 @@ describe('MessageBlockStore', () => {
         onSponsoredProposalDisclose: mockFn,
         onSponsoredProposalAccept: mockFn,
         onSponsoredProposalConsent: mockFn,
+        onSponsoredProposalProcedure: mockFn,
+        onSponsoredProposalUndo: mockFn,
         onSponsoredProposalControl: mockFn,
       })
 

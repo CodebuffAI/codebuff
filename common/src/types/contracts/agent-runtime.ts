@@ -3,6 +3,7 @@ import type { ConsumeCreditsWithFallbackFn } from './billing'
 import type {
   HandleStepsLogChunkFn,
   RequestFilesFn,
+  RequestImageFileFn,
   RequestMcpToolDataFn,
   RequestOptionalFileFn,
   RequestToolCallFn,
@@ -14,7 +15,9 @@ import type {
   DatabaseAgentCache,
   FetchAgentFromDatabaseFn,
   FinishAgentRunFn,
+  GetProjectProfileFn,
   GetUserInfoFromApiKeyFn,
+  ReportProjectProfileFn,
   StartAgentRunFn,
 } from './database'
 import type { ClientEnv, CiEnv } from './env'
@@ -38,6 +41,8 @@ export type AgentRuntimeDeps = {
   startAgentRun: StartAgentRunFn
   finishAgentRun: FinishAgentRunFn
   addAgentStep: AddAgentStepFn
+  getProjectProfile?: GetProjectProfileFn
+  reportProjectProfile?: ReportProjectProfileFn
 
   // Billing
   consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
@@ -68,6 +73,9 @@ export type AgentRuntimeScopedDeps = {
   requestMcpToolData: RequestMcpToolDataFn
   requestFiles: RequestFilesFn
   requestOptionalFile: RequestOptionalFileFn
+  /** Only hosts that read the workspace locally provide this. Without it,
+   *  read_files sends image paths through `requestFiles` like any file. */
+  requestImageFile?: RequestImageFileFn
   sendAction: SendActionFn
   sendSubagentChunk: SendSubagentChunkFn
 

@@ -18,8 +18,10 @@ import * as auth from '../auth'
 import {
   getSettingsPath,
   hasSeenFreebucksIntro,
+  loadSettings,
   markFreebucksIntroSeen,
   loadFreebuffModelPreference,
+  saveSettings,
   saveFreebuffModelPreference,
 } from '../settings'
 
@@ -33,6 +35,36 @@ afterEach(() => {
     fs.rmSync(testConfigDir, { recursive: true, force: true })
     testConfigDir = undefined
   }
+})
+
+describe('BYOK connection selection', () => {
+  test('persists only an opaque connection id and revision', () => {
+    testConfigDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'freebuff-settings-test-'),
+    )
+    getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
+
+    saveSettings({ byokConnection: { id: 'connection-id', revision: 3 } })
+
+    expect(loadSettings().byokConnection).toEqual({
+      id: 'connection-id',
+      revision: 3,
+    })
+    expect(fs.readFileSync(getSettingsPath(), 'utf8')).not.toContain('apiKey')
+  })
+
+  test('drops malformed or stale selection shapes', () => {
+    testConfigDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'freebuff-settings-test-'),
+    )
+    getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
+    fs.writeFileSync(
+      getSettingsPath(),
+      JSON.stringify({ byokConnection: { id: 'connection-id', revision: 0 } }),
+    )
+
+    expect(loadSettings().byokConnection).toBeUndefined()
+  })
 })
 
 describe('freebuff model preference', () => {
@@ -55,14 +87,15 @@ describe('freebuff model preference', () => {
     getConfigDirSpy = spyOn(auth, 'getConfigDir').mockReturnValue(testConfigDir)
 
     // Written directly, with no migration marker, exactly like a real
-    // pre-upgrade settings file. GLM was the default until 2026-09-02, so this
-    // first load is the one-time move onto the current default; from here on
-    // the file is stamped and every pick below is the user's.
+    // pre-upgrade settings file. GLM 5.3 Flash was the default from 2026-09-05
+    // until MiMo 2.6 Flash took over on 2026-09-30, and that flip migrated
+    // nothing: this first load stamps the file and keeps the GLM pick as it
+    // is. From here on every pick below is the user's.
     fs.writeFileSync(
       path.join(testConfigDir, 'settings.json'),
       JSON.stringify({ freebuffModel: FREEBUFF_GLM_V53_FLASH_MODEL_ID }),
     )
-    expect(loadFreebuffModelPreference()).toBe(DEFAULT_FREEBUFF_MODEL_ID)
+    expect(loadFreebuffModelPreference()).toBe(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
 
     // And a round-trip through save/load leaves every selectable row alone. The
     // property is "the picker is the user's decision, not ours" — asserted

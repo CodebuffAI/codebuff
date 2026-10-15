@@ -4,6 +4,7 @@ import { withTimeout } from '@codebuff/common/util/promise'
 import { truncateTrace } from './trace-utils'
 
 import type { AgentStep } from './agent-runner'
+import type { ContextLogEntry } from './runners/runner'
 import type { JudgingResult } from './judge'
 import type { FinalCheckOutput } from './types'
 import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
@@ -15,10 +16,14 @@ export interface AgentTraceData {
   commitSha: string
   prompt: string
   trace: AgentStep[]
+  /** Per-request prompt size and compactions; see runners/runner.ts. */
+  contextLog?: ContextLogEntry[]
   diff: string
   judgeResult: JudgingResult
   cost: number
   durationMs: number
+  /** The agent's own run alone; see agent-runner.ts. */
+  agentDurationMs?: number
   error?: string
   timestamp: string
   finalCheckOutputs?: FinalCheckOutput[]

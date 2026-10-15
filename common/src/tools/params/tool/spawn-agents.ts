@@ -17,6 +17,21 @@ export const spawnAgentsOutputSchema = z
   .and(jsonObjectSchema)
   .array()
 
+/** Most agents one spawn_agents call may spawn; the runtime handler refuses a
+ *  bigger batch with the same number, so bypassing this schema changes nothing. */
+export const MAX_SPAWN_AGENTS_PER_CALL = 6
+
+/** Most subagents of any type one root run may have running at once, nested
+ *  ones included. Each spawn_agents call is held to MAX_SPAWN_AGENTS_PER_CALL
+ *  on its own, which nesting multiplies (6 agents each spawning 6 is 42 live);
+ *  the runtime handler refuses a spawn past this total. An agent counts until
+ *  it reports, so a parent waiting on its children keeps its slot too (a
+ *  file-picker and its file-lister take two). Freebuff Projects subagents keep
+ *  their own count (FREEBUFF_PROJECTS_MAX_LIVE_SUBAGENTS), and each one gets
+ *  this same allowance for its own helpers and their spawns, apart from the
+ *  root's. */
+export const MAX_LIVE_SUBAGENTS_PER_ROOT = 20
+
 const toolName = 'spawn_agents'
 const endsAgentStep = true
 const inputSchema = z
@@ -101,11 +116,19 @@ const inputSchema = z
             .optional()
             .describe('Parameters object for the agent'),
         })
-        .array(),
+        .array()
+        // One swarm at a time, and never a big one: a free-mode root once
+        // fanned out to 21 subagents in a single call (2026-10-10). The
+        // runtime handler enforces the same ceiling, so a caller that
+        // bypasses the schema still cannot.
+        .max(
+          MAX_SPAWN_AGENTS_PER_CALL,
+          `Spawn at most ${MAX_SPAWN_AGENTS_PER_CALL} agents in one call. For more, spawn again after these return.`,
+        ),
     ),
   })
   .describe(
-    `Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.`,
+    `Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead. At most 6 agents per call.`,
   )
 const description = `
 Use this tool to spawn agents to help you complete the user request. Each agent has specific requirements for prompt and params based on their tools schema.

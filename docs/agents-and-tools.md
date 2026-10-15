@@ -3,7 +3,75 @@
 ## Agents
 
 - Prompt/programmatic agents live in `.agents/` (programmatic agents use `handleSteps` generators).
-- Generator functions execute in a sandbox; agent templates define tool access and subagents.
+- Generator functions are NOT sandboxed: the runtime `eval`s a `handleSteps` source string in the process that runs the agent (`packages/agent-runtime/src/run-programmatic-step.ts`); agent templates define tool access and subagents.
+
+### Registry agents with executable `handleSteps` require publisher trust
+
+A template fetched from the public agent registry (`--agent publisher/agent`, a
+registry id in a local agent's `spawnableAgents`, or a bare id falling back to
+`codebuff/<id>`) is executable code when it carries `handleSteps`: the row's
+`handleSteps` is a source string, validation only checks that it starts with
+`function*`, and the runtime evals it with no isolation on the user's machine.
+The registry GET is public, any account can create a publisher and publish
+without review, and `latest` is unpinned. So the SDK's `fetchAgentFromDatabase`
+refuses a registry template with a string `handleSteps` unless its publisher is
+trusted (`sdk/src/agent-publisher-trust.ts`), and throws an
+`UntrustedAgentPublisherError` whose message names `publisher/agent@version`
+and the knob to set. Trusted publishers are `codebuff` (our own, also bundled)
+plus the comma-separated `CODEBUFF_TRUSTED_AGENT_PUBLISHERS` env var plus the
+`trustedAgentPublishers` option on `CodebuffClient` / `run()`. Data-only
+registry templates (no `handleSteps`) load as before, and local `.agents` files
+and SDK `agentDefinitions` are never gated — they are code the user already
+chose to run. This is a trust floor, not isolation: sandboxing the eval,
+signing templates and pinning `latest` are separate work.
+
+Clients released before this gate (`codebuff` and `@codebuff/sdk` on npm) eval
+whatever the registry returns, so the registry GET routes refuse (403) a
+non-`codebuff` template with `handleSteps` unless the request carries
+`AGENT_TRUST_GATE_HEADER` (`common/src/constants/agents.ts`), which only the
+gated SDK sends (`untrustedHandleStepsRefusal` in
+`web/src/app/api/agents/_registry-guard.ts`). The server cannot see the
+caller's trusted set, so the header defers that decision to the client.
+`mcpServers` from non-`codebuff` publishers are refused outright, at publish
+and at GET, whatever the client.
+
+### Trust gate for repository `.agents` directories
+
+`loadLocalAgents` dynamically imports every `.ts`/`.tsx`/`.js`/`.mjs`/`.cjs`
+file under `{cwd}/.agents` and `{cwd}/../.agents`, and `loadMCPConfigSync`
+reads an `mcp.json` there whose stdio servers are spawned on the first prompt
+with `$VAR` env values filled from the CLI's own environment. Both execute
+repository-supplied code, so cloning a hostile repo and running the CLI inside
+it must not run anything without consent. The CLI therefore gates those two
+repository-scoped directories (`cli/src/utils/agent-dir-trust.ts`):
+
+- **What needs trust**: a directory containing at least one executable agent
+  file (the loader's extension filter, minus `.d.ts` and tests) or an
+  `mcp.json`. A directory holding only `skills/` markdown does not, and
+  `~/.agents` never does (it is the user's own). Skills still load from an
+  untrusted directory; only agents and `mcp.json` are withheld.
+- **The prompt**: on an interactive launch (stdin and stdout are TTYs) the CLI
+  prints a plain-terminal prompt before the TUI mounts, listing the directory,
+  its agent files (capped at 10) and the commands or URLs its `mcp.json` would
+  start, and asks `Load and run these? [y/N]`. `y` records the directory;
+  anything else skips it for this run and prints how to trust it later.
+- **The store**: `<configDir>/trusted-agent-dirs.json` (next to
+  `credentials.json`, written with mode `0600`), a map of the normalized
+  absolute directory path to `{ "trustedAt": "<ISO>" }`. Delete an entry to
+  be asked again.
+- **Non-interactive runs** (no TTY, CI) never prompt: the directory is skipped
+  with a warning unless `CODEBUFF_TRUST_AGENT_DIRS=1` or `--trust-agents` is
+  passed, which trusts every repository directory for that run only and writes
+  nothing to the store.
+- **SDK semantics are unchanged**: `loadLocalAgents({ agentDirs })` and
+  `loadMCPConfig{,Sync}({ configDirs })` are opt-in options; omitting them
+  keeps the default search, so Desktop and external SDK consumers behave as
+  before. `getDefaultAgentDirs()` and `listLocalAgentFiles()` are exported so a
+  host can build its own gate on the loader's own filter.
+
+Trust is per directory, not per file content: a trusted repository that later
+pulls a malicious agent file is loaded without a new prompt, the same trade-off
+other coding agents make for their project-level config.
 
 ### Shell Shims
 
@@ -18,6 +86,29 @@ base-lite "fix this bug"
 ## Tools
 
 - Tool definitions live in `common/src/tools` and are executed via the SDK helpers + agent-runtime.
+
+### Cut-off file edits are refused, never repaired
+
+`packages/agent-runtime/src/util/truncated-write-guard.ts` stops two shapes of
+a file edit that was cut off mid-generation:
+
+- **Arguments that never closed.** When a response hits the output limit (or
+  loses its connection) inside a tool call, the OpenAI-compatible provider
+  still flushes the call with whatever argument text arrived, and OpenRouter
+  reports the step as `finish_reason: "tool_calls"` (the real reason is only in
+  `native_finish_reason: "max_output_tokens"`). `parseRawToolCall` recognises
+  a truncated JSON prefix and answers with an explicit "nothing was written"
+  error instead of the generic re-issue hint, and does not echo the partial
+  content back. Do not add a JSON-repair step for mutating tools: completing a
+  cut-off `content` string is exactly how a file gets truncated on disk.
+- **A cut-off copy of an existing file.** `processFileBlock` refuses a
+  `write_file` that is under 60% of an existing file of 30+ lines AND leaves
+  brackets open where the current file balances them. Both refusals log
+  `axiomEvent: file_write_guard` (`metric` says which).
+
+The finish reason is deliberately not the signal: complete arguments in a
+length-cut step are a complete call, and the OpenRouter shape above hides the
+length cut anyway.
 
 ### Console-free terminal command broker
 

@@ -65,7 +65,10 @@ export const AD_STATEMENT_DESCRIPTOR_SUFFIX = 'FREEBUFF.COM'
 export const AD_TOP_UP_CURRENCY = 'usd'
 
 /** Default maximum unpaid placement spend after an advertiser saves a card. */
-export const AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS = 10_000
+export const AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS = 20_000
+
+/** Collection must start before the minimum credit line can stop delivery. */
+export const AD_POSTPAID_COLLECTION_THRESHOLD_CENTS = 10_000
 
 /**
  * Referral launch promotion: qualify only after $100 has both been collected
@@ -80,6 +83,12 @@ export const AD_PROMO_REFERRER_REWARD_CENTS = 50_000
 export const AD_PROMO_REFERRER_REWARD_CAP = 10
 export const AD_PROMO_CREDIT_EXPIRY_DAYS = 60
 export const AD_PROMO_REFERRAL_PROGRAM = 'placements_launch_2026'
+
+/** Verified YC companies earn one $1,000 credit only after $1,000 is collected. */
+export const AD_PROMO_YC_PROGRAM = 'yc_match_2026'
+export const AD_PROMO_YC_MATCH_MILESTONES_CENTS = [100_000] as const
+export const AD_PROMO_YC_MATCH_GRANT_CENTS = 100_000
+export const AD_PROMO_YC_MATCH_CAP_CENTS = 100_000
 
 /**
  * Keep collection provenance through Stripe's refund/dispute exposure window.
@@ -113,14 +122,13 @@ export const AD_CREDIT_LINE_MIN_ACCOUNT_AGE_DAYS = 14
 export const AD_CREDIT_LINE_MIN_SUCCESSFUL_COLLECTIONS = 3
 
 /**
- * Per-run move limits. Growth may at most double the live line (or add one
- * default line, whichever is larger, so a $0 line is not permanently stuck at
+ * Per-run move limits. Growth may at most double the live line (or add $100,
+ * whichever is larger, so a $0 line is not permanently stuck at
  * zero); a decrease may take at most 25% in one run, matching the repricer's
  * clamp. The dispute cut is deliberately EXEMPT from the decrease clamp.
  */
 export const AD_CREDIT_LINE_MAX_GROWTH_BPS = 10_000
-export const AD_CREDIT_LINE_MIN_GROWTH_STEP_CENTS =
-  AD_POSTPAID_DEFAULT_CREDIT_LINE_CENTS
+export const AD_CREDIT_LINE_MIN_GROWTH_STEP_CENTS = 10_000
 export const AD_CREDIT_LINE_MAX_DECREASE_BPS = 2_500
 
 /** Direct placements never sell below one dollar per billable click. */
@@ -182,9 +190,6 @@ export function advertiserPlacementCpcBand(params: {
         : AD_PLACEMENT_CPC_SELF_SERVE_CEILING_CENTS,
   }
 }
-
-/** A single automatic reprice may move at most 25% in either direction. */
-export const AD_PLACEMENT_CPC_REPRICE_MAX_MOVE_BPS = 2_500
 
 /** Thin samples are reported, but never allowed to move money automatically. */
 export const AD_PLACEMENT_CPC_REPRICE_MIN_CLICKS = 50
@@ -299,6 +304,15 @@ export const AD_SPEND_LEDGER_REASONS = [
   'promo_credit',
   /** Unspent promotional balance removed at expiry or after a reversal. */
   'promo_reversal',
+  /**
+   * One charged click credited back by the hourly invalid-traffic sweep
+   * (`packages/internal/src/ad-click-fraud-sweep.ts`), id
+   * `ivt_refund_<impressionId>`. Positive, campaign-scoped. Kept apart from
+   * `refund` so the sweep's automatic credits can be counted and audited on
+   * their own; the statement shows both as refunds. See
+   * docs/ads/invalid-traffic.md.
+   */
+  'invalid_traffic_credit',
 ] as const
 export type AdSpendLedgerReason = (typeof AD_SPEND_LEDGER_REASONS)[number]
 
@@ -334,6 +348,7 @@ export function statementKindForReason(
     return 'adjustment'
   }
   if (reason === 'promo_credit') return 'adjustment'
+  if (reason === 'invalid_traffic_credit') return 'refund'
   return reason
 }
 
@@ -342,6 +357,7 @@ export function isCreditReason(reason: AdSpendLedgerReason): boolean {
   return (
     reason === 'topup' ||
     reason === 'refund' ||
+    reason === 'invalid_traffic_credit' ||
     reason === 'collection' ||
     reason === 'promo_credit'
   )

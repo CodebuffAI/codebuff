@@ -1,3 +1,11 @@
+import {
+  redactErrorFieldForLog,
+  redactUrlForLog,
+  summarizeRequestBodyForLog,
+} from './log-redaction'
+
+import type { RequestBodySummary } from './log-redaction'
+
 export type ErrorOr<T, E extends ErrorObject = ErrorObject> =
   | Success<T>
   | Failure<E>
@@ -84,8 +92,11 @@ export type ErrorObject = {
   url?: string
   /** Whether the error is retryable (API errors) */
   isRetryable?: boolean
-  /** Request body values that were sent (API errors) - stringified for safety */
-  requestBodyValues?: string
+  /**
+   * Shape of the request body that was sent (API errors): model, message
+   * count, keys and size. Never the body itself, which holds the prompt.
+   */
+  requestBody?: RequestBodySummary
   /** Cause of the error, if nested */
   cause?: ErrorObject
 }
@@ -421,7 +432,55 @@ const TRANSIENT_NETWORK_ERROR_CODES = new Set([
   'ConnectionClosed',
   'ConnectionRefused',
   'FailedToOpenSocket',
+  // Bun's fetch, when a compressed body ends before its compressed stream
+  // does: the same cut connection as above, on a gzip/br response (the
+  // chat-completions SSE body is gzipped, COD-764). Reproduced on Bun 1.3.14:
+  // a gzip SSE body whose HTTP framing ends cleanly mid-stream throws
+  // "ZlibError fetching <url>", code ZlibError; br gives
+  // BrotliDecompressionError. On 2026-10-08 every web deploy turned these
+  // into failed turns (545 in 15 minutes at 2pm PT). The same cut on an
+  // identity body is a clean end, and Node's fetch treats a truncated gzip
+  // body as one too, so both already recover.
+  'ZlibError',
+  'BrotliDecompressionError',
+  // undici (Node's fetch): the peer closed the socket. It rides as the cause
+  // of the body-read TypeError below.
+  'UND_ERR_SOCKET',
 ])
+
+/**
+ * undici's error when a response body is cut after the headers arrived:
+ * `TypeError: terminated`, cause `SocketError: other side closed`
+ * (UND_ERR_SOCKET). Bun reports the same cut as "The socket connection was
+ * closed unexpectedly". Matched on the exact message and type, because
+ * "terminated" alone is too common a word. Without this, an SDK host running
+ * on Node ended the turn in an error on a dropped model stream, where a Bun
+ * host gets the stream-interrupted continuation step.
+ */
+function isUndiciBodyTerminated(candidate: object): boolean {
+  return (
+    candidate instanceof TypeError &&
+    (candidate as { message?: unknown }).message === 'terminated'
+  )
+}
+
+/**
+ * Whether a message carries one of the phrases above, i.e. whether
+ * {@link isTransientNetworkError} would read this text as a dropped
+ * connection.
+ *
+ * Exported so a server that puts an upstream's error text in front of a client
+ * can check that it is not about to describe its own upstream failure in words
+ * the client will blame on the user's network: `fetch failed` is what undici
+ * raises when OUR fetch to a provider times out or is refused, and the client
+ * cannot tell that apart from its own socket dying.
+ */
+export function containsTransientNetworkPhrase(message: string): boolean {
+  const lower = message.toLowerCase()
+  return TRANSIENT_NETWORK_ERROR_MESSAGE_PATTERNS.some((pattern) =>
+    lower.includes(pattern),
+  )
+}
 
 /**
  * Detects transient connection-level failures (socket closed/reset, connection
@@ -433,6 +492,7 @@ const TRANSIENT_NETWORK_ERROR_CODES = new Set([
 export function isTransientNetworkError(error: unknown): boolean {
   for (const candidate of getApiErrorCandidates(error)) {
     if (!candidate || typeof candidate !== 'object') continue
+    if (isUndiciBodyTerminated(candidate)) return true
     const { message, code } = candidate as {
       message?: unknown
       code?: unknown
@@ -440,15 +500,11 @@ export function isTransientNetworkError(error: unknown): boolean {
     if (typeof code === 'string' && TRANSIENT_NETWORK_ERROR_CODES.has(code)) {
       return true
     }
-    if (typeof message === 'string') {
-      const lower = message.toLowerCase()
-      if (
-        TRANSIENT_NETWORK_ERROR_MESSAGE_PATTERNS.some((pattern) =>
-          lower.includes(pattern),
-        )
-      ) {
-        return true
-      }
+    if (
+      typeof message === 'string' &&
+      containsTransientNetworkPhrase(message)
+    ) {
+      return true
     }
   }
   return false
@@ -482,14 +538,19 @@ interface ExtendedErrorProperties {
 /**
  * Safely stringify an object, handling circular references and large objects.
  */
-function safeStringify(value: unknown, maxLength = 10000): string | undefined {
+function safeStringify(
+  value: unknown,
+  maxLength = 10000,
+  redact?: (key: string, val: unknown) => unknown,
+): string | undefined {
   if (value === undefined || value === null) return undefined
   if (typeof value === 'string') return value.slice(0, maxLength)
   try {
     const seen = new WeakSet()
     const str = JSON.stringify(
       value,
-      (_, val) => {
+      (key, raw) => {
+        const val = redact ? redact(key, raw) : raw
         if (typeof val === 'object' && val !== null) {
           if (seen.has(val)) return '[Circular]'
           seen.add(val)
@@ -517,15 +578,6 @@ export function getErrorObject(
       responseBody = safeStringify(extError.responseBody)
     }
 
-    // Extract requestBodyValues - typically an object, stringify for logging
-    let requestBodyValues: string | undefined
-    if (
-      extError.requestBodyValues !== undefined &&
-      typeof extError.requestBodyValues === 'object'
-    ) {
-      requestBodyValues = safeStringify(extError.requestBodyValues)
-    }
-
     // Extract cause - recursively convert to ErrorObject if present
     let cause: ErrorObject | undefined
     if (extError.cause !== undefined) {
@@ -542,15 +594,20 @@ export function getErrorObject(
           ? extError.statusCode
           : undefined,
       code: typeof extError.code === 'string' ? extError.code : undefined,
-      rawError: options.includeRawError ? safeStringify(error) : undefined,
+      rawError: options.includeRawError
+        ? safeStringify(error, 10000, redactErrorFieldForLog)
+        : undefined,
       // API error fields
       responseBody,
-      url: typeof extError.url === 'string' ? extError.url : undefined,
+      url:
+        typeof extError.url === 'string'
+          ? redactUrlForLog(extError.url)
+          : undefined,
       isRetryable:
         typeof extError.isRetryable === 'boolean'
           ? extError.isRetryable
           : undefined,
-      requestBodyValues,
+      requestBody: summarizeRequestBodyForLog(extError.requestBodyValues),
       cause,
     }
   }

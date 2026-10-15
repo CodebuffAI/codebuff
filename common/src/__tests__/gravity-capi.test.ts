@@ -1,3 +1,4 @@
+import { hashMatchingEmail } from '../matching-hash'
 import { describe, expect, test } from 'bun:test'
 
 import {
@@ -86,7 +87,8 @@ describe('Gravity first-message CAPI', () => {
             visitor_id: 'visitor-1',
             session_id: 'session-1',
             client_user_agent: 'pixel-agent',
-            em: ['person@example.com'],
+            // SHA-256 of the normalized address, never the raw one (#293).
+            em: [hashMatchingEmail('person@example.com')],
             external_id: ['user-123'],
           },
           client_context: { timezone: 'America/Los_Angeles' },
@@ -136,6 +138,32 @@ describe('Gravity first-message CAPI', () => {
         },
       ],
     })
+  })
+
+  test('treats an accepted response as delivered', async () => {
+    // The live CAPI's answer for a new FirstMessage.
+    let calls = 0
+    const result = await sendGravityFirstMessageConversion({
+      apiKey: 'secret',
+      userId: 'user-123',
+      surface: 'cli',
+      fetchImpl: (async () => {
+        calls++
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                event_id: 'freebuff-first-message-user-123',
+                status: 'accepted',
+              },
+            ],
+          }),
+          { status: 200 },
+        )
+      }) as unknown as typeof fetch,
+    })
+    expect(result.status).toBe('accepted')
+    expect(calls).toBe(1)
   })
 
   test('throws on an event-level error so the claim remains retryable', async () => {

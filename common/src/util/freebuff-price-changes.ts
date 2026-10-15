@@ -1,23 +1,121 @@
-import type { FreebuffFreebucksInfo } from '../types/freebuff-session'
+import type {
+  FreebuffFreebucksInfo,
+  FreebuffOffPeakPrice,
+} from '../types/freebuff-session'
+import { isBeijingWeekend } from '../constants/freebuff-peak-hours'
 
-/** Apply the SERVER'S announced schedule, including on delayed responses. */
-export function applyFreebucksPriceChanges<T extends FreebuffFreebucksInfo>(
-  info: T,
-  now = Date.now(),
-): T {
+/** Resolve a server-owned daily policy, including windows crossing midnight
+ *  and, when the policy says so, weekends that are off-peak all day. `start`
+ *  and `end` are the current or next DAILY window, for copy. */
+export function offPeakPriceAt(offer: FreebuffOffPeakPrice, now: number) {
+  const start = new Date(now)
+  start.setUTCHours(offer.startHourUtc, 0, 0, 0)
+  if (+start > now) start.setUTCDate(start.getUTCDate() - 1)
+  const end = new Date(start)
+  end.setUTCHours(offer.endHourUtc, 0, 0, 0)
+  if (+end <= +start) end.setUTCDate(end.getUTCDate() + 1)
+  const inDailyWindow = now < +end
+  if (!inDailyWindow) {
+    start.setUTCDate(start.getUTCDate() + 1)
+    end.setUTCDate(end.getUTCDate() + 1)
+  }
+  const active = isOffPeakAt(offer, now)
+  return {
+    start,
+    end,
+    nextChangeAt: nextPriceChangeAt(offer, now, active),
+    price: active ? offer.price : offer.regularPrice,
+    tagline: active
+      ? `Off-peak pricing · ${offer.regularPrice} Freebucks/hour at peak`
+      : `Peak pricing · ${offer.price} Freebucks/hour off-peak`,
+  }
+}
+
+/** Whether `at` is priced off-peak under `offer`: inside the daily UTC
+ *  window, which may cross midnight, or on a Beijing weekend when the policy
+ *  extends to weekends. */
+function isOffPeakAt(offer: FreebuffOffPeakPrice, at: number): boolean {
+  if (offer.weekendsOffPeak === true && isBeijingWeekend(new Date(at)))
+    return true
+  const hour = new Date(at).getUTCHours()
+  const { startHourUtc: start, endHourUtc: end } = offer
+  return start < end ? hour >= start && hour < end : hour >= start || hour < end
+}
+
+/** The first instant after `now` at which the quoted price changes. Policies
+ *  only change on the hour, so walk hour boundaries; a weekend can hold one
+ *  price for two and a half days, so look more than a week ahead before
+ *  giving up (a 24-hour window never changes, and then the far edge is fine). */
+function nextPriceChangeAt(
+  offer: FreebuffOffPeakPrice,
+  now: number,
+  active: boolean,
+): number {
+  const boundary = new Date(now)
+  boundary.setUTCMinutes(0, 0, 0)
+  for (let step = 0; step < 24 * 8; step++) {
+    boundary.setUTCHours(boundary.getUTCHours() + 1)
+    if (isOffPeakAt(offer, +boundary) !== active) break
+  }
+  return +boundary
+}
+
+/** The policy's runs of one price over the coming week, each `[start, end)`.
+ *  Every run is whole: the scan starts a day back and drops the partial runs
+ *  at either end, so the first is the current or next one. */
+export function offPeakRuns(
+  offer: FreebuffOffPeakPrice,
+  now: number,
+): { start: number; end: number; offPeak: boolean }[] {
+  const hour = 60 * 60 * 1000
+  const from = Math.floor(now / hour) * hour - 24 * hour
+  const runs: { start: number; end: number; offPeak: boolean }[] = []
+  for (let at = from; at < from + 9 * 24 * hour; at += hour) {
+    const offPeak = isOffPeakAt(offer, at)
+    const last = runs[runs.length - 1]
+    if (last?.offPeak === offPeak) last.end = at + hour
+    else runs.push({ start: at, end: at + hour, offPeak })
+  }
+  return runs
+    .slice(1, -1)
+    .filter((run) => run.end > now && run.start < now + 7 * 24 * hour)
+}
+
+/** Apply the SERVER'S dated changes and recurring policies to new-session
+ * quotes only. Never change balances or an already-admitted session's charge. */
+export function applyFreebucksPriceChanges<
+  T extends Pick<
+    FreebuffFreebucksInfo,
+    'prices' | 'priceNotices' | 'priceChanges' | 'offPeak'
+  >,
+>(info: T, now = Date.now()): T {
   const due = info.priceChanges?.filter(
     (change) => Date.parse(change.at) <= now,
   )
-  if (!due?.length) return info
-  const prices = { ...info.prices }
-  const priceNotices = { ...info.priceNotices }
-  for (const change of due.sort(
+  let prices = info.prices
+  let priceNotices = info.priceNotices
+  const apply = (modelId: string, price: number, tagline: string) => {
+    if (prices[modelId] === undefined) return
+    if (prices[modelId] !== price) prices = { ...prices, [modelId]: price }
+    if (priceNotices?.[modelId] !== tagline)
+      priceNotices = { ...priceNotices, [modelId]: tagline }
+  }
+  for (const change of (due ?? []).sort(
     (a, b) => Date.parse(a.at) - Date.parse(b.at),
   )) {
-    if (prices[change.modelId] === undefined) continue
-    prices[change.modelId] = change.price
-    priceNotices[change.modelId] = change.tagline
+    apply(change.modelId, change.price, change.tagline)
   }
+  // Recurring policy remains authoritative after dated transitions expire.
+  for (const [modelId, offer] of Object.entries(info.offPeak ?? {})) {
+    const current = offPeakPriceAt(offer, now)
+    apply(modelId, current.price, current.tagline)
+  }
+  if (
+    !due?.length &&
+    prices === info.prices &&
+    priceNotices === info.priceNotices
+  )
+    return info
   return {
     ...info,
     prices,
@@ -29,25 +127,64 @@ export function applyFreebucksPriceChanges<T extends FreebuffFreebucksInfo>(
 }
 
 export function nextFreebucksPriceChange(
-  info: FreebuffFreebucksInfo | null | undefined,
+  info:
+    | Pick<FreebuffFreebucksInfo, 'priceChanges' | 'offPeak'>
+    | null
+    | undefined,
+  now = Date.now(),
 ): number {
   return Math.min(
     ...(info?.priceChanges ?? [])
       .map((change) => Date.parse(change.at))
       .filter(Number.isFinite),
+    ...Object.values(info?.offPeak ?? {}).map(
+      (offer) => offPeakPriceAt(offer, now).nextChangeAt,
+    ),
   )
 }
 
-/** Wake an open picker at its quote's next change. Returns effect cleanup. */
+/** Keep an open picker current after exhausted transitions and device sleep.
+ * Re-arm even when a delayed wake leaves the price (and React deps) unchanged. */
 export function watchFreebucksPriceChanges(
-  info: FreebuffFreebucksInfo | null | undefined,
+  info:
+    | Pick<FreebuffFreebucksInfo, 'priceChanges' | 'offPeak'>
+    | null
+    | undefined,
   onChange: () => void,
 ): () => void {
-  const next = nextFreebucksPriceChange(info)
+  let next = nextFreebucksPriceChange(info)
   if (!Number.isFinite(next)) return () => {}
-  const timer = setTimeout(
-    onChange,
-    Math.min(2_147_483_647, Math.max(0, next - Date.now())),
-  )
-  return () => clearTimeout(timer)
+  let changes = info?.priceChanges
+  let timer: ReturnType<typeof setTimeout>
+  const arm = () => {
+    if (Number.isFinite(next))
+      timer = setTimeout(
+        wake,
+        Math.min(2_147_483_647, Math.max(0, next - Date.now())),
+      )
+  }
+  const wake = () => {
+    clearTimeout(timer)
+    const now = Date.now()
+    const due = now >= next
+    if (due) changes = changes?.filter((change) => Date.parse(change.at) > now)
+    next = nextFreebucksPriceChange({ ...info, priceChanges: changes }, now)
+    arm()
+    if (due) onChange()
+  }
+  const resume = () => {
+    if (Date.now() >= next) wake()
+  }
+  const visible = () => {
+    if (document.visibilityState === 'visible') resume()
+  }
+  arm()
+  // OpenTUI may provide window/document shims without DOM event APIs.
+  globalThis.window?.addEventListener?.('focus', resume)
+  globalThis.document?.addEventListener?.('visibilitychange', visible)
+  return () => {
+    clearTimeout(timer)
+    globalThis.window?.removeEventListener?.('focus', resume)
+    globalThis.document?.removeEventListener?.('visibilitychange', visible)
+  }
 }

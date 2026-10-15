@@ -4,6 +4,7 @@ import { CodebuffClient } from '@codebuff/sdk'
 
 import { getAuthTokenDetails } from './auth'
 import { getCliEnv, getSystemProcessEnv } from './env'
+import { freebuffCatalogCompletionHeaders } from './freebuff-device-key'
 import { loadAgentDefinitions } from './local-agent-registry'
 import { logger } from './logger'
 import { createTraceWriter } from './trace-writer'
@@ -12,8 +13,10 @@ import { getRgPath } from '../native/ripgrep'
 import { getProjectRoot } from '../project-files'
 
 import type { ClientToolCall } from '@codebuff/common/tools/list'
+import type { ResolvedByokConnection } from '@codebuff/sdk'
 
 let clientInstance: CodebuffClient | null = null
+let byokClientIdentity: string | null = null
 
 /**
  * Recursively removes undefined values from an object to ensure clean JSON serialization.
@@ -44,13 +47,19 @@ function removeUndefinedValues<T>(obj: T): T {
  */
 export function resetCodebuffClient(): void {
   clientInstance = null
+  byokClientIdentity = null
 }
 
-export async function getCodebuffClient(): Promise<CodebuffClient | null> {
-  if (!clientInstance) {
+export async function getCodebuffClient(
+  options: { byok?: ResolvedByokConnection } = {},
+): Promise<CodebuffClient | null> {
+  const byokIdentity = options.byok
+    ? `${options.byok.id}:${options.byok.revision}`
+    : null
+  if (!clientInstance || byokClientIdentity !== byokIdentity) {
     const { token: apiKey } = getAuthTokenDetails()
 
-    if (!apiKey) {
+    if (!apiKey && !options.byok) {
       logger.warn(
         {},
         `No authentication token found. Please run the login flow or set ${API_KEY_ENV_VAR}.`,
@@ -75,7 +84,17 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
     try {
       const agentDefinitions = loadAgentDefinitions()
       clientInstance = new CodebuffClient({
-        apiKey,
+        ...(apiKey ? { apiKey } : {}),
+        ...(options.byok ? { byok: options.byok } : {}),
+        // Catalog mode only: the fetch id and device signature on every
+        // completions request (docs/freebuff-model-catalog.md). Fallback mode
+        // adds nothing, and BYOK requests never consult it.
+        ...(apiKey
+          ? {
+              requestHeaders: (request) =>
+                freebuffCatalogCompletionHeaders(apiKey, request),
+            }
+          : {}),
         cwd: projectRoot,
         // Keeps the model's skill list identical to the one the registry shows
         // (utils/skill-registry.ts). The SDK default is project-only so that a
@@ -105,6 +124,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
           },
         },
       })
+      byokClientIdentity = byokIdentity
     } catch (error) {
       logger.error(error, 'Failed to initialize CodebuffClient')
       return null

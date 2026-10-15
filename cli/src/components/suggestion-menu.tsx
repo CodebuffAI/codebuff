@@ -11,6 +11,9 @@ export interface SuggestionItem {
   labelHighlightIndices?: number[] | null
   description: string
   descriptionHighlightIndices?: number[] | null
+  /** A selectable action row, such as a partner ad, rather than a command. */
+  activate?: () => void
+  render?: (selected: boolean, width: number) => React.ReactNode
 }
 
 interface SuggestionMenuProps {
@@ -21,6 +24,14 @@ interface SuggestionMenuProps {
   onItemClick?: (index: number) => void
   /** Muted hint line rendered below the suggestions */
   footer?: string
+}
+
+/** Shared with partner fetching so an off-screen review row does not ask for an ad. */
+export function suggestionWindow(count: number, selectedIndex: number, maxVisible: number) {
+  const selected = Math.max(0, Math.min(selectedIndex, count - 1))
+  const visibleCount = Math.min(Math.max(maxVisible, 1), count)
+  const start = Math.max(0, Math.min(selected - Math.floor((visibleCount - 1) / 2), count - visibleCount))
+  return { start, visibleCount }
 }
 
 export const SuggestionMenu = ({
@@ -56,11 +67,7 @@ export const SuggestionMenu = ({
     Math.max(selectedIndex, 0),
     Math.max(items.length - 1, 0),
   )
-  const visibleCount = Math.min(Math.max(maxVisible, 1), items.length)
-
-  const maxStart = Math.max(items.length - visibleCount, 0)
-  const idealStart = clampedSelected - Math.floor((visibleCount - 1) / 2)
-  const start = Math.max(0, Math.min(idealStart, maxStart))
+  const { start, visibleCount } = suggestionWindow(items.length, clampedSelected, maxVisible)
   const visibleItems = items.slice(start, start + visibleCount)
 
   // Calculate max label length for alignment
@@ -84,6 +91,9 @@ export const SuggestionMenu = ({
     const isSelected = absoluteIndex === clampedSelected
     const isHovered = hasHoveredSinceOpen && absoluteIndex === hoveredIndex
     const isHighlighted = isSelected || isHovered
+    if (item.render) {
+      return <React.Fragment key={item.id}>{item.render(isSelected, menuWidth)}</React.Fragment>
+    }
     const labelLength = effectivePrefix.length + item.label.length
     const textColor = isHighlighted ? theme.foreground : theme.inputFg
     const descriptionColor = isHighlighted ? theme.foreground : theme.muted

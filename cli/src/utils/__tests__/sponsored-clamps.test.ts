@@ -37,8 +37,13 @@ const { SPONSORED_LOCAL_V1_GRANT } =
 const { sponsoredCapabilityForTool } =
   await import('@codebuff/common/ads/sponsored-capabilities')
 
-import type { SponsoredTurnContext } from '../sponsored-run'
+const { SponsoredEditRecorder } = await import('../sponsored-receipts')
 
+import type { SponsoredToolContext } from '../sponsored-run'
+import type { SponsoredReceiptStore } from '../sponsored-receipts'
+
+// An in-place run's workspace IS the user's project folder (#3989); the
+// constant keeps its old name only because every assertion below reads it.
 const FIXTURE_PARENT = mkdtempSync(join(tmpdir(), 'sponsored-cli-guards-'))
 const WORKTREE = join(FIXTURE_PARENT, 'worktree')
 mkdirSync(WORKTREE, { recursive: true })
@@ -49,40 +54,36 @@ afterAll(() => rmSync(FIXTURE_PARENT, { recursive: true, force: true }))
 const CONTAINMENT_USABLE = sponsoredContainmentTestGate()
 const containmentUsable = () => CONTAINMENT_USABLE
 
-const context = (): SponsoredTurnContext => ({
-  prompt: 'do the thing',
-  proposalId: 'proposal-1',
-  runtimeDir: join(FIXTURE_PARENT, 'runtime'),
-  signal: new AbortController().signal,
-  worktree: {
-    path: WORKTREE,
-    branch: 'freebuff/sponsored-acme-run-1',
-    baseRef: 'base',
-    sourceBranch: 'main',
-    linked: {
-      commonDir: join(FIXTURE_PARENT, '.git'),
-      gitDir: join(FIXTURE_PARENT, '.git', 'worktrees', 'run-1'),
-      branchNamespace: 'freebuff',
-    },
-  },
-})
-
-function isolatedContext(root: string, parent: string): SponsoredTurnContext {
-  const base = context()
+function memoryReceipts(): SponsoredReceiptStore & {
+  entries: Map<string, string>
+} {
+  const entries = new Map<string, string>()
   return {
-    ...base,
-    runtimeDir: join(parent, 'runtime'),
-    worktree: {
-      ...base.worktree,
-      path: root,
-      linked: {
-        commonDir: join(parent, '.git'),
-        gitDir: join(parent, '.git', 'worktrees', 'run-1'),
-        branchNamespace: 'freebuff',
-      },
-    },
+    entries,
+    read: (runId) => entries.get(runId) ?? null,
+    write: (runId, value) => void entries.set(runId, value),
   }
 }
+
+function isolatedContext(root: string, parent: string): SponsoredToolContext {
+  return {
+    workspaceRoot: root,
+    runtimeDir: join(parent, 'runtime'),
+    signal: new AbortController().signal,
+    recorder: new SponsoredEditRecorder(
+      {
+        runId: '00000000-0000-4000-8000-000000000001',
+        proposalId: 'proposal-1',
+        advertiserName: 'Acme Deploys',
+        projectRoot: root,
+      },
+      memoryReceipts(),
+    ),
+  }
+}
+
+const context = (): SponsoredToolContext =>
+  isolatedContext(WORKTREE, FIXTURE_PARENT)
 
 /** Paths a procedure would reach for if the clamp were not there. */
 const OUTSIDE = [
@@ -174,10 +175,39 @@ describe('the write guard', () => {
   test('admits an ordinary source edit', () => {
     expect(sponsoredWriteGuard(WORKTREE, 'src/deploy.ts')).toBeNull()
   })
+
+  // A Supabase procedure declares its variables in `.env.example`; refusing
+  // the template failed a correct run. Real env files stay refused.
+  test('admits an env template and still refuses every real env file', () => {
+    for (const path of [
+      '.env.example',
+      '.env.sample',
+      '.env.template',
+      join(WORKTREE, 'apps', 'web', '.env.example'),
+    ]) {
+      expect(sponsoredWriteGuard(WORKTREE, path), path).toBeNull()
+    }
+    for (const path of [
+      '.env',
+      '.env.local',
+      '.env.local.example',
+      '.env.production',
+      '.env.example.local',
+      '.env.local.',
+      '.env::$DATA',
+    ]) {
+      expect(sponsoredWriteGuard(WORKTREE, path), path).toContain(
+        'may not write environment files',
+      )
+    }
+  })
 })
 
 describe('the real rooted filesystem passed to SDK tools', () => {
-  test('reads inside the worktree only when OS containment is available', async () => {
+  // Since COD-642 the file layer runs no shell and needs no broker, so these
+  // work with or without an OS sandbox on the host. They used to answer
+  // `[FILE_READ_ERROR]` wherever no sandbox could start.
+  test('reads inside the worktree without a shell or OS containment', async () => {
     const parent = mkdtempSync(join(tmpdir(), 'sponsored-cli-fs-'))
     const root = join(parent, 'worktree')
     mkdirSync(join(root, 'src'), { recursive: true })
@@ -186,71 +216,60 @@ describe('the real rooted filesystem passed to SDK tools', () => {
       const tools = sponsoredOverrideTools(isolatedContext(root, parent))
 
       const read = await tools.read_files({ filePaths: ['src/inside.ts'] })
-      if (containmentUsable()) {
-        expect(read['src/inside.ts']).toContain('export const before = 1')
-      } else {
-        expect(read['src/inside.ts']).toBe('[FILE_READ_ERROR]')
-        expect(read['src/inside.ts']).not.toContain('export const before = 1')
-      }
+      expect(read['src/inside.ts']).toContain('export const before = 1')
     } finally {
       rmSync(parent, { recursive: true, force: true })
     }
   })
 
-  test.skipIf(!containmentUsable())(
-    'lists and globs inside the worktree through OS containment',
-    async () => {
-      const parent = mkdtempSync(join(tmpdir(), 'sponsored-cli-list-'))
-      const root = join(parent, 'worktree')
-      mkdirSync(join(root, 'src'), { recursive: true })
-      writeFileSync(join(root, 'src', 'inside.ts'), 'export const before = 1\n')
-      try {
-        const tools = sponsoredOverrideTools(isolatedContext(root, parent))
-        const listed = await tools.list_directory({ path: 'src' })
-        expect(JSON.stringify(listed)).toContain('inside.ts')
+  test('lists and globs inside the worktree without a shell', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'sponsored-cli-list-'))
+    const root = join(parent, 'worktree')
+    mkdirSync(join(root, 'src'), { recursive: true })
+    writeFileSync(join(root, 'src', 'inside.ts'), 'export const before = 1\n')
+    try {
+      const tools = sponsoredOverrideTools(isolatedContext(root, parent))
+      const listed = await tools.list_directory({ path: 'src' })
+      expect(JSON.stringify(listed)).toContain('inside.ts')
 
-        const globbed = await tools.glob({ pattern: '**/*.ts' })
-        expect(JSON.stringify(globbed)).toContain('src/inside.ts')
-      } finally {
-        rmSync(parent, { recursive: true, force: true })
-      }
-    },
-  )
+      const globbed = await tools.glob({ pattern: '**/*.ts' })
+      expect(JSON.stringify(globbed)).toContain('src/inside.ts')
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
 
-  test.skipIf(!containmentUsable())(
-    'writes and patches inside the worktree through OS containment',
-    async () => {
-      const parent = mkdtempSync(join(tmpdir(), 'sponsored-cli-write-'))
-      const root = join(parent, 'worktree')
-      mkdirSync(join(root, 'src'), { recursive: true })
-      try {
-        const tools = sponsoredOverrideTools(isolatedContext(root, parent))
-        const written = await tools.write_file({
-          type: 'file',
-          path: 'src/written.ts',
-          content: 'export const written = true\n',
-        })
-        expect(JSON.stringify(written)).toContain('Created file successfully')
+  test('writes and patches inside the worktree without a shell', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'sponsored-cli-write-'))
+    const root = join(parent, 'worktree')
+    mkdirSync(join(root, 'src'), { recursive: true })
+    try {
+      const tools = sponsoredOverrideTools(isolatedContext(root, parent))
+      const written = await tools.write_file({
+        type: 'file',
+        path: 'src/written.ts',
+        content: 'export const written = true\n',
+      })
+      expect(JSON.stringify(written)).toContain('Created file successfully')
 
-        const patched = await tools.apply_patch({
-          operation: {
-            type: 'create_file',
-            path: 'src/patched.ts',
-            diff: '@@ -0,0 +1 @@\n+export const patched = true\n',
-          },
-        })
-        expect(JSON.stringify(patched)).toContain('Applied 1 patch operation')
-        expect(readFileSync(join(root, 'src', 'written.ts'), 'utf8')).toContain(
-          'written = true',
-        )
-        expect(readFileSync(join(root, 'src', 'patched.ts'), 'utf8')).toContain(
-          'patched = true',
-        )
-      } finally {
-        rmSync(parent, { recursive: true, force: true })
-      }
-    },
-  )
+      const patched = await tools.apply_patch({
+        operation: {
+          type: 'create_file',
+          path: 'src/patched.ts',
+          diff: '@@ -0,0 +1 @@\n+export const patched = true\n',
+        },
+      })
+      expect(JSON.stringify(patched)).toContain('Applied 1 patch operation')
+      expect(readFileSync(join(root, 'src', 'written.ts'), 'utf8')).toContain(
+        'written = true',
+      )
+      expect(readFileSync(join(root, 'src', 'patched.ts'), 'utf8')).toContain(
+        'patched = true',
+      )
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
 
   test('refuses dangling links and a link introduced after the surface guard', async () => {
     const parent = mkdtempSync(join(tmpdir(), 'sponsored-cli-links-'))
@@ -347,6 +366,122 @@ describe('the shell', () => {
       expect(JSON.stringify(result), command).toContain('Refusing to install')
     }
   })
+
+  test('git that moves history or config is refused; reading it is not', async () => {
+    // An in-place run delivers UNCOMMITTED edits and the undo reverse-applies
+    // them; a commit, a checkout or a config change would move work out from
+    // under both (#3989). The sandbox also denies `.git` writes outright.
+    const tools = sponsoredOverrideTools(context())
+    for (const command of [
+      'git commit -am "x"',
+      'git -C . checkout -- .',
+      'git stash',
+      'git config core.hooksPath /tmp',
+      'echo hi && git push origin main',
+    ]) {
+      const result = await tools.run_terminal_command({ command })
+      expect(JSON.stringify(result), command).toContain('Refusing `git')
+    }
+  })
+
+  test('Destructive database and container commands are refused (COD-665)', async () => {
+    const tools = sponsoredOverrideTools(context())
+    for (const command of [
+      'wsl dropdb app',
+      'wsl docker compose up -d',
+      'npx prisma migrate reset --force',
+      'docker compose up -d',
+    ]) {
+      const result = await tools.run_terminal_command({ command })
+      expect(JSON.stringify(result), command).toContain(
+        'Stop here and tell the user',
+      )
+    }
+  })
+})
+
+describe('in place: the user’s real folder', () => {
+  test('secret-bearing files are unreadable; env templates are readable', () => {
+    // A worktree cut from a commit could never contain `.env.local`; the
+    // user's own folder does.
+    for (const path of [
+      '.env',
+      '.env.local',
+      'apps/web/.env.production',
+      '.npmrc',
+    ]) {
+      expect(sponsoredReadGuard(WORKTREE, path), path).not.toBeNull()
+    }
+    for (const path of ['.env.example', 'src/index.ts', 'package.json']) {
+      expect(sponsoredReadGuard(WORKTREE, path), path).toBeNull()
+    }
+  })
+
+  test('read_files names the refusal for a secret file instead of its content', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'sponsored-cli-secret-'))
+    const root = join(parent, 'project')
+    mkdirSync(root, { recursive: true })
+    writeFileSync(join(root, '.env.local'), 'SUPABASE_KEY=real-secret\n')
+    try {
+      const tools = sponsoredOverrideTools(isolatedContext(root, parent))
+      const out = await tools.read_files({ filePaths: ['.env.local'] })
+      expect(out['.env.local']).not.toContain('real-secret')
+      expect(out['.env.local']).toContain('may not read environment files')
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  test('every file-tool write is receipted with its before-image', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'sponsored-cli-receipts-'))
+    const root = join(parent, 'project')
+    mkdirSync(join(root, 'src'), { recursive: true })
+    writeFileSync(join(root, 'src', 'existing.ts'), 'export const a = 1\n')
+    try {
+      const context = isolatedContext(root, parent)
+      const tools = sponsoredOverrideTools(context)
+      await tools.write_file({
+        type: 'file',
+        path: 'src/existing.ts',
+        content: 'export const a = 2\n',
+      })
+      await tools.write_file({
+        type: 'file',
+        path: 'src/new.ts',
+        content: 'export const b = 1\n',
+      })
+      const changed = context.recorder.changed()
+      expect(changed.map((receipt) => receipt.path).sort()).toEqual([
+        'src/existing.ts',
+        'src/new.ts',
+      ])
+      const created = changed.find((receipt) => receipt.path === 'src/new.ts')
+      expect(created?.before).toBeNull()
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  test('a write the undo could not reverse is refused, not performed', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'sponsored-cli-big-'))
+    const root = join(parent, 'project')
+    mkdirSync(root, { recursive: true })
+    writeFileSync(join(root, 'huge.json'), 'x'.repeat(5 * 1024 * 1024 + 1))
+    try {
+      const tools = sponsoredOverrideTools(isolatedContext(root, parent))
+      const result = await tools.write_file({
+        type: 'file',
+        path: 'huge.json',
+        content: '{}',
+      })
+      expect(JSON.stringify(result)).toContain('larger than 5 MB')
+      expect(readFileSync(join(root, 'huge.json'), 'utf8').length).toBe(
+        5 * 1024 * 1024 + 1,
+      )
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
 })
 
 describe('the toolset the run is actually offered', () => {
@@ -387,20 +522,41 @@ describe('the toolset the run is actually offered', () => {
   })
 
   test('the system prompt is APPENDED to, never prepended', () => {
-    // `hasFreebuffRootSystemPromptOpening` requires the canonical opening at
-    // byte 0 and 403s every free-mode turn without it
-    // (docs/freebuff-base3-harness.md).
+    // The canonical opening must stay first (see
+    // FREEBUFF_ROOT_SYSTEM_PROMPT_OPENINGS and docs/freebuff-base3-harness.md).
     const plain = sponsoredAgentDefinition({
       agentId: 'base3',
       isFreebuff: true,
     })
     expect(plain.systemPrompt?.startsWith('You are Buffy')).toBe(true)
-    expect(plain.systemPrompt).toContain('Do NOT push')
+    expect(plain.systemPrompt).toContain('UNCOMMITTED')
   })
 
-  test('it keeps the id it was given, so free mode can still admit it', () => {
-    // Free mode gates on the (agent id, model) pair, so a run started under an
-    // invented id is a run that cannot be admitted at all.
+  test('report_friction is offered, and named in the prompt, only when asked for', () => {
+    const plain = sponsoredAgentDefinition({
+      agentId: 'base3',
+      isFreebuff: true,
+    })
+    expect(plain.toolNames).not.toContain('report_friction')
+    expect(plain.systemPrompt).not.toContain('report_friction')
+    const reporting = sponsoredAgentDefinition({
+      agentId: 'base3',
+      isFreebuff: true,
+      reportFriction: true,
+    })
+    expect(reporting.toolNames).toContain('report_friction')
+    expect(reporting.toolNames).toEqual([
+      ...(plain.toolNames ?? []),
+      'report_friction',
+    ])
+    expect(reporting.systemPrompt).toContain(
+      'call report_friction: blocking true',
+    )
+  })
+
+  test('it keeps the agent id it was given', () => {
+    // The sponsored definition is the caller's own root, never a new agent id
+    // (see FREE_MODE_AGENT_MODELS).
     expect(
       sponsoredAgentDefinition({ agentId: 'base3-free-mimo', isFreebuff: true })
         .id,

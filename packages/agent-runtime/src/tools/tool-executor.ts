@@ -1,7 +1,8 @@
 import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
+import { FILE_WRITE_GUARD_EVENT } from '@codebuff/common/util/axiom-only-log'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { cloneDeep } from 'lodash'
+import { cloneDeepKeepingZod } from '../util/zod-safe-clone'
 
 import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
@@ -10,8 +11,15 @@ import { formatValueForError } from '../util/format-value'
 import { codebuffToolHandlers } from './handlers/list'
 import { getMatchingSpawn } from './handlers/tool/spawn-agent-utils'
 import { getAgentTemplate } from '../templates/agent-registry'
+import { repairStringEncodedUnionMembers } from '../util/repair-string-encoded-union-members'
 import { resolveGravityIndexLink } from './gravity-index-cta'
 import { ensureZodSchema } from './prompts'
+import { boundToolResult } from '../util/context-size-guard'
+import {
+  extractPathFromPartialArguments,
+  isTruncatedJsonPrefix,
+  truncatedToolCallMessage,
+} from '../util/truncated-write-guard'
 
 import type { AgentTemplate } from '../templates/types'
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
@@ -54,6 +62,9 @@ export type ToolCallError = {
   toolName?: string
   input: unknown
   error: string
+  /** The arguments were cut off mid-generation (see
+   *  util/truncated-write-guard.ts). The partial input is not echoed back. */
+  truncated?: true
 } & Pick<CodebuffToolCall, 'toolCallId'>
 
 const bareStringFieldRepairAllowlist: Partial<
@@ -210,6 +221,24 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   const paramsSchema = toolParams[toolName].inputSchema
 
   if (typeof processedParameters.input === 'string') {
+    // Arguments that stop mid-string or mid-object were cut off, not
+    // mistyped: say so, rather than inviting the model to resend the same
+    // oversized call. Never repaired into something executable.
+    if (
+      processedParameters.parseError !== undefined &&
+      isTruncatedJsonPrefix(processedParameters.input)
+    ) {
+      return {
+        toolName,
+        toolCallId: rawToolCall.toolCallId,
+        input: {},
+        truncated: true,
+        error: truncatedToolCallMessage(
+          toolName,
+          extractPathFromPartialArguments(processedParameters.input),
+        ),
+      }
+    }
     return stringInputError(
       toolName,
       rawToolCall.toolCallId,
@@ -337,6 +366,29 @@ export async function executeToolCall<T extends ToolName>(
       type: 'error',
       message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools provided at the start of the conversation AND that you most recently have permission to use.`,
     })
+    return previousToolCallFinished
+  }
+
+  if ('error' in toolCall && toolCall.truncated) {
+    // No "Original tool call input" echo: for a file write that is the head of
+    // the file's content, which reads to the model like the file itself.
+    onResponseChunk({ type: 'error', message: toolCall.error })
+    logger.warn(
+      {
+        axiomEvent: FILE_WRITE_GUARD_EVENT,
+        metric: 'truncated_tool_call_refused',
+        toolName,
+        model: agentTemplate.model,
+        agentId: agentTemplate.id,
+        runId: params.runId,
+        // Typed as an object, but a cut-off call arrives as its raw text.
+        receivedChars:
+          typeof (input as unknown) === 'string'
+            ? (input as unknown as string).length
+            : undefined,
+      },
+      'Refused a tool call whose arguments were cut off mid-generation',
+    )
     return previousToolCallFinished
   }
 
@@ -556,16 +608,18 @@ export async function executeToolCall<T extends ToolName>(
 
     toolResults.push(toolResult)
 
-    if (!excludeToolFromMessageHistory) {
-      toolResultsToAddToMessageHistory.push(toolResult)
-    }
-
     // After tool completes, resolve any pending creditsUsed promise
     if (creditsUsed) {
       onCostCalculated(creditsUsed)
       logger.debug(
         { credits: creditsUsed, totalCredits: agentState.creditsUsed },
         `Added ${creditsUsed} credits from ${toolName} to agent state`,
+      )
+    }
+
+    if (!excludeToolFromMessageHistory) {
+      toolResultsToAddToMessageHistory.push(
+        boundToolResult(toolResult, agentTemplate),
       )
     }
   })
@@ -618,6 +672,7 @@ export function parseRawCustomToolCall(params: {
 
   const rawSchema = customToolDefs?.[toolName]?.inputSchema
   if (rawSchema) {
+    repairStringEncodedUnionMembers(processedParameters, rawSchema)
     const paramsSchema = ensureZodSchema(rawSchema)
     const result = paramsSchema.safeParse(processedParameters)
 
@@ -635,7 +690,9 @@ export function parseRawCustomToolCall(params: {
     }
   }
 
-  const input = JSON.parse(JSON.stringify(parsedInput.input))
+  // processedParameters is what the schema saw (including the union repair
+  // above), so it - not the untouched raw input - is what the handler gets.
+  const input = JSON.parse(JSON.stringify(processedParameters))
   if (endsAgentStepParam in input) {
     delete input[endsAgentStepParam]
   }
@@ -670,13 +727,25 @@ export async function executeCustomToolCall(
     toolResultsToAddToMessageHistory,
     userInputId,
   } = params
+  const customToolDefs = await getMCPToolData({
+    ...params,
+    toolNames: agentTemplate.toolNames,
+    mcpServers: agentTemplate.mcpServers,
+    writeTo: cloneDeepKeepingZod(fileContext.customToolDefinitions),
+  })
+  // A sanitized MCP name carries its real server/tool; otherwise the legacy
+  // `server__tool` split still applies.
+  const mcpTarget = (
+    name: string,
+  ): { server: string; tool: string } | undefined => {
+    const origin = customToolDefs[name]?.mcpOrigin
+    if (origin) return origin
+    if (!name.includes(MCP_TOOL_SEPARATOR)) return undefined
+    const [server, ...rest] = name.split(MCP_TOOL_SEPARATOR)
+    return { server, tool: rest.join(MCP_TOOL_SEPARATOR) }
+  }
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
-    customToolDefs: await getMCPToolData({
-      ...params,
-      toolNames: agentTemplate.toolNames,
-      mcpServers: agentTemplate.mcpServers,
-      writeTo: cloneDeep(fileContext.customToolDefinitions),
-    }),
+    customToolDefs,
     rawToolCall: {
       toolName,
       toolCallId: toolCallId ?? generateCompactId(),
@@ -691,10 +760,7 @@ export async function executeCustomToolCall(
     toolCall.toolName &&
     !(agentTemplate.toolNames as string[]).includes(toolCall.toolName) &&
     !fromHandleSteps &&
-    !(
-      toolCall.toolName.includes(MCP_TOOL_SEPARATOR) &&
-      toolCall.toolName.split(MCP_TOOL_SEPARATOR)[0] in agentTemplate.mcpServers
-    )
+    !((mcpTarget(toolCall.toolName)?.server ?? '') in agentTemplate.mcpServers)
   ) {
     // Emit an error event instead of tool call/result pair
     // The stream parser will convert this to a user message for proper API compliance
@@ -741,21 +807,12 @@ export async function executeCustomToolCall(
         return null
       }
 
-      const toolName = toolCall.toolName.includes(MCP_TOOL_SEPARATOR)
-        ? toolCall.toolName
-            .split(MCP_TOOL_SEPARATOR)
-            .slice(1)
-            .join(MCP_TOOL_SEPARATOR)
-        : toolCall.toolName
+      const target = mcpTarget(toolCall.toolName)
       const clientToolResult = await requestToolCall({
         userInputId,
-        toolName,
+        toolName: target ? target.tool : toolCall.toolName,
         input: toolCall.input,
-        mcpConfig: toolCall.toolName.includes(MCP_TOOL_SEPARATOR)
-          ? agentTemplate.mcpServers[
-              toolCall.toolName.split(MCP_TOOL_SEPARATOR)[0]
-            ]
-          : undefined,
+        mcpConfig: target ? agentTemplate.mcpServers[target.server] : undefined,
       })
       return clientToolResult.output satisfies ToolResultOutput[]
     })
@@ -783,7 +840,9 @@ export async function executeCustomToolCall(
       toolResults.push(toolResult)
 
       if (!excludeToolFromMessageHistory) {
-        toolResultsToAddToMessageHistory.push(toolResult)
+        toolResultsToAddToMessageHistory.push(
+          boundToolResult(toolResult, agentTemplate),
+        )
       }
 
       return

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   contextPrunerBudgetForModel,
+  getModelFromShortName,
   isExplicitlyDefinedModel,
   models,
   supportsAssistantPrefill,
@@ -11,6 +12,26 @@ describe('isExplicitlyDefinedModel', () => {
   test('distinguishes configured models from unknown model IDs', () => {
     expect(isExplicitlyDefinedModel(models.openrouter_gpt5)).toBe(true)
     expect(isExplicitlyDefinedModel('custom/unknown-model')).toBe(false)
+  })
+
+  // Adding one would switch the SDK's provider routing for its live traffic
+  // (Sonnet 4.6: context-pruner) to a fixed order with no fallbacks.
+  test('leaves the retired-Claude replacements unconfigured', () => {
+    expect(isExplicitlyDefinedModel('anthropic/claude-sonnet-4.6')).toBe(false)
+    expect(isExplicitlyDefinedModel('anthropic/claude-haiku-4.5')).toBe(false)
+    expect(isExplicitlyDefinedModel('anthropic/claude-opus-4.6')).toBe(false)
+  })
+})
+
+describe('getModelFromShortName', () => {
+  test('serves the retired Sonnet short names on Sonnet 4.6', () => {
+    for (const name of ['sonnet-4', 'sonnet-3.7', 'sonnet-3.6', 'sonnet-3.5']) {
+      expect(getModelFromShortName(name)).toBe('anthropic/claude-sonnet-4.6')
+    }
+  })
+
+  test('serves the retired Opus short name on Opus 4.6', () => {
+    expect(getModelFromShortName('opus-4')).toBe('anthropic/claude-opus-4.6')
   })
 })
 

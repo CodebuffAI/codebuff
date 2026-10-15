@@ -13,13 +13,22 @@ import { InputModeBanner } from './input-mode-banner'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { OutOfCreditsBanner } from './out-of-credits-banner'
 import { PublishContainer } from './publish-container'
+import { SponsoredAccountPrompt } from './sponsored-account-prompt'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
 import { useEvent } from '../hooks/use-event'
-import { tryGetProjectRoot } from '../project-files'
+import { getProjectRoot, tryGetProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
+import { useSponsoredRunStore } from '../state/sponsored-run-store'
 import { shouldInterceptChatInputKey } from '../utils/chat-input-key-intercept'
+import {
+  dispatchProfileSurveyInput,
+  getProfileSurveyKeyContext,
+} from '../state/profile-survey-store'
+import { readClipboardText } from '../utils/clipboard-image'
 import { getInputModeConfig } from '../utils/input-modes'
+import { recordTypedInput } from '../utils/input-profile'
+import { sponsoredRunFor } from '../utils/sponsored-run'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
@@ -122,7 +131,6 @@ export const ChatInputBar = ({
   onInterruptStream,
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
-  const setInputMode = useChatStore((state) => state.setInputMode)
   const pendingSkillName = useChatStore((state) => state.pendingSkillName)
 
   const baseModeConfig = getInputModeConfig(inputMode)
@@ -143,6 +151,9 @@ export const ChatInputBar = ({
       }
     : baseModeConfig
   const askUserState = useChatStore((state) => state.askUserState)
+  const sponsoredAccountAsk = useSponsoredRunStore(
+    (state) => state.snapshot?.account ?? null,
+  )
   const hasAnyPreview = hasSuggestionMenu
 
   // In the home directory (or an ancestor) the file tree is only scanned a few
@@ -166,15 +177,53 @@ export const ChatInputBar = ({
       meta?: boolean
       option?: boolean
     }) => {
+      const draft = useChatStore.getState()
       return shouldInterceptChatInputKey(key, {
+        inputMode: draft.inputMode,
         hasSlashSuggestions,
         hasMentionSuggestions,
-        lastEditDueToNav,
-        cursorPosition,
-        inputLength: inputValue.length,
+        lastEditDueToNav: draft.lastEditDueToNav,
+        cursorPosition: draft.cursorPosition,
+        inputLength: draft.inputValue.length,
+        profileSurvey: getProfileSurveyKeyContext(),
       })
     },
   )
+
+  const handleSurveyPaste = useEvent((fallbackText?: string) => {
+    const context = getProfileSurveyKeyContext()
+    const draft = useChatStore.getState()
+    if (
+      context?.question.sponsoredKind === 'text' &&
+      context.textEditing &&
+      draft.inputMode === 'default' &&
+      !draft.inputValue
+    ) {
+      dispatchProfileSurveyInput({
+        type: 'text',
+        text: fallbackText ?? readClipboardText() ?? '',
+        now: Date.now(),
+      })
+      return
+    }
+    onPaste(fallbackText)
+  })
+
+  // A sponsored run waiting on the user's sign-in or key takes the composer's
+  // place, as ask_user does; the run continues once it is answered. Ahead of
+  // every other mode: the chat keyboard is off while it waits, so a banner
+  // drawn instead would leave nothing that can answer it.
+  if (sponsoredAccountAsk) {
+    return (
+      <SponsoredAccountPrompt
+        ask={sponsoredAccountAsk}
+        onAnswer={(answer) =>
+          sponsoredRunFor(getProjectRoot()).answerAccountStep(answer)
+        }
+        onInterrupt={onInterruptStream}
+      />
+    )
+  }
 
   if (feedbackMode) {
     return (
@@ -205,24 +254,6 @@ export const ChatInputBar = ({
   // Subscription limit mode: show only the limit banner (no input box)
   if (inputMode === 'subscriptionLimit') {
     return <InputModeBanner />
-  }
-
-  // Handle input changes with special mode entry detection
-  const handleInputChange = (value: InputValue) => {
-    // Detect entering bash mode: user typed exactly '!' when in default mode
-    if (inputMode === 'default' && value.text === '!') {
-      // Enter bash mode and clear input
-      setInputMode('bash')
-      setInputValue({
-        text: '',
-        cursorPosition: 0,
-        lastEditDueToNav: value.lastEditDueToNav,
-      })
-      return
-    }
-
-    // Normal input handling
-    setInputValue(value)
   }
 
   const handleFormSubmit = (
@@ -405,9 +436,10 @@ export const ChatInputBar = ({
           )}
           <MultilineInput
             value={inputValue}
-            onChange={handleInputChange}
+            onChange={setInputValue}
             onSubmit={handleSubmit}
-            onPaste={onPaste}
+            onPaste={handleSurveyPaste}
+            onTypedText={recordTypedInput}
             onKeyIntercept={handleKeyIntercept}
             placeholder={effectivePlaceholder}
             focused={inputFocused && !feedbackMode}
@@ -501,9 +533,10 @@ export const ChatInputBar = ({
             <box style={{ flexGrow: 1, minWidth: 0 }}>
               <MultilineInput
                 value={inputValue}
-                onChange={handleInputChange}
+                onChange={setInputValue}
                 onSubmit={handleSubmit}
-                onPaste={onPaste}
+                onPaste={handleSurveyPaste}
+                onTypedText={recordTypedInput}
                 onKeyIntercept={handleKeyIntercept}
                 placeholder={effectivePlaceholder}
                 focused={inputFocused && !feedbackMode}

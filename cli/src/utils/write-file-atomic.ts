@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import { randomUUID } from 'node:crypto'
+import * as path from 'path'
 
 // Unique per-write temp suffix. A plain `${pid}.tmp` collides when a sync
 // exit-flush and an async checkpoint write target the same file concurrently
@@ -10,19 +11,116 @@ function tempPathFor(filePath: string): string {
 }
 
 /**
- * Write a file atomically: write to a temp file in the same directory, then
- * rename over the target. Chat files grow to multiple MB and are rewritten on
- * every agent step, so a plain writeFileSync interrupted by a crash/kill
- * leaves truncated JSON that hides the chat from /history.
+ * Every filesystem call an atomic write makes, as one seam.
+ *
+ * A successful fsync leaves no trace in the resulting file: the only way to
+ * tell a durable write from a non-durable one, short of cutting the machine's
+ * power, is the sequence of syscalls it makes. Tests substitute a recording
+ * delegate here to assert that sequence. Modelled on freebuff-desktop's
+ * `JournalStore` (server/repo/session-journal.ts), which exists for the same
+ * reason.
+ */
+export type AtomicWriteFs = {
+  openSync: typeof fs.openSync
+  writeFileSync: typeof fs.writeFileSync
+  fsyncSync: typeof fs.fsyncSync
+  closeSync: typeof fs.closeSync
+  renameSync: typeof fs.renameSync
+  unlinkSync: typeof fs.unlinkSync
+  promises: {
+    open: typeof fs.promises.open
+    rename: typeof fs.promises.rename
+    unlink: typeof fs.promises.unlink
+  }
+}
+
+const nodeAtomicWriteFs: AtomicWriteFs = fs
+
+let activeFs: AtomicWriteFs = nodeAtomicWriteFs
+
+/**
+ * Test-only seam, in the style of `setChatDirOverrideForTesting`: bun's
+ * `mock.module` leaks across test files, so the durability tests inject a
+ * recording delegate instead (see docs/testing.md: DI over module mocking).
+ */
+export function setAtomicWriteFsForTesting(
+  override: AtomicWriteFs | undefined,
+): void {
+  activeFs = override ?? nodeAtomicWriteFs
+}
+
+/**
+ * Flush the directory entry itself, so the *name* created by the rename is on
+ * disk too. Best-effort: by the time this runs the rename has already
+ * succeeded, so an fsync a filesystem refuses for a directory (win32 cannot
+ * open one through node:fs at all; some network and fuse mounts answer EINVAL)
+ * must not turn a completed write into a thrown error.
+ */
+function syncDirectory(directory: string): void {
+  if (process.platform === 'win32') return
+  try {
+    const handle = activeFs.openSync(directory, 'r')
+    try {
+      activeFs.fsyncSync(handle)
+    } finally {
+      activeFs.closeSync(handle)
+    }
+  } catch {
+    // See above: the data and the new name are already published.
+  }
+}
+
+async function syncDirectoryAsync(directory: string): Promise<void> {
+  if (process.platform === 'win32') return
+  try {
+    const handle = await activeFs.promises.open(directory, 'r')
+    try {
+      await handle.sync()
+    } finally {
+      await handle.close()
+    }
+  } catch {
+    // See syncDirectory.
+  }
+}
+
+/**
+ * Write a file atomically *and durably*: write to a temp file in the same
+ * directory, flush it, then rename over the target and flush the directory.
+ * Chat files grow to multiple MB and are rewritten on every agent step, so a
+ * plain writeFileSync interrupted by a crash/kill leaves truncated JSON that
+ * hides the chat from /history.
+ *
+ * The fsync is not optional. Rename is atomic, not durable: flush the contents
+ * before publishing the new name, or a power loss can leave a correctly-sized
+ * file of NUL bytes — which is what a user whose machine was hard-crashed
+ * mid-session got, in place of their whole transcript. Same reasoning, same
+ * discipline, as freebuff-desktop's session journal and state file.
+ *
+ * The cost is deliberate. Every caller writes session state a user cannot
+ * reproduce, at human rates — a few writes per turn, plus a checkpoint drain
+ * that coalesces to one in-flight write per chat — so none of them pays an
+ * fsync per keystroke or per token.
  */
 export function writeFileAtomic(filePath: string, data: string): void {
   const tmpPath = tempPathFor(filePath)
   try {
-    fs.writeFileSync(tmpPath, data)
-    fs.renameSync(tmpPath, filePath)
+    // 'wx' so a temp path that somehow already exists is a loud error rather
+    // than a silent clobber of another write's bytes.
+    const fd = activeFs.openSync(tmpPath, 'wx')
+    try {
+      // Given an fd, writeFileSync loops until every byte is written; a bare
+      // writeSync may not.
+      activeFs.writeFileSync(fd, data)
+      activeFs.fsyncSync(fd)
+    } finally {
+      activeFs.closeSync(fd)
+    }
+    activeFs.renameSync(tmpPath, filePath)
+    syncDirectory(path.dirname(filePath))
   } catch (error) {
     try {
-      fs.unlinkSync(tmpPath)
+      activeFs.unlinkSync(tmpPath)
     } catch {
       // Ignore cleanup errors; the original error is what matters
     }
@@ -33,7 +131,8 @@ export function writeFileAtomic(filePath: string, data: string): void {
 /**
  * Async counterpart to writeFileAtomic. Used by the in-flight checkpoint writer
  * so serializing + flushing a multi-MB transcript doesn't block the CLI's
- * render/input thread. Same tmp-then-rename atomicity guarantee.
+ * render/input thread. Same tmp-flush-rename-flush guarantee; the flushes run
+ * on the libuv threadpool, not the render thread.
  */
 export async function writeFileAtomicAsync(
   filePath: string,
@@ -41,11 +140,18 @@ export async function writeFileAtomicAsync(
 ): Promise<void> {
   const tmpPath = tempPathFor(filePath)
   try {
-    await fs.promises.writeFile(tmpPath, data)
-    await fs.promises.rename(tmpPath, filePath)
+    const handle = await activeFs.promises.open(tmpPath, 'wx')
+    try {
+      await handle.writeFile(data)
+      await handle.sync()
+    } finally {
+      await handle.close()
+    }
+    await activeFs.promises.rename(tmpPath, filePath)
+    await syncDirectoryAsync(path.dirname(filePath))
   } catch (error) {
     try {
-      await fs.promises.unlink(tmpPath)
+      await activeFs.promises.unlink(tmpPath)
     } catch {
       // Ignore cleanup errors; the original error is what matters
     }

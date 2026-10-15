@@ -1,11 +1,15 @@
 import { FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID } from './freebuff-model-ids'
 
+export function compactionThreshold(maxContextLength: number): number {
+  return Math.floor(maxContextLength * 0.8)
+}
+
 /**
  * When a root agent rewrites its own history after an idle gap: the user
  * comes back after `cacheExpiryMs` of silence AND the history is at least
  * `cacheExpiryMinTokens`. Below the floor a cold cache is not enough, because
- * compaction is free in tokens but never in information — it drops tool
- * results and truncates prose. The context-limit trigger ignores the floor.
+ * compaction is free in tokens but never in information. The context-limit
+ * trigger ignores the floor. Every pass is mechanical (no model call).
  *
  * The numbers live only here. base3 roots hand the object to the runtime as
  * `compactContext`; the runtime defaults `compactContext: true` to
@@ -25,11 +29,11 @@ export type CompactionPolicy = {
  * of dropped tool results, and under an hour that reads as "the model forgot
  * everything" (a top user complaint) while the cache may still be warm.
  *
- * 140k tokens is two summary ceilings (20k assistant/tool + 50k user, in
- * compact-history.ts). Below one ceiling the budget walk evicts nothing, so a
- * mostly-prose history comes back the same size plus the envelope; the second
- * ceiling is margin for the two sides being measured with different rulers
- * (`chars / 3` against a BPE count x1.35, up to 1.32x apart on dense JSON).
+ * 140k tokens is two mechanical summary ceilings (20k assistant/tool + 50k
+ * user, in compact-history.ts). Below one ceiling the budget walk evicts
+ * nothing, so a mostly-prose history comes back the same size plus the
+ * envelope; the second ceiling is margin for the two sides being measured with
+ * different rulers (`chars / 3` against a BPE count).
  */
 export const DEFAULT_COMPACTION_POLICY: CompactionPolicy = {
   cacheExpiryMs: 60 * 60 * 1000,
@@ -67,3 +71,34 @@ export function compactionPolicyForModel(
     ? DEEPSEEK_FLASH_COMPACTION_POLICY
     : DEFAULT_COMPACTION_POLICY
 }
+
+/**
+ * What a root's builder takes: the policy, plus what a server-catalog row
+ * supplies because its `model` is an opaque handle no per-model lookup can
+ * key on. `lean` is the builder's, not the runtime's: it adds the prompt
+ * section that tells the model its context is scarce (agents/lean-context.ts),
+ * and is stripped before the rest becomes `compactContext`.
+ */
+export type RootCompactionPolicy = CompactionPolicy & {
+  maxContextLength?: number
+  lean?: boolean
+}
+
+/**
+ * A model whose provider prices a long prompt at a premium: every request
+ * stays under 100k prompt tokens.
+ *
+ * Compaction fires at 0.8 x 110k = 88k before each request. The runtime's
+ * prediction is anchored on the previous request's real prompt size and
+ * estimates only what was added since. In buffbench a step added at most ~25k
+ * real tokens, which the estimate read up to ~7k low on Claude's tokenizer,
+ * so the largest prompt was 89k. `lean` tells the model to read narrowly,
+ * which halved how often it compacted. The idle floor is 40k rather than
+ * 140k: under 100k a cold rewrite is cheap.
+ */
+export const LEAN_COMPACTION_POLICY = {
+  cacheExpiryMs: 60 * 60 * 1000,
+  cacheExpiryMinTokens: 40_000,
+  maxContextLength: 110_000,
+  lean: true,
+} as const satisfies RootCompactionPolicy

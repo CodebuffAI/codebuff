@@ -32,11 +32,12 @@ function generatedBlock(
 }
 
 describe('public Freebuff data-use copy', () => {
-  test('the September 2 legal metadata stays aligned', () => {
+  test('the legal metadata stays aligned', () => {
     expect(FREEBUFF_POLICY_METADATA).toEqual({
-      version: '2026-09-02',
-      effectiveDate: 'September 2, 2026',
-      lastUpdated: '09/02/2026',
+      version: '2026-11-12',
+      effectiveDate: 'November 12, 2026',
+      lastUpdated: 'October 13, 2026',
+      privacyPolicyLastUpdated: 'October 13, 2026',
     })
     expect(FREEBUFF_AI_TRAINING_NOTICE).toBe('May use data for AI training')
     expect(FREEBUFF_PUBLIC_DATA_USE_COPY.storageAnswer).not.toContain(

@@ -1,16 +1,19 @@
-import { KNOWLEDGE_FILE_NAMES_LOWERCASE } from '@codebuff/common/constants/knowledge'
+import {
+  KNOWLEDGE_FILE_NAMES_LOWERCASE,
+  PROJECT_INSTRUCTIONS_HEADER,
+} from '@codebuff/common/constants/knowledge'
 import { escapeString } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
 import { getAgentTemplate } from './agent-registry'
-import { buildFullSpawnableAgentsSpec } from './prompts'
+import { buildFullSpawnableAgentsSpec, modelSpawnableAgents } from './prompts'
 import { PLACEHOLDER, placeholderValues } from './types'
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
-import { parseUserMessage } from '../util/messages'
+import { parseUserMessage, unwrapSteeringText } from '../util/messages'
 
 import type { AgentTemplate, PlaceholderValue } from './types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -80,7 +83,7 @@ export async function formatPrompt(
   const lastUserMessage = messageHistory.findLast(isUserInputMessage)
   const lastUserInput = lastUserMessage
     ? (parseUserMessage(lastUserMessage.content[0].text) ??
-      lastUserMessage.content[0].text)
+      unwrapSteeringText(lastUserMessage.content[0].text))
     : undefined
 
   const agentTemplate = agentState.agentType
@@ -140,8 +143,7 @@ export async function formatPrompt(
         return `\`\`\`${path}\n${content.trim()}\n\`\`\``
       })
       if (blocks.length === 0) return ''
-      return `Project instructions:
-Each fenced block below is one instructions file, labeled with its path. Follow them for the rest of the session.
+      return `${PROJECT_INSTRUCTIONS_HEADER}
 
 ${blocks.join('\n\n')}`
     },
@@ -217,7 +219,7 @@ export async function getAgentPrompt<T extends StringField>(
         })
         addendum += `\n\n${spawnableAgentsSpec}`
       }
-    } else if (spawnableAgents.length > 0) {
+    } else if (modelSpawnableAgents(agentTemplate).length > 0) {
       // For non-inherited tools, agents are already defined as tools with full schemas,
       // so we add the spawnerPrompt for each agent
       const agentDescriptions = await Promise.all(

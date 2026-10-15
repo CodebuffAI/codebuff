@@ -13,7 +13,7 @@ import {
   EFFORTS_THROUGH_XHIGH,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID,
-  FREEBUFF_FABLE_5_MODEL_ID,
+  FREEBUFF_FABLE_5_1_MODEL_ID,
   FREEBUFF_GLM_V52_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
@@ -103,26 +103,57 @@ describe('per-model effort ladders', () => {
     }
   })
 
-  test('Muse Spark and Luna expose their complete native ladders', () => {
-    expect(getFreebuffModelEfforts(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID)).toEqual(
-      EFFORTS_THROUGH_XHIGH,
-    )
+  test('GPT-5.6 Luna keeps its complete native ladder', () => {
     expect(getFreebuffModelEfforts(FREEBUFF_GPT_5_6_LUNA_MODEL_ID)).toEqual(
       EFFORTS_THROUGH_MAX,
     )
-    expect(
-      resolveFreebuffReasoningEffort(FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID, undefined),
-    ).toBe('xhigh')
     expect(
       resolveFreebuffReasoningEffort(FREEBUFF_GPT_5_6_LUNA_MODEL_ID, undefined),
     ).toBe('high')
   })
 
-  test('Claude Fable 5 exposes every enabled effort', () => {
-    expect(getFreebuffModelEfforts(FREEBUFF_FABLE_5_MODEL_ID)).toEqual(
+  // Product caps (2026-09-29): the ladder is a CEILING, so a higher request
+  // clamps down to it rather than reaching the provider.
+  test('caps GPT-6.1 Sol and Muse Spark at high, GPT-6 Luna at xhigh, and fixes Gemini 3.8 Flash at high', () => {
+    for (const id of [
+      'openai/gpt-6.1-sol',
+      FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+      'meta/muse-spark-1.3-contributor',
+    ]) {
+      expect(getFreebuffModelEfforts(id)).toEqual(['low', 'medium', 'high'])
+      expect(resolveFreebuffReasoningEffort(id, 'xhigh')).toBe('high')
+      expect(resolveFreebuffReasoningEffort(id, 'max')).toBe('high')
+    }
+    expect(
+      resolveFreebuffReasoningEffort(
+        FREEBUFF_MUSE_SPARK_12_CONTRIBUTOR_MODEL_ID,
+        undefined,
+      ),
+    ).toBe('high')
+    expect(getFreebuffModelEfforts('openai/gpt-6-luna')).toEqual([
+      'low',
+      'medium',
+      'high',
+      'xhigh',
+    ])
+    expect(resolveFreebuffReasoningEffort('openai/gpt-6-luna', 'max')).toBe(
+      'xhigh',
+    )
+    expect(getFreebuffModelEfforts('google/gemini-3.8-flash')).toEqual([
+      'high',
+    ])
+    for (const requested of ['low', 'medium', 'xhigh', 'max'] as const) {
+      expect(
+        resolveFreebuffReasoningEffort('google/gemini-3.8-flash', requested),
+      ).toBe('high')
+    }
+  })
+
+  test('Claude Fable 5.1 exposes every enabled effort', () => {
+    expect(getFreebuffModelEfforts(FREEBUFF_FABLE_5_1_MODEL_ID)).toEqual(
       EFFORTS_THROUGH_MAX,
     )
-    expect(getFreebuffModelDefaultEffort(FREEBUFF_FABLE_5_MODEL_ID)).toBe(
+    expect(getFreebuffModelDefaultEffort(FREEBUFF_FABLE_5_1_MODEL_ID)).toBe(
       'high',
     )
   })
@@ -144,43 +175,33 @@ describe('per-model effort ladders', () => {
     }
   })
 
-  test('GLM 5.3 Flash offers low/high/max, and runs max by default', () => {
+  test('GLM 5.3 Flash offers low/high, and runs high by default', () => {
     // `max` was removed on 2026-08-31 for looping (re-reading, re-planning,
-    // re-issuing tool calls) and came back the evening of 2026-09-01 because
-    // by then it was the only rung on which the model thought at all. The
-    // explicit default is still the load-bearing half: unset inherits whatever
-    // the vendor feels like today.
+    // re-issuing tool calls), came back on 2026-09-01 as the only rung that
+    // thought at all, and was removed again on 2026-10-07 by product: the
+    // ladder stops at `high`.
     expect(getFreebuffModelEfforts(FREEBUFF_GLM_V53_FLASH_MODEL_ID)).toEqual([
       'low',
       'high',
-      'max',
     ])
 
-    // Half two, and the load-bearing one: an UNTOUCHED turn must send `high`.
-    // This row shipped with no `reasoningEffort` at all, which made
-    // applyFreebuffReasoningDefaults send nothing — and unset measures DEEPER
-    // than `max` on agent prompts (8118/9942/9871 chars vs 7271/8011/5781). So
-    // the looping setting was also the default one, and the chat surfaces,
-    // which have no effort control at all, could run nothing else.
-    // `max` returned the same evening (2026-09-01) as both a rung and the wire
-    // default: by then `high` measured ~300 thinking characters on both Merge
-    // vendors and `max` was the only rung on which the model thought at all.
-    // The loop risk is accepted on purpose — see GLM_V53_FLASH_REASONING_EFFORTS.
+    // An UNTOUCHED turn must send an explicit rung: unset measures deeper
+    // than `max` on agent prompts, so leaving it unset would undo the cap.
     expect(
       getFreebuffModelReasoningEffort(FREEBUFF_GLM_V53_FLASH_MODEL_ID),
-    ).toBe('max')
+    ).toBe('high')
     expect(
       resolveFreebuffReasoningEffort(FREEBUFF_GLM_V53_FLASH_MODEL_ID, undefined),
-    ).toBe('max')
+    ).toBe('high')
     expect(
       getFreebuffModelDefaultEffort(FREEBUFF_GLM_V53_FLASH_MODEL_ID),
-    ).toBe('max')
+    ).toBe('high')
 
-    // A persisted `max` pick — CLI settings, a Desktop thread, a Web preference
-    // — is a ladder rung again and passes through; `xhigh` still clamps DOWN.
+    // A persisted `max` pick — CLI settings, a Desktop thread, a Web
+    // preference — and `xhigh` both clamp DOWN to the cap.
     expect(
       resolveFreebuffReasoningEffort(FREEBUFF_GLM_V53_FLASH_MODEL_ID, 'max'),
-    ).toBe('max')
+    ).toBe('high')
     expect(
       resolveFreebuffReasoningEffort(FREEBUFF_GLM_V53_FLASH_MODEL_ID, 'xhigh'),
     ).toBe('high')
@@ -194,7 +215,7 @@ describe('per-model effort ladders', () => {
         `${FREEBUFF_GLM_V53_FLASH_MODEL_ID}-20260601`,
         'max',
       ),
-    ).toBe('max')
+    ).toBe('high')
   })
 
   test('binary, adaptive, and ignored controls do not masquerade as ladders', () => {

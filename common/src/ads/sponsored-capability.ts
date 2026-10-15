@@ -1,0 +1,216 @@
+import { z } from 'zod'
+
+import {
+  SPONSORED_EXECUTION_SURFACES,
+  supabaseFoundationMode,
+} from './sponsored-execution-surface'
+
+import type { SponsoredRunExecutionSurface } from './sponsored-execution-surface'
+
+/** Client evidence only: the execution host rechecks these facts before Accept. */
+export const sponsoredCapabilityReasonSchema = z.enum([
+  'no_git_repository',
+  'enclosing_repository',
+  'git_unavailable',
+  'missing_workspace_identity',
+  'no_committed_head',
+  'windows_no_containment',
+  'bubblewrap_missing',
+  'unsupported_platform',
+  'inspection_failed',
+  'unsupported_framework',
+  'unreadable_package_manifest',
+  'no_consent_bridge',
+  'containment_probe_failed',
+  // COD-642: the sponsored file tools cannot hold this project's volume.
+  'file_layer_unavailable',
+])
+export const capabilityInspectionSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('available') }).strict(),
+  z
+    .object({
+      status: z.literal('unavailable'),
+      reason: sponsoredCapabilityReasonSchema,
+    })
+    .strict(),
+])
+export const sponsoredLocalTargetSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('repo'),
+      repoFullName: z
+        .string()
+        .regex(/^[a-z0-9][a-z0-9._-]{0,98}\/[a-z0-9][a-z0-9._-]{0,98}$/i),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal('workspace'), workspaceId: z.string().uuid() })
+    .strict(),
+])
+export {
+  SPONSORED_CLI_EXECUTION_SURFACES,
+  SPONSORED_DESKTOP_EXECUTION_SURFACES,
+  SPONSORED_EXECUTION_SURFACES,
+  SUPABASE_FOUNDATION_MODES,
+  isSponsoredCliExecutionSurface,
+  isSponsoredExecutionSurface,
+  sponsoredCliExecutionSurfaceForRequest,
+  sponsoredDesktopExecutionSurfaceForPlatform,
+  supabaseFoundationMode,
+  type SponsoredCliExecutionSurface,
+  type SponsoredDesktopExecutionSurface,
+  type SponsoredExecutionSurface,
+  type SupabaseFoundationMode,
+} from './sponsored-execution-surface'
+
+/**
+ * The runtimes a sponsored run can execute, as the run itself sees them
+ * (COD-829): probed from INSIDE the sponsored sandbox, so a Node install the
+ * sandbox hides reads as missing. `python` is python3 or python.
+ */
+export const SPONSORED_RUNTIMES = ['node', 'npx', 'bun', 'python'] as const
+export type SponsoredRuntime = (typeof SPONSORED_RUNTIMES)[number]
+export const sponsoredRuntimeSchema = z.enum(SPONSORED_RUNTIMES)
+
+/** The wire schema of {@link SPONSORED_EXECUTION_SURFACES}. */
+export const sponsoredExecutionSurfaceSchema = z.enum(
+  SPONSORED_EXECUTION_SURFACES,
+)
+
+export const sponsoredCapabilitySchema = z
+  .object({
+    schemaVersion: z.literal(2),
+    target: sponsoredLocalTargetSchema,
+    framework: z.enum([
+      'nextjs',
+      'react-vite',
+      'nodejs',
+      'unsupported',
+      'unknown',
+    ]),
+    packageManager: z.enum(['bun', 'npm', 'pnpm', 'yarn', 'unknown']),
+    hasSupabaseBoundary: z.boolean(),
+    hasCommittedDatabaseBoundary: z.boolean(),
+    // Missing on older clients means unknown, never provider-open.
+    hasCommittedAuthBoundary: z.boolean().optional(),
+    hasCommittedStorageBoundary: z.boolean().optional(),
+    hasGitRepository: z.boolean(),
+    hasCommittedHead: z.boolean(),
+    // COD-829. Absent means unknown (older clients, Windows, a probe that
+    // failed), never "nothing installed": only a reported list can warn.
+    availableRuntimes: z.array(sponsoredRuntimeSchema).max(8).optional(),
+    execution: z
+      .object({
+        surface: sponsoredExecutionSurfaceSchema,
+        status: z.enum(['available', 'unavailable']),
+        reason: sponsoredCapabilityReasonSchema.optional(),
+        // Older Linux clients isolate networking; only updated clients report true.
+        outboundNetwork: z.boolean().optional(),
+        nativeDesktopTools: z.boolean().optional(),
+      })
+      .strict(),
+  })
+  .strict()
+
+export type SponsoredCapability = z.infer<typeof sponsoredCapabilitySchema>
+
+/**
+ * The browser workspace's worktree facts on the offer route: a v2 capability
+ * with NO `execution`. A Freebuff Web run's surface (`cloud_linux`) is
+ * server-assigned, never claimed on the wire (`SPONSORED_CLOUD_EXECUTION_SURFACE`),
+ * so the route adds it itself, and only for a request it proved came from the
+ * workspace server (`cloudSponsoredCapability` in `./web-agentic-offer`).
+ */
+export const cloudWorktreeCapabilitySchema = sponsoredCapabilitySchema.omit({
+  execution: true,
+})
+export type CloudWorktreeCapability = z.infer<
+  typeof cloudWorktreeCapabilitySchema
+>
+
+/**
+ * A capability as the server reads it: the wire's, or the browser workspace's
+ * with the server-assigned `cloud_linux` execution.
+ */
+export type SponsoredRunCapability = Omit<SponsoredCapability, 'execution'> & {
+  execution: Omit<SponsoredCapability['execution'], 'surface'> & {
+    surface: SponsoredRunExecutionSurface
+  }
+}
+export type SponsoredLocalTarget = z.infer<typeof sponsoredLocalTargetSchema>
+export type CapabilityInspection = z.infer<typeof capabilityInspectionSchema>
+export type SponsoredCapabilityReason = z.infer<
+  typeof sponsoredCapabilityReasonSchema
+>
+
+/**
+ * The stacks the reviewed Supabase foundation procedure runs on. THE ONE LIST:
+ * paid fulfillment (`supabaseFoundationCapabilityEligible`) and the paid
+ * invitation's serve gate both read it through `supabaseFoundationStackEligible`,
+ * so a billable invitation is never served for a stack fulfillment refuses.
+ * `unknown` and `unsupported` are deliberately absent.
+ */
+export const SUPABASE_FOUNDATION_RUNNABLE_FRAMEWORKS = [
+  'nextjs',
+  'react-vite',
+  'nodejs',
+] as const satisfies readonly SponsoredCapability['framework'][]
+
+export function supabaseFoundationFrameworkRunnable(
+  framework: string,
+): framework is (typeof SUPABASE_FOUNDATION_RUNNABLE_FRAMEWORKS)[number] {
+  return (
+    SUPABASE_FOUNDATION_RUNNABLE_FRAMEWORKS as readonly string[]
+  ).includes(framework)
+}
+
+/**
+ * The framework-and-surface half of foundation admission, per wave. It needs
+ * only facts a non-billable invitation capability also carries, so the paid
+ * serve gate applies exactly what fulfillment will. Git, head and containment
+ * are the other half, checked only on the sponsored capability.
+ */
+export function supabaseFoundationStackEligible(
+  stack: {
+    framework: string
+    surface: SponsoredCapability['execution']['surface']
+  },
+  rawMode: string | null | undefined,
+): boolean {
+  const mode = supabaseFoundationMode(rawMode)
+  if (!mode || !supabaseFoundationFrameworkRunnable(stack.framework))
+    return false
+  // The LEGACY Supabase format stays macOS/Linux until COD-649 retires it;
+  // Supabase reaches Windows only as a generic candidate under the one
+  // funnel (COD-642, 2026-09-24). Refused by name because the waves below
+  // test prefixes, and a `desktop_` prefix alone would otherwise admit
+  // Windows to every wave.
+  if (stack.surface === 'desktop_windows') return false
+  if (mode === 'foundation-mac')
+    return stack.surface === 'desktop_macos' && stack.framework === 'nextjs'
+  if (mode === 'foundation-desktop' || mode === 'foundation-backend-desktop')
+    return stack.surface.startsWith('desktop_')
+  return true
+}
+
+/** Each later wave includes the earlier wave; absent/legacy settings never opt in. */
+export function supabaseFoundationCapabilityEligible(
+  capability: SponsoredCapability | null | undefined,
+  rawMode: string | null | undefined,
+): boolean {
+  if (
+    !capability ||
+    !capability.hasGitRepository ||
+    !capability.hasCommittedHead ||
+    capability.execution.status !== 'available' ||
+    capability.execution.reason !== undefined
+  )
+    return false
+  return supabaseFoundationStackEligible(
+    {
+      framework: capability.framework,
+      surface: capability.execution.surface,
+    },
+    rawMode,
+  )
+}

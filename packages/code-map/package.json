@@ -18,13 +18,13 @@
     }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p .",
+    "typecheck": "tsc --noEmit --incremental --tsBuildInfoFile ../../node_modules/.cache/tsbuildinfo/packages-code-map.tsbuildinfo -p .",
     "test": "bun test $(bun run --silent test:files)",
     "test:files": "find . -name node_modules -prune -o -name '*.test.ts' ! -name '*.integration.test.ts' -print 2>/dev/null | sort"
   },
   "sideEffects": false,
   "engines": {
-    "bun": "1.3.11"
+    "bun": "1.3.14"
   },
   "dependencies": {
     "@vscode/tree-sitter-wasm": "0.1.4",

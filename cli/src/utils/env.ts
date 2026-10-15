@@ -33,6 +33,12 @@ export const getCliEnv = (): CliEnv => ({
   SSH_TTY: process.env.SSH_TTY,
   SSH_CONNECTION: process.env.SSH_CONNECTION,
   CODESPACES: process.env.CODESPACES,
+  GITPOD_WORKSPACE_ID: process.env.GITPOD_WORKSPACE_ID,
+  CLOUD_SHELL: process.env.CLOUD_SHELL,
+  CODER: process.env.CODER,
+
+  // Where Bun extracts embedded native libraries (the terminal renderer)
+  BUN_TMPDIR: process.env.BUN_TMPDIR,
 
   // Terminal detection
   KITTY_WINDOW_ID: process.env.KITTY_WINDOW_ID,
@@ -75,13 +81,33 @@ export const getCliEnv = (): CliEnv => ({
   CODEBUFF_CLI_VERSION: process.env.CODEBUFF_CLI_VERSION,
   CODEBUFF_CLI_TARGET: process.env.CODEBUFF_CLI_TARGET,
   CODEBUFF_RG_PATH: process.env.CODEBUFF_RG_PATH,
+  CODEBUFF_TRUSTED_AGENT_PUBLISHERS:
+    process.env.CODEBUFF_TRUSTED_AGENT_PUBLISHERS,
   CODEBUFF_SCROLL_MULTIPLIER: process.env.CODEBUFF_SCROLL_MULTIPLIER,
   CODEBUFF_PERF_TEST: process.env.CODEBUFF_PERF_TEST,
   CODEBUFF_TRACE: process.env.CODEBUFF_TRACE,
   CODEBUFF_LAUNCHER_PID: process.env.CODEBUFF_LAUNCHER_PID,
+  CODEBUFF_LAUNCHER_VERSION: process.env.CODEBUFF_LAUNCHER_VERSION,
   CODEBUFF_SHIP_LOGS: process.env.CODEBUFF_SHIP_LOGS,
   CODEBUFF_NO_TERMINAL_WATCHDOG: process.env.CODEBUFF_NO_TERMINAL_WATCHDOG,
+  CODEBUFF_TRUST_AGENT_DIRS: process.env.CODEBUFF_TRUST_AGENT_DIRS,
   FREEBUFF_MODE: process.env.FREEBUFF_MODE,
+  FREEBUFF_CONFIG_DIR: process.env.FREEBUFF_CONFIG_DIR,
+  // `bun run dev:agentic-ads cli` only: force one LOCAL campaign on the offer
+  // route. Honoured only by a backend whose own environment names the same
+  // campaign (`common/src/ads/local-agentic-test.ts`).
+  TEST_AGENTIC_ADS: process.env.TEST_AGENTIC_ADS,
+  TEST_AGENTIC_ADS_CAMPAIGN: process.env.TEST_AGENTIC_ADS_CAMPAIGN,
+
+  TZ: process.env.TZ,
+  HTTPS_PROXY: process.env.HTTPS_PROXY,
+  https_proxy: process.env.https_proxy,
+  HTTP_PROXY: process.env.HTTP_PROXY,
+  http_proxy: process.env.http_proxy,
+  ALL_PROXY: process.env.ALL_PROXY,
+  all_proxy: process.env.all_proxy,
+  NODE_TLS_REJECT_UNAUTHORIZED: process.env.NODE_TLS_REJECT_UNAUTHORIZED,
+  NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS,
 })
 
 /**

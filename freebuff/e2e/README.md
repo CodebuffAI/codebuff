@@ -74,6 +74,27 @@ describe('Agent Test', () => {
 })
 ```
 
+### 3. Live smoke against production
+
+`tests/live-turn.e2e.test.ts` is the one file here that talks to the real backend:
+it navigates the landing picker to DeepSeek V4.1 Flash, starts a session, sends a
+prompt, waits for the answer, then runs `/end-session` and checks the backend shows
+no open session. It skips unless `FREEBUFF_SMOKE_API_KEY` (or
+`CODEBUFF_API_KEY`) is set, and needs a binary built with the production public
+env. It is not in `freebuff-e2e.yml` — `.github/workflows/prod-smoke.yml`
+runs it on a schedule and before each release.
+
+```bash
+NEXT_PUBLIC_CB_ENVIRONMENT=prod NEXT_PUBLIC_CODEBUFF_APP_URL=https://www.codebuff.com \
+NEXT_PUBLIC_FREEBUFF_APP_URL=https://freebuff.com NEXT_PUBLIC_SUPPORT_EMAIL=support@freebuff.com \
+NEXT_PUBLIC_POSTHOG_API_KEY=test NEXT_PUBLIC_POSTHOG_HOST_URL=http://127.0.0.1:9 \
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=test NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL=http://127.0.0.1:9 \
+NEXT_PUBLIC_WEB_PORT=3000 bun freebuff/cli/build.ts 0.0.0-smoke
+CODEBUFF_API_KEY=<your token> bun test freebuff/e2e/tests/live-turn.e2e.test.ts --timeout=300000
+```
+
+The CLI runs with its own `FREEBUFF_CONFIG_DIR`, so your real profile is untouched.
+
 ## Prerequisites
 
 - **tmux** must be installed: `brew install tmux` (macOS) or `sudo apt-get install tmux` (Ubuntu)
@@ -113,31 +134,22 @@ FREEBUFF_BINARY=/path/to/freebuff bun test freebuff/e2e/tests/
 ## Adding New Tests
 
 1. Create a new file in `freebuff/e2e/tests/` with the naming convention `<feature>.e2e.test.ts`
-2. Add the test name to `.github/workflows/freebuff-e2e.yml` matrix:
-
-```yaml
-matrix:
-  test:
-    - version
-    - startup
-    - help-command
-    - agent-startup
-    - your-new-test    # <-- add here
-```
-
-3. The test will automatically run in parallel with other tests in CI.
+2. Add an `e2e - <name>` step to the `build-and-e2e-freebuff` job in
+   `.github/workflows/freebuff-e2e.yml`, with the same `if:` as its siblings so it
+   still runs when another suite fails. Keep it off the network: that job has no
+   credentials, so anything that needs a real backend belongs in `prod-smoke.yml`.
 
 ## CI Workflow
 
 The `.github/workflows/freebuff-e2e.yml` workflow:
 
-1. **Builds** the Freebuff binary once (linux-x64)
-2. **Runs each test file in parallel** via GitHub Actions matrix strategy
+1. **Builds** the Freebuff binary once (linux-x64) and smoke-boots it
+2. **Runs each suite as its own step** in that same job, against that binary
 3. **Uploads tmux session logs** on failure for debugging
+4. **Builds and smoke-boots on Windows** in a separate job (no tmux there)
 
-Triggers:
-- **Nightly** at 6:00 AM PT
-- **Manual** via workflow_dispatch
+Triggers: pull requests to `main` or `great-db-merge-v2`, pushes to `main`, manual
+`workflow_dispatch`, and `freebuff-release.yml` before each release.
 
 ## Utilities Reference
 

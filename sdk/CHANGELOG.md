@@ -4,6 +4,18 @@ All notable changes to the @codebuff/sdk package will be documented in this file
 
 ## [Unreleased]
 
+- `compactRunState` now rewrites a run's history into at most 12k tokens (`MECHANICAL_HISTORY_TOKENS`) of summary plus a working set of file reads, whatever `maxContextLength` allows; it used to fill the budget. The newest read of each file not edited since comes back whole and every other read becomes an outline stub, so expect a much smaller `nextTokens`. The live request and the newest tool results are kept whole on top of the cap.
+
+- **Security:** `read_url` now connects only to an address it has just validated. Resolution and the private/reserved-address check happen in the connection's own `lookup`, and the host is refused if any answer is blocked, so a hostname can no longer pass the check with one answer and connect with another. Every redirect hop is validated the same way. More non-routable ranges are refused: IPv4-compatible IPv6 (`::a.b.c.d`), 198.18.0.0/15, `fec0::/10` and `64:ff9b:1::/48`. The tool call passes only `url` and `max_chars` through to `readUrl`. Under Bun with a proxy variable set, Bun's `fetch` is still used so the proxy keeps working.
+
+- **Security:** a runtime `NEXT_PUBLIC_CODEBUFF_APP_URL` / `CODEBUFF_APP_URL` override is honoured only for a `codebuff.com` / `freebuff.com` host (or a subdomain) over https, or a loopback host. Every request carrying your API key goes to that URL, so any other host now also needs `CODEBUFF_ALLOW_CUSTOM_APP_URL=1` in the environment; without it the override is ignored with a one-line warning and the bundled URL is used.
+
+- **Security:** the published package no longer ships sourcemaps. They carried the full source of every bundled workspace module.
+
+- Removed in an earlier unreleased change and noted here for 0.10.7 users: the `CODEBUFF_CLAUDE_OAUTH_TOKEN` environment variable (direct Claude OAuth routing) is gone; the SDK no longer reads it.
+
+- `spawn_agents` results from `last_message` agents now arrive as plain text. Each result's `value` is the child's final answer (the text of its last turn, without reasoning or think tags) instead of `{ type: 'lastMessage', value: Message[] }`, and a child whose last turn has no text reports `{ type: 'error', message: 'No response from agent' }`. `handleSteps` code that walked the `lastMessage` message array must read the string instead. Structured-output results and the `output` returned by `run()` are unchanged.
+
 - `run()` now returns promptly when its `signal` aborts during the user lookup or agent-run registration that precede the first model request. Those requests had no signal and retried through a backoff, so a socket that never answered held the run for the whole retry budget; they now end on abort and the run resolves with `Run cancelled by user.`
 
 - Dropped `knowledge.md` from the knowledge-file priority list; the SDK now picks up `AGENTS.md` then `CLAUDE.md` (per directory, and `~/.AGENTS.md`/`~/.CLAUDE.md` in the home directory). Existing `knowledge.md` files are no longer read. The `PRIMARY_KNOWLEDGE_FILE_NAME` export was removed with it; use `KNOWLEDGE_FILE_NAMES[0]`.

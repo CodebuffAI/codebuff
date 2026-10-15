@@ -46,6 +46,45 @@ export const CONTEXT_PRUNING_COMPLETED_EVENT =
  *  allowlisted event — `_gave_up` logs at error level, which already ships
  *  raw and doesn't need the allowlist. */
 export const STREAM_RECOVERY_EVENT = 'stream_recovery' as const
+/** A file edit was refused because it looked cut off mid-generation
+ *  (packages/agent-runtime/src/util/truncated-write-guard.ts). `metric`
+ *  distinguishes truncated tool-call arguments from a write_file that would
+ *  replace a file with a cut-off copy of itself. Content-free: sizes, tool and
+ *  model names only, never a path or file content. */
+export const FILE_WRITE_GUARD_EVENT = 'file_write_guard' as const
+/** A compaction the mechanical pass did not apply: it threw (the live request
+ *  alone over budget), could not shrink the history, or would have left the
+ *  run back at the threshold that triggered it. Content-free: a fixed
+ *  `error_kind`, never the message. */
+export const MECHANICAL_COMPACTION_SKIPPED_EVENT =
+  'mechanical_compaction.skipped' as const
+/** The runtime's mechanical compaction (packages/agent-runtime/src/compact-history.ts).
+ *  Shares its field names
+ *  with `context_pruning.completed`. Content-free sizes and counts only. */
+export const CONTEXT_COMPACTION_COMPLETED_EVENT =
+  'context_compaction_completed' as const
+/** The runtime reminded a model that its to-do list had not moved for several
+ *  tool calls (packages/agent-runtime/src/util/todo-progress-reminder.ts).
+ *  Counts and labels only, never the to-dos or a user id. */
+export const TODO_PROGRESS_REMINDER_EVENT = 'todo_progress_reminder' as const
+/** A turn sitting on repeated rejected edits to the same file
+ *  (packages/agent-runtime/src/util/file-edit-loop.ts), emitted for
+ *  MEASUREMENT: it never stops a turn. `strictConsecutive` and `guardEligible`
+ *  are what the stopping guard scored at the same moment, so the share of
+ *  loops it does not see is a division rather than a guess, and
+ *  `varied`/`interleaved`/`mixedStep` say which of its three preconditions the
+ *  episode broke. Counts and labels only, never a path, an edit or a user id. */
+export const FILE_EDIT_LOOP_EVENT = 'file_edit_loop' as const
+/** The runtime reminded a model, as its turn was ending, to report a Gravity
+ *  integration it had been recommended and then edited files for
+ *  (packages/agent-runtime/src/util/gravity-report-nudge.ts). Counts and
+ *  labels only, never a search id, slug or user id. Per-model, so the
+ *  report_integration rate is measurable by model. */
+export const GRAVITY_REPORT_NUDGE_EVENT = 'gravity_report_nudge' as const
+/** One per compaction window, closed by the next compaction or the run's end:
+ *  how much the run read after compacting, and how many of those reads were
+ *  files whose contents the compaction dropped. Counts only, never a path. */
+export const COMPACTION_FOLLOWUP_EVENT = 'context_compaction.followup' as const
 export const ADS_FETCH_COMPLETED_EVENT = AnalyticsEvent.ADS_FETCH_COMPLETED
 export const ADS_FIRST_PARTY_DECISION_EVENT =
   AnalyticsEvent.ADS_FIRST_PARTY_DECISION
@@ -89,11 +128,17 @@ export const ADS_ADVERTISER_REPORTING_READ_EVENT =
   'ads.advertiser_reporting_read' as const
 /** Content-free advertiser MCP operation census; never arguments or results. */
 export const ADS_MCP_TOOL_CALL_EVENT = 'ads.mcp_tool_call' as const
-/** Browser-side Imprezia decisions. The route deliberately reports only
- * bounded serving dimensions: request/content/creative identifiers, URLs, and
- * raw provider errors never enter this event. */
-export const ADS_IMPREZIA_FETCH_COMPLETED_EVENT =
-  'ads.imprezia_fetch_completed' as const
+/** Settlement-time click quality features. Opaque join ids and bounded facts
+ * only; raw IPs, device identifiers and request content are never fields. */
+export const AD_CLICK_IVT_SCORED_EVENT = 'ad_click_ivt_scored' as const
+/**
+ * One row per completed paid API chat completion (`POST /api/v1/paid/chat/
+ * completions` on `web`), whatever the outcome: success, rejection at auth or
+ * admission, upstream failure, or client abort. Ids and counters only -- the
+ * key SECRET, prompts, completions and upstream error bodies are never
+ * fields. Money is integer micro-dollars. See docs/paid-api-axiom-dashboard.md.
+ */
+export const PAID_API_REQUEST_EVENT = 'paid_api_request' as const
 /**
  * Ad routes refusing a request (COD-372) — rate limits and capability
  * failures on both rails, one event per refusal.
@@ -104,9 +149,129 @@ export const ADS_IMPREZIA_FETCH_COMPLETED_EVENT =
  * `reason` is a closed enum owned by `ad-route-rate-limit.ts`.
  */
 export const ADS_REQUEST_REJECTED_EVENT = 'ads.request_rejected' as const
+export const ADS_SHOWCASE_PRESENTED_EVENT =
+  AnalyticsEvent.ADS_SHOWCASE_PRESENTED
+
+const SHOWCASE_PRESENTATION_VARIANTS = [
+  'curated',
+  'legacy',
+  'inline_fallback',
+  'text_only_image_failure',
+] as const
+
+/** Bounded client report of a presentation; this does not prove delivery. */
+export function createGravityShowcasePresentationTelemetry(
+  value: unknown,
+): Record<string, string> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const row = value as Record<string, unknown>
+  const variant = row.gravity_showcase_variant
+  const inlineFallback = variant === 'inline_fallback'
+  if (
+    row.gravity_showcase_version !== 'gravity-showcase-v1' ||
+    typeof row.gravity_showcase_config_id !== 'string' ||
+    !/^gsc_[a-z0-9]{1,60}$/.test(row.gravity_showcase_config_id) ||
+    (row.gravity_showcase_arm !== 'treatment' &&
+      row.gravity_showcase_arm !== 'control') ||
+    typeof row.gravity_showcase_attempt_id !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      row.gravity_showcase_attempt_id,
+    ) ||
+    typeof row.gravity_showcase_opportunity_id !== 'string' ||
+    !/^opp_[0-9a-f]{32}$/.test(row.gravity_showcase_opportunity_id) ||
+    typeof variant !== 'string' ||
+    !(SHOWCASE_PRESENTATION_VARIANTS as readonly string[]).includes(variant) ||
+    row.placement_id !==
+      (inlineFallback ? 'Desktop-Below-Chat' : 'Desktop-Showcase') ||
+    row.format !== (inlineFallback ? 'inline' : 'showcase') ||
+    row.surface !== 'cli_chat' ||
+    row.client_family !== 'desktop' ||
+    typeof row.client_event_id !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      row.client_event_id,
+    )
+  )
+    return null
+  return {
+    gravity_showcase_version: row.gravity_showcase_version,
+    gravity_showcase_config_id: row.gravity_showcase_config_id,
+    gravity_showcase_arm: row.gravity_showcase_arm,
+    gravity_showcase_attempt_id: row.gravity_showcase_attempt_id,
+    gravity_showcase_opportunity_id: row.gravity_showcase_opportunity_id,
+    gravity_showcase_variant: variant,
+    placement_id: inlineFallback ? 'Desktop-Below-Chat' : 'Desktop-Showcase',
+    surface: row.surface,
+    format: inlineFallback ? 'inline' : 'showcase',
+    client_event_id: row.client_event_id,
+    client_family: row.client_family,
+  }
+}
 
 type AxiomOnlyFieldType = 'string' | 'number' | 'boolean'
 type AxiomOnlyFieldSchema = Record<string, AxiomOnlyFieldType>
+
+const AD_CLICK_IVT_SCORED_FIELDS = {
+  impressionId: 'string',
+  advertiserId: 'string',
+  verdict: 'string',
+  ivtVersion: 'string',
+  settlementStatus: 'string',
+  settlementReason: 'string',
+  chargedCents: 'number',
+  servedToClickMs: 'number',
+  viewToClickMs: 'number',
+  viewState: 'string',
+  prefetchAvailable: 'boolean',
+  accountBanned: 'boolean',
+  bannedIdentityMatch: 'boolean',
+  thirdPartyClient: 'boolean',
+  hourOfDayPacific: 'number',
+  accountAgeDays: 'number',
+  trustLevel: 'string',
+  hasPaid: 'boolean',
+  emailVerified: 'boolean',
+  privacyFlagged: 'boolean',
+  privacyCorroborated: 'boolean',
+  emailDomainClass: 'string',
+  asn: 'number',
+  hosting: 'boolean',
+  anonymizing: 'boolean',
+  clickCountry: 'string',
+  signupCountry: 'string',
+  countryMatchesSignup: 'boolean',
+  deviceKind: 'string',
+  deviceAccountsClickingCampaignToday: 'number',
+  userPaidClicksToday: 'number',
+  campaignId: 'string',
+  placementId: 'string',
+  surface: 'string',
+  clientSurface: 'string',
+  trafficClass: 'string',
+} as const satisfies AxiomOnlyFieldSchema
+
+function sanitizeAdClickIvtScoredFields(
+  record: Record<string, unknown>,
+): AxiomOnlyLogEvent['data'] {
+  const data: AxiomOnlyLogEvent['data'] = sanitizeAllowlistedFields(
+    record,
+    AD_CLICK_IVT_SCORED_FIELDS,
+  )
+  // Unknown is a feature value, not false or zero. Keep explicit nulls on
+  // this event only; other operational allowlists retain their scalar rules.
+  for (const key of Object.keys(AD_CLICK_IVT_SCORED_FIELDS)) {
+    if (record[key] === null) data[key] = null
+  }
+  if (
+    Array.isArray(record.reasons) &&
+    record.reasons.length <= 32 &&
+    record.reasons.every(
+      (reason) => typeof reason === 'string' && /^[a-z_]{1,64}$/.test(reason),
+    )
+  ) {
+    data.reasons = [...record.reasons]
+  }
+  return data
+}
 
 const CONTEXT_PRUNING_FIELDS = {
   agent_run_id: 'string',
@@ -143,15 +308,130 @@ const STREAM_RECOVERY_FIELDS = {
   finishReason: 'string',
   hasYieldedContent: 'boolean',
   consecutive: 'number',
+  /** A 'provider-error' recovery's HTTP status (502, 429, ...). */
+  statusCode: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+const FILE_WRITE_GUARD_FIELDS = {
+  metric: 'string',
+  toolName: 'string',
+  model: 'string',
+  agentId: 'string',
+  runId: 'string',
+  receivedChars: 'number',
+  oldLines: 'number',
+  newLines: 'number',
+  openBrackets: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+const MECHANICAL_COMPACTION_SKIPPED_FIELDS = {
+  model: 'string',
+  agent_run_id: 'string',
+  trigger_reason: 'string',
+  /** `no_shrink`, `above_low_water` (the pass would have landed back at its
+   *  own trigger), `over_budget` (the live request alone does not fit) or
+   *  `error`. */
+  error_kind: 'string',
+  error_name: 'string',
+  context_token_count: 'number',
+  max_context_length: 'number',
+  /** What an `above_low_water` pass would have left behind; absent otherwise. */
+  post_tokens: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+const CONTEXT_COMPACTION_COMPLETED_FIELDS = {
+  agent_run_id: 'string',
+  trigger_reason: 'string',
+  context_token_count: 'number',
+  max_context_length: 'number',
+  cache_gap_ms: 'number',
+  cache_expiry_ms: 'number',
+  cache_expiry_min_tokens: 'number',
+  message_count: 'number',
+  mid_turn: 'boolean',
+  user_budget: 'number',
+  assistant_tool_budget: 'number',
+  previous_summary_entry_count: 'number',
+  user_entry_count: 'number',
+  dropped_user_entry_count: 'number',
+  assistant_tool_entry_count: 'number',
+  dropped_assistant_tool_entry_count: 'number',
+  newest_entry_forced: 'boolean',
+  live_user_prompt_found: 'boolean',
+  summary_estimated_tokens: 'number',
+  budget_dropped_summary_parts: 'number',
+  preserved_fresh_messages: 'number',
+  /** Files re-provided whole, files left as an outline stub, and their size. */
+  working_set_files: 'number',
+  working_set_stubs: 'number',
+  working_set_tokens: 'number',
+  post_tokens: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+const COMPACTION_FOLLOWUP_FIELDS = {
+  agent_run_id: 'string',
+  model: 'string',
+  trigger_reason: 'string',
+  /** `compaction` (the next one) or `run_end`. */
+  ended_by: 'string',
+  next_trigger_reason: 'string',
+  /** Distinct files read before the compaction whose results it dropped. */
+  elided_read_paths: 'number',
+  read_calls_after: 'number',
+  read_paths_after: 'number',
+  /** Distinct `elided_read_paths` read again inside the window. */
+  reread_paths: 'number',
+  read_tokens_after: 'number',
+  tool_calls_after: 'number',
+  window_ms: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+const TODO_PROGRESS_REMINDER_FIELDS = {
+  model: 'string',
+  agentId: 'string',
+  runId: 'string',
+  done: 'number',
+  total: 'number',
+  callsSinceUpdate: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
+const FILE_EDIT_LOOP_FIELDS = {
+  metric: 'string',
+  model: 'string',
+  agentId: 'string',
+  runId: 'string',
+  toolName: 'string',
+  /** Trailing steps that re-sent a rejected edit to the same file. */
+  consecutive: 'number',
+  /** The stopping guard's own count at the same moment. */
+  strictConsecutive: 'number',
+  /** Whether the step even met the stopping guard's precondition. */
+  guardEligible: 'boolean',
+  varied: 'boolean',
+  interleaved: 'boolean',
+  mixedStep: 'boolean',
+} as const satisfies AxiomOnlyFieldSchema
+
+const GRAVITY_REPORT_NUDGE_FIELDS = {
+  model: 'string',
+  agentId: 'string',
+  runId: 'string',
+  pending: 'number',
+  editsSinceRecommendation: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
 const ADS_FETCH_COMPLETED_FIELDS = {
   outcome: 'string',
   /**
+   * Browser client cadence stamped in the validated client context. Absent
+   * means unknown or a client that predates the measurement; it never drives
+   * serving, eligibility, pricing, or billing.
+   */
+  client_inline_cadence: 'string',
+  /**
    * The REQUEST-grain correlation handle (`adr_`, COD-406): one per HTTP ad
-   * request on both rails, and the key of the decision outbox batch the same
-   * request appends (`ad_decision_outbox_batch.request_id`). Opaque and
-   * server-minted: never derived from the prompt, the IP, or the session.
+   * request on both rails. Opaque and server-minted: never derived from the
+   * prompt, the IP, or the session.
    */
   request_id: 'string',
   /**
@@ -159,8 +439,7 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    * one per resolved placement; this event is request-grain, so it carries
    * the FIRST placement's -- exact for the single-placement request that is
    * the overwhelming case, and the same coarsest-honest answer it always gave
-   * for a batch. Every placement's own id is on its `ad_impression` row and
-   * in the outbox payload under `request_id` above.
+   * for a batch. Every placement's own id is on its `ad_impression` row.
    *
    * Every join the first-party chain needs already hangs off
    * `ad_impression.id`, so this is what connects an auction -- including the
@@ -183,14 +462,47 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    */
   sample_rate: 'number',
   /**
-   * The 0-9999 bucket of the sticky per-user first-party arm, LOGGED AND NOT
-   * ROUTED ON (COD-369). One person lands in the same bucket on every request
-   * and every surface, which is what an incrementality read needs -- but the
-   * route draw still reads a fresh per-request UUID, so today this field SIZES
-   * the contrast a per-user arm would create rather than reporting one.
-   * COD-362 moves delivery onto it.
+   * The precomputed-score arm (`adScoreArmForUser` in `ad-experiment.ts`), on
+   * every request: `ad_score_arm` is `control` or `treatment`, intent to
+   * treat. `ad_score_lookup` is `not_read` (control, or no ranking leg ran),
+   * `hit`, or the miss that left a treatment request ranked as control:
+   * `no_run`, `no_user`, `opted_out` (GPC; nothing read), `timeout`, `error`.
+   * `ad_score_run_id` is the live snapshot's `manifest_id` and
+   * `ad_score_as_of` its scoring cutoff, when a valid pointer was read;
+   * `ad_score_payload_bytes` the user's compressed score vector and
+   * `ad_score_decode_ms` the pointer parse (cold reads) plus payload decode;
+   * `ad_score_ranked` whether a served first-party campaign was ordered by
+   * its score.
    */
-  first_party_arm_bucket: 'number',
+  ad_score_arm: 'string',
+  ad_score_lookup: 'string',
+  ad_score_run_id: 'string',
+  ad_score_as_of: 'string',
+  ad_score_payload_bytes: 'number',
+  ad_score_decode_ms: 'number',
+  ad_score_ranked: 'boolean',
+  /**
+   * The online feature store's SHADOW read (COD-755), on every request:
+   * `ad_features_lookup` is `not_read` (no leg asked: no user or no loaded
+   * book), `opted_out` (GPC; nothing read), `unconfigured` (no
+   * `AD_SERVING_REDIS_URL`), `disabled` (the rollout gate is off),
+   * `gate_unavailable` (the gate could not be read and was never read),
+   * `ready`, `unavailable` or `timeout`. `ad_features_ms` is the read's wall time,
+   * connect included, present only when a read was attempted. Nothing ranks
+   * on the read; the served vector rides the decision, never this line.
+   */
+  ad_features_lookup: 'string',
+  ad_features_ms: 'number',
+  /**
+   * The pclick SHADOW (`pclick-shadow.ts`) for the request's first shadow
+   * decision, as known on the serve path; absent when none ran:
+   * `pclick_shadow_outcome` (`pending` once the call to the pclick-scorer
+   * service is started) and `pclick_shadow_inputs` (feature store or
+   * no-history defaults). The scores land after the response; they ride the
+   * decision to the training log.
+   */
+  pclick_shadow_outcome: 'string',
+  pclick_shadow_inputs: 'string',
   /**
    * The eligibility census: two counts and two producer-encoded histogram
    * strings. `eligible_campaign_labels` comma-joins opaque allocation labels
@@ -214,12 +526,17 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   requested_provider: 'string',
   served_provider: 'string',
   // This is a producer-encoded, bounded string such as
-  // "gravity>first_party>carbon". Keep the raw attempted_providers array out
+  // "gravity>first_party". Keep the raw attempted_providers array out
   // of Axiom so operational events remain scalar-only.
   attempted_provider_chain: 'string',
   experiment_arm: 'string',
+  /**
+   * Which ad Redis held this user's per-user ad state ('shared' |
+   * 'dedicated'); under FREEBUFF_AD_SERVING_REDIS=split it is the store A/B
+   * arm, the same value the request's `ad_impression.ad_redis_store` carries.
+   */
+  ad_redis_store: 'string',
   first_party_route: 'string',
-  first_party_primary_percent: 'number',
   first_party_backfill_enabled: 'boolean',
   /** Geo-aware inventory controls and the bounded request classification used
    * by the routing policy. Country is an ISO-style two-letter code or absent;
@@ -241,25 +558,32 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   first_party_inventory_geo_tier: 'string',
   first_party_geo_source: 'string',
   first_party_country_code: 'string',
-  first_party_tier2_bonus_percent: 'number',
   /** Effective runtime money gates, emitted as bounded configuration state.
    * These are not campaign pricing or advertiser identifiers. */
   first_party_billing_mode: 'string',
-  external_settlement_enabled: 'boolean',
-  /**
-   * Exact primary allocation is intentionally represented by an opaque,
-   * operator-chosen cohort label rather than a campaign or advertiser id.
-   * Producers emit `none` / 0 when the request is not assigned to a primary
-   * cohort, so an absent field is distinguishable from a deliberate control.
-   */
-  first_party_primary_cohort: 'string',
-  first_party_primary_cohort_percent: 'number',
   /** The opaque cohort that actually produced a first-party fill, or `none`. */
   first_party_served_cohort: 'string',
-  /** `primary`, `gravity_no_fill_backfill`, `house_leg`, ..., or `none`. */
+  /** `gravity_no_fill_backfill`, `house_leg`, ..., or `none`. */
   first_party_entrypoint: 'string',
   /** Whether the COD-358 house leg could run on this request (not whether it did). */
   first_party_house_leg: 'boolean',
+  /**
+   * COD-654, present only when the CPM leg was evaluated (never under `off`).
+   * `first_party_cpm_outcome` is its verdict: `fill`, `no_fill`,
+   * `shadow_would_fill`, `shadow_no_fill`, `geo_unknown` (`not_tier1` before
+   * COD-673 opened tier 2), `gravity_not_no_fill`, `gravity_not_released` or `error`. Phase 1's capacity readout is `shadow_would_fill` grouped by
+   * day; `first_party_cpm_campaign_id` names the CPM campaign it would have
+   * (or did) serve.
+   */
+  first_party_cpm_outcome: 'string',
+  first_party_cpm_mode: 'string',
+  first_party_cpm_campaign_id: 'string',
+  /**
+   * COD-713, present only when the Tier-2 per-conversion leg ran: `fill`,
+   * `no_fill` or `error`. That leg offers a Tier-2 Gravity no-fill to
+   * campaigns that bill per conversion, and only to them.
+   */
+  first_party_tier2_per_conversion_outcome: 'string',
   /** CPC geo-pricing state. These names predate inventory geo routing and are
    * kept separate from `first_party_inventory_geo_tier`. */
   first_party_geo_tier: 'string',
@@ -270,11 +594,30 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    * price the same, and only `first_party_geo_floored` tells them apart. */
   first_party_geo_multiplier_bps: 'number',
   first_party_geo_cpc_bucket: 'string',
+  /**
+   * COD-635: the price book the charge came from -- `static-v1`, a learned
+   * version id, or `none` when nothing was priced. One value per promotion,
+   * so bounded however many requests carry it.
+   */
+  first_party_geo_cpc_version: 'string',
+  /**
+   * COD-635: what the served click WOULD have billed under the shadow
+   * (candidate) book, which is never charged. Present only when a shadow book
+   * rode the request; absent rather than zeroed otherwise, so "no candidate"
+   * cannot read as a candidate that priced the click at nothing. The price
+   * is bucketed exactly like `first_party_geo_cpc_bucket`, never raw cents.
+   */
+  first_party_geo_shadow_version: 'string',
+  first_party_geo_shadow_multiplier_bps: 'number',
+  first_party_geo_shadow_cpc_bucket: 'string',
   geo_cpc_enabled: 'boolean',
   /** Whether the immediately preceding Gravity attempt filled, no-filled, or
    * failed. This makes recovered no-fill inventory observable without logging
    * any campaign or creative identity. */
   gravity_outcome: 'string',
+  /** A Gravity no-fill that was a 205 release, which opens our paid first-party
+   * legs. False on a 204 no-fill, which leaves the slot to house ads only. */
+  gravity_no_fill_released: 'boolean',
   selection_reason: 'string',
   ad_count: 'number',
   surface: 'string',
@@ -282,89 +625,8 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   duration_ms: 'number',
   client_ua_product: 'string',
   client_ua_version: 'string',
-  /**
-   * CPC yield-shadow telemetry is a bounded operational comparison, never a
-   * decision ledger. Values are producer-encoded buckets and provider states;
-   * no raw priors, currency values, identifiers, or arrays are permitted.
-   */
-  yield_shadow_sampled: 'boolean',
-  yield_shadow_policy_version: 'string',
-  yield_shadow_scope: 'string',
-  yield_shadow_exclusion_reason: 'string',
-  yield_shadow_current_provider: 'string',
-  yield_shadow_recommended_provider: 'string',
-  yield_shadow_disagrees: 'boolean',
-  yield_shadow_first_party_state: 'string',
-  yield_shadow_first_party_value_bucket: 'string',
-  yield_shadow_gravity_state: 'string',
-  yield_shadow_gravity_value_bucket: 'string',
-  yield_shadow_imprezia_state: 'string',
-  yield_shadow_imprezia_value_bucket: 'string',
+  /** Each asked provider and its outcome, `gravity:no_fill>first_party:fill`. */
   yield_actual_attempt_chain: 'string',
-  yield_requested_placement_count_bucket: 'string',
-  yield_returned_ad_count_bucket: 'string',
-  /** Live routing is represented only by bounded configuration and outcome
-   * labels. Exact scores and decision identifiers stay in the durable ledger. */
-  yield_live_mode: 'string',
-  yield_live_activated: 'boolean',
-  yield_live_reason: 'string',
-  yield_live_arm: 'string',
-  yield_live_policy_version: 'string',
-  yield_live_estimate_version: 'string',
-  yield_live_effective_treatment_bps: 'number',
-  yield_live_planned_chain: 'string',
-  yield_live_evidence_reservation_status: 'string',
-  yield_live_evidence_status: 'string',
-  /**
-   * COD-361. What the decision-outbox producer did with this opportunity:
-   * `scheduled | saturated | cooling_down | schedule_failed | disabled |
-   * not_sampled`. On both rails, so a producer that stops writing is visible
-   * as a change of STATUS rather than as an absence of rows -- an absence is
-   * indistinguishable from the knob being off, which is the missingness this
-   * field exists to make analysable.
-   *
-   * `decision_outbox_sample_rate_ppm` is the rate that ACTUALLY applied, so a
-   * contested auction written by the >=2-admitted override reports certainty
-   * rather than the configured sample. Zero on every unwritten opportunity.
-   */
-  decision_outbox_status: 'string',
-  /**
-   * DEPRECATED ALIAS of `inclusion_probability_ppm` (COD-367), kept for one
-   * release so existing dashboards and the exporter keep resolving. Producers
-   * emit both and they are pinned equal.
-   *
-   * NOT THE SAME FIELD AS `sample_rate` above, and the two must never be
-   * merged. `sample_rate` is the EVENT-STREAM sampler -- the divisor for
-   * counting `ads.fetch_completed` rows, hardcoded 1 on both rails because
-   * nothing samples the stream. This is the DECISION-OUTBOX sampler: whether
-   * the durable evidence row was written at all. An opportunity is always in
-   * the event stream and usually not in the outbox, so one field cannot carry
-   * both, and a query dividing by the wrong one is off by the sample percent.
-   */
-  decision_outbox_sample_rate_ppm: 'number',
-  /**
-   * COD-367. The probability this opportunity had of entering the decision
-   * record, and WHY it did.
-   *
-   * The reason is what makes the probability readable: a value of 1,000,000
-   * means "certain", and there are three different ways to be certain -- a
-   * contested auction kept by the >=2-admitted override, a direct-sold serve,
-   * and a 100%-sampled deployment -- which bias the sample three different
-   * ways. Only `random_baseline` rows are an unbiased draw from the
-   * opportunity population. Closed enum, owned by `AD_INCLUSION_REASONS`.
-   */
-  inclusion_probability_ppm: 'number',
-  inclusion_reason: 'string',
-  /**
-   * COD-367. WHICH keying secret produced the `usr_` handle in the durable
-   * decision payload, as `<label>_<fingerprint>`.
-   *
-   * Never the handle itself -- no user key enters this event. It is here so a
-   * secret rotation is visible on the OPERATIONAL stream at the moment it
-   * happens, rather than being discovered months later as an unexplained
-   * discontinuity in a per-user aggregate built from the warehouse.
-   */
-  user_key_version: 'string',
   /**
    * COD-453. The sticky sponsor-break arm this request's viewer is in
    * (`control` | `reduced` | `reduced_spotlight` | `reduced_intermission`),
@@ -382,6 +644,11 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    */
   sponsor_break_arm: 'string',
   showcase_arm: 'string',
+  /** COD-548: bounded server-derived Gravity Showcase experiment correlation. */
+  gravity_showcase_version: 'string',
+  gravity_showcase_config_id: 'string',
+  gravity_showcase_arm: 'string',
+  gravity_showcase_attempt_id: 'string',
   /**
    * The daily-cap verdict, present only on a request that RESOLVED a break
    * placement: `allowed`, `capped`, `too_early` or `unavailable`.
@@ -394,15 +661,54 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    */
   sponsor_break_cap_status: 'string',
   /**
-   * Why a no-fill was a no-fill, when the rails know a reason ahead of the
-   * provider chain. `break_capped` is the only value today.
+   * Why a response carried zero ads (COD-760; COD-453 introduced it for
+   * `break_capped` alone). Set on EVERY response with zero ads, on both
+   * rails, naming the PAID stage that decided it -- never the house floor.
+   * Plain-English codes; the glossary is `docs/ads/ad-training-log.md`:
    *
-   * Deliberately NOT folded into `outcome`: every dashboard built on this
-   * stream partitions on `outcome`, and adding a fifth value to it would
-   * silently drop capped requests out of every no-fill count that already
-   * exists.
+   * - a refusal ahead of the chain: `break_capped` (unchanged; it also
+   *   drives `exclusion_reasons: 'break_capped:1'`), `setup_invitation`,
+   *   `invitation_recheck`, `partner_slot_empty`, `billboard_slot_empty`,
+   *   `no_visible_slot`, `global_load`, `no_placements`;
+   * - Gravity, when it was the last paid stage asked:
+   *   `gravity_passed_to_us` (a 205), `gravity_kept_slot_empty` (a 204),
+   *   `gravity_timeout`, `gravity_error`, `gravity_no_api_key`,
+   *   `gravity_missing_client_info`, `gravity_ads_rejected_by_slot` (a fill
+   *   every placement fence dropped), `gravity_ads_not_recorded` (a native
+   *   fill withheld because its row could not be saved);
+   * - our direct book, when it was: `direct_` + `direct_result` below
+   *   (`direct_all_filtered`, `direct_all_ahead_of_daily_pace`, ...), or
+   *   `direct_error_after_save` for a fill that failed after its rows were
+   *   durable;
+   * - `timed_out` (the chain ran out of time), `no_paid_source_asked`.
+   *
+   * Absent on a response that carried ads. Deliberately NOT folded into
+   * `outcome`: every dashboard built on this stream partitions on `outcome`,
+   * and adding a value to it would silently drop requests out of every
+   * no-fill count that already exists.
    */
   no_fill_reason: 'string',
+  /**
+   * COD-760. What our PAID direct (first-party) book answered on this
+   * request, on every completion event: `served`, `skipped` (never
+   * consulted), `error`, `no_campaign_for_slot`, `all_filtered`,
+   * `all_frequency_capped`, `all_ahead_of_daily_pace`, `holdout`,
+   * `traffic_slice_unsold`, `traffic_slice_misconfigured`,
+   * `frequency_store_down`, or `picked_not_served` (the book picked a
+   * campaign and the rail did not serve it). One mapping on both rails
+   * (`directResultFor`). The CPM stage keeps its own
+   * `first_party_cpm_outcome`; a CPM fill still reads `served` here.
+   */
+  direct_result: 'string',
+  /**
+   * COD-760. What the house ad answered, on every completion event:
+   * `served`, `skipped` (a paid ad won, or the request never reached it),
+   * the floor's refusals `promo_disabled` / `user_subscribed` / `no_slot`,
+   * or the house campaign stage's `house_campaign_empty` / `error`. When
+   * both the stage and the floor ran, the floor's answer (the last one) is
+   * reported.
+   */
+  house_result: 'string',
 } as const satisfies AxiomOnlyFieldSchema
 
 /**
@@ -420,112 +726,6 @@ const ADS_FETCH_COMPLETED_FIELDS = {
 export const ADS_FETCH_COMPLETED_FIELD_NAMES: readonly string[] = Object.keys(
   ADS_FETCH_COMPLETED_FIELDS,
 )
-
-const ADS_IMPREZIA_FETCH_COMPLETED_FIELDS = {
-  outcome: 'string',
-  /**
-   * Server-minted correlation handles for this route's single placement.
-   * These are the same request/opportunity identities written by the route;
-   * client, session, prompt, and provider request identifiers stay excluded.
-   */
-  request_id: 'string',
-  opportunity_id: 'string',
-  selection_reason: 'string',
-  experiment_arm: 'string',
-  surface: 'string',
-  ad_count: 'number',
-  duration_ms: 'number',
-  test_mode: 'boolean',
-  failure_class: 'string',
-} as const satisfies AxiomOnlyFieldSchema
-
-const ADS_IMPREZIA_FETCH_OUTCOMES = [
-  'fill',
-  'no_fill',
-  'timeout',
-  'provider_error',
-  'not_configured',
-  'not_eligible',
-  /**
-   * Our book took the slot before Imprezia was asked (COD-338). Its own
-   * outcome rather than a `not_eligible` failure class: the request was
-   * perfectly eligible, we chose not to ask, and every eligibility-rate and
-   * fill-collapse query grouped on `outcome` must keep meaning what it did.
-   */
-  'preempted',
-] as const
-const ADS_IMPREZIA_SELECTION_REASONS = ['primary', 'fallback'] as const
-const ADS_IMPREZIA_EXPERIMENT_ARMS = [
-  'imprezia_forced',
-  'imprezia_first',
-  'control',
-] as const
-const ADS_IMPREZIA_BROWSER_SURFACES = [
-  'freebuff_web_chat',
-  'chat_assistant',
-] as const
-const ADS_IMPREZIA_FAILURE_CLASSES = [
-  'missing_api_key',
-  'missing_user_agent',
-  'invalid_source_url',
-  'provider_timeout',
-  'provider_failure',
-  'client_exception',
-] as const
-const ADS_IMPREZIA_MAX_DURATION_MS = 60_000
-const AD_REQUEST_GRAIN_ID_RE = /^adr_[0-9a-f]{32}$/
-const AD_OPPORTUNITY_ID_RE = /^opp_[0-9a-f]{32}$/
-
-function sanitizeImpreziaFetchCompletedFields(
-  record: Record<string, unknown>,
-): AxiomOnlyLogEvent['data'] | null {
-  const data = sanitizeAllowlistedFields(
-    record,
-    ADS_IMPREZIA_FETCH_COMPLETED_FIELDS,
-  )
-  const outcome = data.outcome
-  const requestId = data.request_id
-  const opportunityId = data.opportunity_id
-  const selectionReason = data.selection_reason
-  const experimentArm = data.experiment_arm
-  const surface = data.surface
-  const adCount = data.ad_count
-  const durationMs = data.duration_ms
-  const testMode = data.test_mode
-  const failureClass = data.failure_class
-
-  if (
-    !ADS_IMPREZIA_FETCH_OUTCOMES.includes(
-      outcome as (typeof ADS_IMPREZIA_FETCH_OUTCOMES)[number],
-    ) ||
-    typeof requestId !== 'string' ||
-    !AD_REQUEST_GRAIN_ID_RE.test(requestId) ||
-    typeof opportunityId !== 'string' ||
-    !AD_OPPORTUNITY_ID_RE.test(opportunityId) ||
-    !ADS_IMPREZIA_SELECTION_REASONS.includes(
-      selectionReason as (typeof ADS_IMPREZIA_SELECTION_REASONS)[number],
-    ) ||
-    !ADS_IMPREZIA_EXPERIMENT_ARMS.includes(
-      experimentArm as (typeof ADS_IMPREZIA_EXPERIMENT_ARMS)[number],
-    ) ||
-    !ADS_IMPREZIA_BROWSER_SURFACES.includes(
-      surface as (typeof ADS_IMPREZIA_BROWSER_SURFACES)[number],
-    ) ||
-    (adCount !== 0 && adCount !== 1) ||
-    (outcome === 'fill' ? adCount !== 1 : adCount !== 0) ||
-    typeof durationMs !== 'number' ||
-    durationMs < 0 ||
-    durationMs > ADS_IMPREZIA_MAX_DURATION_MS ||
-    typeof testMode !== 'boolean' ||
-    (failureClass !== undefined &&
-      !ADS_IMPREZIA_FAILURE_CLASSES.includes(
-        failureClass as (typeof ADS_IMPREZIA_FAILURE_CLASSES)[number],
-      ))
-  ) {
-    return null
-  }
-  return data
-}
 
 /**
  * First-party inventory selection is operational telemetry only. In
@@ -548,6 +748,72 @@ const ADS_FIRST_PARTY_DECISION_FIELDS = {
   frequency_reservation_ms: 'number',
   frequency_max_reservation_ms: 'number',
   duration_ms: 'number',
+  /**
+   * The L2 v0 ranker, present only while `FREEBUFF_FIRST_PARTY_RANKER` is not
+   * `off`: its mode and model version, the state of its evidence -- `ready`
+   * (scoring produced scores), `unscored` (evidence, but nothing scorable),
+   * `uncovered` (the newest window is not covered and nothing was retained)
+   * or `unavailable` (not loaded yet, loads failing, or aged out) -- and per
+   * request the placements it scored and those whose ranked pick differs
+   * from today's rotation pick -- the shadow disagreement rate. Counts only;
+   * the two picks' campaign ids stay in-process.
+   */
+  ranker_mode: 'string',
+  ranker_version: 'string',
+  ranker_evidence: 'string',
+  ranker_scored_placements: 'number',
+  ranker_disagreements: 'number',
+  /**
+   * F, the fatigue layer (`docs/ads/fatigue-layer.md` §8), with
+   * the ranker. Aggregates only, never a campaign or user id: the history
+   * read's status (`ready`, `no_history`, `opted_out`, `timeout`,
+   * `unavailable`, `skipped`), its time and length (200 is the cap binding),
+   * the evidence's W normalization (`ready`, `partial`, `none`), and over the
+   * request's scored candidates how many were fatigued (f < 1), f's min and
+   * mean in ppm, and the placements whose F lead differs from the v0 lead.
+   * `ranker_version` is `l2v0f_*` only when F entered the scores.
+   */
+  ranker_fatigue_status: 'string',
+  ranker_fatigue_read_ms: 'number',
+  ranker_fatigue_history_len: 'number',
+  ranker_fatigue_normalization: 'string',
+  ranker_fatigue_fatigued_candidates: 'number',
+  ranker_fatigue_min_ppm: 'number',
+  ranker_fatigue_mean_ppm: 'number',
+  ranker_fatigue_disagreements: 'number',
+  /**
+   * The request's one Flash pCTR batch (`ad-model/decisions-pctr.ts`), present
+   * whenever the scorer is configured: the model label, the attempt outcome
+   * (`scored`, `control`, `timeout`, `http_error`, `no_candidates`, ...), its
+   * latency, how many ads it asked about out of how many were eligible (the
+   * cut keeps the best 25), and the input budget's token estimate, provider
+   * usage and whether it trimmed context or omitted view history. Id-free.
+   */
+  decisions_pctr_model: 'string',
+  decisions_pctr_outcome: 'string',
+  decisions_pctr_latency_ms: 'number',
+  decisions_pctr_questions: 'number',
+  decisions_pctr_eligible_ads: 'number',
+  decisions_pctr_estimated_input_tokens: 'number',
+  decisions_pctr_input_tokens: 'number',
+  decisions_pctr_context_trimmed: 'boolean',
+  decisions_pctr_history_omitted: 'boolean',
+  /**
+   * The intent pipeline's one Flash relevance batch
+   * (`ad-model/intent-relevance.ts`), on composer intent decisions only: the
+   * model label, the outcome (`scored`, `disabled`, `timeout`, ...), its
+   * latency, how many ads it asked about out of how many were eligible, how
+   * many it judged relevant, the partner slot it chose, and provider-reported
+   * input tokens. Id-free.
+   */
+  intent_relevance_model: 'string',
+  intent_relevance_outcome: 'string',
+  intent_relevance_latency_ms: 'number',
+  intent_relevance_questions: 'number',
+  intent_relevance_eligible_ads: 'number',
+  intent_relevance_relevant_ads: 'number',
+  intent_relevance_chosen_placement: 'string',
+  intent_relevance_input_tokens: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
 /** Settlement telemetry deliberately excludes impression, campaign, and
@@ -771,6 +1037,37 @@ const ADS_MCP_TOOL_CALL_FIELDS = {
   duration_ms: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
+const PAID_API_REQUEST_FIELDS = {
+  /** Our request id, echoed to the client as `x-request-id`. */
+  request_id: 'string',
+  api_key_id: 'string',
+  account_id: 'string',
+  /** The public model id the client asked for. */
+  model: 'string',
+  /** The provider that served (or last failed) the request. */
+  provider: 'string',
+  provider_request_id: 'string',
+  /** success | rejected | unavailable | upstream_error | client_abort | internal_error */
+  outcome: 'string',
+  http_status: 'number',
+  error_code: 'string',
+  /** settled | pending | released | none -- what happened to the reservation. */
+  billing_state: 'string',
+  billing_reason: 'string',
+  attempts: 'number',
+  stream: 'boolean',
+  input_tokens: 'number',
+  cached_input_tokens: 'number',
+  /** Cache-write input, sent only when nonzero; part of input_tokens. */
+  cache_write_input_tokens: 'number',
+  output_tokens: 'number',
+  reasoning_tokens: 'number',
+  upstream_cost_micros: 'number',
+  charged_micros: 'number',
+  latency_ms: 'number',
+  ttft_ms: 'number',
+} as const satisfies AxiomOnlyFieldSchema
+
 const ADS_ADVERTISER_REPORTING_READ_FIELDS = {
   advertiser_id: 'string',
   key_id: 'string',
@@ -839,6 +1136,13 @@ export type AxiomOnlyLogEvent = {
   event:
     | typeof CONTEXT_PRUNING_COMPLETED_EVENT
     | typeof STREAM_RECOVERY_EVENT
+    | typeof FILE_WRITE_GUARD_EVENT
+    | typeof MECHANICAL_COMPACTION_SKIPPED_EVENT
+    | typeof CONTEXT_COMPACTION_COMPLETED_EVENT
+    | typeof COMPACTION_FOLLOWUP_EVENT
+    | typeof TODO_PROGRESS_REMINDER_EVENT
+    | typeof FILE_EDIT_LOOP_EVENT
+    | typeof GRAVITY_REPORT_NUDGE_EVENT
     | typeof ADS_FETCH_COMPLETED_EVENT
     | typeof ADS_FIRST_PARTY_DECISION_EVENT
     | typeof ADS_FIRST_PARTY_SETTLEMENT_EVENT
@@ -849,10 +1153,12 @@ export type AxiomOnlyLogEvent = {
     | typeof ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT
     | typeof ADS_ADVERTISER_REPORTING_READ_EVENT
     | typeof ADS_MCP_TOOL_CALL_EVENT
-    | typeof ADS_IMPREZIA_FETCH_COMPLETED_EVENT
+    | typeof AD_CLICK_IVT_SCORED_EVENT
+    | typeof PAID_API_REQUEST_EVENT
     | typeof ADS_REQUEST_REJECTED_EVENT
+    | typeof ADS_SHOWCASE_PRESENTED_EVENT
     | SponsorBreakEvent
-  data: Record<string, string | number | boolean>
+  data: Record<string, string | number | boolean | null | string[]>
 }
 
 /** Keep only the allowlisted keys whose value matches the declared type
@@ -860,8 +1166,8 @@ export type AxiomOnlyLogEvent = {
 function sanitizeAllowlistedFields(
   record: Record<string, unknown>,
   fields: AxiomOnlyFieldSchema,
-): AxiomOnlyLogEvent['data'] {
-  const sanitized: AxiomOnlyLogEvent['data'] = {}
+): Record<string, string | number | boolean> {
+  const sanitized: Record<string, string | number | boolean> = {}
   for (const [key, expectedType] of Object.entries(fields)) {
     const value = record[key]
     if (typeof value !== expectedType) continue
@@ -910,15 +1216,59 @@ export function getAxiomOnlyLogEvent(
       data: sanitizeAllowlistedFields(record, STREAM_RECOVERY_FIELDS),
     }
   }
+  if (eventName === FILE_WRITE_GUARD_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, FILE_WRITE_GUARD_FIELDS),
+    }
+  }
+  if (eventName === MECHANICAL_COMPACTION_SKIPPED_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(
+        record,
+        MECHANICAL_COMPACTION_SKIPPED_FIELDS,
+      ),
+    }
+  }
+  if (eventName === CONTEXT_COMPACTION_COMPLETED_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(
+        record,
+        CONTEXT_COMPACTION_COMPLETED_FIELDS,
+      ),
+    }
+  }
+  if (eventName === COMPACTION_FOLLOWUP_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, COMPACTION_FOLLOWUP_FIELDS),
+    }
+  }
+  if (eventName === FILE_EDIT_LOOP_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, FILE_EDIT_LOOP_FIELDS),
+    }
+  }
+  if (eventName === TODO_PROGRESS_REMINDER_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, TODO_PROGRESS_REMINDER_FIELDS),
+    }
+  }
+  if (eventName === GRAVITY_REPORT_NUDGE_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, GRAVITY_REPORT_NUDGE_FIELDS),
+    }
+  }
   if (eventName === ADS_FETCH_COMPLETED_EVENT) {
     return {
       event: eventName,
       data: sanitizeAllowlistedFields(record, ADS_FETCH_COMPLETED_FIELDS),
     }
-  }
-  if (eventName === ADS_IMPREZIA_FETCH_COMPLETED_EVENT) {
-    const data = sanitizeImpreziaFetchCompletedFields(record)
-    return data ? { event: eventName, data } : null
   }
   if (eventName === ADS_FIRST_PARTY_DECISION_EVENT) {
     return {
@@ -955,6 +1305,13 @@ export function getAxiomOnlyLogEvent(
       event: eventName,
       data: sanitizeAllowlistedFields(record, ADS_REQUEST_REJECTED_FIELDS),
     }
+  }
+  if (eventName === ADS_SHOWCASE_PRESENTED_EVENT) {
+    const data = createGravityShowcasePresentationTelemetry(record)
+    // Keep the event inside the restricted branch even when malformed. The
+    // sink treats `null` as an ordinary row and would otherwise retain the raw
+    // client payload that failed validation.
+    return { event: eventName, data: data ?? {} }
   }
   if (
     eventName === ADS_BREAK_SHOWN_EVENT ||
@@ -994,6 +1351,18 @@ export function getAxiomOnlyLogEvent(
     return {
       event: eventName,
       data: sanitizeAllowlistedFields(record, ADS_MCP_TOOL_CALL_FIELDS),
+    }
+  }
+  if (eventName === AD_CLICK_IVT_SCORED_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAdClickIvtScoredFields(record),
+    }
+  }
+  if (eventName === PAID_API_REQUEST_EVENT) {
+    return {
+      event: eventName,
+      data: sanitizeAllowlistedFields(record, PAID_API_REQUEST_FIELDS),
     }
   }
   return null

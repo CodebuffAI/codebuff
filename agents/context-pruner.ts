@@ -296,6 +296,7 @@ const definition: AgentDefinition = {
           }
           return 'Updated todos'
         }
+        case 'ask_questions':
         case 'ask_user': {
           const questions = input.questions as
             | Array<{ question: string }>
@@ -662,6 +663,23 @@ const definition: AgentDefinition = {
                 }
               }
 
+              // Keep Desktop's question/answer pairs, whose result shape
+              // differs from the older ask_user selectedOption/otherText.
+              if (toolMessage.toolName === 'ask_questions') {
+                if (value.skipped) {
+                  entryParts.push('User skipped question')
+                } else if (Array.isArray(value.answers)) {
+                  for (const answer of value.answers as Array<{
+                    question: string
+                    answers: string[]
+                  }>) {
+                    entryParts.push(
+                      `User answered:\nQuestion: ${answer.question}\nAnswer: ${answer.answers.join('; ') || '(no answer)'}`,
+                    )
+                  }
+                }
+              }
+
               if (toolMessage.toolName === 'ask_user') {
                 if (value.skipped) {
                   entryParts.push('User skipped question')
@@ -720,10 +738,14 @@ const definition: AgentDefinition = {
               const agentResults = part.value as Array<{
                 agentName?: string
                 agentType?: string
-                value?: {
-                  type?: string
-                  value?: unknown
-                }
+                // Plain text, or an AgentOutput (structured output, older
+                // histories).
+                value?:
+                  | string
+                  | {
+                      type?: string
+                      value?: unknown
+                    }
               }>
               const includedResults = agentResults.filter(
                 (r) =>
@@ -732,12 +754,14 @@ const definition: AgentDefinition = {
               )
               if (includedResults.length > 0) {
                 const resultSummaries = includedResults.map((r) => {
+                  const output =
+                    typeof r.value === 'string' ? r.value : r.value?.value
                   let outputStr = ''
-                  if (r.value?.value !== undefined && r.value?.value !== null) {
-                    if (typeof r.value.value === 'string') {
-                      outputStr = r.value.value
+                  if (output !== undefined && output !== null) {
+                    if (typeof output === 'string') {
+                      outputStr = output
                     } else {
-                      outputStr = JSON.stringify(r.value.value)
+                      outputStr = JSON.stringify(output)
                     }
                     outputStr = outputStr
                       .replace(/<think>[\s\S]*?<\/think>/g, '')

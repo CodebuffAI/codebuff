@@ -103,13 +103,12 @@ export const useClipboard = () => {
         const successMessage = formatDefaultClipboardMessage(pending)
         void copyTextToClipboard(pending, {
           successMessage,
-          durationMs: 3000,
           signal: controller.signal,
         })
-          .then(() => {
+          .then((result) => {
             if (activeCopyControllerRef.current === controller) {
-              lastCopiedRef.current = pending
-              // Clear selection visual state after successful copy
+              if (result !== 'unverified') lastCopiedRef.current = pending
+              // The attempt finished; an unverified copy can be retried.
               setHasSelection(false)
             }
           })

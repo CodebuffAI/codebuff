@@ -24,6 +24,8 @@ enableMapSet()
  * message rendering components (MessageWithAgents, AgentMessage, etc).
  */
 export interface MessageBlockContext {
+  /** Hide actions that submit work while browsing a saved transcript. */
+  readOnly: boolean
   /** Active chat theme (colors, etc). */
   theme: ChatTheme | null
   /** Palette for markdown rendering. Null until Chat component initializes it. */
@@ -89,6 +91,10 @@ export interface MessageBlockCallbacks {
   onSponsoredProposalAccept: (target: string) => void
   /** The consent's answer. `false` refuses and leaves the row `offered`. */
   onSponsoredProposalConsent: (target: string, approved: boolean) => void
+  /** Expand or collapse the consent's reviewed procedure ("View steps"). */
+  onSponsoredProposalProcedure: (target: string, open: boolean) => void
+  /** Put back the files the run changed (`/ads:undo`, and the dock's Undo). */
+  onSponsoredProposalUndo: () => void
   /** Dismiss, report, never-this-advertiser, or the channel opt-out. */
   onSponsoredProposalControl: (
     target: string,
@@ -126,6 +132,7 @@ const noop = () => {}
 const noopFeedback: MessageBlockCallbacks['onFeedback'] = () => {}
 
 const initialContext: MessageBlockContext = {
+  readOnly: false,
   theme: null,
   markdownPalette: null,
   messageTree: null,
@@ -149,6 +156,8 @@ const initialCallbacks: MessageBlockCallbacks = {
   onSponsoredProposalDisclose: noop,
   onSponsoredProposalAccept: noop,
   onSponsoredProposalConsent: noop,
+  onSponsoredProposalProcedure: noop,
+  onSponsoredProposalUndo: noop,
   onSponsoredProposalControl: noop,
 }
 

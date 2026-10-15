@@ -19,6 +19,9 @@ describe('createExitCliCleanly', () => {
       drainClientLogs: async () => {
         events.push('flush-logs')
       },
+      flushAdEngagement: async () => {
+        events.push('flush-ad-engagement')
+      },
       endFreebuffSession: async () => {
         events.push('end-session')
       },
@@ -37,6 +40,7 @@ describe('createExitCliCleanly', () => {
     await exitCleanly(7)
 
     expect(events).toEqual([
+      'flush-ad-engagement',
       'local-cleanup',
       'wait-start',
       'flush-analytics',
@@ -58,6 +62,9 @@ describe('createExitCliCleanly', () => {
       drainClientLogs: async () => {
         events.push('flush-logs')
       },
+      flushAdEngagement: async () => {
+        events.push('flush-ad-engagement')
+      },
       endFreebuffSession: async () => {
         events.push('end-session')
       },
@@ -72,12 +79,76 @@ describe('createExitCliCleanly', () => {
     await exitCleanly()
 
     expect(events).toEqual([
+      'flush-ad-engagement',
       'local-cleanup',
       'stop-engagement',
       'flush-analytics',
       'flush-logs',
       'end-session',
     ])
+  })
+
+  test('closes ad engagement records before the renderer unmounts the cards', async () => {
+    const events: string[] = []
+    let releaseTransport: (() => void) | undefined
+    const exitCleanly = createExitCliCleanly({
+      isFreebuff: false,
+      cleanupLocal: () => events.push('local-cleanup'),
+      stopEngagementTracking: () => {},
+      flushAnalytics: async () => {},
+      drainClientLogs: async () => {},
+      // closeAll is synchronous inside the flush; the transport settles later
+      flushAdEngagement: () => {
+        events.push('close-all')
+        return new Promise<void>((resolve) => {
+          releaseTransport = () => {
+            events.push('transport-settled')
+            resolve()
+          }
+        })
+      },
+      endFreebuffSession: async () => {},
+      settleSponsoredRun: async () => null,
+      writeNotice: () => {},
+      waitForRemoteCleanup: async (tasks) => {
+        releaseTransport?.()
+        await Promise.allSettled(tasks)
+      },
+      exit: () => events.push('exit'),
+    })
+
+    await exitCleanly()
+
+    expect(events).toEqual([
+      'close-all',
+      'local-cleanup',
+      'transport-settled',
+      'exit',
+    ])
+  })
+
+  test('a throwing ad flush never blocks the exit', async () => {
+    const exitCodes: number[] = []
+    const exitCleanly = createExitCliCleanly({
+      isFreebuff: false,
+      cleanupLocal: () => {},
+      stopEngagementTracking: () => {},
+      flushAnalytics: async () => {},
+      drainClientLogs: async () => {},
+      flushAdEngagement: () => {
+        throw new Error('boom')
+      },
+      endFreebuffSession: async () => {},
+      settleSponsoredRun: async () => null,
+      writeNotice: () => {},
+      waitForRemoteCleanup: async (tasks) => {
+        await Promise.allSettled(tasks)
+      },
+      exit: (code) => exitCodes.push(code),
+    })
+
+    await exitCleanly(3)
+    expect(exitCodes).toEqual([3])
   })
 
   test('coalesces competing exit requests and keeps the first exit code', async () => {
@@ -90,6 +161,7 @@ describe('createExitCliCleanly', () => {
       stopEngagementTracking: () => {},
       flushAnalytics: async () => {},
       drainClientLogs: async () => {},
+      flushAdEngagement: async () => {},
       endFreebuffSession: async () => {},
       settleSponsoredRun: async () => null,
       writeNotice: () => {},

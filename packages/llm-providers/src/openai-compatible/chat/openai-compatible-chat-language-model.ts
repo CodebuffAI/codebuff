@@ -45,6 +45,8 @@ export type OpenAICompatibleChatConfig = {
   includeUsage?: boolean
   errorStructure?: ProviderErrorStructure<any>
   metadataExtractor?: MetadataExtractor
+  /** Endpoint-specific compatibility, applied before serialization in both modes. */
+  transformRequestBody?: (body: Record<string, unknown>) => Record<string, unknown>
 
   /**
    * Whether the model supports structured outputs.
@@ -158,7 +160,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
       toolChoice,
     })
 
-    return {
+    const result = {
       args: {
         // model id:
         model: this.modelId,
@@ -212,6 +214,10 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
         tool_choice: openaiToolChoice,
       },
       warnings: [...warnings, ...toolWarnings],
+    }
+    return {
+      ...result,
+      args: this.config.transformRequestBody?.(result.args) ?? result.args,
     }
   }
 
@@ -282,6 +288,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           input: toolCall.function.arguments!,
+          ...toolCallExtraContentMetadata(
+            toolCall.extra_content,
+            this.providerOptionsName,
+            this.modelId,
+          ),
         })
       }
     }
@@ -370,6 +381,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
         name: string
         arguments: string
       }
+      extraContent?: unknown
       hasFinished: boolean
     }> = []
 
@@ -572,7 +584,9 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
-                const index = toolCallDelta.index
+                const index =
+                  toolCallDelta.index ??
+                  inferToolCallIndex(toolCalls, toolCallDelta)
 
                 if (toolCalls[index] == null) {
                   if (toolCallDelta.function?.name == null) {
@@ -598,6 +612,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                       name: toolCallDelta.function.name,
                       arguments: toolCallDelta.function.arguments ?? '',
                     },
+                    extraContent: toolCallDelta.extra_content ?? undefined,
                     hasFinished: false,
                   }
 
@@ -629,6 +644,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                         toolCallId: toolCall.id ?? generateId(),
                         toolName: toolCall.function.name,
                         input: toolCall.function.arguments,
+                        ...toolCallExtraContentMetadata(
+                          toolCall.extraContent,
+                          providerOptionsName,
+                          modelId,
+                        ),
                       })
                       toolCall.hasFinished = true
                     }
@@ -642,6 +662,10 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
                 if (toolCall.hasFinished) {
                   continue
+                }
+
+                if (toolCallDelta.extra_content != null) {
+                  toolCall.extraContent = toolCallDelta.extra_content
                 }
 
                 if (toolCallDelta.function?.arguments != null) {
@@ -672,6 +696,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
                     input: toolCall.function.arguments,
+                    ...toolCallExtraContentMetadata(
+                      toolCall.extraContent,
+                      providerOptionsName,
+                      modelId,
+                    ),
                   })
                   toolCall.hasFinished = true
                 }
@@ -722,6 +751,11 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                 toolCallId: toolCall.id ?? generateId(),
                 toolName: toolCall.function.name,
                 input: toolCall.function.arguments,
+                ...toolCallExtraContentMetadata(
+                  toolCall.extraContent,
+                  providerOptionsName,
+                  modelId,
+                ),
               })
             }
 
@@ -763,6 +797,65 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
       response: { headers: responseHeaders },
     }
   }
+}
+
+/**
+ * A tool call's `extra_content`, kept so the next request can send it back.
+ * Gemini 3's OpenAI-compatible endpoint puts the call's thought signature at
+ * `extra_content.google.thought_signature` and refuses (HTTP 400) a follow-up
+ * whose replayed call lacks it. Like `reasoning_details`, it is tagged with
+ * the model that produced it and only replayed to that model.
+ */
+function toolCallExtraContentMetadata(
+  extraContent: unknown,
+  providerOptionsName: string,
+  modelId: string,
+): { providerMetadata?: SharedV2ProviderMetadata } {
+  if (
+    extraContent == null ||
+    typeof extraContent !== 'object' ||
+    Array.isArray(extraContent)
+  ) {
+    return {}
+  }
+  return {
+    providerMetadata: {
+      [providerOptionsName]: { extra_content: extraContent, model: modelId },
+    } as SharedV2ProviderMetadata,
+  }
+}
+
+/**
+ * The slot of a streamed tool-call delta that carries no `index`. OpenAI
+ * always sends one, but several OpenAI-compatible servers and proxies do not
+ * (seen with local routers in front of other providers), and a chunk that
+ * failed the schema dropped the call: the turn ended with "Writing the
+ * file." and no write. Without an index:
+ * - an `id` names its call: an existing one continues, a new one opens a slot;
+ * - a delta with no `id` continues the call still being streamed, unless it
+ *   names a different function (then it is a new call);
+ * - anything else opens a new slot.
+ */
+export function inferToolCallIndex(
+  toolCalls: ReadonlyArray<
+    | { id: string; function: { name: string }; hasFinished: boolean }
+    | undefined
+  >,
+  delta: { id?: string | null; function: { name?: string | null } },
+): number {
+  if (delta.id != null) {
+    const existing = toolCalls.findIndex((call) => call?.id === delta.id)
+    return existing === -1 ? toolCalls.length : existing
+  }
+  const lastIndex = toolCalls.length - 1
+  const last = toolCalls[lastIndex]
+  if (
+    last &&
+    !last.hasFinished &&
+    (delta.function.name == null || delta.function.name === last.function.name)
+  )
+    return lastIndex
+  return delta.function.name == null && last ? lastIndex : toolCalls.length
 }
 
 const openaiCompatibleTokenUsageSchema = z
@@ -807,6 +900,7 @@ const OpenAICompatibleChatResponseSchema = z.object({
                 name: z.string(),
                 arguments: z.string(),
               }),
+              extra_content: z.unknown().nullish(),
             }),
           )
           .nullish(),
@@ -834,9 +928,8 @@ const createOpenAICompatibleChatChunkSchema = <
     // ever see it: the stream ended with no content, no usage and no error,
     // which the silent-stop detector read as a severed connection. Users got
     // "check your network connection" after four pointless retries while the
-    // provider had plainly said why it refused (prod, 2026-08-16: OpenAI
-    // returned "Policy Violation: this user has been blocked" for every
-    // Luna request).
+    // provider had plainly said why it refused (e.g. a provider policy
+    // refusal).
     errorSchema,
     z.object({
       id: z.string().nullish(),
@@ -859,12 +952,16 @@ const createOpenAICompatibleChatChunkSchema = <
               tool_calls: z
                 .array(
                   z.object({
-                    index: z.number(),
+                    // Optional: some OpenAI-compatible servers and proxies
+                    // omit it (see inferToolCallIndex). Requiring it failed
+                    // the whole chunk, so the tool call was silently lost.
+                    index: z.number().nullish(),
                     id: z.string().nullish(),
                     function: z.object({
                       name: z.string().nullish(),
                       arguments: z.string().nullish(),
                     }),
+                    extra_content: z.unknown().nullish(),
                   }),
                 )
                 .nullish(),

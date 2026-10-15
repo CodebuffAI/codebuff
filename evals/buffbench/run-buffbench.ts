@@ -13,6 +13,7 @@ import pLimit from 'p-limit'
 
 import { runAgentOnCommit, type ExternalAgentType } from './agent-runner'
 import { formatTaskResults } from './format-output'
+import { createFreestyleSandbox } from './freestyle-sandbox'
 import { judgeCommitResult } from './judge'
 import { extractAgentLessons, saveAgentLessons } from './lessons-extractor'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
@@ -62,6 +63,9 @@ async function runTask(options: {
   finalCheckCommands?: string[]
   disableAnalysis?: boolean
   saveTraces?: boolean
+  /** Set with --freestyle: runs one agent on one task in its own VM. */
+  runInFreestyle?: ReturnType<typeof createFreestyleSandbox>
+  binInstalls?: EvalDataV2['binInstalls']
 }) {
   const {
     client,
@@ -80,6 +84,8 @@ async function runTask(options: {
     finalCheckCommands,
     disableAnalysis,
     saveTraces = false,
+    runInFreestyle,
+    binInstalls,
   } = options
 
   console.log(
@@ -92,18 +98,39 @@ async function runTask(options: {
   const agentPromises = agents.map(async (agent) => {
     const { agentId, externalAgentType } = parseAgentId(agent)
 
-    const agentResult = await runAgentOnCommit({
-      client,
-      agentId,
-      commit,
-      repoUrl,
-      initCommand,
-      env,
-      localAgentDefinitions,
-      printEvents,
-      finalCheckCommands,
-      externalAgentType,
-    })
+    const agentResult = runInFreestyle
+      ? await runInFreestyle({
+          agentId,
+          externalAgentType,
+          // The task without its ground truth, which stays here for the judge.
+          task: {
+            id: commit.id,
+            parentSha: commit.parentSha,
+            prompt: commit.prompt,
+            supplementalFiles: commit.supplementalFiles,
+            fileDiffs: commit.fileDiffs.map(({ path, status }) => ({
+              path,
+              status,
+            })),
+          },
+          repoUrl,
+          initCommand,
+          env,
+          binInstalls,
+          finalCheckCommands,
+        })
+      : await runAgentOnCommit({
+          client,
+          agentId,
+          commit,
+          repoUrl,
+          initCommand,
+          env,
+          localAgentDefinitions,
+          printEvents,
+          finalCheckCommands,
+          externalAgentType,
+        })
 
     const judgeResult = await judgeCommitResult({
       client,
@@ -153,6 +180,7 @@ async function runTask(options: {
       judging: judgeResult,
       cost: agentResult.cost,
       durationMs: agentResult.durationMs,
+      agentDurationMs: agentResult.agentDurationMs,
       error: agentResult.error,
       finalCheckOutputs: agentResult.finalCheckOutputs,
     }
@@ -170,10 +198,12 @@ async function runTask(options: {
       commitSha: commit.sha,
       prompt: commit.prompt,
       trace: agentResult.trace,
+      contextLog: agentResult.contextLog,
       diff: agentResult.diff,
       judgeResult,
       cost: agentResult.cost,
       durationMs: agentResult.durationMs,
+      agentDurationMs: agentResult.agentDurationMs,
       error: agentResult.error,
       timestamp: new Date().toISOString(),
       finalCheckOutputs: agentResult.finalCheckOutputs,
@@ -226,6 +256,7 @@ async function runTask(options: {
       ...t.judgeResult,
       cost: t.cost,
       durationMs: t.durationMs,
+      agentDurationMs: t.agentDurationMs,
       error: t.error,
     })),
     prompt: commit.prompt,
@@ -266,7 +297,7 @@ async function runTask(options: {
  * Install binaries specified in binInstalls config to a temporary directory
  * Returns the temporary directory path and updated env with PATH
  */
-function installBinaries(binInstalls: EvalDataV2['binInstalls']): {
+export function installBinaries(binInstalls: EvalDataV2['binInstalls']): {
   tempDir: string | null
   env: Record<string, string>
 } {
@@ -325,6 +356,9 @@ export async function runBuffBench(options: {
   extractLessons?: boolean
   disableAnalysis?: boolean
   saveTraces?: boolean
+  /** 'freestyle' (recommended, --freestyle) runs every agent-on-task in its
+   *  own Freestyle VM, so a sleeping laptop cannot taint the run. */
+  sandbox?: 'local' | 'freestyle'
 }) {
   const {
     evalDataPaths,
@@ -334,6 +368,7 @@ export async function runBuffBench(options: {
     extractLessons = false,
     disableAnalysis = false,
     saveTraces = false,
+    sandbox = 'local',
   } = options
 
   if (evalDataPaths.length === 0) {
@@ -374,9 +409,15 @@ export async function runBuffBench(options: {
     (bin, index, self) => index === self.findIndex((b) => b.name === bin.name),
   )
 
-  // Install binaries once at the beginning
-  const { tempDir: binsTempDir, env: binsEnv } =
-    installBinaries(uniqueBinInstalls)
+  // Install binaries once at the beginning; a Freestyle VM installs its own.
+  const runInFreestyle =
+    sandbox === 'freestyle' ? createFreestyleSandbox() : undefined
+  if (!runInFreestyle) {
+    console.log('Recommended: --freestyle runs each task in its own VM.')
+  }
+  const { tempDir: binsTempDir, env: binsEnv } = installBinaries(
+    runInFreestyle ? [] : uniqueBinInstalls,
+  )
 
   let commitsToRun: CommitWithSource[]
   if (taskIds && taskIds.length > 0) {
@@ -480,6 +521,8 @@ export async function runBuffBench(options: {
         finalCheckCommands: evalData.finalCheckCommands,
         disableAnalysis,
         saveTraces,
+        runInFreestyle,
+        binInstalls: uniqueBinInstalls,
       }),
     )
   })

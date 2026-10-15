@@ -88,16 +88,23 @@ export const LoginModal = ({
       setHasClickedLink(true)
 
       try {
-        await copyTextToClipboard(text, {
+        const result = await copyTextToClipboard(text, {
           suppressGlobalMessage: true,
         })
 
-        setJustCopied(true)
-        setCopyMessage('✓ URL copied to clipboard!')
-        setTimeout(() => {
-          setCopyMessage(null)
-          setJustCopied(false)
-        }, 3000)
+        setJustCopied(result !== 'unverified')
+        setCopyMessage(
+          result === 'unverified'
+            ? 'Copy sent to terminal — paste to check.'
+            : '✓ URL copied to clipboard!',
+        )
+        setTimeout(
+          () => {
+            setCopyMessage(null)
+            setJustCopied(false)
+          },
+          result === 'unverified' ? 6000 : 3000,
+        )
       } catch (err) {
         // Silently fail - the URL is visible for manual copying
         logger.error(err, 'Failed to copy to clipboard')

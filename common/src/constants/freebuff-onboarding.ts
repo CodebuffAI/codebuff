@@ -35,6 +35,17 @@ export type OnboardingOption = {
   exclusive?: boolean
 }
 
+/** An option the form stopped offering without a successor. */
+export type OnboardingRetiredOption = OnboardingOption & {
+  /**
+   * The UTC day (`YYYY-MM-DD`) that contains the change. Answers under this
+   * id date from before it, plus the hours of that day that preceded the
+   * change. The admin view lists them apart from the live options and starts
+   * its "since split" range here.
+   */
+  retiredOn: string
+}
+
 export type OnboardingQuestion = {
   id: OnboardingQuestionId
   prompt: string
@@ -45,6 +56,15 @@ export type OnboardingQuestion = {
    *  distance between two answers means something and the control should say
    *  so. Everything else is a chip list. Storage is identical either way. */
   kind?: 'choice' | 'scale'
+  /** Present the options in a random order, once per form mount, with the
+   *  "other" option pinned last. For a question with no natural order the
+   *  first chip wins on position alone; shuffling spreads that bias evenly
+   *  instead of handing it to whichever channel happens to be listed first. */
+  shuffleOptions?: boolean
+  /** Options no longer on the form whose past answers have no single
+   *  successor. Not offered and not accepted, but still counted and shown in
+   *  the admin view, so retiring one does not erase its history. */
+  retiredOptions?: OnboardingRetiredOption[]
 }
 
 /** Every question offers this. The accompanying free text is stored separately
@@ -59,22 +79,32 @@ export const FREEBUFF_ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
     // headers are stripped, and self-report is the only signal for word of
     // mouth, which is where most of it actually comes from.
     //
-    // Instagram leads because it was the single largest write-in by a distance,
-    // and it shares an audience with TikTok closely enough that splitting them
-    // would buy two thin numbers instead of one usable one.
+    // Instagram, TikTok and Facebook were one chip until 2026-09-28. They are
+    // split so cost per activation can be read per platform; answers from
+    // before the split stay counted under the retired combined id below.
     options: [
-      // Keeps the `tiktok` id: those answers are the same audience, and a new
-      // id would restart the count from zero for the sake of a tidier string.
-      { id: 'tiktok', label: 'Instagram / TikTok' },
+      { id: 'instagram', label: 'Instagram' },
+      // New id: `tiktok` is the retired combined chip, so reusing it would
+      // mix TikTok-only answers into three platforms' worth of history.
+      { id: 'tiktok_only', label: 'TikTok' },
+      { id: 'facebook', label: 'Facebook' },
       { id: 'youtube', label: 'YouTube' },
       { id: 'x_twitter', label: 'X / Twitter' },
       { id: 'search', label: 'Google / AI search' },
       { id: 'friend', label: 'A friend' },
-      { id: 'reddit', label: 'Reddit' },
-      { id: 'github', label: 'GitHub' },
       { id: OTHER_OPTION_ID, label: 'Somewhere else' },
     ],
     multi: false,
+    shuffleOptions: true,
+    retiredOptions: [
+      {
+        id: 'tiktok',
+        label: 'Instagram / TikTok / Facebook (before split)',
+        // Merged 2026-09-28 19:59 PDT (#4337), which is 02:59 UTC on the 29th,
+        // and the admin ranges are UTC days.
+        retiredOn: '2026-09-29',
+      },
+    ],
   },
   {
     id: 'role',
@@ -84,11 +114,10 @@ export const FREEBUFF_ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
       { id: 'founder', label: 'Founder' },
       { id: 'student', label: 'Student' },
       { id: 'hobbyist', label: 'Hobbyist' },
-      { id: 'pm', label: 'Designer or PM' },
-      { id: 'non_technical', label: 'Non-technical' },
       { id: OTHER_OPTION_ID, label: 'Something else' },
     ],
     multi: false,
+    shuffleOptions: true,
   },
   {
     id: 'proficiency',
@@ -117,6 +146,7 @@ export const FREEBUFF_ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
       { id: OTHER_OPTION_ID, label: 'Something else' },
     ],
     multi: true,
+    shuffleOptions: true,
   },
   {
     id: 'subscriptions',
@@ -131,13 +161,13 @@ export const FREEBUFF_ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
       { id: 'claude_code', label: 'Claude Code' },
       { id: 'cursor', label: 'Cursor' },
       { id: 'opencode', label: 'opencode' },
-      { id: 'copilot', label: 'GitHub Copilot' },
       { id: 'codex', label: 'Codex' },
       { id: 'gemini', label: 'Gemini' },
       { id: 'app_builder', label: 'Lovable / Replit' },
       { id: OTHER_OPTION_ID, label: 'Something else' },
     ],
     multi: true,
+    shuffleOptions: true,
   },
 ] as const
 
@@ -152,15 +182,29 @@ export const FREEBUFF_ONBOARDING_QUESTIONS: readonly OnboardingQuestion[] = [
 export const ONBOARDING_LEGACY_OPTION_IDS: Partial<
   Record<OnboardingQuestionId, Record<string, string>>
 > = {
-  // Discord and blog/newsletter were dropped as options; both are honestly
-  // "somewhere else" rather than any of the channels that remain.
-  referral_source: { discord: OTHER_OPTION_ID, blog_news: OTHER_OPTION_ID },
-  // Data/ML folded into the broader developer bucket, designer into the
-  // designer-or-PM one.
-  role: { data_ml: 'professional_dev', designer: 'pm' },
+  // Discord, blog/newsletter, Reddit and GitHub were dropped as options; all
+  // are honestly "somewhere else" rather than any of the channels that remain.
+  referral_source: {
+    discord: OTHER_OPTION_ID,
+    blog_news: OTHER_OPTION_ID,
+    reddit: OTHER_OPTION_ID,
+    github: OTHER_OPTION_ID,
+  },
+  // Data/ML folded into the broader developer bucket. Designer-or-PM and
+  // non-technical were retired without a successor (2026-09-16), so they and
+  // the older `designer` id that used to fold into PM all read as "something
+  // else".
+  role: {
+    data_ml: 'professional_dev',
+    designer: OTHER_OPTION_ID,
+    pm: OTHER_OPTION_ID,
+    non_technical: OTHER_OPTION_ID,
+  },
   // Prototypes and demos are websites and apps; code review has no successor
   // narrow enough to claim it, so it goes to "something else".
   intended_use: { prototyping: 'website', debugging: OTHER_OPTION_ID },
+  // GitHub Copilot was dropped as an option (2026-09-16).
+  subscriptions: { copilot: OTHER_OPTION_ID },
 }
 
 /**
@@ -176,7 +220,9 @@ export const ONBOARDING_OTHER_TEXT_RULES: Partial<
   Record<OnboardingQuestionId, { optionId: string; pattern: RegExp }[]>
 > = {
   referral_source: [
-    { optionId: 'tiktok', pattern: /insta|\btiktok\b|\btik tok\b|\big\b/i },
+    { optionId: 'instagram', pattern: /insta|\big\b/i },
+    { optionId: 'tiktok_only', pattern: /\btiktok\b|\btik tok\b/i },
+    { optionId: 'facebook', pattern: /face\s?book|\bfb\b/i },
     {
       optionId: 'search',
       pattern:
@@ -204,6 +250,203 @@ export function classifyOnboardingOtherText(
   return null
 }
 
+/** The referral answer as PostHog person properties. */
+export type OnboardingSourceProperties = {
+  /** The social channels share one value, so they can be read as a whole. */
+  onboarding_source: string
+  /** Each channel the form offers on its own. */
+  onboarding_source_detail: string
+}
+
+function sourceProperties(
+  source: string,
+  detail: string = source,
+): OnboardingSourceProperties {
+  return { onboarding_source: source, onboarding_source_detail: detail }
+}
+
+/** `referral_source` option id → its person properties. Spelled out rather
+ *  than read from the option labels, which are copy and get reworded — a
+ *  PostHog value that changes splits its history in two. */
+const ONBOARDING_SOURCE_PROPERTIES: Record<string, OnboardingSourceProperties> =
+  {
+    // The combined chip from before the split: social media, platform unknown.
+    tiktok: sourceProperties(
+      'Social media',
+      'Instagram / TikTok / Facebook (before split)',
+    ),
+    instagram: sourceProperties('Social media', 'Instagram'),
+    tiktok_only: sourceProperties('Social media', 'TikTok'),
+    facebook: sourceProperties('Social media', 'Facebook'),
+    youtube: sourceProperties('Social media', 'YouTube'),
+    x_twitter: sourceProperties('Social media', 'X / Twitter'),
+    search: sourceProperties('Google / AI search'),
+    friend: sourceProperties('A friend'),
+    [OTHER_OPTION_ID]: sourceProperties('Somewhere else'),
+  }
+
+/**
+ * The "Where did you hear about Freebuff?" answer as PostHog person
+ * properties, or null when it was not answered. Retired ids and write-ins are
+ * counted the way the admin tally counts them.
+ */
+export function onboardingSourceProperties(
+  answers: readonly StoredOnboardingAnswer[] | null | undefined,
+): OnboardingSourceProperties | null {
+  const answer = answers?.find((a) => a.questionId === 'referral_source')
+  const rawId = answer?.optionIds[0]
+  if (!rawId) return null
+  const text = answer.otherText?.trim()
+  const reclassified =
+    rawId === OTHER_OPTION_ID && text
+      ? classifyOnboardingOtherText('referral_source', text)
+      : null
+  const id =
+    reclassified ??
+    ONBOARDING_LEGACY_OPTION_IDS.referral_source?.[rawId] ??
+    rawId
+  return ONBOARDING_SOURCE_PROPERTIES[id] ?? null
+}
+
+/**
+ * The UTC day the newest retired option went away, or null when none has.
+ *
+ * It is where a range starts if every answer in it must come from the options
+ * the form offers now: before it, a retired option's answers sit apart from
+ * the live ones, so platform-level comparisons are only clean from this day on.
+ */
+export function latestOnboardingRetirementDay(
+  questions: readonly OnboardingQuestion[] = FREEBUFF_ONBOARDING_QUESTIONS,
+): string | null {
+  let latest: string | null = null
+  for (const question of questions) {
+    for (const option of question.retiredOptions ?? []) {
+      if (latest === null || option.retiredOn > latest) latest = option.retiredOn
+    }
+  }
+  return latest
+}
+
+/** Per question, per current option id: how many respondents it counts. */
+export type OnboardingTally = Record<string, Record<string, number>>
+
+/** A stored answer as the database hands it back: ids are plain strings there,
+ *  because a question retired since the row was written is still a row. */
+export type StoredOnboardingAnswer = {
+  questionId: string
+  optionIds: readonly string[]
+  otherText?: string
+}
+
+/**
+ * Bump whenever the mapping below would count an existing answer
+ * differently: an option retired or added, a legacy id remapped, a write-in
+ * rule changed. The stored aggregate in Convex carries the version it was
+ * built under, and a mismatch is what triggers a full rebuild — so forgetting
+ * this bump leaves the admin bars counting history under the old rules.
+ */
+export const ONBOARDING_TALLY_VERSION = 5
+
+/** Every current option at zero, so a question nobody has answered still
+ *  renders its full bar list rather than vanishing. Retired options without a
+ *  successor are included: their past answers still count. */
+export function emptyOnboardingTally(
+  questions: readonly OnboardingQuestion[] = FREEBUFF_ONBOARDING_QUESTIONS,
+): OnboardingTally {
+  return Object.fromEntries(
+    questions.map((q) => [
+      q.id,
+      Object.fromEntries(
+        [...q.options, ...(q.retiredOptions ?? [])].map((o) => [o.id, 0]),
+      ),
+    ]),
+  )
+}
+
+/**
+ * Add one respondent's answers into a tally, IN PLACE, under the current
+ * rules: retired ids fold into their successor, a write-in that names an
+ * option we now offer counts as that option, and ids the current question set
+ * does not define are dropped. `sign` of -1 removes the same answers again,
+ * which is how a resubmission (replace, not append) keeps the running
+ * aggregate honest.
+ *
+ * Returns the write-in texts that stayed "other", per question, so a caller
+ * listing them never disagrees with the bars about the same answer.
+ */
+export function applyOnboardingAnswersToTally(
+  tally: OnboardingTally,
+  answers: readonly StoredOnboardingAnswer[] | null | undefined,
+  sign: 1 | -1 = 1,
+  questions: readonly OnboardingQuestion[] = FREEBUFF_ONBOARDING_QUESTIONS,
+): Record<string, string[]> {
+  const otherTexts: Record<string, string[]> = {}
+  const known = new Set(questions.map((q) => q.id))
+  for (const answer of answers ?? []) {
+    if (!known.has(answer.questionId as OnboardingQuestionId)) continue
+    const questionId = answer.questionId as OnboardingQuestionId
+    const bucket = (tally[questionId] ??= {})
+    const legacy = ONBOARDING_LEGACY_OPTION_IDS[questionId] ?? {}
+    const text = answer.otherText?.trim()
+    const reclassified = text ? classifyOnboardingOtherText(questionId, text) : null
+    for (const rawId of answer.optionIds ?? []) {
+      const id =
+        rawId === OTHER_OPTION_ID && reclassified
+          ? reclassified
+          : (legacy[rawId] ?? rawId)
+      // Only ids the current question set defines: a retired option with no
+      // successor would otherwise appear as an unexplained row in the UI.
+      if (id in bucket) bucket[id] += sign
+    }
+    if (text && !reclassified) (otherTexts[questionId] ??= []).push(text)
+  }
+  return otherTexts
+}
+
+/**
+ * The tally from pre-aggregated counts: each entry says `count` stored
+ * answers to `questionId` chose `optionId` (with `otherText` when that option
+ * is the write-in). Used where the database does the counting (the Postgres
+ * admin view, COD-742) instead of a running aggregate.
+ *
+ * The same as `applyOnboardingAnswersToTally` over every row, because that
+ * mapping is linear per (answer, option): each group is mapped once as a
+ * representative answer and scaled by its count.
+ */
+export function onboardingTallyFromOptionCounts(
+  counts: Iterable<{
+    questionId: string
+    optionId: string
+    otherText?: string | null
+    count: number
+  }>,
+  questions: readonly OnboardingQuestion[] = FREEBUFF_ONBOARDING_QUESTIONS,
+): OnboardingTally {
+  const tally = emptyOnboardingTally(questions)
+  for (const group of counts) {
+    if (!(group.count > 0)) continue
+    const delta = emptyOnboardingTally(questions)
+    applyOnboardingAnswersToTally(
+      delta,
+      [
+        {
+          questionId: group.questionId,
+          optionIds: [group.optionId],
+          ...(group.otherText ? { otherText: group.otherText } : {}),
+        },
+      ],
+      1,
+      questions,
+    )
+    for (const [q, options] of Object.entries(delta)) {
+      for (const [o, n] of Object.entries(options)) {
+        if (n !== 0) tally[q]![o] = (tally[q]![o] ?? 0) + n * group.count
+      }
+    }
+  }
+  return tally
+}
+
 export type OnboardingAnswer = {
   questionId: OnboardingQuestionId
   /** Chosen option ids. Single-choice questions carry exactly one. */
@@ -217,6 +460,25 @@ export type OnboardingSubmission = {
 }
 
 export const ONBOARDING_OTHER_TEXT_MAX = 200
+
+/**
+ * Where a submission was made. Stored on the row for segmentation. `web` is
+ * the dashboard dialog; `cli_login` is the browser landing page every CLI and
+ * Desktop sign-in ends on (the two are indistinguishable there — both redeem
+ * the same auth code); `desktop` is the app's own dialog, asked after sign-in
+ * because the app takes focus back from that landing page before most people
+ * reach its questions.
+ */
+export const ONBOARDING_SURFACES = ['web', 'cli_login', 'desktop'] as const
+export type OnboardingSurface = (typeof ONBOARDING_SURFACES)[number]
+
+/** A client-supplied surface, or `web` for anything unknown: an older form
+ *  sends none, and a forged value must not become a segment. */
+export function parseOnboardingSurface(raw: unknown): OnboardingSurface {
+  return (ONBOARDING_SURFACES as readonly unknown[]).includes(raw)
+    ? (raw as OnboardingSurface)
+    : 'web'
+}
 
 export type OnboardingValidationError = {
   /** Null when the complaint is about the submission as a whole rather than
@@ -317,4 +579,35 @@ export function isOnboardingComplete(
     answers.filter((a) => a.optionIds.length > 0).map((a) => a.questionId),
   )
   return questions.every((q) => answered.has(q.id))
+}
+
+/**
+ * Stored answers minus options the form no longer offers, for resuming it.
+ *
+ * The form sends every restored answer back with its next save, and the
+ * server rejects a retired id — so without this, someone who picked a since
+ * retired option and left halfway could never save again. Dropping it asks
+ * that question again instead. Only for resuming: the stored row keeps what
+ * the person picked.
+ */
+export function resumableOnboardingAnswers(
+  answers: readonly OnboardingAnswer[] | null | undefined,
+  questions: readonly OnboardingQuestion[] = FREEBUFF_ONBOARDING_QUESTIONS,
+): OnboardingAnswer[] {
+  const out: OnboardingAnswer[] = []
+  for (const answer of answers ?? []) {
+    const question = questions.find((q) => q.id === answer.questionId)
+    if (!question) continue
+    const live = new Set(question.options.map((o) => o.id))
+    const optionIds = answer.optionIds.filter((id) => live.has(id))
+    if (optionIds.length === 0) continue
+    out.push({
+      questionId: answer.questionId,
+      optionIds,
+      ...(optionIds.includes(OTHER_OPTION_ID) && answer.otherText
+        ? { otherText: answer.otherText }
+        : {}),
+    })
+  }
+  return out
 }

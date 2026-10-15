@@ -4,6 +4,7 @@ import {
   type SkillDefinition,
 } from '../types/skill'
 import matter from 'gray-matter'
+import { parse as parseYaml } from 'yaml'
 
 /**
  * Parse and validate one SKILL.md document without touching disk.
@@ -63,6 +64,35 @@ export function parseSkillFileContent(
 }
 
 /**
+ * The opening delimiter with nothing after it. gray-matter reads any text after
+ * the first `---` as the frontmatter language, and `---js` selects its
+ * JavaScript engine, which `eval()`s the block. SKILL.md files come from repos
+ * and registries we do not control, and this parser runs in platform Convex,
+ * the Cloud runner and `web` as well as on users' machines, so a language
+ * suffix is refused outright rather than parsed.
+ */
+const PLAIN_FRONTMATTER_OPENER = /^\uFEFF?---[ \t]*\r?\n/
+
+const refuseEngine = (): never => {
+  throw new Error('SKILL.md frontmatter must be YAML')
+}
+
+// Passing options also keeps gray-matter from caching every parsed document
+// in its module-level cache, which it does only when called without options.
+const MATTER_OPTIONS = {
+  language: 'yaml',
+  engines: {
+    javascript: refuseEngine,
+    coffee: refuseEngine,
+    // gray-matter's own YAML engine is js-yaml 3, whose merge-key handling
+    // can pollute Object.prototype, and a skill's frontmatter is
+    // user-controlled (AB827V0 #288). `yaml` parses YAML 1.2 with merge keys
+    // off by default.
+    yaml: (source: string) => parseYaml(source) as object,
+  },
+}
+
+/**
  * YAML frontmatter between `---` markers at the very top, or `null`.
  *
  * Empty frontmatter is `null` rather than an empty object: a SKILL.md with no
@@ -72,8 +102,9 @@ function parseFrontmatter(content: string): {
   frontmatter: Record<string, unknown>
   body: string
 } | null {
+  if (!PLAIN_FRONTMATTER_OPENER.test(content)) return null
   try {
-    const parsed = matter(content)
+    const parsed = matter(content, MATTER_OPTIONS)
     if (!parsed.data || Object.keys(parsed.data).length === 0) {
       return null
     }

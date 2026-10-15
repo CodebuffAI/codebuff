@@ -86,11 +86,22 @@ describe('run_terminal_command commit attribution', () => {
   test('suppression changes ONLY the commit guidance', () => {
     // Everything a normal run relies on is still there: the two variants differ
     // in the step-4 block and the second example and nowhere else.
+    const commitHeading = '### Using git to commit changes'
+    const executionGuidance = runTerminalCommandParams.description.split(
+      commitHeading,
+    )[0]
+    expect(executionGuidance.trim().length).toBeGreaterThan(0)
+    expect(
+      runTerminalCommandNoAttributionDescription.split(commitHeading)[0],
+    ).toBe(executionGuidance)
     for (const shared of [
-      'Stick to these use cases:',
-      'DO NOT do any of the following:',
-      '### Using git to commit changes',
-      'Never alter the git config.',
+      'Authorization:',
+      'Execution:',
+      "The user's request authorizes the ordinary steps reasonably necessary to complete it.",
+      'A coding request alone does not authorize publishing, pushing, deploying, modifying production data, deleting unrelated data, or changing system-wide settings.',
+      'If a tool refuses an action, respect the refusal; do not bypass it.',
+      commitHeading,
+      'Change git configuration only when the task requires it; prefer repository-local settings.',
       'Do not create an empty commit if there are no changes.',
       String.raw`echo \"hello world\"`,
     ]) {
@@ -102,6 +113,50 @@ describe('run_terminal_command commit attribution', () => {
   test('buildGitCommitGuidePrompt(true) is the shipped default', () => {
     expect(buildGitCommitGuidePrompt({ attribution: true })).toBe(
       gitCommitGuidePrompt,
+    )
+  })
+})
+
+/**
+ * A user asked in #⚠️-help on 2026-10-14 how to stop the trailer, and the
+ * answer was "you cannot": the default description modelled it three times,
+ * and the file's own comment says a prose instruction in the run's prompt
+ * loses to a worked example in the description. The default still adds the
+ * footer unasked; it just no longer overrides someone who declines it.
+ */
+describe('an explicit request for no attribution can win', () => {
+  const texts = () => [
+    gitCommitGuidePrompt,
+    runTerminalCommandParams.description,
+    buildGitCommitGuidePrompt({ attribution: true }),
+  ]
+
+  test('the exception is stated where the footer is taught', () => {
+    for (const text of texts()) {
+      expect(text).toContain('Unless this repository or this user has asked')
+      // Named surfaces, so "the user said so" is not the only way in: an
+      // instruction file the agent already read counts.
+      for (const surface of ['AGENTS.md', 'CLAUDE.md', 'knowledge file'])
+        expect(text).toContain(surface)
+    }
+  })
+
+  test('the exception is repeated beside the worked example', () => {
+    // The whole point. The example is the strongest thing in the description,
+    // so the carve-out has to reach it, not only the prose above it.
+    for (const text of texts()) {
+      const afterExample = text.slice(text.lastIndexOf('EOF'))
+      expect(afterExample).toContain('attribution has been declined')
+    }
+  })
+
+  test('the suppressed variant is untouched by it', () => {
+    // It forbids the trailer outright; it must not acquire a conditional.
+    const plain = buildGitCommitGuidePrompt({ attribution: false })
+    expect(plain).toContain('Do NOT add any trailer')
+    expect(plain).not.toContain('Unless this repository or this user has asked')
+    expect(runTerminalCommandNoAttributionDescription).not.toContain(
+      'Unless this repository or this user has asked',
     )
   })
 })

@@ -12,7 +12,8 @@ export default tseslint.config(
       '**/.next/*',
       '**/.contentlayer/*',
       '**/node_modules/*',
-      'agents-graveyard/**', // Archived/deprecated agents - no need to lint
+      // Vendored Plunk: upstream code, linted upstream.
+      'freebuff/plunk/**',
     ],
   },
 

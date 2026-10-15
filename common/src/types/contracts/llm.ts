@@ -17,8 +17,13 @@ import type z from 'zod/v4'
  *  - 'stream-interrupted': the stream ended without a finish marker
  *    (connection cut mid-response — a server deploy or network drop).
  *  - 'output-limit': the stream produced only reasoning and no usable answer,
- *    either by reaching its output limit or by reporting a normal stop. */
-export type StreamRecoverySource = 'stream-interrupted' | 'output-limit'
+ *    either by reaching its output limit or by reporting a normal stop.
+ *  - 'provider-error': the provider reported a retryable failure (5xx, 429)
+ *    in band, mid-stream. */
+export type StreamRecoverySource =
+  | 'stream-interrupted'
+  | 'output-limit'
+  | 'provider-error'
 
 export type StreamChunk =
   | {
@@ -47,6 +52,9 @@ export type StreamChunk =
        *  continue, instead of wrapping the message as a tool-call failure and
        *  instead of the turn silently ending. */
       source?: StreamRecoverySource
+      /** For a recovery: a user-facing summary of what failed, carried into
+       *  the error raised if the retries run out. */
+      detail?: string
     }
 
 export type CacheDebugUsageData = {
@@ -67,8 +75,12 @@ export type AgentUsageData = ModelUsageData & {
 }
 
 export type ContextCompactionData = {
-  trigger: 'context_limit' | 'cache_expiry' | 'context_limit_and_cache_expiry'
+  trigger: 'manual' | 'context_limit' | 'cache_expiry' | 'context_limit_and_cache_expiry'
   thresholdTokens: number
+  summary?: string
+  preTokens?: number
+  postTokens?: number
+  durationMs?: number
 }
 
 export type PromptAiSdkStreamFn = (
@@ -95,6 +107,9 @@ export type PromptAiSdkStreamFn = (
     onUsageReceived?: (usage: ModelUsageData) => void
     /** The request ended without an exact final provider usage receipt. */
     onUsageIncomplete?: () => void
+    /** The finish reason the stream's final part reported ('stop', 'length',
+     *  'tool-calls', ...). Not called when the stream ends without one. */
+    onFinishReason?: (finishReason: string) => void
     includeCacheControl?: boolean
     cacheDebugCorrelation?: string
     agentProviderOptions?: OpenRouterProviderRoutingOptions
@@ -150,6 +165,8 @@ export type PromptAiSdkFn = (
 
 export type PromptAiSdkStructuredInput<T> = {
   apiKey: string
+  /** Freebuff's 'free' mode uses platform provider credentials. */
+  costMode?: string
   runId: string
   messages: Message[]
   schema: z.ZodType<T>
@@ -183,9 +200,3 @@ export type PromptAiSdkStructuredOutput<T> = Promise<PromptResult<T>>
 export type PromptAiSdkStructuredFn = <T>(
   params: PromptAiSdkStructuredInput<T>,
 ) => PromptAiSdkStructuredOutput<T>
-
-export type HandleOpenRouterStreamFn = (params: {
-  body: any
-  userId: string
-  agentId: string
-}) => Promise<ReadableStream>

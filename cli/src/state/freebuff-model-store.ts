@@ -1,18 +1,29 @@
 import {
   DEFAULT_FREEBUFF_MODEL_ID,
-  getFreebuffModelDefaultEffort,
-  getFreebuffModelEfforts,
   resolveAvailableFreebuffModel,
-  resolveSupportedFreebuffModel,
 } from '@codebuff/common/constants/freebuff-models'
+import {
+  getFreebucksInfo,
+  getFreebuffServerAccessTier,
+  getSubscriptionInfo,
+} from '@codebuff/common/types/freebuff-session'
+import { getFreebuffModelPresets } from '@codebuff/common/util/freebuff-model-presets'
+import { getFreebuffModelMeter } from '@codebuff/common/util/freebuff-session-pools'
 import { create } from 'zustand'
 
+import { getFreebuffModelDirectory } from './freebuff-catalog-store'
 import {
+  loadFreebuffCatalogReasoningEfforts,
+  loadFreebuffModelKeyPreference,
   loadFreebuffModelPreference,
   loadFreebuffReasoningEfforts,
+  saveFreebuffCatalogReasoningEffort,
+  saveFreebuffModelKeyPreference,
+  saveFreebuffModelPreference,
   saveFreebuffReasoningEffort,
 } from '../utils/settings'
 
+import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { ReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
 
 /**
@@ -21,7 +32,8 @@ import type { ReasoningEffort } from '@codebuff/common/constants/reasoning-effor
  * last picked.
  *
  * `setSelectedModel` is in-memory only — it does NOT persist. Persistence
- * happens exclusively in `startFreebuffSession` (the explicit-pick path), so
+ * happens on an explicit model pick (`selectFreebuffChatModel`, or the legacy
+ * `startFreebuffSession` picker path), so
  * server-driven auto-flips (`model_locked`, `model_unavailable`, takeover)
  * can update the in-memory selection without overwriting the user's saved
  * preference. The latter previously caused users to get permanently flipped
@@ -31,13 +43,20 @@ import type { ReasoningEffort } from '@codebuff/common/constants/reasoning-effor
  * the model picker; the session hook reads it to decide which model to start.
  *
  * Reasoning effort is the opposite: `setReasoningEffort` DOES persist, because
- * every write to it is an explicit user act (`/reasoning`). There is no
+ * every write to it is an explicit user act (the model picker). There is no
  * server-driven effort flip to protect against — the server clamps rather than
  * telling the client what it chose.
+ *
+ * In catalog mode (docs/freebuff-model-catalog.md) `selectedModel` holds a
+ * catalog KEY rather than a model id, the same value the session response
+ * carries there. Keys and ids never collide, so both kinds share this field
+ * and the effort map; the directory decides what a value means.
  */
 interface FreebuffModelStore {
   selectedModel: string
   setSelectedModel: (model: string) => void
+  /** Until the user picks, the selection follows freebuffDefaultModelForSession. */
+  hasExplicitPick: boolean
   /** Per-model effort overrides. A model absent from this map runs its catalog
    *  default; see saveFreebuffReasoningEffort for why absence is the "default"
    *  state rather than a stored null. */
@@ -48,15 +67,27 @@ interface FreebuffModelStore {
   ) => void
 }
 
+const savedFreebuffModelPick = loadFreebuffModelPreference()
+
 export const useFreebuffModelStore = create<FreebuffModelStore>((set) => ({
   selectedModel: resolveAvailableFreebuffModel(
-    loadFreebuffModelPreference() ?? DEFAULT_FREEBUFF_MODEL_ID,
+    savedFreebuffModelPick ?? DEFAULT_FREEBUFF_MODEL_ID,
   ),
   setSelectedModel: (model) =>
-    set({ selectedModel: resolveSupportedFreebuffModel(model) }),
-  reasoningEffortByModel: loadFreebuffReasoningEfforts(),
+    set({ selectedModel: getFreebuffModelDirectory().resolveSelection(model) }),
+  hasExplicitPick:
+    savedFreebuffModelPick !== undefined ||
+    loadFreebuffModelKeyPreference() !== undefined,
+  reasoningEffortByModel: {
+    ...loadFreebuffReasoningEfforts(),
+    ...loadFreebuffCatalogReasoningEfforts(),
+  },
   setReasoningEffort: (model, effort) => {
-    saveFreebuffReasoningEffort(model, effort)
+    if (getFreebuffModelDirectory().row(model)?.key === model) {
+      saveFreebuffCatalogReasoningEffort(model, effort)
+    } else {
+      saveFreebuffReasoningEffort(model, effort)
+    }
     set((state) => {
       const next = { ...state.reasoningEffortByModel }
       if (effort === undefined) {
@@ -75,6 +106,48 @@ export function getSelectedFreebuffModel(): string {
   return useFreebuffModelStore.getState().selectedModel
 }
 
+/** The Desktop and Web slider's Balanced stop, or the catalog's
+ *  recommendation when the meter cannot start it, as on Desktop and Web. */
+export function freebuffDefaultModelForSession(
+  session: FreebuffSessionResponse,
+): string {
+  const directory = getFreebuffModelDirectory()
+  const accessTier = getFreebuffServerAccessTier(session)
+  const freebucks = getFreebucksInfo(session)
+  const isSubscriber = Boolean(
+    getSubscriptionInfo(session)?.tierId ?? freebucks?.planId,
+  )
+  const balanced = getFreebuffModelPresets({
+    accessTier,
+    isSubscriber,
+    balance: freebucks?.balance,
+    // The catalog's rows, so a catalog-only stop (MiMo Slow) is offered only
+    // while it is listed and open, and the server's pick for this viewer (MiMo
+    // Slow for a planless limited account). Without a catalog the compiled
+    // ladder stands.
+    ...(directory.catalog
+      ? {
+          models: directory
+            .pickerModels(accessTier, isSubscriber)
+            .map((model) => ({
+              id: model.id,
+              displayName: model.displayName,
+              available: !directory.planRequired(
+                model.id,
+                isSubscriber,
+                freebucks,
+              ),
+            })),
+          recommendedModelId: directory.recommendedModelId(accessTier),
+        }
+      : {}),
+  }).find((preset) => preset.id === 'balanced')!
+  const model = directory.resolveSelection(balanced.modelId)
+  return getFreebuffModelMeter({ model, freebucks }).canStart
+    ? model
+    : directory.recommendedModelId(accessTier)
+}
+
 /**
  * The user's effort override for a model, or null when they have none.
  *
@@ -88,9 +161,42 @@ export function getSelectedFreebuffModel(): string {
 export function getFreebuffReasoningEffortForModel(
   model: string,
 ): ReasoningEffort | null {
-  const saved = useFreebuffModelStore.getState().reasoningEffortByModel[model]
+  const directory = getFreebuffModelDirectory()
+  const efforts = useFreebuffModelStore.getState().reasoningEffortByModel
+  const saved = efforts[model] ?? legacyEffortForCatalogKey(model, efforts)
   if (!saved) return null
-  return getFreebuffModelEfforts(model)?.includes(saved) ? saved : null
+  return directory.efforts(model)?.includes(saved) ? saved : null
+}
+
+/**
+ * A catalog row with no effort of its own inherits the one saved for the
+ * compiled model it replaces, so a user's pick survives the move to the
+ * catalog. Read-only: the first explicit choice on the row is what persists.
+ */
+function legacyEffortForCatalogKey(
+  key: string,
+  efforts: Record<string, ReasoningEffort>,
+): ReasoningEffort | undefined {
+  const directory = getFreebuffModelDirectory()
+  if (directory.row(key)?.key !== key) return undefined
+  for (const [id, effort] of Object.entries(efforts)) {
+    if (id !== key && directory.row(id)?.key === key) return effort
+  }
+  return undefined
+}
+
+/**
+ * Persist an explicit pick so the next launch opens on it: the row key in
+ * catalog mode, the model id in fallback mode (which also clears the saved
+ * key; see `saveFreebuffModelPreference`).
+ */
+export function persistFreebuffModelPick(model: string): void {
+  useFreebuffModelStore.setState({ hasExplicitPick: true })
+  if (getFreebuffModelDirectory().row(model)?.key === model) {
+    saveFreebuffModelKeyPreference(model)
+  } else {
+    saveFreebuffModelPreference(model)
+  }
 }
 
 /** What a turn on this model will ACTUALLY run at, override or not — the value
@@ -100,7 +206,7 @@ export function getEffectiveFreebuffReasoningEffort(
 ): ReasoningEffort | null {
   return (
     getFreebuffReasoningEffortForModel(model) ??
-    getFreebuffModelDefaultEffort(model)
+    getFreebuffModelDirectory().defaultEffort(model)
   )
 }
 

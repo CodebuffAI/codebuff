@@ -22,7 +22,11 @@ import {
 } from 'ai'
 
 import { getModelForRequest } from './model-provider'
+import type { CodebuffRequestHeadersProvider } from './model-provider'
+import { byokModelLimits } from '../byok'
+import type { ResolvedByokConnection } from '../byok'
 import {
+  classifyErrorChunkRecovery,
   classifyStreamEndRecovery,
   classifyThrownStreamRecovery,
   streamFinishInfoOf,
@@ -44,19 +48,27 @@ import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { ProviderMetadata } from '@codebuff/common/types/messages/provider-metadata'
 import type { LanguageModel } from 'ai'
 
+/** Resolves after `ms`, or as soon as `signal` aborts. Never rejects. */
+function sleepUnlessAborted(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve()
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', done)
+      resolve()
+    }
+    const timer = setTimeout(done, ms)
+    signal.addEventListener('abort', done, { once: true })
+  })
+}
+
 // Provider routing documentation: https://openrouter.ai/docs/features/provider-routing
 const providerOrder = {
-  [models.openrouter_claude_sonnet_4]: [
-    'Google',
-    'Anthropic',
-    'Amazon Bedrock',
-  ],
   [models.openrouter_claude_sonnet_4_5]: [
     'Google',
     'Anthropic',
     'Amazon Bedrock',
   ],
-  [models.openrouter_claude_opus_4]: ['Google', 'Anthropic'],
 }
 
 function calculateUsedCredits(params: { costDollars: number }): number {
@@ -111,7 +123,7 @@ export function getProviderOptions(params: {
       // All values here get appended to the request body
       codebuff_metadata: {
         // Caller-supplied keys go first so they can't override reserved
-        // identifiers like run_id/client_id/cost_mode that the server trusts.
+        // identifiers the SDK sets, like run_id/client_id/cost_mode.
         ...(extraCodebuffMetadata ?? {}),
         run_id: runId,
         client_id: clientSessionId,
@@ -200,9 +212,16 @@ function emitCacheDebugUsage(params: {
 }
 
 export async function* promptAiSdkStream(
-  params: ParamsOf<PromptAiSdkStreamFn>,
+  params: ParamsOf<PromptAiSdkStreamFn> & {
+    byok?: ResolvedByokConnection
+    requestHeaders?: CodebuffRequestHeadersProvider
+  },
 ): ReturnType<PromptAiSdkStreamFn> {
-  const { providerOptions: originalProviderOptions, ...streamParams } = params
+  const {
+    providerOptions: originalProviderOptions,
+    onFinishReason,
+    ...streamParams
+  } = params
 
   const { logger } = params
   const agentChunkMetadata =
@@ -222,11 +241,20 @@ export async function* promptAiSdkStream(
   const aiSDKModel = getModelForRequest({
     apiKey: params.apiKey,
     model: params.model,
+    costMode: params.costMode,
     userId: params.userId,
+    byok: params.byok,
+    requestHeaders: params.requestHeaders,
   })
 
   const response = streamText({
     ...streamParams,
+    ...(params.byok && {
+      maxOutputTokens: Math.min(
+        params.maxOutputTokens ?? byokModelLimits(params.byok).maxOutputTokens,
+        byokModelLimits(params.byok).maxOutputTokens,
+      ),
+    }),
     abortSignal: params.signal,
     prompt: undefined,
     model: aiSDKModel,
@@ -236,7 +264,7 @@ export async function* promptAiSdkStream(
       ...streamParams.include,
       requestBody: true,
     },
-    providerOptions: getProviderOptions({
+    providerOptions: params.byok ? originalProviderOptions : getProviderOptions({
       ...params,
       providerOptions: originalProviderOptions,
       agentProviderOptions: params.agentProviderOptions,
@@ -414,16 +442,21 @@ export async function* promptAiSdkStream(
   let hasYieldedToolCall = false
 
   // A healthy stream always delivers a finish part with a real finishReason
-  // (and usage) before ending; its absence after the loop means the
-  // connection was cut mid-response. See stream-interruption.ts.
+  // (and usage) before ending; its absence after the loop can mean a cut
+  // connection or an incompatible provider stream. See stream-interruption.ts.
   let finishInfo: StreamFinishInfo | undefined
   // Bun/undici can throw when a response body is severed instead of ending the
   // iterator cleanly. Feed that through the same capped continuation path as a
-  // clean end without a finish marker.
+  // clean end without a finish marker. A retryable provider error reported in
+  // band (5xx/429 error chunk) takes the same path: see
+  // classifyErrorChunkRecovery.
   let thrownStreamRecovery: StreamEndRecovery | undefined
   const streamIterator = response.stream[Symbol.asyncIterator]()
-  const recoverThrownStream = (error: unknown): StreamEndRecovery | null => {
-    const recovery = classifyThrownStreamRecovery({
+  const recoverThrownStream = (
+    error: unknown,
+    classify: typeof classifyThrownStreamRecovery = classifyThrownStreamRecovery,
+  ): StreamEndRecovery | null => {
+    const recovery = classify({
       aborted: params.signal.aborted,
       error,
     })
@@ -466,6 +499,7 @@ export async function* promptAiSdkStream(
       )
       if (finishInfo.hasUsage) reportUsage(chunkValue.totalUsage)
       await reportCost(finishProviderMetadata)
+      onFinishReason?.(finishInfo.finishReason)
     }
     if (chunkValue.type !== 'text-delta') {
       const flushed = stopSequenceHandler.flush()
@@ -520,7 +554,14 @@ export async function* promptAiSdkStream(
 
       // A transport error can also arrive as an AI SDK error chunk instead of
       // making iterator.next() reject. Recover both runtime shapes identically.
-      const recovery = recoverThrownStream(chunkValue.error)
+      // So does a provider that reported a retryable failure (5xx/429) in
+      // band: the same outage, just announced instead of a cut body — and an
+      // announced failure outranks a guess from the error's wording, which is
+      // why classifyErrorChunkRecovery tries it first.
+      const recovery = recoverThrownStream(
+        chunkValue.error,
+        classifyErrorChunkRecovery,
+      )
       if (recovery) {
         thrownStreamRecovery = recovery
         break
@@ -589,7 +630,14 @@ export async function* promptAiSdkStream(
     }
     if (chunkValue.type === 'tool-call') {
       hasYieldedToolCall = true
-      yield chunkValue
+      // The call's provider metadata (e.g. Gemini's thought signature) rides
+      // into the history's tool-call part, so the next request replays it.
+      yield chunkValue.providerMetadata
+        ? {
+            ...chunkValue,
+            providerOptions: chunkValue.providerMetadata as ProviderMetadata,
+          }
+        : chunkValue
     }
   }
   const flushed = stopSequenceHandler.flush()
@@ -641,13 +689,24 @@ export async function* promptAiSdkStream(
         finishReason: finishInfo?.finishReason,
         hasYieldedContent,
         hasReceivedReasoning,
+        ...(recovery.statusCode !== undefined && {
+          statusCode: recovery.statusCode,
+        }),
       },
       'Completion stream ended without a usable response; forcing a retry step',
     )
+    // A provider that just failed or rate-limited us gets a short, bounded
+    // pause before the forced retry step asks it again. A cancel during the
+    // pause ends the stream as a cancel, not a retry.
+    if (recovery.delayMs) {
+      await sleepUnlessAborted(recovery.delayMs, params.signal)
+      if (params.signal.aborted) return promptAborted('User cancelled input')
+    }
     yield {
       type: 'error',
       source: recovery.source,
       message: recovery.message,
+      ...(recovery.detail !== undefined && { detail: recovery.detail }),
     }
   }
 
@@ -677,7 +736,10 @@ export async function* promptAiSdkStream(
 }
 
 export async function promptAiSdk(
-  params: ParamsOf<PromptAiSdkFn>,
+  params: ParamsOf<PromptAiSdkFn> & {
+    byok?: ResolvedByokConnection
+    requestHeaders?: CodebuffRequestHeadersProvider
+  },
 ): ReturnType<PromptAiSdkFn> {
   const { logger } = params
 
@@ -695,11 +757,20 @@ export async function promptAiSdk(
   const aiSDKModel = getModelForRequest({
     apiKey: params.apiKey,
     model: params.model,
+    costMode: params.costMode,
     userId: params.userId,
+    byok: params.byok,
+    requestHeaders: params.requestHeaders,
   })
 
   const response = await generateText({
     ...params,
+    ...(params.byok && {
+      maxOutputTokens: Math.min(
+        params.maxOutputTokens ?? byokModelLimits(params.byok).maxOutputTokens,
+        byokModelLimits(params.byok).maxOutputTokens,
+      ),
+    }),
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
@@ -708,7 +779,7 @@ export async function promptAiSdk(
       ...params.include,
       requestBody: true,
     },
-    providerOptions: getProviderOptions({
+    providerOptions: params.byok ? undefined : getProviderOptions({
       ...params,
       agentProviderOptions: params.agentProviderOptions,
       cacheDebugCorrelation: params.cacheDebugCorrelation,
@@ -749,7 +820,10 @@ export async function promptAiSdk(
 }
 
 export async function promptAiSdkStructured<T>(
-  params: PromptAiSdkStructuredInput<T>,
+  params: PromptAiSdkStructuredInput<T> & {
+    byok?: ResolvedByokConnection
+    requestHeaders?: CodebuffRequestHeadersProvider
+  },
 ): PromptAiSdkStructuredOutput<T> {
   const { logger } = params
 
@@ -766,18 +840,27 @@ export async function promptAiSdkStructured<T>(
   const aiSDKModel = getModelForRequest({
     apiKey: params.apiKey,
     model: params.model,
+    costMode: params.costMode,
     userId: params.userId,
+    byok: params.byok,
+    requestHeaders: params.requestHeaders,
   })
 
   const response = await generateText({
     ...params,
+    ...(params.byok && {
+      maxOutputTokens: Math.min(
+        params.maxTokens ?? byokModelLimits(params.byok).maxOutputTokens,
+        byokModelLimits(params.byok).maxOutputTokens,
+      ),
+    }),
     prompt: undefined,
     model: aiSDKModel,
     output: Output.object({ schema: params.schema }),
     messages: convertCbToModelMessages(params),
     allowSystemInMessages: true,
     include: { requestBody: true },
-    providerOptions: getProviderOptions({
+    providerOptions: params.byok ? undefined : getProviderOptions({
       ...params,
       agentProviderOptions: params.agentProviderOptions,
       cacheDebugCorrelation: params.cacheDebugCorrelation,

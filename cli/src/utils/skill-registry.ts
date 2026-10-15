@@ -10,6 +10,8 @@ import type { SkillDefinition, SkillsMap } from '@codebuff/common/types/skill'
 // ============================================================================
 
 let skillsCache: SkillsMap = {}
+/** Set once a load succeeded, so a count of 0 can be told from "not loaded yet". */
+let skillsLoaded = false
 
 /**
  * Initialize the skill registry by loading skills via the SDK.
@@ -35,6 +37,7 @@ export async function initializeSkillRegistry(): Promise<void> {
       verbose: false,
       includeHomeSkills: true,
     })
+    skillsLoaded = true
   } catch (error) {
     logger.warn({ error }, 'Failed to load skills')
     skillsCache = {}
@@ -59,6 +62,11 @@ export function getSkillByName(name: string): SkillDefinition | undefined {
   return skillsCache[name]
 }
 
+/** Whether a skill load has succeeded this process. */
+export function isSkillRegistryLoaded(): boolean {
+  return skillsLoaded
+}
+
 /**
  * Get the number of loaded skills.
  */
@@ -70,24 +78,6 @@ export function getSkillCount(): number {
 // UI/Display utilities
 // ============================================================================
 
-/**
- * Get a message describing loaded skills for display.
- */
-export function getLoadedSkillsMessage(): string | null {
-  const skills = Object.values(skillsCache)
-
-  if (skills.length === 0) {
-    return null
-  }
-
-  const header = `Loaded ${skills.length} skill${skills.length === 1 ? '' : 's'}`
-  const skillList = skills
-    .map((skill) => `  - ${skill.name}: ${skill.description.slice(0, 60)}${skill.description.length > 60 ? '...' : ''}`)
-    .join('\n')
-
-  return `${header}\n${skillList}`
-}
-
 // ============================================================================
 // Testing utilities
 // ============================================================================
@@ -97,6 +87,7 @@ export function getLoadedSkillsMessage(): string | null {
  */
 export function __resetSkillRegistryForTests(): void {
   skillsCache = {}
+  skillsLoaded = false
 }
 
 /**

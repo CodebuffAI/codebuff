@@ -7,10 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from './button'
 import { useCopyToClipboard } from './copy-button'
-import {
-  FREEBUFF_REWARD_MODEL_DISPLAY_NAME,
-  FREEBUFF_REWARD_MODEL_ID,
-} from '@codebuff/common/constants/freebuff-models'
+import { FREEBUFF_REWARD_MODEL_DISPLAY_NAME } from '@codebuff/common/constants/freebuff-models'
 import { FREEBUFF_REWARD_MAX_DAILY_SESSIONS } from '@codebuff/common/constants/freebuff-models'
 import { REFERRAL_CLI_DAILY_SESSION_BONUS_CAP } from '@codebuff/common/constants/freebuff-referral-tiers'
 import { pluralize } from '@codebuff/common/util/string'
@@ -18,6 +15,7 @@ import { pluralize } from '@codebuff/common/util/string'
 import { startFreebuffSession } from '../hooks/use-freebuff-session'
 import { useNow } from '../hooks/use-now'
 import { useTheme } from '../hooks/use-theme'
+import { useFreebuffModelDirectory } from '../state/freebuff-catalog-store'
 import { LOGIN_WEBSITE_URL } from '../login/constants'
 import { formatFreebuffPremiumResetCountdown } from '../utils/freebuff-premium-reset'
 import { safeOpen } from '../utils/open-url'
@@ -52,9 +50,8 @@ function referralLink(code: string, referrerName: string | null): string {
  */
 const EARN_URL = `${LOGIN_WEBSITE_URL}${FREEBUFF_EARN_PATH}`
 const DASHBOARD_LABEL = `${FREEBUFF_EARN_PROMPT_SHORT} ↵`
-/** On the meter Trust buys nothing a metered account is short of, so the
- *  link just names the page. */
-const METERED_DASHBOARD_LABEL = 'Open Earn ↵'
+/** Link to details about earning hours. */
+const METERED_DASHBOARD_LABEL = 'Learn More ↵'
 // Two columns of leading space separate the label from the copy control beside
 // it (the row itself has no gap), and they stay put in every state so keyboard
 // navigation never shifts the rest of the action row.
@@ -291,12 +288,14 @@ const CopyInviteLinkButton: React.FC<{
  * pre-referral-code users never see it.
  */
 interface FreebuffReferralBannerProps {
+  onSelectModel?: (model: string) => void
+
   width: number
   referral: FreebuffReferralInfo
   /** A live GLM promo, or undefined. Undefined is the ordinary state. */
   glmPromo?: FreebuffGlmPromo
   accessTier: FreebuffAccessTier
-  /** The account is on the Freebucks meter: referrals pay Freebucks, and
+  /** The account is on the Freebucks meter: referrals pay hours, and
    *  nothing here may count sessions. */
   metered?: boolean
   focusedId: string
@@ -305,6 +304,7 @@ interface FreebuffReferralBannerProps {
 
 export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   width,
+  onSelectModel,
   referral,
   glmPromo,
   accessTier,
@@ -321,15 +321,21 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   const glmFocused = focusedId === GLM_FOCUS_ID
   const dashboardFocused = focusedId === DASHBOARD_FOCUS_ID
 
+  // The reward model's catalog key in catalog mode, its id otherwise.
+  const rewardModelId = useFreebuffModelDirectory().rewardModelId
   const useGlm = useCallback(() => {
+    if (onSelectModel) {
+      onSelectModel(rewardModelId)
+      return
+    }
     if (joiningRef.current) return
     joiningRef.current = true
     setJoining(true)
-    startFreebuffSession(FREEBUFF_REWARD_MODEL_ID).finally(() => {
+    startFreebuffSession(rewardModelId).finally(() => {
       joiningRef.current = false
       setJoining(false)
     })
-  }, [])
+  }, [onSelectModel, rewardModelId])
 
   const link = referralLink(referral.code, referral.referrerName)
   const { isCopied, copy } = useCopyToClipboard(link)
@@ -401,7 +407,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   // bonus sessions/day already earned.
   // ...unless they hold bounty-earned GLM sessions, which fall through to the
   // shared unlocked card below.
-  // ON THE METER: one quiet line. Referrals pay Freebucks (claimed on the
+  // ON THE METER: one quiet line. Referrals pay hours (claimed on the
   // Earn page), and every other variant here counts sessions per day, which
   // is a meter this account is no longer on.
   if (metered) {
@@ -409,7 +415,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
       <box style={{ flexDirection: 'column', width, marginTop: 1, flexShrink: 0 }}>
         <text style={{ wrapMode: 'word' }}>
           <span fg={theme.muted}>✦ Refer friends → </span>
-          <span fg={theme.foreground}>earn Freebucks</span>
+          <span fg={theme.foreground}>earn hours</span>
           <span fg={theme.muted}>:</span>
         </text>
         {lockedReferralActions}

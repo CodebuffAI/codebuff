@@ -5,10 +5,19 @@ import {
   dispatchFirstPartyViewAcknowledgement,
   isAnswerMessage,
   isInlineAdEligibleAnswer,
+  NO_RESPONSE_ADS,
   renderDelaySinceReceipt,
+  sendClickAfterView,
+  shouldHideGravityAds,
+  visibleResponseAds,
 } from '../use-gravity-ad'
 
 import type { ChatMessage } from '../../types/chat'
+import {
+  acknowledgeFirstPartyView,
+  resetFirstPartyViewAckRegistryForTests,
+} from '@codebuff/common/ads/first-party-view-ack'
+
 import type { FirstPartyViewAckRequest } from '@codebuff/common/ads/first-party-view-ack'
 
 const msg = (over: Partial<ChatMessage>): ChatMessage => ({
@@ -158,5 +167,103 @@ describe('dispatchFirstPartyViewAcknowledgement', () => {
     expect(claimAdImpression(fired, 'opaque-imp-url')).toBe(true)
     expect(claimAdImpression(fired, 'opaque-imp-url')).toBe(false)
     expect(calls).toBe(0)
+  })
+})
+
+describe('visibleResponseAds', () => {
+  // Chat's layout effect depends on this value and writes it to the
+  // message-block store. A fresh `{}` per render re-ran the effect after every
+  // commit while ads were hidden, feeding React's nested-update limit (#185).
+  test('hidden ads are one stable value across renders', () => {
+    const first = visibleResponseAds(false, { 'ai-1': [] })
+    const second = visibleResponseAds(false, {})
+    expect(first).toBe(NO_RESPONSE_ADS)
+    expect(second).toBe(first)
+    expect(Object.keys(first)).toEqual([])
+  })
+
+  test('visible ads pass through unchanged', () => {
+    const ads = { 'ai-1': [] }
+    expect(visibleResponseAds(true, ads)).toBe(ads)
+  })
+})
+
+describe('shouldHideGravityAds', () => {
+  test('a disabled hook is hidden at every height, Freebuff included', () => {
+    // The landing screen relies on this to stop fetching for a slot it does
+    // not draw: Freebuff ignores the compact-height rule, `enabled` does not.
+    for (const isFreeMode of [true, false]) {
+      for (const terminalHeight of [10, 17, 18, 60]) {
+        expect(
+          shouldHideGravityAds({ enabled: false, terminalHeight, isFreeMode }),
+        ).toBe(true)
+      }
+    }
+  })
+
+  test('Freebuff keeps ads on compact terminals; Codebuff drops them', () => {
+    expect(
+      shouldHideGravityAds({
+        enabled: true,
+        terminalHeight: 17,
+        isFreeMode: true,
+      }),
+    ).toBe(false)
+    expect(
+      shouldHideGravityAds({
+        enabled: true,
+        terminalHeight: 17,
+        isFreeMode: false,
+      }),
+    ).toBe(true)
+    expect(
+      shouldHideGravityAds({
+        enabled: true,
+        terminalHeight: 18,
+        isFreeMode: false,
+      }),
+    ).toBe(false)
+  })
+})
+
+// Ad click IVT: a real click must not reach the server ahead of its own view,
+// or the sweep would later read it as a view that never arrived.
+describe('sendClickAfterView', () => {
+  test('sends the click only after the in-flight view ack settles', async () => {
+    resetFirstPartyViewAckRegistryForTests()
+    const order: string[] = []
+    let answerView!: (response: Response) => void
+    void acknowledgeFirstPartyView({
+      token: 'imp-1',
+      url: 'https://example.test/api/v1/ads/impression',
+      surface: 'cli_chat',
+      placementId: 'p',
+      clientFamily: 'cli',
+      fetch: () => {
+        order.push('view sent')
+        return new Promise<Response>((resolve) => {
+          answerView = resolve
+        })
+      },
+    })
+    const click = sendClickAfterView('imp-1', async () => {
+      order.push('click sent')
+      return 'ok'
+    })
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    expect(order).toEqual(['view sent'])
+    answerView(new Response(null, { status: 204 }))
+    expect(await click).toBe('ok')
+    expect(order).toEqual(['view sent', 'click sent'])
+    resetFirstPartyViewAckRegistryForTests()
+  })
+
+  test('sends at once when no view is in flight', async () => {
+    resetFirstPartyViewAckRegistryForTests()
+    let sent = false
+    await sendClickAfterView('never-viewed', async () => {
+      sent = true
+    })
+    expect(sent).toBe(true)
   })
 })

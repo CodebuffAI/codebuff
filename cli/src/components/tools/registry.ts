@@ -1,11 +1,5 @@
 import { ApplyPatchComponent } from './apply-patch'
 import { CodeSearchComponent } from './code-search'
-import {
-  ManageConnectionsComponent,
-  ExecuteToolComponent,
-  SearchToolsComponent,
-  GetToolSchemasComponent,
-} from './composio'
 import { GlobComponent } from './glob'
 import { GravityIndexComponent } from './gravity-index'
 import { ListDirectoryComponent } from './list-directory'
@@ -39,10 +33,6 @@ import type { ToolName } from '@codebuff/sdk'
 const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [ApplyPatchComponent.toolName, ApplyPatchComponent],
   [CodeSearchComponent.toolName, CodeSearchComponent],
-  [ManageConnectionsComponent.toolName, ManageConnectionsComponent],
-  [ExecuteToolComponent.toolName, ExecuteToolComponent],
-  [SearchToolsComponent.toolName, SearchToolsComponent],
-  [GetToolSchemasComponent.toolName, GetToolSchemasComponent],
   [GlobComponent.toolName, GlobComponent],
   [GravityIndexComponent.toolName, GravityIndexComponent],
   [ListDirectoryComponent.toolName, ListDirectoryComponent],
@@ -63,16 +53,6 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   ['propose_write_file', WriteFileComponent],
   [SkillComponent.toolName, SkillComponent],
 ])
-
-/**
- * Register a new tool component.
- * This allows plugins or extensions to add custom tool renderers.
- *
- * @param component - The tool component to register
- */
-export function registerToolComponent(component: ToolComponent): void {
-  toolComponentRegistry.set(component.toolName, component)
-}
 
 /**
  * Get the registered component for a specific tool name.
@@ -115,12 +95,4 @@ export function renderToolComponent(
     )
     return undefined
   }
-}
-
-/**
- * Get all registered tool names.
- * Useful for debugging or listing available tool renderers.
- */
-export function getRegisteredToolNames(): ToolName[] {
-  return Array.from(toolComponentRegistry.keys())
 }
