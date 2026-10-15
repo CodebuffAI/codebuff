@@ -391,6 +391,54 @@ export function parseSponsoredSkillFit(
   }
 }
 
+/**
+ * The fit vocabulary as one line per ecosystem, for an authoring prompt:
+ * `node: next (next), express (express), …`.
+ */
+export function sponsoredFitVocabularyText(): string {
+  return SPONSORED_FIT_ROUTE_ECOSYSTEMS.map((ecosystem) => {
+    const table = SPONSORED_FIT_ECOSYSTEMS[ecosystem]
+    const frameworks = Object.entries(
+      table.frameworks as Record<string, readonly string[]>,
+    )
+      .map(([name, deps]) =>
+        deps.length === 1 && deps[0] === name ? name : `${name} (${deps.join(' or ')})`,
+      )
+      .join(', ')
+    return `${ecosystem} (manifests ${table.manifests.join(', ')}): ${frameworks}`
+  }).join('\n')
+}
+
+/**
+ * The `requirements` a fit block implies, filled into a draft: `os` equals
+ * the block's (all three when absent), each route's runtime is declared, and
+ * a skill with no node route lists no JS framework. Never removes a runtime
+ * or a framework the draft declared for a node route.
+ */
+export function requirementsForFit(
+  fit: SponsoredSkillFit,
+  requirements: {
+    os?: unknown
+    runtimes?: unknown
+    frameworks?: unknown
+    packageManagers?: unknown
+  },
+  nodeFrameworks: readonly string[],
+): Record<string, unknown> {
+  const runtimes = Array.isArray(requirements.runtimes)
+    ? [...(requirements.runtimes as Array<Record<string, unknown>>)]
+    : []
+  const named = new Set(runtimes.map((runtime) => runtime?.name))
+  if (fit.routes.node && !named.has('node')) runtimes.push({ name: 'node' })
+  if (fit.routes.python && !named.has('python')) runtimes.push({ name: 'python' })
+  return {
+    ...requirements,
+    os: [...(fit.os ?? ['darwin', 'linux', 'win32'])],
+    runtimes,
+    frameworks: fit.routes.node ? [...nodeFrameworks] : [],
+  }
+}
+
 /** The routes a fit block declares, in a fixed order. */
 export function sponsoredFitRoutes(
   fit: SponsoredSkillFit,

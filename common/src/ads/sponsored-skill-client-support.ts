@@ -64,6 +64,19 @@ export const SPONSORED_SKILL_MIN_CLIENT: Readonly<
   // respan-agent-setup@2.1.0, axonstream-realtime-one-feature@1.0.0.
 }
 
+/**
+ * The first build of each client that PARSES format 2 (the structured `fit`
+ * block, `sponsored-skill-fit-format.ts`): the next releases cut after #7039.
+ * An older build cannot parse a format-2 skill, so it would run the rendered
+ * procedure as text with no fit, step or security checks, or (a run-spec
+ * client) refuse the Accept. A format-2 skill is never offered to one.
+ * Re-check these against the release that actually ships format 2.
+ */
+export const SPONSORED_SKILL_FORMAT_2_MIN_CLIENT = {
+  desktop: '0.0.174',
+  cli: '0.2.29',
+} as const
+
 export type SponsoredSkillClientRefusal =
   /** A Desktop or CLI user agent whose version cannot be read. */
   | 'client_version_unknown'
@@ -91,11 +104,28 @@ export function sponsoredSkillClientRefusal(input: {
   clientVersion: string | null
   /** The skill the procedure names (`sponsoredSkillDirective`), or null for free text. */
   skillRef: { id: string; version: string } | null
-  skill: { packages: readonly unknown[] } | null
+  skill: { packages: readonly unknown[]; format?: number } | null
   /** The request's `runSpecVersion`, as sent. */
   runSpecVersion?: unknown
 }): SponsoredSkillClientRefusal | null {
   if (!input.skillRef) return null
+  // FORMAT 2 FIRST, for every Desktop and CLI build, run-spec ones included:
+  // a build that cannot parse the skill cannot drive it.
+  if (
+    input.skill?.format === 2 &&
+    (input.client === 'desktop' || input.client === 'cli')
+  ) {
+    const version = clientVersionOf(input.client, input.clientVersion)
+    if (version === null) return 'client_version_unknown'
+    if (
+      version !== 'dev' &&
+      compareSponsoredSkillVersions(
+        version,
+        SPONSORED_SKILL_FORMAT_2_MIN_CLIENT[input.client],
+      ) < 0
+    )
+      return input.client === 'desktop' ? 'desktop_too_old' : 'cli_too_old'
+  }
   if (clientRunsSponsoredRunSpec(input.runSpecVersion)) {
     return input.skill ? null : 'skill_unresolved'
   }
@@ -130,6 +160,18 @@ export function sponsoredSkillClientRefusal(input: {
   return listed?.cli && compareSponsoredSkillVersions(version, listed.cli) >= 0
     ? null
     : 'cli_too_old'
+}
+
+/** `desktop/<v>` → `<v>` (or `dev`); null when it is not this client's or not a version. */
+function clientVersionOf(
+  client: 'desktop' | 'cli',
+  clientVersion: string | null,
+): string | null {
+  const prefix = `${client}/`
+  if (!clientVersion?.startsWith(prefix)) return null
+  const version = clientVersion.slice(prefix.length)
+  if (version === 'dev') return version
+  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version) ? version : null
 }
 
 function maxVersion(a: string, b: string | undefined): string {

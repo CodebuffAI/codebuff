@@ -37,11 +37,11 @@ import {
 export const SPONSORED_SKILL_FORMATS = [1, 2] as const
 export type SponsoredSkillFormat = (typeof SPONSORED_SKILL_FORMATS)[number]
 /**
- * The format the Lab skill maker pins on a draft (`pinMakerFields`). Still 1:
- * it moves to 2 when the maker, the author skill and the skill-loop proposer
- * write a `fit` block (docs/ads/agentic/sponsored-skills.md, "Fit").
+ * The format new versions are authored in: the Lab skill maker pins it on a
+ * draft (`pinMakerFields`), and the author skill and the skill-loop proposer
+ * write it (docs/ads/agentic/sponsored-skills.md, "Fit").
  */
-export const SPONSORED_SKILL_FORMAT = 1 as const
+export const SPONSORED_SKILL_FORMAT = 2 as const
 
 export const SPONSORED_SKILL_STEP_KINDS = ['agent', 'user', 'check'] as const
 /**

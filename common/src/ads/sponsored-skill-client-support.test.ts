@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { compareSponsoredSkillVersions } from './sponsored-skill'
 import {
   SPONSORED_DESKTOP_SKILL_FETCH_MIN,
+  SPONSORED_SKILL_FORMAT_2_MIN_CLIENT,
   SPONSORED_SKILL_MIN_CLIENT,
   sponsoredSkillClientRefusal,
 } from './sponsored-skill-client-support'
@@ -122,5 +123,44 @@ describe('SPONSORED_SKILL_MIN_CLIENT', () => {
         key,
       ).toBeGreaterThanOrEqual(0)
     }
+  })
+})
+
+describe('format 2 needs a build that parses it', () => {
+  const ref = { id: 'acme-thing', version: '4.0.0' }
+  const format2 = { packages: [], format: 2 }
+  test('older Desktop and CLI builds are refused, run-spec ones included', () => {
+    expect(
+      sponsoredSkillClientRefusal({ client: 'desktop', clientVersion: 'desktop/0.0.173', skillRef: ref, skill: format2 }),
+    ).toBe('desktop_too_old')
+    expect(
+      sponsoredSkillClientRefusal({ client: 'desktop', clientVersion: 'desktop/0.0.173', skillRef: ref, skill: format2, runSpecVersion: 1 }),
+    ).toBe('desktop_too_old')
+    expect(
+      sponsoredSkillClientRefusal({ client: 'cli', clientVersion: 'cli/0.2.28', skillRef: ref, skill: format2 }),
+    ).toBe('cli_too_old')
+    expect(
+      sponsoredSkillClientRefusal({ client: 'desktop', clientVersion: null, skillRef: ref, skill: format2 }),
+    ).toBe('client_version_unknown')
+  })
+
+  test('a build at the floor, dev builds, web and format 1 are not refused for it', () => {
+    expect(
+      sponsoredSkillClientRefusal({
+        client: 'desktop',
+        clientVersion: `desktop/${SPONSORED_SKILL_FORMAT_2_MIN_CLIENT.desktop}`,
+        skillRef: ref,
+        skill: format2,
+      }),
+    ).toBeNull()
+    expect(
+      sponsoredSkillClientRefusal({ client: 'desktop', clientVersion: 'desktop/dev', skillRef: ref, skill: format2 }),
+    ).toBeNull()
+    expect(
+      sponsoredSkillClientRefusal({ client: 'web', clientVersion: null, skillRef: ref, skill: format2 }),
+    ).toBeNull()
+    expect(
+      sponsoredSkillClientRefusal({ client: 'desktop', clientVersion: 'desktop/0.0.173', skillRef: ref, skill: { packages: [], format: 1 } }),
+    ).toBeNull()
   })
 })
