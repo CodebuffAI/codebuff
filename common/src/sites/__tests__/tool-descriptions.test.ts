@@ -53,4 +53,13 @@ describe('the Sites tool surface', () => {
     }
     expect(description).toContain('never tell the user there is no way to')
   })
+
+  test('and says what to do when Delete site is the one thing that is refused', () => {
+    // 106 sites cannot be deleted today: an operation of theirs never reported
+    // its result, and `beginDeletion` refuses while one is outstanding. The
+    // model must not answer that with "there is no way to remove it".
+    const { description } = byName.get('sites_set_published')!
+    expect(description).toContain('never reported its result')
+    expect(description).toContain('support@freebuff.com')
+  })
 })

@@ -132,6 +132,8 @@ export class SitesClient {
           secret_not_found: 'This variable no longer exists. Refresh the list.',
           environment_busy:
             'An operation is running or needs reconciliation. Refresh deployment activity before trying again.',
+          site_deletion_needs_reconciliation:
+            'An earlier operation on this site never reported its result, so deletion is held until it is reconciled. Contact support@freebuff.com to have the site removed.',
           site_deleting: 'This site is being deleted.',
           invalid_domain: 'Enter a subdomain such as www.example.com, without a URL or path. Root domains and platform domains are not supported.',
           domain_claimed: 'This domain is already connected or being verified. Remove it from the other site or contact support to recover access.',
