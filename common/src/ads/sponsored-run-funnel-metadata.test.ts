@@ -453,6 +453,7 @@ test('telemetry only: the modules import nothing that can bill', () => {
   const importsOf = (file: string) =>
     readFileSync(join(import.meta.dir, file), 'utf8').match(/from '[^']+'/g)
   expect(importsOf('sponsored-run-funnel-metadata.ts')).toEqual([
+    "from './sponsored-run-evidence'",
     "from 'zod'",
     "from './sponsored-capability'",
     "from './sponsored-client-version'",
@@ -462,11 +463,18 @@ test('telemetry only: the modules import nothing that can bill', () => {
   ])
   // The builder reads the metadata TYPE back from the schema module (erased).
   expect(importsOf('sponsored-run-funnel-builder.ts')).toEqual([
+    "from './sponsored-run-evidence'",
     "from './sponsored-execution-surface'",
     "from './sponsored-client-version'",
     "from './sponsored-in-place'",
     "from './sponsored-run-funnel-metadata'",
   ])
+  // Evidence imports only erased types; it cannot load the driver or billing.
+  const evidence = readFileSync(
+    join(import.meta.dir, 'sponsored-run-evidence.ts'),
+    'utf8',
+  )
+  expect(evidence.match(/^import (?!type )/gm)).toBeNull()
   // The surface list, the in-place verdict contract and the client-version
   // string handling import nothing, so admitting them widens nothing this
   // test guards.

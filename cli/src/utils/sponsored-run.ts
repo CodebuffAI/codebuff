@@ -63,6 +63,8 @@
  * died before writing one is found by the next launch through its in-flight
  * record (`sponsored-run-inflight.ts`) and reported `failed` from there.
  */
+
+import { sponsoredRunEvidence } from '@codebuff/common/ads/sponsored-run-evidence'
 import {
   evaluateSponsoredInstallCommand,
   sponsoredDeclaredPackagesForProcedureSha256,
@@ -464,6 +466,7 @@ function terminalReportPayload(update: SponsoredStateUpdate): string {
     prUrl: update.prUrl,
     failureReason: update.failureReason,
     diagnosticReason: update.diagnosticReason,
+    runEvidence: update.runEvidence,
     head: update.head,
     outcomes: update.outcomes,
   })
@@ -977,7 +980,8 @@ export class SponsoredRun {
       // first. The Accept is already settled upstream, so a spec that fails
       // is reported as a failed run (below) rather than run or dropped.
       const sentSpec =
-        accepted.accept.runSpec !== undefined && accepted.accept.runSpec !== null
+        accepted.accept.runSpec !== undefined &&
+        accepted.accept.runSpec !== null
       const specCheck = sentSpec
         ? checkSponsoredRunSpec(accepted.accept.runSpec, {
             procedure: accepted.accept.procedure,
@@ -1561,7 +1565,10 @@ export class SponsoredRun {
     if (steps && !steps.delivered && verdict === 'delivered') {
       verdict = 'partial_edits'
     }
-    const stepReport = steps ? { steps: sponsoredStepCardStates(steps) } : {}
+    const stepReport = {
+      runEvidence: sponsoredRunEvidence(ending, steps),
+      ...(steps ? { steps: sponsoredStepCardStates(steps) } : {}),
+    }
     const stepDiagnostic = steps
       ? `; ${sponsoredStepDiagnostic(steps)}; skill source ${active.skillSource}`
       : ''

@@ -8,6 +8,10 @@
  * module see one surface. Read that module's header first.
  */
 
+import {
+  parseSponsoredRunEvidence,
+  type SponsoredRunEvidence,
+} from './sponsored-run-evidence'
 import { z } from 'zod'
 
 import { sponsoredExecutionSurfaceSchema } from './sponsored-capability'
@@ -30,6 +34,11 @@ export * from './sponsored-run-funnel-builder'
  */
 export const sponsoredRunFunnelMetadataSchema = z
   .object({
+    run_evidence: z
+      .custom<SponsoredRunEvidence>(
+        (value) => parseSponsoredRunEvidence(value) !== undefined,
+      )
+      .optional(),
     execution_mode: z.enum(SPONSORED_RUN_EXECUTION_MODES),
     execution_surface: z
       .union([

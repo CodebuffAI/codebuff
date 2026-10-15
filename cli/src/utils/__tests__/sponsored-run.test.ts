@@ -572,6 +572,9 @@ describe('the turn', () => {
     await f.service.settleTurn({ errorText: 'model refused', aborted: false })
     await settle()
     expect(f.reported.map((r) => r.state)).toEqual(['failed'])
+    expect(f.reported[0]).toMatchObject({
+      runEvidence: { version: 1, ending: 'error' },
+    })
     expect(f.inflight()).toEqual([])
   })
 

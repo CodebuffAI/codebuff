@@ -18,6 +18,8 @@ import {
 export type SponsoredSkillCheckStatus = 'pass' | 'fail' | 'skipped'
 
 export type SponsoredSkillCheckResult = {
+  /** Retained for structured failure telemetry; absent on older results. */
+  kind?: SponsoredSkillCheck['kind']
   id: string
   label: string
   status: SponsoredSkillCheckStatus
@@ -77,7 +79,7 @@ function result(
   status: SponsoredSkillCheckStatus,
   detail: string,
 ): SponsoredSkillCheckResult {
-  return { id: check.id, label: check.label, status, detail }
+  return { id: check.id, kind: check.kind, label: check.label, status, detail }
 }
 
 function tail(text: string): string {

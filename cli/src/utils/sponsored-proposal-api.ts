@@ -1,3 +1,4 @@
+import type { SponsoredRunEvidence } from '@codebuff/common/ads/sponsored-run-evidence'
 import type { SponsoredProposalStep } from '@codebuff/common/ads/sponsored-proposal-view'
 import {
   AGENTIC_OFFER_PATH,
@@ -141,6 +142,7 @@ export type SponsoredStateUpdate = {
    * The same failure, said plainly, for whoever has to fix it. Stored beside
    * `failureReason` and never rendered.
    */
+  runEvidence?: SponsoredRunEvidence
   diagnosticReason?: string
 }
 

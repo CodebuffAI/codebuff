@@ -136,7 +136,7 @@ export function sponsoredPartialEditsDiagnostic(
   how: string,
   fileCount: number,
 ): string {
-  return `${how}; the turn ended early, so its partial changes (${fileCount} file${
+  return `${how}; ${how.startsWith('turn completed') ? 'verification failed' : 'the turn ended early'}, so its partial changes (${fileCount} file${
     fileCount === 1 ? '' : 's'
   }) were left in the workspace and not reported as delivered`
 }

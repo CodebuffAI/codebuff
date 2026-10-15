@@ -14,8 +14,9 @@
  * test asserts this module imports nothing from billing, and the
  * never-started refund path does not read the stored metadata either.
  *
- * CLOSED AND BOUNDED ON PURPOSE. Every key but `diagnostic_reason` is an enum
- * or a boolean, and `diagnostic_reason` is SCRUBBED (`scrubSponsoredDiagnostic`)
+ * CLOSED AND BOUNDED ON PURPOSE. Scalar facts are enums or booleans; structured
+ * check evidence has bounded IDs, step numbers and categories. The diagnostic
+ * is SCRUBBED (`scrubSponsoredDiagnostic`)
  * and capped at `SPONSORED_FUNNEL_DIAGNOSTIC_MAX` characters. The full,
  * unscrubbed text stays on the Convex row, which is joined by `proposal_id`
  * when an operator needs it; the funnel is for counting, and a counting table
@@ -37,6 +38,11 @@
  * schema module; type imports are erased.
  */
 
+import {
+  parseSponsoredRunEvidence,
+  sponsoredEvidenceFromReport,
+  type SponsoredRunEvidence,
+} from './sponsored-run-evidence'
 import { isSponsoredRunExecutionSurface } from './sponsored-execution-surface'
 import { SPONSORED_CLIENT_VERSION_PATTERN } from './sponsored-client-version'
 import { SPONSORED_PARTIAL_EDITS_MARKER } from './sponsored-in-place'
@@ -239,6 +245,8 @@ export interface SponsoredRunFunnelRowFacts {
     /** `desktop/<v>` or `cli/<v>`, written once at Accept. */
     client_version?: string | null
   } | null
+  run_evidence?: SponsoredRunEvidence
+  last_run_report_payload?: string | null
   diagnostic_reason?: string | null
 }
 
@@ -482,6 +490,9 @@ export function buildSponsoredRunFunnelMetadata(args: {
   )
     ? (args.fromState as (typeof SPONSORED_RUN_FROM_STATES)[number])
     : undefined
+  const evidence =
+    parseSponsoredRunEvidence(row.run_evidence) ??
+    sponsoredEvidenceFromReport(row.last_run_report_payload)
   const diagnostic = scrubSponsoredDiagnostic(row.diagnostic_reason)
   const clientVersion = row.acceptance?.client_version
   const validClientVersion =
@@ -516,6 +527,7 @@ export function buildSponsoredRunFunnelMetadata(args: {
   }
 
   return {
+    ...(evidence ? { run_evidence: evidence } : {}),
     execution_mode: executionMode,
     ...(executionSurface ? { execution_surface: executionSurface } : {}),
     ...(client ? { client } : {}),
