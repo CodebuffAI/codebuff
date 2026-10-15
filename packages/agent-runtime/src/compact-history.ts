@@ -311,6 +311,7 @@ function summarizeToolCall(
       }
       return 'Updated todos'
     }
+    case 'ask_questions':
     case 'ask_user': {
       const questions = input.questions as
         | Array<{ question: string }>
@@ -460,7 +461,7 @@ function parseSummaryIntoEntries(summaryText: string): SummaryEntry[] {
 
 /**
  * Condenses each message into a role-tagged entry. Tool calls become one-line
- * descriptions, tool results are dropped except for errors and edit outcomes,
+ * descriptions, tool results retain user answers, errors and edit outcomes,
  * and long text is truncated head-and-tail.
  */
 function summarizeMessagesIntoEntries(messages: Message[]): SummaryEntry[] {
@@ -563,6 +564,24 @@ function summarizeToolResult(toolMessage: ToolMessage): string[] {
           const exitCode = value.exitCode as number
           if (exitCode !== 0) {
             entryParts.push(`Command failed with exit code: ${exitCode}`)
+          }
+        }
+
+        // Desktop's question tool returns question/answer pairs, unlike the
+        // older ask_user selectedOption/otherText shape. Keep the pairing so
+        // answers such as "Yes" still have meaning after compaction.
+        if (toolMessage.toolName === 'ask_questions') {
+          if (value.skipped) {
+            entryParts.push('User skipped question')
+          } else if (Array.isArray(value.answers)) {
+            for (const answer of value.answers as Array<{
+              question: string
+              answers: string[]
+            }>) {
+              entryParts.push(
+                `User answered:\nQuestion: ${answer.question}\nAnswer: ${answer.answers.join('; ') || '(no answer)'}`,
+              )
+            }
           }
         }
 

@@ -83,6 +83,48 @@ const settledHistory = (): Message[] => [
 ]
 
 describe('compactHistoryNow', () => {
+  it('keeps consumed ask_questions answers in the budgeted runtime history', () => {
+    const question = 'Which database should this project use?'
+    const answer = 'PostgreSQL'
+    const messages: Message[] = [
+      ...settledHistory(),
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'question',
+            toolName: 'ask_questions',
+            input: { questions: [{ question }] },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        toolCallId: 'question',
+        toolName: 'ask_questions',
+        content: [
+          {
+            type: 'json',
+            value: { answers: [{ question, answers: [answer] }] },
+          },
+        ],
+      },
+      assistant('I will proceed.'),
+    ]
+
+    const compacted = compactHistoryNow({
+      messages,
+      maxContextLength: 400_000,
+    })!
+    expect(compacted).not.toBeNull()
+    expect(compacted.nextTokens).toBeLessThan(compacted.previousTokens)
+    expect(compacted.summaryText).toContain(
+      `Question: ${question}\nAnswer: ${answer}`,
+    )
+    expect(JSON.stringify(compacted.messages)).toContain(answer)
+  })
+
   it('compacts a history the triggers would have left alone', () => {
     const messages = settledHistory()
     const contextTokenCount = countTokensMessages(messages)
@@ -102,7 +144,10 @@ describe('compactHistoryNow', () => {
     expect(countTokensMessages(forced!.messages)).toBe(forced!.nextTokens)
     // Edited after it was read, so it comes back as an outline, not a body.
     expect(JSON.stringify(forced!.messages)).not.toContain(
-      JSON.stringify('export const upload = () => {}\nexport const').slice(1, -1),
+      JSON.stringify('export const upload = () => {}\nexport const').slice(
+        1,
+        -1,
+      ),
     )
   })
 

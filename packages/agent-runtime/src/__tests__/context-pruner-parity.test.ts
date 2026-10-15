@@ -184,6 +184,10 @@ const EVERY_TOOL_CALL: Array<{
     toolName: 'ask_user',
     input: { questions: [{ question: 'q'.repeat(400) }] },
   },
+  {
+    toolName: 'ask_questions',
+    input: { questions: [{ question: 'Which database?' }] },
+  },
   { toolName: 'suggest_followups', input: {} },
   { toolName: 'web_search', input: { query: 'how to parse' } },
   { toolName: 'read_url', input: { url: 'https://example.com' } },
@@ -326,6 +330,69 @@ const HISTORIES_WITHOUT_A_LIVE_PROMPT: Record<string, Message[]> = {
 }
 
 describe('context-pruner parity', () => {
+  it('preserves Desktop question/answer pairs through repeated compaction', () => {
+    const answers = [
+      { question: 'Which database?', answers: ['PostgreSQL'] },
+      { question: 'Which features?', answers: ['Search', 'Export'] },
+      {
+        question: 'Any constraints?',
+        answers: ['Keep the existing login flow.'],
+      },
+      { question: 'Anything else?', answers: [] },
+    ]
+    const history: Message[] = [
+      user('build the application', ['USER_PROMPT']),
+      assistant('', [
+        {
+          toolName: 'ask_questions',
+          input: { questions: answers.map(({ question }) => ({ question })) },
+        },
+      ]),
+      toolMessage('ask_questions', { answers }),
+      // The model already consumed the answers: they are not a fresh exchange.
+      assistant('I will proceed.'),
+    ]
+
+    const runtime = compactMessages({ messages: history }).messages
+    const pruner = runPruner(history)
+    expect(normalize(runtime)).toEqual(normalize(pruner))
+    for (const compacted of [runtime, pruner]) {
+      const again = [...compacted, user('continue', ['USER_PROMPT'])]
+      const secondRuntime = compactMessages({ messages: again }).messages
+      const secondPruner = runPruner(again)
+      expect(normalize(secondRuntime)).toEqual(normalize(secondPruner))
+      for (const messages of [compacted, secondRuntime, secondPruner]) {
+        const memory = textOfFirst(messages)
+        for (const answer of answers) {
+          expect(memory).toContain(
+            `Question: ${answer.question}\nAnswer: ${answer.answers.join('; ') || '(no answer)'}`,
+          )
+        }
+      }
+    }
+  })
+
+  it('retains skipped Desktop questions and legacy ask_user answers', () => {
+    const history = [
+      user('build it', ['USER_PROMPT']),
+      toolMessage('ask_questions', { skipped: true, note: 'dismissed' }),
+      toolMessage('ask_user', {
+        answers: [
+          { selectedOption: 'PostgreSQL' },
+          { selectedOptions: ['Search', 'Export'] },
+          { otherText: 'Keep login' },
+        ],
+      }),
+      assistant('Proceeding.'),
+    ]
+    const runtime = compactMessages({ messages: history }).messages
+    expect(normalize(runtime)).toEqual(normalize(runPruner(history)))
+    expect(textOfFirst(runtime)).toContain('User skipped question')
+    expect(textOfFirst(runtime)).toContain(
+      'User answered: PostgreSQL; Search, Export; Keep login',
+    )
+  })
+
   for (const [name, history] of Object.entries(FIXTURES)) {
     it(`matches the pruner on ${name}`, () => {
       const fromRuntime = compactMessages({ messages: history }).messages
