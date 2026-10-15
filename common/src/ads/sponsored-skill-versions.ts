@@ -56,6 +56,7 @@ export function requiredSkillBump(
     return 'major'
   const logic = (s: SponsoredSkill) => ({
     preflight: s.preflight.map(checkLogic),
+    fit: s.fit,
     steps: s.steps.map((step) => [
       step.checks.map(checkLogic),
       step.maxAttempts,

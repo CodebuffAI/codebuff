@@ -22,7 +22,25 @@ import {
 } from './sponsored-run-credentials'
 import { parseSponsoredProcedureSteps } from './sponsored-procedure-steps'
 import { sha256Hex } from '../util/hash'
+import {
+  compileSponsoredSkillFit,
+  parseSponsoredSkillFit,
+  sponsoredFitRoutes,
+  type SponsoredSkillFit,
+} from './sponsored-skill-fit-format'
 
+/**
+ * 1: fit is hand-written preflight globs and regexes. 2: adds the structured
+ * `fit` block (`./sponsored-skill-fit-format.ts`), compiled into the
+ * preflight. Shipped format-1 versions stay valid and immutable.
+ */
+export const SPONSORED_SKILL_FORMATS = [1, 2] as const
+export type SponsoredSkillFormat = (typeof SPONSORED_SKILL_FORMATS)[number]
+/**
+ * The format the Lab skill maker pins on a draft (`pinMakerFields`). Still 1:
+ * it moves to 2 when the maker, the author skill and the skill-loop proposer
+ * write a `fit` block (docs/ads/agentic/sponsored-skills.md, "Fit").
+ */
 export const SPONSORED_SKILL_FORMAT = 1 as const
 
 export const SPONSORED_SKILL_STEP_KINDS = ['agent', 'user', 'check'] as const
@@ -248,7 +266,7 @@ export type SponsoredSkillRequirements = {
 }
 
 export type SponsoredSkill = {
-  format: typeof SPONSORED_SKILL_FORMAT
+  format: SponsoredSkillFormat
   /** Stable slug, `<advertiser>-<goal>`. */
   id: string
   /** Exact semver. Any change to a registered skill is a new version; see `sponsored-skills/versions.lock.ts`. */
@@ -266,6 +284,13 @@ export type SponsoredSkill = {
     summary: string
   }
   requirements: SponsoredSkillRequirements
+  /**
+   * Format 2 only, and required there: which projects the skill fits, as
+   * data. Compiled into preflight checks that run ahead of `preflight`
+   * ({@link sponsoredSkillPreflightChecks}); `requirements.os` must equal its
+   * `os`. Format 1 has none.
+   */
+  fit?: SponsoredSkillFit
   packages: SponsoredSkillPackage[]
   tools: SponsoredSkillTool[]
   /** Native Desktop tools this version needs. Omitted on older skills. */
@@ -280,7 +305,11 @@ export type SponsoredSkill = {
    * orders; the steps say what must be true, the agent decides how.
    */
   knowledge: string[]
-  /** Run before the first step. A failure is fixed in the run when it can be (toolchain), else the run stops before any edit. */
+  /**
+   * Run before the first step. A failure is fixed in the run when it can be (toolchain), else the run stops before any edit.
+   * Format 2: only the checks that are not fit (a key not set yet, a CLI
+   * runs); the fit block's compiled checks run first.
+   */
   preflight: SponsoredSkillCheck[]
   steps: SponsoredSkillStep[]
   /** Funnel outcomes the verifier may credit (see `sponsored-run-outcomes.ts`). */
@@ -724,11 +753,21 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
   if (!isRecord(value))
     return { ok: false, errors: [{ path: '', message: 'must be an object' }] }
 
-  if (value.format !== SPONSORED_SKILL_FORMAT) {
+  if (!(SPONSORED_SKILL_FORMATS as readonly unknown[]).includes(value.format)) {
     errors.push({
       path: 'format',
-      message: `must be ${SPONSORED_SKILL_FORMAT}`,
+      message: `must be one of ${SPONSORED_SKILL_FORMATS.join(', ')}`,
     })
+  }
+  const format2 = value.format === 2
+  if (format2) {
+    const os =
+      isRecord(value.requirements) && Array.isArray(value.requirements.os)
+        ? (value.requirements.os as string[])
+        : null
+    parseSponsoredSkillFit(errors, value.fit, os)
+  } else if (value.fit !== undefined) {
+    errors.push({ path: 'fit', message: 'a fit block needs format 2' })
   }
   if (typeof value.id !== 'string' || !SLUG.test(value.id)) {
     errors.push({ path: 'id', message: 'must be a lowercase slug' })
@@ -821,7 +860,37 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
     }
     list('os', SPONSORED_SKILL_OS)
     list('packageManagers', SPONSORED_SKILL_PACKAGE_MANAGERS)
-    list('frameworks', SPONSORED_SKILL_FRAMEWORKS)
+    const fitRoutes =
+      format2 && isRecord(value.fit) && isRecord(value.fit.routes)
+        ? Object.keys(value.fit.routes)
+        : null
+    // `frameworks` is the JS-only enum: a format-2 skill with no node route
+    // lists none, and one with a node route must list at least one.
+    if (fitRoutes && !fitRoutes.includes('node')) {
+      if (
+        !Array.isArray(requirements.frameworks) ||
+        requirements.frameworks.length !== 0
+      )
+        errors.push({
+          path: 'requirements.frameworks',
+          message: 'must be empty for a skill with no node fit route',
+        })
+    } else list('frameworks', SPONSORED_SKILL_FRAMEWORKS)
+    if (fitRoutes && Array.isArray(requirements.runtimes)) {
+      const names = requirements.runtimes.map((runtime) =>
+        isRecord(runtime) ? runtime.name : null,
+      )
+      for (const [route, runtime] of [
+        ['node', 'node'],
+        ['python', 'python'],
+      ] as const) {
+        if (fitRoutes.includes(route) && !names.includes(runtime))
+          errors.push({
+            path: 'requirements.runtimes',
+            message: `must name ${runtime}: the fit block has a ${route} route`,
+          })
+      }
+    }
     const runtimes = requirements.runtimes
     if (
       !Array.isArray(runtimes) ||
@@ -970,13 +1039,18 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
   }
 
   const checkIds = new Set<string>()
+  const compiledFit =
+    format2 && !errors.some((error) => error.path.startsWith('fit'))
+      ? compileSponsoredSkillFit(value.fit as SponsoredSkillFit)
+      : []
+  for (const check of compiledFit) checkIds.add(check.id)
   if (
     !Array.isArray(value.preflight) ||
-    value.preflight.length > MAX_SKILL_PREFLIGHT_CHECKS
+    value.preflight.length + compiledFit.length > MAX_SKILL_PREFLIGHT_CHECKS
   ) {
     errors.push({
       path: 'preflight',
-      message: `must be a list of at most ${MAX_SKILL_PREFLIGHT_CHECKS} checks`,
+      message: `must be a list of at most ${MAX_SKILL_PREFLIGHT_CHECKS - compiledFit.length} checks (${MAX_SKILL_PREFLIGHT_CHECKS} with the fit block's)`,
     })
   } else {
     value.preflight.forEach((check, index) =>
@@ -1184,7 +1258,32 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
 }
 
 function allChecks(skill: SponsoredSkill): SponsoredSkillCheck[] {
-  return [...skill.preflight, ...skill.steps.flatMap((step) => step.checks)]
+  return [
+    ...sponsoredSkillPreflightChecks(skill),
+    ...skill.steps.flatMap((step) => step.checks),
+  ]
+}
+
+/**
+ * THE preflight the step driver runs: a format-2 skill's compiled fit
+ * checks, then its own `preflight`. Format 1 is `preflight` unchanged.
+ */
+export function sponsoredSkillPreflightChecks(
+  skill: Pick<SponsoredSkill, 'preflight'> & { fit?: SponsoredSkillFit },
+): SponsoredSkillCheck[] {
+  return [
+    ...(skill.fit ? compileSponsoredSkillFit(skill.fit) : []),
+    ...(skill.preflight ?? []),
+  ]
+}
+
+/** The ecosystems a skill's fit block routes to; null for a format-1 skill. */
+export function sponsoredSkillFitEcosystems(
+  skill: Pick<SponsoredSkill, 'fit'>,
+): string[] | null {
+  return skill.fit
+    ? sponsoredFitRoutes(skill.fit).map((route) => route.ecosystem)
+    : null
 }
 
 /** Semver order (prerelease below its release), for picking the latest version. */

@@ -34,6 +34,7 @@ import {
   SPONSORED_SKILL_OS,
   sponsoredSkillDirective,
   sponsoredSkillMatchesProcedure,
+  sponsoredSkillPreflightChecks,
   sponsoredSkillSha256,
   type SponsoredSkill,
   type SponsoredSkillCheck,
@@ -455,7 +456,7 @@ function preflightFailureLine(
     oneLine.length > PREFLIGHT_DETAIL_CHARS
       ? `${oneLine.slice(0, PREFLIGHT_DETAIL_CHARS - 1)}…`
       : oneLine
-  const declared = (skill.preflight ?? []).find(
+  const declared = sponsoredSkillPreflightChecks(skill).find(
     (
       check,
     ): check is Extract<SponsoredSkillCheck, { kind: 'command_succeeds' }> =>
@@ -502,7 +503,7 @@ export async function runSponsoredSkillPreflight(
   if (checks.every((result) => result.status !== 'fail')) {
     const outcome = await check(
       { skill, ctx: redactedCheckContext(deps.ctx, deps.redact ?? identity) },
-      { checks: skill.preflight ?? [] },
+      { checks: sponsoredSkillPreflightChecks(skill) },
     )
     checks.push(...outcome.results)
   }
