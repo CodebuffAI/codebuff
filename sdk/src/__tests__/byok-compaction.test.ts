@@ -129,18 +129,34 @@ describe('BYOK compaction on an unlisted model', () => {
   beforeEach(() => clearByokContextWindowCache())
   afterEach(() => { globalThis.fetch = originalFetch })
 
-  test('the untouched 32k default compacts over and over (the reported bug)', async () => {
+  test('the untouched 32k default keeps hitting its trigger, and stops summarizing its own summary', async () => {
     const { counts, fetchImpl } = scriptedProvider({ data: [] })
     const { result, passes, lifecycle } = await longTask(await savedWithFormDefaults(), fetchImpl)
+    // One block per attempt: each is bracketed, and ends only after its
+    // receipt, so a host showing "Compacting…" never drops it early.
+    const blocks: string[][] = []
+    for (const entry of lifecycle) {
+      if (entry.startsWith('start:')) blocks.push([entry])
+      else blocks.at(-1)!.push(entry)
+    }
     // Pinned so the next test is known to exercise the real failure: twelve
-    // ordinary reads cost repeated compactions on the stored default.
-    expect(passes.length).toBeGreaterThanOrEqual(2)
-    // Each pass is bracketed, and ends only after its receipt: a host showing
-    // "Compacting…" never drops it before the pass finishes.
-    expect(lifecycle).toEqual(
-      passes.flatMap(() => ['start:context_limit', 'receipt', 'end']),
+    // ordinary reads keep this window at its trigger, over and over.
+    expect(blocks.length).toBeGreaterThanOrEqual(2)
+    expect(
+      blocks.every(
+        (block) => block[0] === 'start:context_limit' && block.at(-1) === 'end',
+      ),
+    ).toBe(true)
+    expect(blocks.filter((block) => block.includes('receipt'))).toHaveLength(
+      passes.length,
     )
     expect(passes.every((pass) => pass.trigger === 'context_limit')).toBe(true)
+    // With ~16k of tool schemas against a 32k window, a pass has nothing to
+    // leave that is not back at the 26k trigger, so most attempts are
+    // abandoned (`automaticCompactionPostCeiling`) and the history is kept
+    // until the hard budget, where one pass applies — instead of summarizing
+    // its own summary every few tool calls.
+    expect(passes.length).toBeLessThan(blocks.length)
     expect(counts.work).toBe(FILES + 1)
     expect(result.output.type).not.toBe('error')
   }, 60_000)

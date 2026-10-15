@@ -47,6 +47,7 @@ import {
 import type { CompactionWindow } from './compaction-followup'
 import {
   automaticCompactionIsWorthwhile,
+  automaticCompactionPostCeiling,
   compactionOverBudgetMessage,
   compactMechanically,
 } from './compaction'
@@ -1486,6 +1487,15 @@ export async function loopAgentSteps(
                 trigger === 'manual'
                   ? undefined
                   : Math.floor(thresholdTokens * MECHANICAL_TARGET_SHARE),
+              // The same low-water rule as the check above, applied to what
+              // the pass actually produced rather than to what it was
+              // predicted to produce. Only below the hard budget: at or over
+              // it compaction is no longer optional.
+              maxPostTokens:
+                trigger === 'manual' ||
+                currentAgentState.contextTokenCount > maxContextLength
+                  ? undefined
+                  : automaticCompactionPostCeiling(thresholdTokens),
               trigger,
               logger,
               runId,

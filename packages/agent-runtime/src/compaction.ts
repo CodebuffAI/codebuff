@@ -61,6 +61,21 @@ function summaryBudget(params: {
 const COMPACTION_LOW_WATER = 0.85
 
 /**
+ * The most an automatic compaction may leave behind, measured after the pass
+ * has run. `automaticCompactionIsWorthwhile` asks the same question before
+ * it, from the parts it can predict — the fixed prefix, the live request and
+ * a summary — but a pass also keeps the fresh tool exchange whole and may
+ * re-provide a working set, and those two are what actually fill a small
+ * budget. Measured over 48 h of production compactions on the 110k lean
+ * budget: the median pass left 36k, but in the runs that compacted ten times
+ * or more the median pass left 68k against an 88k threshold and shrank the
+ * history by 18%, so the next read triggered the next pass.
+ */
+export function automaticCompactionPostCeiling(thresholdTokens: number): number {
+  return Math.floor(thresholdTokens * COMPACTION_LOW_WATER)
+}
+
+/**
  * The context a compaction is assumed to leave behind: the fixed
  * prefix (system prompt, tool schemas), the live request it keeps verbatim,
  * and a summary. None of it is compactable, so when this is not comfortably
@@ -120,6 +135,9 @@ export function compactMechanically(params: {
   fixedTokenCount: number
   targetTokens?: number
   trigger?: CompactionTrigger | 'manual'
+  /** Abandon a pass that would leave more than this behind; see
+   * `automaticCompactionPostCeiling`. */
+  maxPostTokens?: number
   logger: Logger
   runId?: string
   model?: string
@@ -132,8 +150,14 @@ export function compactMechanically(params: {
 } | null {
   const { model, contextTokenCount, ...historyParams } = params
   let error: unknown
+  let abandonedPostTokens: number | undefined
   try {
-    const result = compactHistoryNow(historyParams)
+    const result = compactHistoryNow({
+      ...historyParams,
+      onAbandoned: (postTokens) => {
+        abandonedPostTokens = postTokens
+      },
+    })
     if (result)
       return {
         messages: result.messages,
@@ -153,11 +177,16 @@ export function compactMechanically(params: {
         model,
         trigger_reason: params.trigger,
         error_kind:
-          error === undefined
-            ? 'no_shrink'
-            : message.includes('exceed the configured context window')
+          error !== undefined
+            ? message.includes('exceed the configured context window')
               ? 'over_budget'
-              : 'error',
+              : 'error'
+            : abandonedPostTokens !== undefined
+              ? 'above_low_water'
+              : 'no_shrink',
+        ...(abandonedPostTokens === undefined
+          ? {}
+          : { post_tokens: abandonedPostTokens }),
         ...(error === undefined
           ? {}
           : {
@@ -168,9 +197,11 @@ export function compactMechanically(params: {
         context_token_count: contextTokenCount,
         max_context_length: params.maxContextLength,
       },
-      error === undefined
-        ? 'Mechanical compaction could not shrink the history; left unchanged'
-        : 'Mechanical compaction failed; history left unchanged',
+      error !== undefined
+        ? 'Mechanical compaction failed; history left unchanged'
+        : abandonedPostTokens !== undefined
+          ? 'Mechanical compaction would have landed back at its trigger; left unchanged'
+          : 'Mechanical compaction could not shrink the history; left unchanged',
     )
   } catch {
     // Logging must never turn a skipped compaction into a failed run.

@@ -1224,6 +1224,15 @@ export function compactHistoryNow(params: {
   historyTokens?: number
   /** Why the caller compacted; a forced pass is `manual`. */
   trigger?: CompactionTrigger | 'manual'
+  /** Abandon a pass that would still leave `maxPostTokens` tokens behind
+   * (`fixedTokenCount` included). What a pass cannot shrink — the fixed
+   * prefix, the live request and the fresh tool exchange it keeps whole — can
+   * be most of an automatic trigger's threshold, and then the pass lands back
+   * at that threshold and the next tool result compacts its own summary. The
+   * caller hears about it through `onAbandoned` and nothing is logged as a
+   * compaction, because none happened. */
+  maxPostTokens?: number
+  onAbandoned?: (postTokens: number) => void
   logger?: Logger
   runId?: string
 }): {
@@ -1245,6 +1254,13 @@ export function compactHistoryNow(params: {
   const previousTokens = countTokensMessages(messages)
   const nextTokens = countTokensMessages(result.messages)
   if (nextTokens >= previousTokens) return null
+  if (
+    params.maxPostTokens !== undefined &&
+    nextTokens + fixedTokenCount > params.maxPostTokens
+  ) {
+    params.onAbandoned?.(nextTokens + fixedTokenCount)
+    return null
+  }
 
   // Telemetry is best-effort and must never block the compaction itself.
   try {

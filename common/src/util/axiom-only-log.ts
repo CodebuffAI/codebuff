@@ -53,7 +53,8 @@ export const STREAM_RECOVERY_EVENT = 'stream_recovery' as const
  *  model names only, never a path or file content. */
 export const FILE_WRITE_GUARD_EVENT = 'file_write_guard' as const
 /** A compaction the mechanical pass did not apply: it threw (the live request
- *  alone over budget) or could not shrink the history. Content-free: a fixed
+ *  alone over budget), could not shrink the history, or would have left the
+ *  run back at the threshold that triggered it. Content-free: a fixed
  *  `error_kind`, never the message. */
 export const MECHANICAL_COMPACTION_SKIPPED_EVENT =
   'mechanical_compaction.skipped' as const
@@ -327,11 +328,15 @@ const MECHANICAL_COMPACTION_SKIPPED_FIELDS = {
   model: 'string',
   agent_run_id: 'string',
   trigger_reason: 'string',
-  /** `no_shrink`, `over_budget` (the live request alone does not fit) or `error`. */
+  /** `no_shrink`, `above_low_water` (the pass would have landed back at its
+   *  own trigger), `over_budget` (the live request alone does not fit) or
+   *  `error`. */
   error_kind: 'string',
   error_name: 'string',
   context_token_count: 'number',
   max_context_length: 'number',
+  /** What an `above_low_water` pass would have left behind; absent otherwise. */
+  post_tokens: 'number',
 } as const satisfies AxiomOnlyFieldSchema
 
 const CONTEXT_COMPACTION_COMPLETED_FIELDS = {

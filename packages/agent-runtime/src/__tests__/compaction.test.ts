@@ -3,6 +3,7 @@ import { DEEPSEEK_FLASH_COMPACTION_POLICY } from '@codebuff/common/constants/com
 
 import {
   automaticCompactionIsWorthwhile,
+  automaticCompactionPostCeiling,
   compactedContextCeiling,
   compactMechanically,
 } from '../compaction'
@@ -249,4 +250,155 @@ test('compactMechanically logs each compaction it does not apply', () => {
   expect(infos).toEqual([
     expect.objectContaining({ axiomEvent: 'context_compaction_completed' }),
   ])
+})
+
+/**
+ * The lean 110k budget (Gemini 4 Argon, Claude Haiku 5.5's 100k row) with one
+ * large fresh tool result: the shape behind the runs that compacted ten times
+ * or more in production. The pass keeps the fresh exchange whole, so it lands
+ * back at the threshold that fired it and the next read fires the next pass.
+ */
+const leanBudget = {
+  maxContextLength: 110_000,
+  thresholdTokens: 88_000,
+  fixedTokenCount: 15_000,
+}
+const bigReadHistory = (freshLines: number, olderLines: number): Message[] => [
+  user('Why does the importer drop rows?'),
+  {
+    role: 'assistant',
+    content: [
+      {
+        type: 'tool-call',
+        toolCallId: 'older',
+        toolName: 'read_files',
+        input: { paths: ['importer.ts'] },
+      },
+    ],
+  },
+  {
+    role: 'tool',
+    toolName: 'read_files',
+    toolCallId: 'older',
+    content: [
+      {
+        type: 'json',
+        value: [
+          {
+            path: 'importer.ts',
+            content: 'const parsed = parseRow(line);\n'.repeat(olderLines),
+          },
+        ],
+      },
+    ],
+  },
+  {
+    role: 'assistant',
+    content: [
+      {
+        type: 'tool-call',
+        toolCallId: 'fresh',
+        toolName: 'read_files',
+        input: { paths: ['rows.ts'] },
+      },
+    ],
+  },
+  {
+    role: 'tool',
+    toolName: 'read_files',
+    toolCallId: 'fresh',
+    content: [
+      {
+        type: 'json',
+        value: [
+          {
+            path: 'rows.ts',
+            content: 'export const row = { id: 1, name: "a" };\n'.repeat(
+              freshLines,
+            ),
+          },
+        ],
+      },
+    ],
+  },
+]
+
+test('the pre-check misses what a pass keeps whole, so the result is checked too', () => {
+  // ~70k tokens of fresh read (41 chars a line, 3 chars a token) over ~10k
+  // of older read, so the pass can shrink the history but not the part it
+  // keeps whole.
+  const history = bigReadHistory(5_122, 968)
+  const contextTokenCount =
+    countTokensMessages(history) + leanBudget.fixedTokenCount
+  // The deferral window: past the threshold, under the hard budget. Both
+  // bounds are the fixture's preconditions, not the behaviour under test.
+  expect(contextTokenCount).toBeGreaterThan(leanBudget.thresholdTokens)
+  expect(contextTokenCount).toBeLessThanOrEqual(leanBudget.maxContextLength)
+
+  // What main does: the pre-check sees a fixed prefix, the live request and a
+  // 6k summary, says there is room, and the pass applies — landing above the
+  // low-water mark, where the next tool result triggers the next pass.
+  expect(automaticCompactionIsWorthwhile({ ...leanBudget, messages: history })).toBe(
+    true,
+  )
+  const pass = {
+    messages: history,
+    maxContextLength: leanBudget.maxContextLength,
+    fixedTokenCount: leanBudget.fixedTokenCount,
+    targetTokens: 44_000,
+    logger: noopLogger,
+  }
+  const applied = compactMechanically(pass)
+  expect(applied!.postTokens).toBeLessThan(applied!.preTokens)
+  const ceiling = automaticCompactionPostCeiling(leanBudget.thresholdTokens)
+  expect(ceiling).toBe(74_800)
+  expect(applied!.postTokens).toBeGreaterThan(ceiling)
+
+  const infos: any[] = []
+  const original = structuredClone(history)
+  expect(
+    compactMechanically({
+      ...pass,
+      maxPostTokens: ceiling,
+      trigger: 'context_limit',
+      runId: 'run-lean',
+      model: 'gemini-4-argon',
+      contextTokenCount,
+      logger: { ...noopLogger, info: (data: unknown) => infos.push(data) },
+    }),
+  ).toBeNull()
+  expect(history).toEqual(original)
+  expect(infos).toEqual([
+    {
+      axiomEvent: 'mechanical_compaction.skipped',
+      agent_run_id: 'run-lean',
+      model: 'gemini-4-argon',
+      trigger_reason: 'context_limit',
+      error_kind: 'above_low_water',
+      post_tokens: applied!.postTokens,
+      context_token_count: contextTokenCount,
+      max_context_length: leanBudget.maxContextLength,
+    },
+  ])
+})
+
+test('a pass that clears the low-water mark still applies', () => {
+  // The same history with a fresh result the pass can work around: it lands
+  // under the ceiling, so nothing is abandoned.
+  const history = bigReadHistory(600, 5_000)
+  const ceiling = automaticCompactionPostCeiling(leanBudget.thresholdTokens)
+  const applied = compactMechanically({
+    messages: history,
+    maxContextLength: leanBudget.maxContextLength,
+    fixedTokenCount: leanBudget.fixedTokenCount,
+    targetTokens: 44_000,
+    maxPostTokens: ceiling,
+    logger: noopLogger,
+  })
+  expect(applied!.postTokens).toBeLessThanOrEqual(ceiling)
+  expect(applied!.postTokens).toBeLessThan(applied!.preTokens)
+  // The fresh read the model has not acted on yet is still there whole.
+  expect(JSON.stringify(applied!.messages)).toContain(
+    'export const row = { id: 1,',
+  )
 })
