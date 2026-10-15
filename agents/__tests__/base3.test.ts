@@ -5,6 +5,7 @@ import {
 } from '@codebuff/common/constants/free-agents'
 import {
   compactionPolicyForModel,
+  GEMINI_4_ARGON_COMPACTION_POLICY,
   LEAN_COMPACTION_POLICY,
 } from '@codebuff/common/constants/compaction-policy'
 import {
@@ -12,6 +13,7 @@ import {
   TURN_ENDING_RULE,
 } from '@codebuff/common/constants/turn-ending-rule'
 import {
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_SOLAR_MINI_4_MODEL_ID,
   FREEBUFF_SOLAR_PRO_4_MODEL_ID,
@@ -106,8 +108,13 @@ describe('base3 CLI roots', () => {
       // with the idle trigger sized per model: an hour for most, so a coffee
       // break never rewrites the history, and 15 minutes for DeepSeek Flash,
       // whose Luminal lane forgets the prefix by then anyway (see base3.ts).
+      // Gemini 4 Argon holds every request under 100k (2026-10-13), on
+      // Claude Haiku 5.5's lean policy; `lean` itself stays with the builder.
+      const { lean: _lean, ...argonPolicy } = GEMINI_4_ARGON_COMPACTION_POLICY
       expect(agent.compactContext).toEqual(
-        compactionPolicyForModel(agent.model),
+        agent.model === FREEBUFF_GEMINI_4_ARGON_MODEL_ID
+          ? argonPolicy
+          : compactionPolicyForModel(agent.model),
       )
       // Single loop: no subagents at all, which is what the harness IS.
       expect(agent.spawnableAgents ?? []).toEqual([])

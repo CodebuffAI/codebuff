@@ -102,3 +102,14 @@ export const LEAN_COMPACTION_POLICY = {
   maxContextLength: 110_000,
   lean: true,
 } as const satisfies RootCompactionPolicy
+
+/**
+ * Gemini 4 Argon's root policy (2026-10-13, product): LEAN_COMPACTION_POLICY,
+ * as on Claude Haiku 5.5's 100k row. Google's implicit cache on its flex tier
+ * misses a share of repeated prompts outright, and each miss bills the whole
+ * prompt fresh, so holding every request under 100k bounds what a miss costs.
+ * Measurements: freebuff-models.knowledge.md. The server catalog sends it to
+ * current CLI and Desktop builds (`compiledCatalogEntry`); the compiled CLI
+ * root and the Web/Cloud root set it themselves.
+ */
+export const GEMINI_4_ARGON_COMPACTION_POLICY = LEAN_COMPACTION_POLICY
