@@ -9,11 +9,13 @@
  *   grandfather list until it is seeded;
  * - `missing` / `failed`: the rollout skips it.
  *
- * STUB until Track B lands: every version answers `missing`, so the rollout
- * moves nothing on its own (only an operator pin, which bypasses this check,
- * does). Track B replaces the body with a lookup in its receipts index; the
- * signature is the contract.
+ * Reads Track B's index (`sponsoredSkillBenchStanding`): `pass` is a full or
+ * sweep receipt whose skill sha256 is the version's lock line, with a passing
+ * verdict. The public export overlays `receipts.ts` with one that answers
+ * `missing`, so a public build rolls nothing.
  */
+
+import { sponsoredSkillBenchStanding } from './sponsored-skills/receipts'
 
 import type { SponsoredSkill } from './sponsored-skill'
 
@@ -24,9 +26,9 @@ export type SponsoredSkillRolloutReceipt =
   | 'failed'
 
 export function sponsoredSkillRolloutReceipt(
-  _skill: SponsoredSkill,
+  skill: SponsoredSkill,
 ): SponsoredSkillRolloutReceipt {
-  return 'missing'
+  return sponsoredSkillBenchStanding(skill)
 }
 
 /** Whether the receipt lets the rollout move a campaign to this version. */
