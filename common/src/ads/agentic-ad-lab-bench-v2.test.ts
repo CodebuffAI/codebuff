@@ -171,7 +171,7 @@ describe('bench-v2 pool', () => {
     }
   })
 
-  test('has the five fixtures, each with its folder', () => {
+  test('has the five fixtures', () => {
     const fixtures = LAB_BENCH_V2.filter((e) => e.kind === 'fixture')
     expect(
       fixtures.map((e) => `${e.name}:${e.git}:${e.lineEndings}`).sort(),
@@ -184,12 +184,13 @@ describe('bench-v2 pool', () => {
         'windows-python:commit:crlf',
       ].sort(),
     )
-    const root = join(
-      import.meta.dir,
-      '../../../evals/sponsored/bench-fixtures',
-    )
-    for (const e of fixtures)
-      if (e.name !== 'empty-folder')
+  })
+
+  // evals/ is not in the public export, so the folders are checked only here.
+  const root = join(import.meta.dir, '../../../evals/sponsored/bench-fixtures')
+  test.skipIf(!existsSync(root))('each fixture has its folder', () => {
+    for (const e of LAB_BENCH_V2)
+      if (e.kind === 'fixture' && e.name !== 'empty-folder')
         expect(existsSync(join(root, e.name, 'files'))).toBe(true)
   })
 })
