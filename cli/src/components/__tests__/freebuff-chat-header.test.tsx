@@ -59,7 +59,7 @@ test.each([130, 42])(
     const frame = setup.captureCharFrame()
     expect(frame).toContain('Copy invite link')
     expect(frame).toContain('Learn More')
-    expect(frame).toContain('25/25 Freebucks remaining')
+    expect(frame).toContain('5/5 hours remaining')
     expect(frame).not.toContain('/history')
     expect(frame).not.toContain('/dashboard')
     expect(frame.split('\n')[0]!.trim()).toStartWith(
@@ -163,8 +163,8 @@ test("the panel reports the ended hour's refund, zero included", async () => {
 
   // The reported case — an hour that spent its whole price. Silence here is
   // what users read as "the refund was removed".
-  expect(await show({ lastRefund: 0 })).toContain('No Freebucks returned')
-  expect(await show({ lastRefund: 37 })).toContain('37 Freebucks returned')
+  expect(await show({ lastRefund: 0 })).toContain('No hours returned')
+  expect(await show({ lastRefund: 10 })).toContain('2 hours of balance returned')
   expect(await show({ refundPending: true })).toContain('Refund settling')
   expect(await show({ lastRefund: null })).not.toContain('returned')
 })

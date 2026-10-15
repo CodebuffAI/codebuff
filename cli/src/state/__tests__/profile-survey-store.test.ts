@@ -95,7 +95,7 @@ describe('profile survey store', () => {
     expect(useProfileSurveyStore.getState().survey?.status).toBe('completed')
     expect(getProfileSurveyKeyContext()).toBeNull()
     expect(printed).toHaveLength(1)
-    expect(printed[0]).toStartWith('✓ +25 Freebucks added to your wallet\nedit answers: ')
+    expect(printed[0]).toStartWith('✓ +5 hours added to your wallet\nedit answers: ')
     expect(printed[0]).toEndWith('/account')
   })
 

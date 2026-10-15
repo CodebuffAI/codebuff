@@ -218,7 +218,11 @@ describe('catalog rows', () => {
     const order = ['Cheap Model', 'Future Model', 'Hero Model', 'Locked Model']
       .map((name) => frame.indexOf(name))
     expect(order).toEqual([...order].sort((a, b) => a - b))
-    expect(lineAfter(frame, 'Cheap Model')).toContain('5 Freebucks/hr')
+    // Prices read as multipliers of the 1x hour; the 1x row carries none.
+    expect(lineAfter(frame, 'Future Model')).toContain('2x')
+    expect(lineAfter(frame, 'Hero Model')).toContain('4x')
+    expect(frame).not.toContain('1x')
+    expect(frame).not.toContain('Freebucks')
   })
 })
 
@@ -276,7 +280,7 @@ describe('a locked row', () => {
     const setup = await focusLocked(async () => {})
     const frame = setup.captureCharFrame()
     expect(lineAfter(frame, 'Locked Model')).toContain('Pro plan')
-    expect(lineAfter(frame, 'Locked Model')).not.toContain('Freebucks/hr')
+    expect(lineAfter(frame, 'Locked Model')).not.toMatch(/\d+x\b/)
     expect(frame).toContain('Included with Pro.')
   })
 

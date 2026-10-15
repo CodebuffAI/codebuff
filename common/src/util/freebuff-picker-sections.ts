@@ -95,6 +95,8 @@ const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
     // messages over 10-07..13, against MiMo 2.6 Flash's $1.35 on OpenRouter).
     'deepseek/deepseek-v4-flash': { section: 'optimized', order: 5, recommended: true }, // V4.1 Flash
     'mimo/mimo-v2.5': { section: 'optimized', order: 10 }, // MiMo 2.6 Flash
+    // MiMo Slow (2026-10-14): the same model, slower and cheaper, beside it.
+    'm-61c26317cc': { section: 'optimized', order: 12 }, // MiMo Slow
     'z-ai/glm-5.3-flash': { section: 'optimized', order: 20 },
     // Muse Spark 1.3 and GPT-6 Luna moved here from Powerful (2026-10-13).
     // Placement only: both stay plan-only at limited access.

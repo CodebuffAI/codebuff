@@ -50,7 +50,7 @@ function referralLink(code: string, referrerName: string | null): string {
  */
 const EARN_URL = `${LOGIN_WEBSITE_URL}${FREEBUFF_EARN_PATH}`
 const DASHBOARD_LABEL = `${FREEBUFF_EARN_PROMPT_SHORT} ↵`
-/** Link to details about earning Freebucks. */
+/** Link to details about earning hours. */
 const METERED_DASHBOARD_LABEL = 'Learn More ↵'
 // Two columns of leading space separate the label from the copy control beside
 // it (the row itself has no gap), and they stay put in every state so keyboard
@@ -295,7 +295,7 @@ interface FreebuffReferralBannerProps {
   /** A live GLM promo, or undefined. Undefined is the ordinary state. */
   glmPromo?: FreebuffGlmPromo
   accessTier: FreebuffAccessTier
-  /** The account is on the Freebucks meter: referrals pay Freebucks, and
+  /** The account is on the Freebucks meter: referrals pay hours, and
    *  nothing here may count sessions. */
   metered?: boolean
   focusedId: string
@@ -407,7 +407,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
   // bonus sessions/day already earned.
   // ...unless they hold bounty-earned GLM sessions, which fall through to the
   // shared unlocked card below.
-  // ON THE METER: one quiet line. Referrals pay Freebucks (claimed on the
+  // ON THE METER: one quiet line. Referrals pay hours (claimed on the
   // Earn page), and every other variant here counts sessions per day, which
   // is a meter this account is no longer on.
   if (metered) {
@@ -415,7 +415,7 @@ export const FreebuffReferralBanner: React.FC<FreebuffReferralBannerProps> = ({
       <box style={{ flexDirection: 'column', width, marginTop: 1, flexShrink: 0 }}>
         <text style={{ wrapMode: 'word' }}>
           <span fg={theme.muted}>✦ Refer friends → </span>
-          <span fg={theme.foreground}>earn Freebucks</span>
+          <span fg={theme.foreground}>earn hours</span>
           <span fg={theme.muted}>:</span>
         </text>
         {lockedReferralActions}

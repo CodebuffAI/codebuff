@@ -116,7 +116,7 @@ describe('ProfileSurveyBoxView', () => {
     )
     expect(frame).toContain('quick question 3/10')
     expect(frame).toContain('■■□□□□□□□□')
-    expect(frame).toContain('+25 Freebucks for all 10')
+    expect(frame).toContain('+5 hours for all 10')
     expect(frame).toContain('How big is the team you build with?')
     expect(frame).toContain('1 Just me')
     expect(frame).toContain("0 Doesn't apply")
@@ -129,7 +129,7 @@ describe('ProfileSurveyBoxView', () => {
     const frame = await renderFrame(
       <ProfileSurveyBoxView state={stateAt(0, 0)} width={80} />,
     )
-    expect(frame).not.toContain('Freebucks')
+    expect(frame).not.toContain('hours')
     expect(frame).not.toContain('← back')
     expect(frame).toContain('quick question 1/10')
   })

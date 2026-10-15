@@ -62,7 +62,7 @@ describe('BYOK setup from a Freebuff wall', () => {
       .messages.map((message) => message.content)
       .join('\n')
     expect(text).toContain('/byok add')
-    expect(text).toContain('never spend Freebucks')
+    expect(text).toContain('never spend your hours')
   })
 
   test('/byok off closes setup when nothing is selected', async () => {

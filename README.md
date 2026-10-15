@@ -34,7 +34,7 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 
 | Model                       | Access                  | Best for                                                          |
 | --------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| **MiMo 2.6 Flash**          | Full and limited access | The default everywhere; balanced performance with image support   |
+| **MiMo Fast**               | Full and limited access | The default everywhere; balanced performance with image support   |
 | **GLM 5.3 Flash**           | Full and limited access | Deepest reasoning, unmetered                                      |
 | **DeepSeek V4.1 Flash** | Full and limited access | Fast coding and tool use, unmetered                               |
 | **DeepSeek V4.1 Flash Fast** | Full access; paid plans at limited access | Fast mode: the same model on DeepSeek's own API, splitting work across parallel subagents and verifying the result; priced on DeepSeek's peak and off-peak hours |
@@ -47,7 +47,7 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 | **Gemini 4 Argon**          | US, or paid plans elsewhere | Google's flagship reasoning model at a temporary promotional price, one session a day for every account; 1M context, images |
 | **GPT-6.1 Sol**             | US, or paid plans elsewhere | OpenAI's flagship, one session a day for every account; 1M context, images |
 
-Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo 2.6 Flash, Solar Mini 4 and Solar Pro 4 are unmetered at full access and cost no session at all. Models may still serve from a quantized (Q8_0) build.
+Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo Fast, Solar Mini 4 and Solar Pro 4 are unmetered at full access and cost no session at all. Models may still serve from a quantized (Q8_0) build.
 
 DeepSeek V4 Pro was retired from the catalog; GLM 5.3 Flash replaces it as the deep-reasoning pick.
 
@@ -70,7 +70,7 @@ Freebuff uses specialized agents instead of sending every task through one model
 
 ## Free access
 
-Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access to GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo 2.6 Flash, Solar Mini 4, and Solar Pro 4. Every model is paid for in Freebucks at the price shown in the picker. The free limited-access allowance is 25 Freebucks a day, or 20 on a VPN or proxy, spent first on every model, GLM included; earned Freebucks go into your wallet and are used after it.
+Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access to GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo Fast, Solar Mini 4, and Solar Pro 4. Every model is paid for in Freebucks at the price shown in the picker. The free limited-access allowance is 25 Freebucks a day, or 20 on a VPN or proxy, spent first on every model, GLM included; earned Freebucks go into your wallet and are used after it.
 
 Text ads support the included models. Freebuff shows the applicable session limits and any model-specific data-use notice before you start.
 

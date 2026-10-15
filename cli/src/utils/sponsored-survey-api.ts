@@ -15,6 +15,7 @@ import {
   type SponsoredSurveyClient,
   type SponsoredSurveyOffer,
 } from '@codebuff/common/constants/freebuff-sponsored-survey-client'
+import { formatHoursWithUnit } from '@codebuff/common/util/freebuff-hours'
 import { sanitizeTerminalStrings } from '@codebuff/common/util/terminal-safe-text'
 import {
   SPONSORED_SURVEY_QUESTION_KINDS,
@@ -121,6 +122,6 @@ export function sponsoredOfferToSurveyState(
 
 export function sponsoredCompletionLine(rewardedFreebucks: number): string {
   return rewardedFreebucks > 0
-    ? `✓ +${rewardedFreebucks} Freebucks added to your wallet`
+    ? `✓ +${formatHoursWithUnit(rewardedFreebucks)} added to your wallet`
     : '✓ Thanks for answering'
 }

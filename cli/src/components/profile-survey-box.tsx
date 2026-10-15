@@ -1,5 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import { profileSurveySnoozeDays } from '@codebuff/common/constants/freebuff-profile-survey'
+import { formatHoursWithUnit } from '@codebuff/common/util/freebuff-hours'
 import { SPONSORED_SURVEY_LIMITS } from '@codebuff/common/constants/freebuff-sponsored-survey'
 import React from 'react'
 
@@ -105,8 +106,8 @@ export const ProfileSurveyBoxView = ({
   const reward =
     state.rewardFreebucks > 0
       ? state.sponsored
-        ? `  Earn ${state.rewardFreebucks} Freebucks`
-        : `  +${state.rewardFreebucks} Freebucks for all ${total}`
+        ? `  Earn ${formatHoursWithUnit(state.rewardFreebucks)}`
+        : `  +${formatHoursWithUnit(state.rewardFreebucks)} for all ${total}`
       : ''
 
   return (

@@ -1622,7 +1622,9 @@ const MIMO_V25_MODEL = {
   // FREEBUFF_MIMO_V25_MODEL_ID). Same Xiaomi rate card as 2.5 to the cent
   // ($0.14 in / $0.28 out / $0.0028 cache read per M), so nothing about this
   // row's economics or its unmetered/fallback role moved with the name.
-  displayName: 'MiMo 2.6 Flash',
+  // Shown as "MiMo Fast" since 2026-10-14 (product): the full-speed half of
+  // the pair with MiMo Slow, the same model with a paced hour.
+  displayName: 'MiMo Fast',
   tagline: 'Balanced',
   availability: 'always',
   dataUse: 'service',

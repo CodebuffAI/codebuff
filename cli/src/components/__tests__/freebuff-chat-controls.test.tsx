@@ -146,7 +146,7 @@ if (process.env.FREEBUFF_CHAT_CONTROLS_TEST !== '1') {
     }
   })
 
-  test('GLM to Luna asks for 20 Freebucks', async () => {
+  test('GLM to Luna asks for 4 hours (20 Freebucks)', async () => {
     const expiresAt = new Date(Date.now() + 3_600_000).toISOString()
     const glm = 'z-ai/glm-5.3-flash'
     const luna = 'openai/gpt-6-luna'
@@ -179,9 +179,9 @@ if (process.env.FREEBUFF_CHAT_CONTROLS_TEST !== '1') {
     useFreebuffModelStore.setState({ hasExplicitPick: true }) // Luna was picked
     const setup = await mount()
     expect(useFreebuffChatStore.getState().admission?.phase).toBe('confirm')
-    expect(setup.captureCharFrame()).toContain('20')
+    expect(setup.captureCharFrame()).toContain('4 hours')
     expect(useFreebuffChatStore.getState().admission?.message).toContain(
-      'costs 20',
+      'takes 4 hours from your balance',
     )
     await setup.mockInput.pressKey('ESCAPE')
     expect(useFreebuffSessionStore.getState().session?.status).toBe('active')

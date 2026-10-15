@@ -26,11 +26,8 @@ import {
   useFreebuffChatStore,
   selectFreebuffChatModel,
 } from '../state/freebuff-chat-store'
-import {
-  freebucksOf,
-  formatFreebucks,
-  freebucksRefundLine,
-} from '../utils/freebucks'
+import { formatHours } from '@codebuff/common/util/freebuff-hours'
+import { freebucksOf, freebucksRefundLine } from '../utils/freebucks'
 import {
   getFreebuffStreakBonusNoteForLayout,
   getFreebuffStreakBonusStatusForLayout,
@@ -135,7 +132,7 @@ export function FreebuffChatHeader({
         </text>
         {freebucks && (
           <text style={{ fg: theme.foreground, wrapMode: 'word' }}>
-            {`${formatFreebucks(freebucks.daily.remaining)}/${formatFreebucks(freebucks.daily.limit)} Freebucks remaining`}
+            {`${formatHours(freebucks.daily.remaining)}/${formatHours(freebucks.daily.limit)} hours remaining`}
           </text>
         )}
         {freebucks === null && (

@@ -7,6 +7,7 @@ import {
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID as muse,
 } from '../../constants/freebuff-models'
 import {
+  FREEBUFF_MIMO_SLOW_CATALOG_KEY as slowKey,
   getFreebuffModelPresets,
   matchingFreebuffModelPreset,
 } from '../freebuff-model-presets'
@@ -95,6 +96,68 @@ describe('model picker presets', () => {
         ],
       })[0]?.reasoningEffort,
     ).toBe('high')
+  })
+
+  test('premium ladders lead with MiMo Slow where it is listed and open', () => {
+    const slow = { id: slowKey, displayName: 'MiMo Slow' }
+    for (const input of [
+      { accessTier: 'full' as const },
+      { accessTier: 'limited' as const, isSubscriber: true },
+    ]) {
+      expect(ids({ ...input, models: [slow] })).toEqual([slowKey, flash, muse])
+      expect(choices({ ...input, models: [slow] })[0]?.reasoningEffort).toBeNull()
+      // Locked or unlisted (Web, a withdrawn row): MiMo, as before.
+      expect(
+        ids({ ...input, models: [{ ...slow, available: false }] })[0],
+      ).toBe(mimo)
+      expect(ids({ ...input, models: [] })[0]).toBe(mimo)
+    }
+    expect(ids({ accessTier: 'full' })[0]).toBe(mimo)
+  })
+
+  test('a planless limited account builds its ladder on the server’s recommendation (MiMo Slow)', () => {
+    const slow = { id: 'm-slow', displayName: 'MiMo Slow' }
+    const glyph = { id: 'm-glyph', displayName: 'Glyph Cluster', price: 0 }
+    // No free promotion: the recommendation fills both lower stops, and a new
+    // chat (Balanced) starts on it.
+    expect(
+      ids({ accessTier: 'limited', models: [slow], recommendedModelId: 'm-slow' }),
+    ).toEqual(['m-slow', 'm-slow', flash])
+    expect(
+      matchingFreebuffModelPreset(
+        choices({ accessTier: 'limited', models: [slow], recommendedModelId: 'm-slow' }),
+        'm-slow',
+        null,
+      )?.id,
+    ).toBe('balanced')
+    // A free promotion keeps Efficient.
+    expect(
+      ids({ accessTier: 'limited', models: [glyph, slow], recommendedModelId: 'm-slow' }),
+    ).toEqual(['m-glyph', 'm-slow', flash])
+    // Unlisted or unavailable: MiMo, as before.
+    expect(
+      ids({ accessTier: 'limited', models: [glyph], recommendedModelId: 'm-slow' }),
+    ).toEqual(['m-glyph', mimo, flash])
+    expect(
+      ids({
+        accessTier: 'limited',
+        models: [{ ...slow, available: false }],
+        recommendedModelId: 'm-slow',
+      }),
+    ).toEqual([mimo, mimo, flash])
+    // With no rows to check against (the CLI), the server's pick is taken as is.
+    expect(ids({ accessTier: 'limited', recommendedModelId: 'm-slow' })).toEqual([
+      'm-slow',
+      'm-slow',
+      flash,
+    ])
+    // Premium ladders never read it.
+    for (const input of [
+      { accessTier: 'limited' as const, isSubscriber: true },
+      { accessTier: 'limited' as const, balance: 100 },
+      { accessTier: 'full' as const },
+    ])
+      expect(ids({ ...input, recommendedModelId: 'm-slow' })).toEqual([mimo, flash, muse])
   })
 
   test('uses catalog keys for compiled models, and falls back to Flash when Muse Spark is withdrawn', () => {
