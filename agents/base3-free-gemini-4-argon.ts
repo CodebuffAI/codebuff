@@ -1,4 +1,3 @@
-import { GEMINI_4_ARGON_COMPACTION_POLICY } from '@codebuff/common/constants/compaction-policy'
 import { FREEBUFF_GEMINI_4_ARGON_MODEL_ID } from '@codebuff/common/constants/freebuff-models'
 
 import { createBase3CliRoot } from './base3'
@@ -15,8 +14,6 @@ const definition = {
   ...createBase3CliRoot({
     model: FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
     isFreebuff: true,
-    // Every request under 100k (GEMINI_4_ARGON_COMPACTION_POLICY).
-    compaction: GEMINI_4_ARGON_COMPACTION_POLICY,
   }),
   id: 'base3-free-gemini-4-argon',
   displayName: 'Buffy on Gemini 4 Argon',
