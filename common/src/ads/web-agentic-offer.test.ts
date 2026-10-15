@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { spawnSync } from 'child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -8,13 +8,17 @@ import {
   cloudWorktreeCapabilitySchema,
   sponsoredCapabilitySchema,
 } from './sponsored-capability'
-import { agenticOfferLocalCapabilitySchema } from './agentic-offer'
+import {
+  agenticOfferLocalCapabilitySchema,
+  parseAgenticOfferRepoFacts,
+} from './agentic-offer'
 import {
   WEB_CAPABILITY_COMMAND,
   cloudProjectWorkspaceId,
   cloudSponsoredCapability,
   parseWebWorktreeFacts,
   webWorktreeCapability,
+  webWorktreeRepoFacts,
 } from './web-agentic-offer'
 
 const WORKSPACE = '7d1e2f3a-4b5c-5d6e-8f70-112233445566'
@@ -255,5 +259,97 @@ describe('the cloud execution is server-assigned', () => {
         execution: { surface: 'cloud_linux', status: 'available' },
       }).success,
     ).toBe(false)
+  })
+})
+
+describe('the worktree fit facts (Track A5)', () => {
+  test('the command prints the fit manifests, shallowest first, and the facts parse on the route', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'web-fit-'))
+    try {
+      mkdirSync(join(root, 'api'))
+      mkdirSync(join(root, 'web/node_modules/x'), { recursive: true })
+      writeFileSync(
+        join(root, 'api/pyproject.toml'),
+        '[project]\nname = "api"\ndependencies = [\n  "fastapi[standard]>=0.115",\n  "openai>=1",\n]\n',
+      )
+      writeFileSync(join(root, 'requirements.txt'), 'flask==3.0.0\n')
+      writeFileSync(
+        join(root, 'web/package.json'),
+        JSON.stringify({ devDependencies: { vite: '5' } }),
+      )
+      writeFileSync(join(root, 'web/node_modules/x/package.json'), '{"dependencies":{"evil":"1"}}')
+      writeFileSync(join(root, '.coderabbit.yaml'), '\n')
+      writeFileSync(join(root, 'main.py'), 'print(1)')
+      const git = (...args: string[]) =>
+        spawnSync('git', args, { cwd: root, encoding: 'utf8' })
+      git('init', '-q')
+      git('add', '-f', '.')
+      git('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-qm', 'init')
+      const run = spawnSync('sh', ['-c', WEB_CAPABILITY_COMMAND], { cwd: root, encoding: 'utf8' })
+      expect(run.status).toBe(0)
+      const worktree = parseWebWorktreeFacts(run.stdout)
+      expect([...(worktree.fitFiles?.keys() ?? [])]).toEqual([
+        '.coderabbit.yaml',
+        'requirements.txt',
+        'api/pyproject.toml',
+        'web/package.json',
+      ])
+      // The other sections still read as before.
+      expect(worktree.files).toContain('main.py')
+      const facts = await webWorktreeRepoFacts(worktree)
+      expect(facts).toMatchObject({
+        complete: true,
+        empty: ['.coderabbit.yaml'],
+        manifests: [
+          { path: 'api/pyproject.toml', ecosystem: 'pypi', names: ['fastapi', 'openai'], complete: true },
+          { path: 'requirements.txt', ecosystem: 'pypi', names: ['flask'], complete: true },
+          { path: 'web/package.json', ecosystem: 'npm', names: ['vite'], complete: true },
+        ],
+      })
+      expect(JSON.stringify(facts)).not.toContain('evil')
+      expect(parseAgenticOfferRepoFacts(facts)).toEqual(facts)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('an untracked manifest counts, as it does for the run’s preflight', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'web-fit-untracked-'))
+    try {
+      writeFileSync(join(root, 'README.md'), 'hi')
+      writeFileSync(join(root, '.gitignore'), 'ignored/\n')
+      const git = (...args: string[]) =>
+        spawnSync('git', args, { cwd: root, encoding: 'utf8' })
+      git('init', '-q')
+      git('add', '.')
+      git('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-qm', 'init')
+      // Created after the commit and never added: untracked, not ignored.
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: { next: '15' } }))
+      mkdirSync(join(root, 'ignored'))
+      writeFileSync(join(root, 'ignored/pyproject.toml'), '[project]\ndependencies = ["django"]\n')
+      const run = spawnSync('sh', ['-c', WEB_CAPABILITY_COMMAND], { cwd: root, encoding: 'utf8' })
+      const worktree = parseWebWorktreeFacts(run.stdout)
+      expect(worktree.files).not.toContain('package.json')
+      const facts = await webWorktreeRepoFacts(worktree)
+      expect(facts).toMatchObject({
+        paths: ['package.json'],
+        complete: true,
+        manifests: [{ path: 'package.json', names: ['next'], complete: true }],
+      })
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('a fit listing that did not finish proves no absence', async () => {
+    const cut = parseWebWorktreeFacts(
+      ['@@freebuff-capability:inside', 'true', '@@freebuff-capability:fitpaths', 'package.json'].join('\n'),
+    )
+    expect(cut.fitPaths).toBeNull()
+    expect((await webWorktreeRepoFacts(cut))?.complete).toBe(false)
+  })
+
+  test('outside a work tree there are no facts', async () => {
+    expect(await webWorktreeRepoFacts(parseWebWorktreeFacts(''))).toBeNull()
   })
 })

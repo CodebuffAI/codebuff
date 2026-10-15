@@ -17,6 +17,11 @@
 import { createHash } from 'node:crypto'
 
 import { SPONSORED_CLOUD_EXECUTION_SURFACE } from './sponsored-execution-surface'
+import {
+  MAX_REPO_FACT_MANIFESTS,
+  sponsoredRepoFacts,
+  type SponsoredRepoFacts,
+} from './sponsored-skill-fit'
 
 import type {
   CapabilityInspection,
@@ -58,6 +63,16 @@ const SECTION = '@@freebuff-capability:'
 const MAX_FILES = 20_000
 const MAX_MANIFEST_BYTES = 200_000
 const GIT_STEP_TIMEOUT_S = 3
+/** Each fit file is printed up to this many bytes (a cut package.json reads as incomplete). */
+const MAX_FIT_FILE_BYTES = 64_000
+/** The fit files the command prints: manifests the fit oracle reads names from, and markers. */
+const FIT_FILE_PATTERN =
+  '(^|/)(package\\.json|pyproject\\.toml|requirements[^/]*\\.txt|setup\\.py|setup\\.cfg|Pipfile|\\.coderabbit\\.ya?ml)$'
+/** Every fit-file basename the oracle lists (`SPONSORED_FIT_FILE_NAMES`). */
+const FIT_NAME_PATTERN =
+  '(^|/)(package\\.json|pyproject\\.toml|requirements[^/]*\\.txt|setup\\.py|setup\\.cfg|Pipfile|package-lock\\.json|npm-shrinkwrap\\.json|pnpm-lock\\.yaml|pnpm-workspace\\.yaml|yarn\\.lock|bun\\.lockb?|uv\\.lock|poetry\\.lock|Pipfile\\.lock|deno\\.jsonc?|go\\.mod|Cargo\\.toml|composer\\.json|Gemfile|pom\\.xml|build\\.gradle(\\.kts)?|\\.coderabbit\\.ya?ml)$'
+/** More fit paths than this marks the listing incomplete. */
+const MAX_FIT_PATHS = 2_000
 /** Room for every section at its cap: the worker passes it as the exec output limit. */
 export const WEB_CAPABILITY_OUTPUT_LIMIT = 4_000_000
 
@@ -80,6 +95,14 @@ export const WEB_CAPABILITY_COMMAND = [
   'for c in node npx bun python3 python; do command -v "$c" >/dev/null 2>&1 && printf "%s\\n" "$c"; done',
   `printf '%s\\n' '${SECTION}manifest'`,
   `head -c ${MAX_MANIFEST_BYTES} package.json 2>/dev/null`,
+  // The fit oracle's listing (`sponsoredRepoFacts`): tracked AND untracked,
+  // not-ignored files, exactly as the run's preflight lists them, but only
+  // the fit names, so it stays small. Then its manifests: shallowest first,
+  // at most 16, each capped, each after its own marker.
+  `printf '\\n%s\\n' '${SECTION}fitpaths'`,
+  `$T git ls-files -co --exclude-standard 2>/dev/null | grep -E '${FIT_NAME_PATTERN}' | grep -vE '(^|/)node_modules/' | head -n ${MAX_FIT_PATHS}`,
+  `printf '\\n%s\\n' '${SECTION}fitpathsdone'`,
+  `$T git ls-files -co --exclude-standard 2>/dev/null | grep -E '${FIT_FILE_PATTERN}' | grep -vE '(^|/)node_modules/' | awk -F/ '{ print NF "\\t" $0 }' | sort -n -k1,1 | cut -f2- | head -n ${MAX_REPO_FACT_MANIFESTS} | while IFS= read -r f; do printf '\\n%s%s\\n' '${SECTION}fit:' "$f"; head -c ${MAX_FIT_FILE_BYTES} "$f" 2>/dev/null; done`,
   // Last: an output cap cuts only the file list, never the compact sections.
   `printf '\\n%s\\n' '${SECTION}files'`,
   `$T git ls-files 2>/dev/null | head -n ${MAX_FILES}`,
@@ -93,6 +116,13 @@ export type WebWorktreeFacts = {
   runtimes: SponsoredRuntime[]
   /** `package.json`'s text, or null when the worktree has none. */
   manifest: string | null
+  /** The fit files the command printed, by repo-relative path (capped text). */
+  fitFiles?: Map<string, string>
+  /**
+   * Every fit-file path, tracked or untracked and not ignored, as the run's
+   * preflight lists files; null when the listing did not finish.
+   */
+  fitPaths?: string[] | null
 }
 
 /** Parse {@link WEB_CAPABILITY_COMMAND}'s output. */
@@ -113,13 +143,45 @@ export function parseWebWorktreeFacts(output: string): WebWorktreeFacts {
     if (name === 'python3' || name === 'python') runtimes.add('python')
   }
   const manifest = sections.get('manifest')?.join('\n').trim() ?? ''
+  const fitFiles = new Map<string, string>()
+  for (const [name, body] of sections) {
+    if (!name.startsWith('fit:')) continue
+    const path = name.slice('fit:'.length)
+    if (path) fitFiles.set(path, body.join('\n'))
+  }
+  const fitPathLines = lines('fitpaths')
+  const fitPaths =
+    sections.has('fitpathsdone') && fitPathLines.length < MAX_FIT_PATHS
+      ? fitPathLines
+      : null
   return {
     insideWorkTree: lines('inside')[0] === 'true',
     head: lines('head')[0] ?? null,
     files: lines('files'),
     runtimes: [...runtimes],
     manifest: manifest ? manifest : null,
+    fitFiles,
+    fitPaths,
   }
+}
+
+/**
+ * The worktree's fit facts for the offer route's `repoFacts`: the fit-file
+ * listing of tracked and untracked, not-ignored files (complete only when it
+ * finished under its cap) and the fit files the command printed. A manifest the command did not print reads as unknown, never as
+ * absent. Dependency names go to the offer route only, never a log.
+ */
+export function webWorktreeRepoFacts(
+  facts: WebWorktreeFacts,
+): Promise<SponsoredRepoFacts | null> {
+  if (!facts.insideWorkTree) return Promise.resolve(null)
+  return sponsoredRepoFacts({
+    // The fit listing includes untracked files, as the run's preflight does;
+    // only a finished one proves an absence.
+    paths: facts.fitPaths ?? facts.files,
+    complete: facts.fitPaths != null,
+    read: (path) => facts.fitFiles?.get(path) ?? null,
+  })
 }
 
 type PackageJson = {
