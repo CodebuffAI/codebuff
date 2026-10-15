@@ -323,6 +323,8 @@ export type SponsoredStepLoopDeps<State> = {
   redact?: (text: string) => string
   /** A `report_friction` blocker, sent for each step left blocked. */
   onFriction?: (input: SponsoredFrictionInput) => void
+  /** Persist checked completion before the optional final report segment. */
+  onChecksComplete?: (result: SponsoredStepDriveResult) => void
   /** Progress only (see {@link SponsoredStepDriverDeps.onStep}). */
   onStep?: (step: SponsoredStepProgress) => void
 }
@@ -352,6 +354,8 @@ export async function runSponsoredStepLoop<State>(
       return true
     },
   })
+
+  deps.onChecksComplete?.(result)
 
   // The report the user reads must match the checks, not the model's memory
   // of what it tried. Only after a fix: otherwise the first segment's report

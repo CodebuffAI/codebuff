@@ -93,6 +93,12 @@ export function sponsoredFailureExplanation(input: {
       scrubSponsoredDiagnostic(reason) ??
       'The run failed; no specific reason was recorded.'
   }
+  if (evidence?.verificationPending) {
+    return {
+      label: 'Verification incomplete',
+      detail: `Implementation finished, but user verification is incomplete.${ending === 'completed' ? '' : ` ${ended}`}`,
+    }
+  }
   const blockers: string[] = []
   const categories = new Set<SponsoredBlockerCategory>()
   for (const check of evidence?.checks ?? []) {

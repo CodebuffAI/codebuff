@@ -114,6 +114,7 @@ export const SPONSORED_RUN_FAILURE_CODES = [
   'never_started_app_quit',
   'never_started_inputs_dropped',
   'never_started_other',
+  'verification_incomplete',
   'partial_edits',
   'funding_refused',
   // Cloud executor refusals (`SponsoredExecutionRefusal` + the sweep).
@@ -388,6 +389,7 @@ const TURN_RAN_CODES: ReadonlySet<SponsoredRunFailureCode> = new Set([
   'no_commit',
   'commit_follow_up_failed',
   // Edits of the run's own are a model's work.
+  'verification_incomplete',
   'partial_edits',
 ])
 
@@ -504,10 +506,12 @@ export function buildSponsoredRunFunnelMetadata(args: {
   let failureCode: SponsoredRunFailureCode | undefined
   let llmCalled: boolean | undefined
   if (args.eventType === 'run_failed') {
-    failureCode = sponsoredRunFailureCode({
-      refusal: args.refusal,
-      diagnosticReason: row.diagnostic_reason,
-    })
+    failureCode = evidence?.verificationPending
+      ? 'verification_incomplete'
+      : sponsoredRunFailureCode({
+          refusal: args.refusal,
+          diagnosticReason: row.diagnostic_reason,
+        })
     if (NO_TURN_CODES.has(failureCode)) llmCalled = false
     else if (TURN_RAN_CODES.has(failureCode)) llmCalled = true
     // A Cloud row the sweep took out of `accepted` was never queued, and a

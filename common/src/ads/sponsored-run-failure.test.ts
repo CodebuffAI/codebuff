@@ -215,3 +215,105 @@ test('an interrupted driver without check results still uses reported blockers',
     }).detail,
   ).toContain('Agent reported: An API key')
 })
+
+const waitingSteps: SponsoredStepDriveResult = {
+  skill: 'test@1',
+  delivered: true,
+  fixes: 0,
+  steps: [
+    {
+      number: 1,
+      id: 'implement',
+      title: 'Implement',
+      kind: 'agent',
+      status: 'passed',
+      fixes: 0,
+      checks: [
+        {
+          id: 'build',
+          kind: 'command_succeeds',
+          label: 'Build',
+          status: 'pass',
+          detail: 'Passed',
+        },
+      ],
+    },
+    {
+      number: 2,
+      id: 'verify',
+      title: 'Confirm',
+      kind: 'user',
+      status: 'needs_user',
+      fixes: 0,
+      checks: [
+        {
+          id: 'confirm',
+          kind: 'user_confirmed',
+          label: 'Confirm',
+          status: 'fail',
+          detail: 'Not confirmed',
+        },
+      ],
+    },
+  ],
+}
+
+test('checked completion survives wire parsing and takes precedence over the process ending', () => {
+  for (const ending of [
+    'completed',
+    'closed',
+    'stopped',
+    'interrupted',
+  ] as const) {
+    const evidence = sponsoredRunEvidence(ending, waitingSteps)
+    expect(parseSponsoredRunEvidence(evidence)?.verificationPending).toBe(true)
+    const metadata = buildSponsoredRunFunnelMetadata({
+      eventType: 'run_failed',
+      row: {
+        diagnostic_reason: `turn ${ending}: app-quit`,
+        last_run_report_payload: JSON.stringify({ runEvidence: evidence }),
+      },
+    })
+    expect(
+      sponsoredRunFunnelMetadataReceiverSchema.parse(metadata).failure_code,
+    ).toBe('verification_incomplete')
+    expect(sponsoredFailureExplanation({ metadata })).toMatchObject({
+      label: 'Verification incomplete',
+      detail: expect.stringContaining('Implementation finished'),
+    })
+  }
+})
+
+test('unproven completion, earlier setup, real errors, and malformed pending evidence do not qualify', () => {
+  for (const result of [
+    { ...waitingSteps, delivered: false },
+    { ...waitingSteps, stoppedBecause: 'turn_failed' as const },
+    { ...waitingSteps, steps: waitingSteps.steps.slice(1) },
+    { ...waitingSteps, steps: [...waitingSteps.steps].reverse() },
+    {
+      ...waitingSteps,
+      steps: [
+        { ...waitingSteps.steps[0]!, status: 'blocked' as const },
+        waitingSteps.steps[1]!,
+      ],
+    },
+  ])
+    expect(
+      sponsoredRunEvidence('closed', result).verificationPending,
+    ).toBeUndefined()
+  expect(
+    sponsoredRunEvidence('error', waitingSteps).verificationPending,
+  ).toBeUndefined()
+  expect(
+    parseSponsoredRunEvidence({
+      ...sponsoredRunEvidence('closed', waitingSteps),
+      verificationPending: 'true',
+    }),
+  ).toBeUndefined()
+  expect(
+    parseSponsoredRunEvidence({
+      ...sponsoredRunEvidence('closed', waitingSteps),
+      ending: 'error',
+    }),
+  ).toBeUndefined()
+})

@@ -1,6 +1,27 @@
 import type { SponsoredStepDriveResult } from './sponsored-step-driver'
 import type { SponsoredTurnEnding } from './sponsored-in-place'
 
+/** Only final human steps remain; setup that precedes implementation is not verification. */
+export function sponsoredUserVerificationPending(
+  result: SponsoredStepDriveResult,
+): boolean {
+  const firstPending = result.steps.findIndex(
+    (step) => step.status === 'needs_user',
+  )
+  return (
+    result.delivered &&
+    !result.stoppedBecause &&
+    firstPending > 0 &&
+    result.steps.some((step) => step.kind === 'agent') &&
+    result.steps.every((step, index) =>
+      index < firstPending
+        ? step.status === 'passed'
+        : step.kind === 'user' &&
+          (step.status === 'passed' || step.status === 'needs_user'),
+    )
+  )
+}
+
 /** Closed telemetry only: no paths, labels, command output, or credential values. */
 export const SPONSORED_BLOCKER_CATEGORIES = [
   'scope_check',
@@ -30,6 +51,8 @@ export type SponsoredRunEvidence = {
   }>
   /** At least one evaluator result survived; absent on ending-only reports. */
   checksRecorded?: true
+  /** Implementation checks passed; only final human verification remains. Optional for old clients. */
+  verificationPending?: true
   truncated?: true
 }
 export const SPONSORED_EVIDENCE_CHECK_LIMIT = 20
@@ -49,11 +72,17 @@ export function parseSponsoredRunEvidence(
           'ending',
           'checks',
           'checksRecorded',
+          'verificationPending',
           'truncated',
         ].includes(k),
     ) ||
     v.version !== 1 ||
     !(SPONSORED_RUN_ENDINGS as readonly unknown[]).includes(v.ending) ||
+    (v.verificationPending !== undefined &&
+      (v.verificationPending !== true ||
+        !['completed', 'closed', 'stopped', 'interrupted'].includes(
+          v.ending as string,
+        ))) ||
     (v.checksRecorded !== undefined && v.checksRecorded !== true) ||
     (v.truncated !== undefined && v.truncated !== true) ||
     !Array.isArray(v.checks) ||
@@ -86,6 +115,7 @@ export function parseSponsoredRunEvidence(
     version: 1,
     ending: v.ending as SponsoredRunEvidence['ending'],
     checks,
+    ...(v.verificationPending ? { verificationPending: true as const } : {}),
     ...(v.checksRecorded ? { checksRecorded: true } : {}),
     ...(v.truncated ? { truncated: true } : {}),
   }
@@ -140,6 +170,12 @@ export function sponsoredRunEvidence(
     ending: /cloud runner restarted/i.test(errorText ?? '')
       ? 'runner_restarted'
       : ending,
+    ...(steps &&
+    sponsoredUserVerificationPending(steps) &&
+    ['completed', 'closed', 'stopped', 'interrupted'].includes(ending) &&
+    !/cloud runner restarted/i.test(errorText ?? '')
+      ? { verificationPending: true as const }
+      : {}),
     ...(steps?.preflight?.length ||
     steps?.steps.some((step) => step.checks.length)
       ? { checksRecorded: true as const }
