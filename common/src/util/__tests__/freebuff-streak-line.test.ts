@@ -108,7 +108,7 @@ describe('getFreebuffStreakBonusStatus', () => {
         bonusExpiresAt: '2026-09-28T16:00:00.000Z',
       }),
     ).toBe(
-      '+15 added to today\'s allowance until midnight · next +15 after 3:00 PM (your time)',
+      '+3 hours added to today\'s allowance until midnight · next +3 hours after 3:00 PM (your time)',
     )
   })
 
@@ -122,7 +122,7 @@ describe('getFreebuffStreakBonusStatus', () => {
         timeZone: 'America/Los_Angeles',
       }),
     ).toBe(
-      '+15 added to today\'s allowance until midnight · next +15 with your first message after that',
+      '+3 hours added to today\'s allowance until midnight · next +3 hours with your first message after that',
     )
   })
 
@@ -135,21 +135,21 @@ describe('getFreebuffStreakBonusStatus', () => {
           bonusExpiresAt,
         }),
       ).toBe(
-        '+15 expired at your daily reset · next +15 with your first message after 3:00 PM (your time)',
+        '+3 hours expired at your daily reset · next +3 hours with your first message after 3:00 PM (your time)',
       )
     }
   })
 
   test('without an expiry (older server) it only says credited', () => {
     expect(getFreebuffStreakBonusStatus({ ...base, todayCredited: true })).toBe(
-      '+15 credited · next +15 with your first message after 3:00 PM (your time)',
+      '+3 hours credited · next +3 hours with your first message after 3:00 PM (your time)',
     )
   })
 
   // The 2026-09-29 Desktop report, as the ledger recorded it: a 17-day streak
   // in India, credited at 07:00Z every day (12:30 PM IST). At 11:15 AM IST
   // their local day and daily pool had rolled over, but the Pacific streak day
-  // had not — its +15 had landed at 12:30 PM the previous LOCAL day. Now that
+  // had not — its +3 hours had landed at 12:30 PM the previous LOCAL day. Now that
   // bonus lived in that local day's allowance and left with its reset.
   test('east of Pacific after local midnight, it never calls the credit "today\'s"', () => {
     const status = getFreebuffStreakBonusStatus({
@@ -163,7 +163,7 @@ describe('getFreebuffStreakBonusStatus', () => {
       timeZone: 'Asia/Kolkata',
     })
     expect(status).toBe(
-      '+15 expired at your daily reset · next +15 with your first message after 12:30 PM (your time)',
+      '+3 hours expired at your daily reset · next +3 hours with your first message after 12:30 PM (your time)',
     )
     expect(status).not.toMatch(/today|wallet/i)
   })
@@ -171,7 +171,7 @@ describe('getFreebuffStreakBonusStatus', () => {
   test('a used day without a confirmed credit promises only the next one', () => {
     for (const todayCredited of [false, null, undefined]) {
       expect(getFreebuffStreakBonusStatus({ ...base, todayCredited })).toBe(
-        'Next +15 with your first message after 3:00 PM (your time)',
+        'Next +3 hours with your first message after 3:00 PM (your time)',
       )
     }
   })
@@ -183,7 +183,7 @@ describe('getFreebuffStreakBonusStatus', () => {
         todayUsed: false,
         todayCredited: false,
       }),
-    ).toBe('Send a message before 3:00 PM (your time) to earn +15')
+    ).toBe('Send a message before 3:00 PM (your time) to earn +3 hours')
   })
 
   // The 2026-10-01 Desktop report from Dubai (8-day streak): granted at
@@ -204,14 +204,14 @@ describe('getFreebuffStreakBonusStatus', () => {
         timeZone: 'Asia/Dubai',
       }),
     ).toBe(
-      '+15 expired at your daily reset · next +15 with your first message after 11:00 AM (your time)',
+      '+3 hours expired at your daily reset · next +3 hours with your first message after 11:00 AM (your time)',
     )
   })
 
   test('compact drops the clock label, and a Pacific midnight never had one', () => {
     expect(
       getFreebuffStreakBonusStatus({ ...base, todayUsed: false, compact: true }),
-    ).toBe('Send a message before 3:00 PM to earn +15')
+    ).toBe('Send a message before 3:00 PM to earn +3 hours')
     expect(
       getFreebuffStreakBonusStatus({
         ...base,
@@ -219,7 +219,7 @@ describe('getFreebuffStreakBonusStatus', () => {
         now: new Date('2026-09-27T20:00:00.000Z'),
         timeZone: 'America/Los_Angeles',
       }),
-    ).toBe('Send a message before midnight to earn +15')
+    ).toBe('Send a message before midnight to earn +3 hours')
   })
 
   test('hidden off the meter, below the milestone, or without a reset', () => {
@@ -271,13 +271,13 @@ describe('the streak day is the account day', () => {
         bonusExpiresAt: DUBAI_MIDNIGHT,
       }),
     ).toBe(
-      "+15 added to today's allowance until midnight · next +15 with your first message after that",
+      "+3 hours added to today's allowance until midnight · next +3 hours with your first message after that",
     )
     expect(getFreebuffStreakBonusStatus({ ...dubai, todayUsed: true })).toBe(
-      'Next +15 with your first message after midnight',
+      'Next +3 hours with your first message after midnight',
     )
     expect(getFreebuffStreakBonusStatus({ ...dubai, todayUsed: false })).toBe(
-      'Send a message before midnight to earn +15',
+      'Send a message before midnight to earn +3 hours',
     )
   })
 
@@ -288,7 +288,7 @@ describe('the streak day is the account day', () => {
         todayUsed: true,
         timeZone: 'Europe/London',
       }),
-    ).toBe('Next +15 with your first message after 9:00 PM (your time)')
+    ).toBe('Next +3 hours with your first message after 9:00 PM (your time)')
   })
 
   // The one interval after a timezone change runs past a day (UTC to Tokyo:

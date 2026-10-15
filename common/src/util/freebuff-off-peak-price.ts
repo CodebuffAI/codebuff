@@ -3,6 +3,7 @@ import {
   resolveWindowTimeZone,
 } from '../constants/freebuff-peak-hours'
 import type { FreebuffFreebucksInfo } from '../types/freebuff-session'
+import { freebuffMultiplierText } from './freebuff-hours'
 import { offPeakPriceAt, offPeakRuns } from './freebuff-price-changes'
 import { getZonedYmd } from './zoned-time'
 
@@ -40,10 +41,10 @@ export function freebucksOffPeakCopy(
 
 /**
  * One sentence: the EXCEPTION window — whichever price holds for fewer hours
- * a week — named, with its price, its hours on the reader's clock and the
- * server's reason, then the other price. Flash reads "Off-peak: 10
- * Freebucks/hr 3 PM–11 PM PDT, when Freebuff is quiet. 15 otherwise."; fast
- * mode reads "Peak: 50 Freebucks/hr Sun–Thu, …".
+ * a week — named, with its price as a usage multiplier (freebuff-hours.ts),
+ * its hours on the reader's clock and the server's reason, then the other
+ * price. Flash reads "Off-peak: 2x 3 PM–11 PM PDT, when Freebuff is quiet. 3x
+ * otherwise."; fast mode reads "Peak: 10x Sun–Thu, …".
  */
 function scheduleSentence(
   offer: NonNullable<FreebuffFreebucksInfo['offPeak']>[string],
@@ -61,7 +62,7 @@ function scheduleSentence(
   const [rare, usual] = offPeak
     ? [offer.price, offer.regularPrice]
     : [offer.regularPrice, offer.price]
-  if (!first) return `${offer.price} Freebucks/hr.`
+  if (!first) return `${freebuffMultiplierText(offer.price)}.`
   const start = new Date(first.start)
   const end = new Date(first.end)
   const startZone = formatWindowTimeZoneLabel(start, zone)
@@ -72,7 +73,7 @@ function scheduleSentence(
     zone,
   )
   const reason = offer.reason ? `, ${offer.reason}` : ''
-  return `${offPeak ? 'Off-peak' : 'Peak'}: ${rare} Freebucks/hr ${days ? `${days}, ` : ''}${hours}${reason}. ${usual} otherwise.`
+  return `${offPeak ? 'Off-peak' : 'Peak'}: ${freebuffMultiplierText(rare)} ${days ? `${days}, ` : ''}${hours}${reason}. ${freebuffMultiplierText(usual)} otherwise.`
 }
 
 /** "3 PM", or "3:30 PM" in a zone off the hour. */

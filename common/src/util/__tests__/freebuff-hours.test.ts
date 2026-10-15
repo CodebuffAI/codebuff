@@ -7,6 +7,7 @@ import {
   formatHoursWithUnit,
   freebucksToHours,
   freebuffModelMultiplierLabel,
+  freebuffMultiplierText,
 } from '../freebuff-hours'
 
 describe('hours', () => {
@@ -52,5 +53,11 @@ describe('hours', () => {
     [Number.NaN, null],
   ])('a %p Freebuck row is labelled %p', (price, label) => {
     expect(freebuffModelMultiplierLabel(price)).toBe(label)
+  })
+
+  test('multiplier text never leaves a hole in a sentence', () => {
+    expect(freebuffMultiplierText(15)).toBe('3x')
+    expect(freebuffMultiplierText(5)).toBe('1x')
+    expect(freebuffMultiplierText(0)).toBe('free')
   })
 })

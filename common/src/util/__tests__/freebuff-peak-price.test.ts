@@ -39,12 +39,12 @@ describe('peak price copy', () => {
       timeZone: 'Asia/Seoul',
     })
     expect(copy.badge).toBe('Peak pricing')
-    expect(copy.tooltip).toContain('+10 Freebucks a session')
+    expect(copy.tooltip).toContain('+2x while DeepSeek charges double')
     // 00:00–10:00 UTC is 9:00 AM – 7:00 PM in Seoul, and the window closes at
     // 7:00 PM there. Nothing in it says "PT" — that was the whole complaint
     // about the sentence this replaced.
     expect(copy.tooltip).toContain('9:00 AM – 7:00 PM')
-    expect(copy.tooltip).toContain('Back to 15 Freebucks at 7:00 PM')
+    expect(copy.tooltip).toContain('Back to 3x at 7:00 PM')
     expect(copy.tooltip).not.toContain('PT')
   })
 

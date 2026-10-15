@@ -67,3 +67,15 @@ export function freebuffModelMultiplierLabel(
   const multiplier = Math.round((priceFreebucks / FREEBUCKS_PER_HOUR) * 10) / 10
   return `${multiplier.toLocaleString('en-US', { maximumFractionDigits: 1 })}x`
 }
+
+/**
+ * A price as multiplier text for sentences, where an empty label would leave
+ * a hole: `freebuffModelMultiplierLabel`, else "1x" for a 1x row and "free"
+ * for a free one.
+ */
+export function freebuffMultiplierText(priceFreebucks: number): string {
+  return (
+    freebuffModelMultiplierLabel(priceFreebucks) ??
+    (priceFreebucks > 0 ? '1x' : 'free')
+  )
+}

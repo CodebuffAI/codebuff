@@ -1,3 +1,4 @@
+import { formatHoursWithUnit } from './freebuff-hours'
 import { FREEBUFF_STREAK_REWARDS_ENABLED } from '../constants/freebuff-models'
 import {
   getFreebuffStreakGlmWeeklyUnits,
@@ -78,7 +79,7 @@ function getFreebuffStreakPerk(params: {
     // job (`getFreebuffStreakBonusStatus`), in the reader's own clock — "every
     // Pacific day" named the zone but still left Asia and Europe expecting it
     // at their midnight (2026-09-27/28 "streak bonus not credited" reports).
-    return `+${params.freebucksDailyBonus} to your daily allowance with each day's first message`
+    return `+${formatHoursWithUnit(params.freebucksDailyBonus)} to your daily allowance with each day's first message`
   }
   // Only advertise GLM when the recurring full-access streak entitlement is
   // active, so the copy never promises a perk the gate won't honor.
@@ -233,8 +234,10 @@ export function getFreebuffStreakBonusStatus(params: {
   compact?: boolean
 }): string | null {
   if (!FREEBUFF_STREAK_REWARDS_ENABLED) return null
-  const bonus = params.freebucksDailyBonus
-  if (bonus == null || !(bonus > 0)) return null
+  if (params.freebucksDailyBonus == null || !(params.freebucksDailyBonus > 0))
+    return null
+  // Shown in hours (freebuff-hours.ts); the response carries Freebucks.
+  const bonus = formatHoursWithUnit(params.freebucksDailyBonus)
   if (params.streak < FREEBUFF_STREAK_WEEK) return null
   if (!params.nextResetAt) return null
   const resetAt = new Date(params.nextResetAt)

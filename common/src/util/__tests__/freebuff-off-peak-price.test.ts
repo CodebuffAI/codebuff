@@ -14,7 +14,7 @@ test('formats both sides of local midnight and seasonal time changes', () => {
     timeZone: 'America/Los_Angeles',
   })!
   expect(summer.tooltip).toBe(
-    'Off-peak: 10 Freebucks/hr 3 PM–11 PM PDT. 15 otherwise.',
+    'Off-peak: 2x 3 PM–11 PM PDT. 3x otherwise.',
   )
   const winter = freebucksOffPeakCopy(quote, 'flash', {
     now: Date.parse('2026-12-01T23:00:00Z'),
@@ -57,7 +57,7 @@ test('quotes UTC hours, rather than throwing, on a device that cannot name its z
       now: Date.parse('2026-09-17T23:00:00Z'),
     })!
     expect(copy.tooltip).toBe(
-      'Off-peak: 10 Freebucks/hr 10 PM–6 AM UTC. 15 otherwise.',
+      'Off-peak: 2x 10 PM–6 AM UTC. 3x otherwise.',
     )
   } finally {
     spy.mockRestore()
@@ -68,7 +68,7 @@ test('quotes UTC hours, rather than throwing, on a device that cannot name its z
       now: Date.parse('2026-09-17T23:00:00Z'),
       timeZone: 'Etc/Unknown',
     })!.tooltip,
-  ).toBe('Off-peak: 10 Freebucks/hr 10 PM–6 AM UTC. 15 otherwise.')
+  ).toBe('Off-peak: 2x 10 PM–6 AM UTC. 3x otherwise.')
 })
 
 test('does not label a stale regular-price quote as discounted', () => {
@@ -80,7 +80,7 @@ test('does not label a stale regular-price quote as discounted', () => {
     },
   )!
   expect(copy.active).toBe(false)
-  expect(copy.tooltip).toContain('Off-peak: 10 Freebucks/hr')
+  expect(copy.tooltip).toContain('Off-peak: 2x')
   // The policy says off-peak, so the next change is the window's END: no
   // promise of a drop then.
   expect(copy.resumes).toBeUndefined()
@@ -110,7 +110,7 @@ test('at peak, says when the off-peak price is back, with the weekday when it is
   // weekday mornings are Sunday-Thursday evenings in Los Angeles.
   expect(sunday.badge).toBe('Peak')
   expect(sunday.tooltip).toBe(
-    'Peak: 50 Freebucks/hr Sun–Thu, 5 PM–3 AM PDT. 25 otherwise.',
+    'Peak: 10x Sun–Thu, 5 PM–3 AM PDT. 5x otherwise.',
   )
   // Same local day: the time alone.
   expect(
@@ -145,6 +145,6 @@ test("appends the server's reason after the hours", () => {
     { now: Date.parse('2026-09-17T23:00:00Z'), timeZone: 'America/Los_Angeles' },
   )!
   expect(copy.tooltip).toBe(
-    'Off-peak: 10 Freebucks/hr 3 PM–11 PM PDT, when Freebuff is quiet. 15 otherwise.',
+    'Off-peak: 2x 3 PM–11 PM PDT, when Freebuff is quiet. 3x otherwise.',
   )
 })

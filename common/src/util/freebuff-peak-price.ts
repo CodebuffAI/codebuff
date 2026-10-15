@@ -10,6 +10,7 @@
  * Everything below reads the wire block a client already has, so nothing
  * private crosses the line.
  */
+import { freebuffMultiplierText } from './freebuff-hours'
 import {
   formatDeepSeekExpensiveWindowLocal,
   resolveWindowTimeZone,
@@ -17,10 +18,6 @@ import {
 
 import type { FreebuffFreebucksPeak } from '../types/freebuff-session'
 
-/** The user-facing name of the currency. Duplicated from the excluded
- *  constants module on purpose — see the note above; `cli/src/utils/freebucks.ts`
- *  carries its own copy for the same reason. */
-const LABEL = 'Freebucks'
 
 /** Whether `modelId` is peak-priced in this session block. */
 export function isFreebucksPeakModel(
@@ -57,8 +54,8 @@ export function freebucksPeakCopy(params: {
   return {
     badge: 'Peak pricing',
     tooltip:
-      `Peak pricing: +${params.peak.surcharge} ${LABEL} a session while DeepSeek charges double, ` +
+      `Peak pricing: +${freebuffMultiplierText(params.peak.surcharge)} while DeepSeek charges double, ` +
       `${formatDeepSeekExpensiveWindowLocal(new Date(now), zone)} on weekdays. ` +
-      `Back to ${params.basePrice} ${LABEL} at ${endsLocal}.`,
+      `Back to ${freebuffMultiplierText(params.basePrice)} at ${endsLocal}.`,
   }
 }
