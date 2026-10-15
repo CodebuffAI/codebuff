@@ -9,6 +9,8 @@ export const SPONSORED_SKILL_BENCH_RECEIPTS: readonly BenchReceipt[] = []
 
 export const BENCH_RECEIPT_GRANDFATHERED: readonly string[] = []
 
+export const BENCH_RECEIPT_PENDING: readonly string[] = []
+
 export function sponsoredSkillBenchReceipt(
   _skill: Pick<SponsoredSkill, 'id' | 'version'>,
   _receipts: readonly BenchReceipt[] = SPONSORED_SKILL_BENCH_RECEIPTS,
