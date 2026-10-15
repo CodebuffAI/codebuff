@@ -460,6 +460,8 @@ export enum AnalyticsEvent {
   DESKTOP_THREAD_CREATED = 'desktop.thread_created',
   DESKTOP_THREAD_TITLED = 'desktop.thread_titled',
   DESKTOP_PROJECT_OPENED = 'desktop.project_opened',
+  // Actual first successful creation; intent distinguishes automatic launch drafts from explicit actions.
+  DESKTOP_PROJECT_CREATED = 'desktop.project_created',
   DESKTOP_PROJECT_REMOVED = 'desktop.project_removed',
   DESKTOP_TURN_COMPLETED = 'desktop.turn_completed',
   DESKTOP_FAILED_TURN_RECOVERY = 'desktop.failed_turn_recovery',
