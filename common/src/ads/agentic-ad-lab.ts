@@ -5,6 +5,14 @@ import {
   PLACEMENT_DAILY_CAP_MAX_CENTS,
 } from '../constants/freebuff-placements'
 
+/**
+ * Repositories one tester's lab holds. bench-v1 is 25 and the bench-v2 pool
+ * has 57 public repositories, 20 of them v1's at the same pins: 62 in all for
+ * the pinned bench tester. A batch still runs at most
+ * `LAB_BATCH_MAX_REPOSITORIES` (30) of them.
+ */
+export const LAB_MAX_REPOSITORIES = 100
+
 export const labAdSchema = z
   .object({
     id: z.string().uuid(),
