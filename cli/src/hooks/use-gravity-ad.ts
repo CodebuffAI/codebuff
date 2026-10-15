@@ -1,4 +1,5 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
+import type { PartnerBrand } from '@codebuff/common/ads/partner-brand'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getAdUserAgent } from '@codebuff/common/util/ad-user-agent'
 import { FREEBUFF_EVENT_ID_HEADER } from '@codebuff/common/ads/ad-event-hygiene'
@@ -84,7 +85,7 @@ export type AdResponse = {
   bullets?: string[]
   diagram?: string
   /** Explicit server-owned partner designation. */
-  partnerBrand?: 'greptile'
+  partnerBrand?: PartnerBrand
   /**
    * Reviewed fill and ink, `#rrggbb`, for custom partner rows. Ordinary ads
    * use them only with Greptile's explicit partner designation.
