@@ -30,11 +30,13 @@ export const GPT_61_SOL_PROMOTIONAL = {
  * The tooltip also says the row is NEW and EXPERIMENTAL (product,
  * 2026-10-13): Desktop and the Web workspace draw only the promotional pill
  * beside a model name, so its hover text is where those two facts are seen.
+ * Since 2026-10-16 it leads with the promotion ending very soon (product: the
+ * promotional price does not cover the row's cost).
  */
 export const GEMINI_4_ARGON_PROMOTIONAL = {
   short: 'Promotional · 1 session a day',
   tooltip:
-    'New and experimental: it may be unreliable or change without notice. Free in the US, a paid plan elsewhere, until the promotion ends. One session a day on every plan.',
+    'This promotional price ends very soon. New and experimental: it may be unreliable or change without notice. Free in the US, a paid plan elsewhere, until the promotion ends. One session a day on every plan.',
 } as const
 
 /**
