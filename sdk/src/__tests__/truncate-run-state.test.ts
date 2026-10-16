@@ -215,6 +215,60 @@ describe('truncateRunStateAtUserTurn', () => {
     }
   })
 
+  describe('a row whose turn never reached the state', () => {
+    // Rows `one`, `two`, `three` were answered; a fourth was refused by the free
+    // session before the harness ran, so the transcript has it and the state
+    // does not. Counting it put the cut on `three` and forgot a kept turn.
+    test('editing the refused last row leaves the state as it was', () => {
+      const state = runStateWith(threeTurns())
+      const next = truncateRunStateAtUserTurn({
+        runState: state,
+        keepUserTurns: 3,
+        totalUserTurns: 4,
+        editedText: 'four, refused',
+        previousText: 'three',
+      })
+      expect(texts(next)).toEqual(texts(state))
+    })
+
+    test('a refused row after the edited one moves the cut to the edit', () => {
+      // The third row is edited, and a fourth after it was refused.
+      const next = truncateRunStateAtUserTurn({
+        runState: runStateWith([
+          user('add a login page'),
+          assistant('added it'),
+          user('style the button'),
+          assistant('styled it'),
+          user('now write the tests'),
+          assistant('wrote them'),
+        ]),
+        keepUserTurns: 2,
+        totalUserTurns: 4,
+        editedText: 'now write the tests',
+        previousText: 'style the button',
+      })
+      expect(texts(next)).toEqual([
+        'add a login page',
+        'added it',
+        'style the button',
+        'styled it',
+      ])
+    })
+
+    test('without evidence in the prompts the count stands', () => {
+      // A row whose text never reaches the prompt verbatim (a skill label)
+      // cannot be told apart from a refused one, so nothing moves.
+      const next = truncateRunStateAtUserTurn({
+        runState: runStateWith(threeTurns()),
+        keepUserTurns: 3,
+        totalUserTurns: 4,
+        editedText: '/review',
+        previousText: 'not in any prompt',
+      })
+      expect(texts(next)).toEqual(['one', 'answered one', 'two', 'answered two'])
+    })
+  })
+
   test('leaves the original state untouched', () => {
     const original = threeTurns()
     const state = runStateWith(original)

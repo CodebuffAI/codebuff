@@ -61,6 +61,7 @@ import type { AgentTemplate } from '../templates/types'
 import type { DbSpies } from '@codebuff/common/testing/mocks/database'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
 import type { AgentState } from '@codebuff/common/types/session-state'
+import type { ContextOverBudgetData } from '@codebuff/common/types/contracts/llm'
 
 describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => {
   let mockTemplate: AgentTemplate
@@ -2861,6 +2862,68 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       expect(compactions).toBe(1)
       expect(calls).toBe(2)
       expect(result.agentState.contextTokenCount).toBe(1010)
+    })
+
+    it('compacts on a receipt over the budget even when it did not anchor the count', async () => {
+      mockTemplate.stepPrompt = ''
+      mockTemplate.instructionsPrompt = ''
+      mockTemplate.compactContext = {
+        maxContextLength: 16_384,
+        cacheExpiryMs: null,
+      }
+      mockTemplate.toolNames.push('write_todos')
+      mockAgentState.messageHistory.push(
+        assistantMessage('prior finding '.repeat(1000)),
+      )
+      let calls = 0
+      let compactions = 0
+      const reports: ContextOverBudgetData[] = []
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        onCompaction: () => compactions++,
+        onContextOverBudget: (data) => reports.push(data),
+        promptAiSdkStream: async function* ({ onUsageReceived, messages }) {
+          if (++calls === 1) {
+            // History replaced mid-step: the receipt is skipped as an anchor,
+            // and the local estimate alone is far under the threshold.
+            mockAgentState.messageHistory[0] = {
+              ...mockAgentState.messageHistory[0]!,
+            }
+            yield createToolCallChunk('write_todos', {
+              todos: [{ task: 'inspect', completed: false }],
+            })
+            onUsageReceived?.({
+              inputTokens: 20_000,
+              outputTokens: 500,
+              totalTokens: 20_500,
+              cachedInputTokens: 0,
+            })
+          } else {
+            expect(JSON.stringify(messages)).toContain('<conversation_summary>')
+            yield { type: 'text', text: 'done' }
+            onUsageReceived?.({
+              inputTokens: 1000,
+              outputTokens: 10,
+              totalTokens: 1010,
+              cachedInputTokens: 0,
+            })
+          }
+          return promptSuccess('step')
+        },
+      })
+      expect(result.output.type).not.toBe('error')
+      expect(calls).toBe(2)
+      expect(compactions).toBe(1)
+      expect(reports).toEqual([
+        expect.objectContaining({
+          promptTokens: 20_000,
+          maxContextLength: 16_384,
+          decision: 'none',
+          receiptRecorded: false,
+          isRoot: true,
+        }),
+      ])
+      expect(reports[0]!.contextTokenCount).toBeLessThan(13_107)
     })
   })
 

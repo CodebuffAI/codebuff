@@ -83,6 +83,31 @@ export type ContextCompactionData = {
   durationMs?: number
 }
 
+/**
+ * A request whose provider-reported prompt exceeded the agent's context
+ * budget, with what the runtime believed when it sent it. Diagnostics only:
+ * the runtime compacts (or fails the run) on the next step regardless.
+ */
+export type ContextOverBudgetData = {
+  promptTokens: number
+  outputTokens: number
+  maxContextLength: number
+  thresholdTokens: number
+  /** The runtime's own count when it decided whether to compact. */
+  contextTokenCount: number
+  decision: 'compacted' | 'deferred' | 'abandoned' | 'none' | 'disabled'
+  /** Whether the previous response's usage anchored that count. */
+  baselineTokens?: number
+  baselineEstimatedTokens?: number
+  baselineScale?: number
+  baselineModelMatches: boolean
+  /** Whether this response's usage became the next anchor. */
+  receiptRecorded: boolean
+  messageCount: number
+  stepNumber: number
+  isRoot: boolean
+}
+
 export type PromptAiSdkStreamFn = (
   params: {
     apiKey: string

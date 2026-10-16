@@ -149,12 +149,25 @@ export function compactRunState(params: {
  * ones, and those are still verbatim after a compaction, so a host that knows
  * how many user rows its transcript holds passes `totalUserTurns` and the cut
  * is placed `totalUserTurns - keepUserTurns` prompts back from the end.
+ *
+ * ## Rows that never reached the state (`editedText`, `previousText`)
+ *
+ * A host row whose turn was refused before the harness ran (a free session's
+ * spend limit, for one) is in the transcript and not in the state, so counting
+ * it lands the cut one prompt too early and deletes a turn the user kept. When
+ * the prompt at the cut carries the previous row's text and not the edited
+ * row's, the cut moves forward a prompt; with none left, nothing the edit
+ * removed is in the state and it is returned unchanged. Without that evidence
+ * (a row whose text never reaches the prompt verbatim) the count stands.
  */
 export function truncateRunStateAtUserTurn(params: {
   runState: RunState
   keepUserTurns: number
   /** The host's user-row count before the edit; places the cut from the end. */
   totalUserTurns?: number
+  /** The edited row's text, and the text of the row before it. */
+  editedText?: string
+  previousText?: string
 }): RunState | null {
   const { runState, keepUserTurns, totalUserTurns } = params
   if (!Number.isInteger(keepUserTurns) || keepUserTurns <= 0) return null
@@ -199,6 +212,26 @@ export function truncateRunStateAtUserTurn(params: {
   // boundary this can honestly place. Nothing left before the cut is the
   // clearing case too.
   if (cutAt <= 0) return null
+
+  const edited = params.editedText?.trim() ?? ''
+  const previous = params.previousText?.trim() ?? ''
+  if (edited.length >= 4 && previous.length >= 4) {
+    const promptText = (i: number) => {
+      const content = history[i]!.content
+      return typeof content === 'string'
+        ? content
+        : content.map((part) => ('text' in part ? part.text : '')).join('\n')
+    }
+    while (
+      !promptText(cutAt).includes(edited) &&
+      promptText(cutAt).includes(previous)
+    ) {
+      let next = cutAt + 1
+      while (next < history.length && !isPrompt(next)) next++
+      if (next >= history.length) return runState
+      cutAt = next
+    }
+  }
 
   const next = cloneSessionState(sessionState)
   next.mainAgentState.messageHistory = history.slice(0, cutAt)

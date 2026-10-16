@@ -144,6 +144,7 @@ import type {
   AgentUsageData,
   CacheDebugUsageData,
   ContextCompactionData,
+  ContextOverBudgetData,
   ModelUsageData,
   PromptAiSdkFn,
 } from '@codebuff/common/types/contracts/llm'
@@ -213,6 +214,17 @@ async function additionalToolDefinitions(
  *  These ids exist only in-process and must never be sent to the web API. */
 export const UNTRACKED_RUN_ID_PREFIX = 'untracked-'
 
+/** The provider's usage for one step's request, whether or not it became the
+ *  context anchor (`recordContextUsage` skips it when history was replaced
+ *  mid-step). */
+type StepContextReceipt = {
+  promptTokens: number
+  outputTokens: number
+  recorded: boolean
+  /** Messages in the request: a later history shorter than this was replaced. */
+  messageCount: number
+}
+
 export const runAgentStep = async (
   params: {
     userId: string | undefined
@@ -243,6 +255,8 @@ export const runAgentStep = async (
     /** A root-agent compaction pass began; `onCompactionEnd` follows whatever its outcome. */
     onCompactionStart?: (data: Pick<ContextCompactionData, 'trigger'>) => void
     onCompactionEnd?: () => void
+    /** A request's provider-reported prompt exceeded the context budget. */
+    onContextOverBudget?: (data: ContextOverBudgetData) => void
   } & ParamsExcluding<
     typeof processStream,
     | 'agentContext'
@@ -284,6 +298,7 @@ export const runAgentStep = async (
   messageId: string | null
   nResponses?: string[]
   usedWorkTools?: boolean
+  contextReceipt?: StepContextReceipt
 }> => {
   const {
     agentType,
@@ -571,6 +586,7 @@ export const runAgentStep = async (
     countTokens(system) +
     countTokensJson(contextTools)
   let contextUsage: ModelUsageData | undefined
+  let contextReceipt: StepContextReceipt | undefined
   let finishReason: string | undefined
 
   // Raw stream from AI SDK
@@ -624,10 +640,18 @@ export const runAgentStep = async (
   }).finally(() => {
     // Inline agents can replace history (set_messages). A receipt for the old
     // request is not a baseline for a replacement summary.
-    if (
-      contextUsage &&
+    const recorded =
+      contextUsage !== undefined &&
       inputHistory.every((m, i) => agentState.messageHistory[i] === m)
-    ) {
+    if (contextUsage) {
+      contextReceipt = {
+        promptTokens: contextUsage.inputTokens,
+        outputTokens: contextUsage.outputTokens,
+        recorded,
+        messageCount: inputHistory.length,
+      }
+    }
+    if (contextUsage && recorded) {
       recordContextUsage({
         agentState,
         model,
@@ -982,6 +1006,7 @@ export const runAgentStep = async (
         call.toolName,
       ),
     ),
+    contextReceipt,
   }
 }
 
@@ -1366,6 +1391,19 @@ export async function loopAgentSteps(
   let nResponses: string[] | undefined = undefined
   let compactionWindow: CompactionWindow | undefined
 
+  // The provider's own count of this run's latest prompt, plus the output that
+  // joined the history after it. The estimate is anchored to the same number
+  // only when a step leaves history untouched; this floor holds either way.
+  // Desktop threads sent providers 400k-990k prompts, step after step, while
+  // their own count stayed under the compaction threshold (2026-10-15).
+  let receiptFloor: { tokens: number; messageCount: number } | undefined
+  const contextBudget = agentTemplate.compactContext
+    ? ((typeof agentTemplate.compactContext === 'object'
+        ? agentTemplate.compactContext.maxContextLength
+        : undefined) ?? contextPrunerBudgetForModel(agentTemplate.model))
+    : undefined
+  let overBudgetReported = false
+
   try {
     while (true) {
       totalSteps++
@@ -1415,11 +1453,27 @@ export async function loopAgentSteps(
         systemPrompt: system,
         toolsForTokenCount,
       })
+      // Never below the provider's last count, unless the history has since
+      // been replaced (set_messages leaves it shorter than that request).
+      if (
+        receiptFloor &&
+        currentAgentState.messageHistory.length >= receiptFloor.messageCount
+      ) {
+        currentAgentState.contextTokenCount = Math.max(
+          currentAgentState.contextTokenCount,
+          receiptFloor.tokens,
+        )
+      }
+      // What the compaction check saw and decided, for the over-budget report.
+      const decidedCount = currentAgentState.contextTokenCount
+      const decidedBaseline = currentAgentState.contextTokenBaseline
+      let decision: ContextOverBudgetData['decision'] = 'disabled'
 
       if (
         (agentTemplate.compactContext && !shouldEndTurn) ||
         manualCompaction
       ) {
+        decision = 'none'
         const policy =
           typeof agentTemplate.compactContext === 'object'
             ? agentTemplate.compactContext
@@ -1471,6 +1525,7 @@ export async function loopAgentSteps(
             },
             'Deferred compaction to the hard budget: it could not clear the threshold',
           )
+          decision = 'deferred'
           trigger = null
         }
         if (trigger) {
@@ -1521,6 +1576,7 @@ export async function loopAgentSteps(
               currentAgentState.messageHistory = compacted.messages
               currentAgentState.contextTokenBaseline = undefined
               currentAgentState.contextTokenCount = compacted.postTokens
+              receiptFloor = undefined
               if (isRoot)
                 params.onCompaction?.({
                   trigger,
@@ -1534,6 +1590,7 @@ export async function loopAgentSteps(
           } finally {
             if (isRoot) params.onCompactionEnd?.()
           }
+          decision = compacted ? 'compacted' : 'abandoned'
           // A manual request is a maintenance operation, never a coding turn.
           if (manualCompaction) break
           if (
@@ -1691,6 +1748,7 @@ export async function loopAgentSteps(
         usedWorkTools: stepUsedWorkTools,
         messageId,
         nResponses: generatedResponses,
+        contextReceipt,
       } = await runAgentStep({
         ...params,
 
@@ -1765,9 +1823,46 @@ export async function loopAgentSteps(
           usedWorkTools: false,
           messageId: null,
           nResponses: undefined,
+          contextReceipt: undefined,
         }
       })
       completionCheckpoint = undefined
+
+      if (contextReceipt) {
+        receiptFloor = {
+          tokens: contextReceipt.promptTokens + contextReceipt.outputTokens,
+          messageCount: contextReceipt.messageCount,
+        }
+        if (
+          !overBudgetReported &&
+          contextBudget !== undefined &&
+          contextReceipt.promptTokens > contextBudget
+        ) {
+          overBudgetReported = true
+          const report: ContextOverBudgetData = {
+            promptTokens: contextReceipt.promptTokens,
+            outputTokens: contextReceipt.outputTokens,
+            maxContextLength: contextBudget,
+            thresholdTokens: compactionThreshold(contextBudget),
+            contextTokenCount: decidedCount,
+            decision,
+            baselineTokens: decidedBaseline?.tokens,
+            baselineEstimatedTokens: decidedBaseline?.estimatedTokens,
+            baselineScale: decidedBaseline?.scale,
+            baselineModelMatches:
+              decidedBaseline?.model === agentTemplate.model,
+            receiptRecorded: contextReceipt.recorded,
+            messageCount: contextReceipt.messageCount,
+            stepNumber: llmStepNumber,
+            isRoot: !initialAgentState.parentId,
+          }
+          logger.warn(
+            { ...report, agentType, runId, model: agentTemplate.model },
+            'A request exceeded the context budget',
+          )
+          params.onContextOverBudget?.(report)
+        }
+      }
 
       if (newAgentState.runId) {
         await addAgentStep({
