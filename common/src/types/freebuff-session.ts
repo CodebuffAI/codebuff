@@ -210,6 +210,10 @@ export interface FreebuffFreebucksWallet {
   balance: number
   /** Freebucks the plan credits here once per billing period (0 on free). */
   monthlyBonus: number
+  /** Current credited monthly allowance, separate from earned/bought wallet
+   *  funds. Uses the bonus rollover's spending attribution. Absent when the
+   *  current bonus is not known or from a server without this projection. */
+  monthlyUsage?: { limit: number; spent: number; remaining: number }
   /** Current period end: the next bonus is available then IF the plan renews.
    * Still present when cancellation is scheduled; absent without a live plan. */
   nextBonusAt?: string
