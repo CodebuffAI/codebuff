@@ -45,7 +45,7 @@ function getPasteText(event: PasteEvent): string {
 
 // Helper functions for text manipulation
 function findLineStart(text: string, cursor: number): number {
-  let pos = Math.max(0, Math.min(cursor, text.length))
+  let pos = clamp(cursor, 0, text.length)
   while (pos > 0 && text[pos - 1] !== '\n') {
     pos--
   }
@@ -53,7 +53,7 @@ function findLineStart(text: string, cursor: number): number {
 }
 
 function findLineEnd(text: string, cursor: number): number {
-  let pos = Math.max(0, Math.min(cursor, text.length))
+  let pos = clamp(cursor, 0, text.length)
   while (pos < text.length && text[pos] !== '\n') {
     pos++
   }
@@ -61,7 +61,7 @@ function findLineEnd(text: string, cursor: number): number {
 }
 
 function findPreviousWordBoundary(text: string, cursor: number): number {
-  let pos = Math.max(0, Math.min(cursor, text.length))
+  let pos = clamp(cursor, 0, text.length)
 
   // Skip whitespace backwards
   while (pos > 0 && /\s/.test(text[pos - 1])) {
@@ -77,7 +77,7 @@ function findPreviousWordBoundary(text: string, cursor: number): number {
 }
 
 function findNextWordBoundary(text: string, cursor: number): number {
-  let pos = Math.max(0, Math.min(cursor, text.length))
+  let pos = clamp(cursor, 0, text.length)
 
   // Skip non-whitespace forwards
   while (pos < text.length && !/\s/.test(text[pos])) {
@@ -432,7 +432,7 @@ export const MultilineInput = forwardRef<
 
   const moveCursor = useCallback(
     (nextPosition: number) => {
-      const clamped = Math.max(0, Math.min(value.length, nextPosition))
+      const clamped = clamp(nextPosition, 0, value.length)
       if (clamped === cursorPosition) return
       onChange({
         text: value,
