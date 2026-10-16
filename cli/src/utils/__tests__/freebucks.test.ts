@@ -240,7 +240,7 @@ describe('the header line', () => {
     ).toBe('6/15 hours daily')
   })
 
-  test('rounds hours down, so a balance never reads as more than it buys', () => {
+  test('rounds hours down to whole hours, so a balance never reads as more than it buys', () => {
     expect(
       freebucksHeaderLine(
         metered({
@@ -248,10 +248,10 @@ describe('the header line', () => {
           wallet: { balance: 6, monthlyBonus: 0 },
         }),
       ),
-    ).toBe('5.8/15 hours daily · 1.2 hours in wallet')
+    ).toBe('5/15 hours daily · 1 hour in wallet')
   })
 
-  test('a wallet under a tenth of an hour is hidden, never "0 hours"', () => {
+  test('a wallet under an hour is hidden, never "0 hours"', () => {
     expect(
       freebucksHeaderLine(metered({ wallet: { balance: 0.4, monthlyBonus: 0 } })),
     ).toBe('6/15 hours daily')

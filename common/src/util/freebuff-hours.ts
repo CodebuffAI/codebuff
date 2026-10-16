@@ -22,20 +22,18 @@ export function freebucksToHours(freebucks: number): number {
 }
 
 /**
- * Freebucks as an hour count for display: whole hours as integers, anything
- * else to one decimal, rounded DOWN so a balance never reads as more than it
- * buys. Never negative. `1,234` style grouping for large counts.
+ * Freebucks as an hour count for display: WHOLE hours, rounded down, so a
+ * balance never reads as more than it buys and never shows a fraction of an
+ * hour (product, 2026-10-15: "7.4 hours" confused people). Never negative.
+ * `1,234` style grouping for large counts.
  */
 export function formatHours(freebucks: number): string {
-  const tenths = Math.floor(
-    (Math.max(0, freebucks) * 10) / FREEBUCKS_PER_HOUR + 1e-9,
-  )
-  return (tenths / 10).toLocaleString('en-US', {
-    maximumFractionDigits: 1,
-  })
+  return Math.floor(
+    Math.max(0, freebucks) / FREEBUCKS_PER_HOUR + 1e-9,
+  ).toLocaleString('en-US')
 }
 
-/** `formatHours` with its unit: "1 hour", "50 hours", "7.4 hours". */
+/** `formatHours` with its unit: "1 hour", "50 hours". */
 export function formatHoursWithUnit(freebucks: number): string {
   const text = formatHours(freebucks)
   return `${text} ${text === '1' ? 'hour' : 'hours'}`

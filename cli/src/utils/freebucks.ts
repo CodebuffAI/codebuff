@@ -125,7 +125,7 @@ export function freebucksHeaderLine(
   }
   // An empty wallet is the ordinary case for a free account, and "0 wallet"
   // reads as something to worry about. Web and Desktop hide it too; so is a
-  // wallet too small to show as a tenth of an hour.
+  // wallet too small to show as a whole hour.
   if (formatHours(freebucks.wallet.balance) !== '0') {
     parts.push(`${formatHoursWithUnit(freebucks.wallet.balance)} in wallet`)
   }

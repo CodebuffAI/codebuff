@@ -18,7 +18,7 @@ describe('freebuffAdmissionNotice', () => {
       status: 'rate_limited',
       freebucksShortfall: { price: 15, balance: 7 },
     } as FreebuffSessionResponse)
-    expect(notice).toStartWith('Not enough hours: 1.4 hours available.')
+    expect(notice).toStartWith('Not enough hours: 1 hour available.')
     expect(notice).not.toContain('Freebucks')
   })
 })

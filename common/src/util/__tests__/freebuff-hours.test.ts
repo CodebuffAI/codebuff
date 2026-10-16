@@ -21,10 +21,12 @@ describe('hours', () => {
     [0, '0'],
     [5, '1'],
     [250, '50'],
-    [37, '7.4'],
-    // Rounded down: never more than the balance buys.
-    [39, '7.8'],
-    [4, '0.8'],
+    // Whole hours only, rounded down: never more than the balance buys, and
+    // never a fraction of an hour.
+    [37, '7'],
+    [39, '7'],
+    [4, '0'],
+    [9.99, '1'],
     [-10, '0'],
     [6_500, '1,300'],
   ])('%p Freebucks reads as %p', (freebucks, text) => {
