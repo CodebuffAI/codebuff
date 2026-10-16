@@ -71,7 +71,6 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   AgentUsageData,
   ContextCompactionData,
-  ContextOverBudgetData,
 } from '@codebuff/common/types/contracts/llm'
 import type { TraceWriter } from '@codebuff/common/types/contracts/trace'
 import type { DrainSteeringMessages } from '@codebuff/common/types/contracts/steering'
@@ -303,9 +302,6 @@ export type RunOptions = {
   /** A compaction pass began. `onCompactionEnd` always follows, after any `onCompaction`. */
   onCompactionStart?: (data: Pick<ContextCompactionData, 'trigger'>) => void
   onCompactionEnd?: () => void
-  /** A request's provider-reported prompt exceeded the agent's context budget,
-   *  with what the runtime believed when it sent it. Diagnostics only. */
-  onContextOverBudget?: (data: ContextOverBudgetData) => void
   /**
    * The shell this run's terminal commands actually execute in, when the host's
    * broker picks one other than the default (the sponsored Windows floor runs
@@ -609,7 +605,6 @@ async function runOnce({
   onCompaction,
   onCompactionStart,
   onCompactionEnd,
-  onContextOverBudget,
   terminalShell,
   projectKey,
   traceSessionId: traceSessionIdOption,
@@ -1152,7 +1147,6 @@ async function runOnce({
     onCompaction: report(onCompaction),
     onCompactionStart: report(onCompactionStart),
     onCompactionEnd: reportSignal(onCompactionEnd),
-    onContextOverBudget: report(onContextOverBudget),
   }).catch((error) => {
     // A caller's own deadline (`AbortSignal.timeout`) rejects with a
     // `TimeoutError`, the same name Bun's 5-minute fetch idle timeout uses, so

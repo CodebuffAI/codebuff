@@ -515,12 +515,6 @@ export enum AnalyticsEvent {
   // desktop.turn_completed to tell a recovered long-silent tool call from a
   // real hang, i.e. whether an *acting* watchdog is worth building.
   DESKTOP_TURN_STALLED = 'desktop.turn_stalled',
-  // A codebuff request whose provider-reported prompt exceeded the agent's
-  // context budget, with the runtime's own count, anchor and compaction
-  // decision at the time. Desktop runtime logs never reach Axiom, and prompts
-  // of 400k-990k went out from Desktop threads whose own count stayed under
-  // the threshold (2026-10-15): this is what names the cause.
-  DESKTOP_CONTEXT_OVER_BUDGET = 'desktop.context_over_budget',
   // A turn that went quiet because it is PARKED on a background command, not
   // because anything is wrong. Verified against the real Claude Code CLI: a
   // background Bash wait emits no stream messages whatsoever for its entire
