@@ -89,19 +89,18 @@ const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
     'upstage/solar-mini4': { section: 'unlimited', order: 20 },
     'm-916b95b337': { section: 'unlimited', order: 30, more: true }, // Ling 3.1 Flash
     'm-a273b5e513': { section: 'unlimited', order: 40, more: true }, // Laguna S 2.1
-    // Optimized
-    // DeepSeek V4.1 Flash leads Optimized as its pick (product, 2026-10-14):
-    // on the Luminal lane it is our cheapest Flash-class model ($0.91 per 1k
+    // Optimized: DeepSeek V4.1 Flash pinned first as the section's pick, then
+    // cheapest to dearest (product, 2026-10-15). DeepSeek leads because on
+    // the Luminal lane it is our cheapest Flash-class model ($0.91 per 1k
     // messages over 10-07..13, against MiMo 2.6 Flash's $1.35 on OpenRouter).
-    'deepseek/deepseek-v4-flash': { section: 'optimized', order: 5, recommended: true }, // V4.1 Flash
-    'mimo/mimo-v2.5': { section: 'optimized', order: 10 }, // MiMo 2.6 Flash
-    // MiMo Slow (2026-10-14): the same model, slower and cheaper, beside it.
-    'm-61c26317cc': { section: 'optimized', order: 12 }, // MiMo Slow
-    'z-ai/glm-5.3-flash': { section: 'optimized', order: 20 },
+    'deepseek/deepseek-v4-flash': { section: 'optimized', order: 5, recommended: true }, // V4.1 Flash, 15
+    'm-61c26317cc': { section: 'optimized', order: 10 }, // MiMo Slow, 5
+    'mimo/mimo-v2.5': { section: 'optimized', order: 12 }, // MiMo Fast, 10
     // Muse Spark 1.3 and GPT-6 Luna moved here from Powerful (2026-10-13).
     // Placement only: both stay plan-only at limited access.
-    'meta/muse-spark-1.3-contributor': { section: 'optimized', order: 40 },
-    'openai/gpt-6-luna': { section: 'optimized', order: 50 },
+    'meta/muse-spark-1.3-contributor': { section: 'optimized', order: 20 }, // 15
+    'z-ai/glm-5.3-flash': { section: 'optimized', order: 40 }, // 20
+    'openai/gpt-6-luna': { section: 'optimized', order: 50 }, // 20
     // Powerful (2026-10-13): Gemini 4 Argon, then Claude Haiku 5.5's
     // 100k-context row, then cheapest to dearest; Gemini 3.8 Flash and
     // GPT-6.1 Sol under More, Gemini first.

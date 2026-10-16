@@ -14,10 +14,7 @@ import {
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
 import { SOLAR_PRO_4_OFFER, SOLAR_PROMOTIONAL } from './freebuff-solar-promo'
-import {
-  GEMINI_4_ARGON_PROMOTIONAL,
-  GPT_61_SOL_PROMOTIONAL,
-} from './freebuff-sol-promo'
+import { GEMINI_4_ARGON_PROMOTIONAL } from './freebuff-sol-promo'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -2553,7 +2550,9 @@ const GPT_6_LUNA_MODEL = {
 const GPT_61_SOL_MODEL = {
   id: FREEBUFF_GPT_61_SOL_MODEL_ID,
   displayName: 'GPT-6.1 Sol',
-  tagline: 'OpenAI flagship',
+  // The one-session-a-day limit is in the tagline since the Promotional pill
+  // came off (product, 2026-10-15), so nobody meets it first as a refusal.
+  tagline: 'OpenAI flagship · 1 session a day',
   availability: 'always',
   // OpenAI's API does not train on request data: no AI-training notice and
   // no trace storage, as on GPT-6 Luna.
@@ -2567,9 +2566,6 @@ const GPT_61_SOL_MODEL = {
   efforts: EFFORTS_THROUGH_HIGH,
   defaultEffort: FREEBUFF_GPT_61_SOL_REASONING_EFFORT,
   isNew: true,
-  // PROMOTIONAL, by product decision: 100 at launch (2026-09-29), 250 since
-  // 2026-10-13, still labelled a promotion with its one session a day.
-  promotional: GPT_61_SOL_PROMOTIONAL,
   taglineTooltip:
     'On OpenAI flex capacity, with a standard-tier backup when it’s busy.',
 } as const satisfies FreebuffModelOption
