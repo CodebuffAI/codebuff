@@ -24,7 +24,8 @@ export type MappedContributionRequest = (
       termsHash: string
       accepted: true
     }
-  | { action: 'dismiss' | 'withdraw'; id: string }
+  | { action: 'dismiss'; id: string; dismissalSource?: 'close' | 'not_now' }
+  | { action: 'withdraw'; id: string }
   | { action: 'view'; id: string; viewId: string; surface: 'popup' | 'earn' }
 ) & { viewId?: string; surface?: 'popup' | 'earn' }
 export type MappedContributionResponse =
