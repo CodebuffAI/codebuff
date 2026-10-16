@@ -59,3 +59,43 @@ describe('peak price copy', () => {
     ).toContain('5:00 PM – 3:00 AM')
   })
 })
+
+describe('peak price copy, on a date the server got wrong', () => {
+  // `Intl.DateTimeFormat.prototype.format` throws a RangeError on a
+  // non-finite date, unlike `Date.prototype.toLocaleString`, which answers
+  // "Invalid Date". This copy is built inside a picker row map, so that throw
+  // would take the enclosing error boundary — on Desktop the whole thread
+  // pane — over an `endsAt` the client did not choose.
+  const withoutEnd = (endsAt: string) => {
+    const copy = freebucksPeakCopy({
+      peak: peak({ endsAt }),
+      basePrice: 15,
+      now: PEAK,
+      timeZone: 'Asia/Seoul',
+    })
+    expect(copy.badge).toBe('Peak pricing')
+    expect(copy.tooltip).toContain('while DeepSeek charges double')
+    // The one sentence that needs the instant is the one that is dropped.
+    expect(copy.tooltip).not.toContain('Back to')
+    expect(copy.tooltip.endsWith('on weekdays.')).toBe(true)
+  }
+
+  it('names the window without an end time for an unparseable endsAt', () => {
+    withoutEnd('not-a-date')
+  })
+
+  it('names the window without an end time for an empty endsAt', () => {
+    withoutEnd('')
+  })
+
+  it('still quotes the end time when the server sends a real one', () => {
+    expect(
+      freebucksPeakCopy({
+        peak: peak(),
+        basePrice: 15,
+        now: PEAK,
+        timeZone: 'Asia/Seoul',
+      }).tooltip,
+    ).toContain('Back to 3x at ')
+  })
+})
