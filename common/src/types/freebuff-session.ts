@@ -1195,7 +1195,7 @@ export type FreebuffPlanUpsell = {
     dailyFreebucks: number
     priceUsd: number
   }>
-  /** e.g. "Get up to 350 Freebucks a day with Pro". */
+  /** e.g. "Get up to 70 hours a day with Pro". */
   headline: string
   /** The plans page, tagged `source=country_limited` for attribution. */
   plansUrl: string
