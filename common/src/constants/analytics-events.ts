@@ -2,6 +2,10 @@
  * Enum of analytics event types used throughout the application
  */
 export enum AnalyticsEvent {
+  // Authenticated mapped-project consent funnel. Views require 50% visible
+  // for one foreground second; choices are logged after the gateway saves.
+  PROJECT_CONTRIBUTION_VIEWED = 'project_contribution_viewed',
+  PROJECT_CONTRIBUTION_CHOICE_SAVED = 'project_contribution_choice_saved',
   // Cross-surface — DAU
   // Emitted exactly once per user-submitted message/prompt, on each surface,
   // and never sampled. `distinct_id` is the canonical codebuff Postgres user

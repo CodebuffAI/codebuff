@@ -15,7 +15,7 @@ export type MappedContributionState = {
   offers: MappedContributionOffer[]
   nextCursor: string | null
 }
-export type MappedContributionRequest =
+export type MappedContributionRequest = (
   | {
       action: 'accept'
       id: string
@@ -25,6 +25,8 @@ export type MappedContributionRequest =
       accepted: true
     }
   | { action: 'dismiss' | 'withdraw'; id: string }
+  | { action: 'view'; id: string; viewId: string; surface: 'popup' | 'earn' }
+) & { viewId?: string; surface?: 'popup' | 'earn' }
 export type MappedContributionResponse =
   | { ok: true; status: string }
   | { ok: false; error: string }
