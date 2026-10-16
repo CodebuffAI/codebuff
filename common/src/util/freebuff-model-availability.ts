@@ -119,7 +119,7 @@ export function getFreebuffModelAvailabilityNotice(
       }
       return `Using a ${formatFreebuffPrivacySignalList(
         reason.ipPrivacySignals,
-      )}? We lose money on every VPN user, so more models and Freebucks are available on a direct connection${confirm}`
+      )}? We lose money on every VPN user, so more models and hours are available on a direct connection${confirm}`
     case 'country_not_allowed':
       return `Some models aren't available in ${
         countryCode ? formatFreebuffCountryName(countryCode) : 'your region'

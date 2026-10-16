@@ -3,6 +3,7 @@ import type {
   FreebuffOffPeakPrice,
 } from '../types/freebuff-session'
 import { isBeijingWeekend } from '../constants/freebuff-peak-hours'
+import { freebuffMultiplierText } from './freebuff-hours'
 
 /** Resolve a server-owned daily policy, including windows crossing midnight
  *  and, when the policy says so, weekends that are off-peak all day. `start`
@@ -26,8 +27,8 @@ export function offPeakPriceAt(offer: FreebuffOffPeakPrice, now: number) {
     nextChangeAt: nextPriceChangeAt(offer, now, active),
     price: active ? offer.price : offer.regularPrice,
     tagline: active
-      ? `Off-peak pricing · ${offer.regularPrice} Freebucks/hour at peak`
-      : `Peak pricing · ${offer.price} Freebucks/hour off-peak`,
+      ? `Off-peak pricing · ${freebuffMultiplierText(offer.regularPrice)} at peak`
+      : `Peak pricing · ${freebuffMultiplierText(offer.price)} off-peak`,
   }
 }
 

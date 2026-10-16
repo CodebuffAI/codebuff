@@ -70,7 +70,7 @@ Freebuff uses specialized agents instead of sending every task through one model
 
 ## Free access
 
-Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access to GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo Fast, Solar Mini 4, and Solar Pro 4. Every model is paid for in Freebucks at the price shown in the picker. The free limited-access allowance is 25 Freebucks a day, or 20 on a VPN or proxy, spent first on every model, GLM included; earned Freebucks go into your wallet and are used after it.
+Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access to GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo Fast, Solar Mini 4, and Solar Pro 4. Every model is paid for in hours at the multiplier shown in the picker: an hour of MiMo Slow uses one hour of balance, a 3x model uses three. The free limited-access allowance is 5 hours a day, or 4 on a VPN or proxy, spent first on every model, GLM included; earned hours go into your wallet and are used after it. (Balances read in hours since 2026-10-15; 1 hour = 5 Freebucks.)
 
 Text ads support the included models. Freebuff shows the applicable session limits and any model-specific data-use notice before you start.
 

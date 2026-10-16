@@ -16,6 +16,13 @@ export const FREEBUCKS_PER_HOUR = 5
 /** The label every balance and allowance uses in place of "Freebucks". */
 export const HOURS_LABEL = 'Hours'
 
+/**
+ * The one-line explanation of the relabel, for the tooltip or help text beside
+ * a balance, an allowance or a price, so a user who knew Freebucks learns what
+ * changed where they look. Every surface uses this exact sentence.
+ */
+export const HOURS_RELABEL_NOTE = `Balances now read in hours instead of Freebucks: 1 hour = ${FREEBUCKS_PER_HOUR} Freebucks, an hour on MiMo Slow. Nothing was taken from your balance, and a 3x model uses 3 hours per session hour.`
+
 /** Freebucks as hours, unrounded. */
 export function freebucksToHours(freebucks: number): number {
   return freebucks / FREEBUCKS_PER_HOUR

@@ -16,6 +16,7 @@ import {
   type SponsoredSurveyQuestionKind,
   type SponsoredSurveySurface,
 } from './freebuff-sponsored-survey'
+import { formatHoursWithUnit } from '../util/freebuff-hours'
 
 export const SPONSORED_SURVEY_PATH = '/api/sponsored-survey'
 
@@ -177,7 +178,9 @@ export function toggleSponsoredOption(
 
 /** The card's reward line, or null for no reward copy. */
 export function sponsoredRewardLine(rewardFreebucks: number): string | null {
-  return rewardFreebucks > 0 ? `Earn ${rewardFreebucks} Freebucks` : null
+  return rewardFreebucks > 0
+    ? `Earn ${formatHoursWithUnit(rewardFreebucks)}`
+    : null
 }
 
 // ---- in-memory fake ------------------------------------------------------

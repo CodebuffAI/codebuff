@@ -82,7 +82,7 @@ const topics: Record<PageLabel, Topic[]> = {
   Usage: [
     {
       label: 'Allowance',
-      keywords: 'daily limit quota wallet balance freebucks',
+      keywords: 'daily limit quota wallet balance hours freebucks',
     },
     {
       label: 'Sessions by model',
@@ -100,8 +100,8 @@ const topics: Record<PageLabel, Topic[]> = {
         'subscription upgrade downgrade cancel renewal monthly yearly pricing',
     },
     {
-      label: 'Buy Freebucks',
-      keywords: 'balance wallet purchase credits payment card',
+      label: 'Buy hours',
+      keywords: 'balance wallet purchase credits payment card freebucks',
     },
     {
       label: 'Auto top-up',
@@ -116,9 +116,9 @@ const topics: Record<PageLabel, Topic[]> = {
       keywords: 'invite friends referral link rewards leaderboard',
     },
     ...(FREEBUFF_BOUNTIES_ENABLED
-      ? [{ label: 'Bounties', keywords: 'submissions tasks rewards freebucks' }]
+      ? [{ label: 'Bounties', keywords: 'submissions tasks rewards hours freebucks' }]
       : []),
-    { label: 'Offers', keywords: 'earn rewards freebucks' },
+    { label: 'Offers', keywords: 'earn rewards hours freebucks' },
   ],
   Integrations: [
     {

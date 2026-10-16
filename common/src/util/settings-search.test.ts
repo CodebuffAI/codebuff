@@ -12,6 +12,8 @@ test('finds controls on unopened pages using their names and everyday terms', ()
     ['startup script', 'projects', 'Startup script'],
     ['byok', 'providers', 'Provider API key'],
     ['auto topup', 'billing', 'Auto top-up'],
+    ['buy hours', 'billing', 'Buy hours'],
+    ['buy freebucks', 'billing', 'Buy hours'],
     ['unarchive', 'archived', 'Archived chats'],
     ['claude.md', 'general', 'Include AGENTS.md'],
     ['invite friends', 'earn', 'Referrals'],
