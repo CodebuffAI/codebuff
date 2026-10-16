@@ -1,5 +1,7 @@
 import { z } from 'zod/v4'
 
+export const CLOUD_SKILL_MAX_RESOURCE_FILES = 100
+
 export const cloudSkillSchema = z
   .object({
     name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
@@ -29,7 +31,10 @@ export const cloudSkillSchema = z
           })
           .strict(),
       )
-      .max(50)
+      .max(
+        CLOUD_SKILL_MAX_RESOURCE_FILES,
+        `A skill can include at most ${CLOUD_SKILL_MAX_RESOURCE_FILES} supporting files.`,
+      )
       .refine(
         (files) =>
           files.every((file, i) =>
