@@ -1081,11 +1081,20 @@ export type FreebuffSessionAdmissionResponse = (
       retryAfterMs: number
       /** The way out of this refusal, when there is one to sell. */
       upgrade?: FreebuffUpgradeHint
-      /** Not a budget: the account must verify its identity first (the
-       *  account hub's Country tab, `upgrade.url`). Rides on `spend_limited`
+      /** Not a budget: the account must verify something before it can start
+       *  a session (`upgrade.url` is where). Rides on `spend_limited`
        *  because every shipped client already renders that shape; clients
        *  that know the flag say so instead of "resets at midnight". */
       verificationRequired?: true
+      /**
+       * WHICH verification the refusal asks for, for a client that labels its
+       * own button rather than rendering `message`. Two different gates set
+       * `verificationRequired`: the phone gate asks for an SMS code
+       * (docs/freebuff-phone-gate.md) and the identity gate asks for an ID
+       * and a selfie (docs/freebuff-id-verification.md). Absent on an older
+       * server, so a client must not assume either.
+       */
+      verificationKind?: 'phone' | 'identity'
     }
   | {
       /** Retired single-use Desktop claim; persist a new id before retrying. */
