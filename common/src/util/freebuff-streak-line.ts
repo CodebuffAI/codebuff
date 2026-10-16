@@ -210,8 +210,10 @@ export function formatFreebuffStreakResetTime(params: {
  * in the account's timezone since 2026-10-01 — made by the first free-mode
  * message of that day, which raises the allowance until its reset
  * (`bonusExpiresAt`, the same instant as `nextResetAt`). A reader at home
- * therefore sees "+15 added to today's allowance until midnight · next +15
- * with your first message after that". Nothing here changes the rules. The
+ * therefore sees "+3 hours added to today's allowance until midnight · next
+ * +3 hours with your first message after that" — the bonus is 15 Freebucks and
+ * every line here renders it through `formatHoursWithUnit`, so the comment has
+ * to quote hours or it dates itself. Nothing here changes the rules. The
  * branches for a bonus that expires before the streak day ends serve servers
  * from before 2026-10-01, whose streak day was Pacific.
  */
