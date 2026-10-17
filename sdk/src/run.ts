@@ -1,3 +1,4 @@
+import { promises as nodeFs } from 'fs'
 import path from 'path'
 
 import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
@@ -61,6 +62,7 @@ import {
   authorizeToolCall,
   classifyTool,
   guardFileSystem,
+  isPathWithinRoot,
 } from './permissions/execution-policy'
 import type {
   ExecutionPolicy,
@@ -1575,9 +1577,27 @@ export async function handleToolCall({
     }
     const targets: string[] = []
     const filePaths = (input as { filePaths?: string[] }).filePaths
-    if (toolName === 'apply_patch' && policy.projectOnly) {
-      // Fail closed until the dedicated follow-up validates the nested path.
-      return denial('apply_patch is unavailable in project-only mode until its target can be verified')
+    if (toolName === 'apply_patch') {
+      const operation = (input as { operation?: { path?: string } }).operation
+      if (
+        !operation ||
+        typeof operation.path !== 'string' ||
+        operation.path.trim() === ''
+      ) {
+        return denial('apply_patch target could not be verified')
+      }
+      const target = path.resolve(requireCwd(cwd, toolName), operation.path)
+      // Resolve symlinks before trusting containment: a link inside the project
+      // can still point outside it.
+      if (policy.projectOnly) {
+        const canonicalize = policy.canonicalize ?? nodeFs.realpath
+        if (!(await isPathWithinRoot(target, policy.projectRoot, canonicalize))) {
+          return denial(
+            `apply_patch target '${operation.path}' blocked: outside project root '${policy.projectRoot}' (--project-only)`,
+          )
+        }
+      }
+      targets.push(target)
     } else if (Array.isArray(filePaths)) {
       for (const filePath of filePaths) {
         targets.push(path.resolve(requireCwd(cwd, toolName), filePath))

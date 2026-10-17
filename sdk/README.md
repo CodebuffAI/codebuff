@@ -143,10 +143,6 @@ that callback is absent. `readOnly` denies writes, and `projectOnly` restricts
 SDK-managed filesystem access to the project directory (see the guarantee
 boundaries below).
 
-Until the follow-up `apply_patch` target check is included, `apply_patch` calls
-are denied in `projectOnly` mode because their path is nested under
-`operation.path` and cannot yet be validated by the generic dispatcher.
-
 The SDK does not yet apply an operating-system sandbox to shell commands.
 Because an unrestricted shell can write outside the SDK filesystem adapter or
 access paths outside the project, both `readOnly` and `projectOnly` also disable
