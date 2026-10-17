@@ -47,7 +47,7 @@ export function githubShadowEnabled(
  * Who answers `POST /github/webhook` once GitHub is pointed at freebuff.com
  * (`/api/edge/github/webhook`).
  *
- * - `convex_proxy` (default): the Next route is a transparent proxy to the
+ * - `convex_proxy`: the Next route is a transparent proxy to the
  *              Convex httpAction, byte for byte (signature included).
  * - `next`     the Next route verifies the HMAC on the raw body itself, drops
  *              what Convex would drop, and enqueues ONE freebuff-jobs job per
@@ -60,5 +60,4 @@ export function githubShadowEnabled(
  */
 export type GitHubWebhookReceiverMode = 'convex_proxy' | 'next'
 
-export const GITHUB_WEBHOOK_RECEIVER: GitHubWebhookReceiverMode =
-  'convex_proxy'
+export const GITHUB_WEBHOOK_RECEIVER: GitHubWebhookReceiverMode = 'next'
