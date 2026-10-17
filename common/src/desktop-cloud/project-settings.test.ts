@@ -1,8 +1,10 @@
 import { expect, test } from 'bun:test'
 import {
+  accountSkillsUpdateSchema,
   cloudProjectSettingsSchema,
   cloudProjectSettingsUpdateSchema,
   firstUnstorableChar,
+  invalidSkillsRefusal,
   unstorableProjectSettingsRefusal,
   unstorableSkillsRefusal,
 } from './project-settings'
@@ -174,4 +176,107 @@ test('a project startup script is refused the same way as its skills', () => {
       skills: [{ ...storableSkill, instructions: `x${NUL}` }],
     }),
   ).toContain('its instructions contain a NUL character')
+})
+
+// A save carries the whole library, so `'Invalid skills'` told neither its
+// author nor support which skill or which field the schema refused. These pin
+// what the sentence names — and what it must never name: any value from the
+// payload. See `invalidSkillsRefusal`.
+const refusalFor = (payload: unknown) => {
+  const parsed = accountSkillsUpdateSchema.safeParse(payload)
+  expect(parsed.success).toBe(false)
+  return parsed.success ? '' : invalidSkillsRefusal(parsed.error, payload)
+}
+
+test('a refused skills payload is reported by skill and field', () => {
+  const skill = {
+    name: 'review',
+    description: 'Review changes',
+    instructions: 'Read the diff.',
+  }
+  expect(
+    refusalFor({
+      revision: 1,
+      settings: {
+        skills: [skill, { ...skill, name: 'other', description: '' }],
+      },
+    }),
+  ).toBe(
+    'Skill "other" cannot be saved: field "description" was rejected (too_small). Fix it and save again.',
+  )
+  expect(
+    refusalFor({
+      revision: 1,
+      settings: {
+        skills: [
+          {
+            ...skill,
+            files: [
+              { path: 'a.md', contents: '' },
+              { path: 'b.md', contents: 'x'.repeat(100001) },
+            ],
+          },
+        ],
+      },
+    }),
+  ).toBe(
+    'Skill "review" cannot be saved: field "files[1].contents" was rejected (too_big). Fix it and save again.',
+  )
+  // Our own `.refine()` message says more than `custom` and holds nothing of
+  // the payload, so it is the one message text that is passed through.
+  expect(
+    refusalFor({ revision: 1, settings: { skills: [skill, skill] } }),
+  ).toBe(
+    'Invalid skills: field "settings" was rejected (Skill names must be unique). Fix it and save again.',
+  )
+  expect(refusalFor({ revision: -1, settings: { skills: [] } })).toBe(
+    'Invalid skills: field "revision" was rejected (too_small). Fix it and save again.',
+  )
+  expect(refusalFor(42)).toBe(
+    'Invalid skills: the request body was rejected (invalid_type). Please report this if it keeps happening.',
+  )
+  expect(invalidSkillsRefusal({ issues: [] })).toBe(
+    'Invalid skills: the request body is not a skills update. Please report this if it keeps happening.',
+  )
+})
+
+test('a refusal names no value the client sent', () => {
+  const secret = 'TOP-SECRET-PROSE'
+  const poisoned = {
+    revision: 1,
+    settings: {
+      skills: [
+        {
+          // An illegal name is not echoed: only a name that still matches
+          // `SKILL_NAME_PATTERN` is safe to quote back.
+          name: `Review ${secret}`,
+          description: secret,
+          instructions: secret,
+          [secret]: secret,
+        },
+      ],
+    },
+  }
+  const refusal = refusalFor(poisoned)
+  expect(refusal).not.toContain(secret)
+  expect(refusal).toContain('The skill at index 0')
+  // An unrecognized key is the client's own text, so the refusal says that a
+  // key was not recognised without repeating it.
+  const extra = refusalFor({
+    revision: 1,
+    settings: {
+      skills: [
+        {
+          name: 'review',
+          description: 'Review changes',
+          instructions: 'Read the diff.',
+          [secret]: 1,
+        },
+      ],
+    },
+  })
+  expect(extra).not.toContain(secret)
+  expect(extra).toBe(
+    'Skill "review" cannot be saved: the skill itself was rejected (unrecognized_keys). Fix it and save again.',
+  )
 })

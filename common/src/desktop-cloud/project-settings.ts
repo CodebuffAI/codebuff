@@ -2,9 +2,16 @@ import { z } from 'zod/v4'
 
 export const CLOUD_SKILL_MAX_RESOURCE_FILES = 100
 
+/**
+ * What a skill may be called. Narrow on purpose: a name holds no user prose, so
+ * a refusal may quote it back (see `invalidSkillsRefusal`) and a file written
+ * under it cannot escape its directory.
+ */
+export const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
+
 export const cloudSkillSchema = z
   .object({
-    name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+    name: z.string().regex(SKILL_NAME_PATTERN),
     description: z.string().trim().min(1).max(1000),
     instructions: z.string().trim().min(1).max(50000),
     files: z
@@ -207,4 +214,146 @@ export function unstorableProjectSettingsRefusal(
   if (found)
     return `The startup script cannot be saved: it contains ${unstorableDescription(found)}. Remove it and save again.`
   return unstorableSkillsRefusal(settings.skills)
+}
+
+/**
+ * The 400 for a skills payload the schema refuses, naming where it was refused.
+ *
+ * The Cloud skills route answered every schema failure with the bare string
+ * `'Invalid skills'`, which names nothing: a save of a whole library can be
+ * refused for one field of one skill, and neither its author nor support could
+ * tell which. That is the same gap `unstorableSkillsRefusal` above closed for
+ * the characters `jsonb` cannot hold, for the step before it.
+ *
+ * What goes in the sentence is the failing issue's `path` and `code`, never any
+ * value from the payload. zod's own `message` is deliberately not used: for
+ * `unrecognized_keys` it quotes the client's key names, and a refusal that
+ * echoes user-authored text back is the thing this must not become. The skill
+ * name is the one exception, and only when the payload's own name still matches
+ * `SKILL_NAME_PATTERN` — i.e. lowercase letters, digits and dashes — which is
+ * also why naming it is safe. A `CloudError` is answered to the account that
+ * sent it and is not logged, so nothing here reaches Axiom either way.
+ *
+ * zod v4 reports a failed union (the skills upload is one: a plain update or a
+ * base64-encoded one) as a single `invalid_union` issue at the union's own path
+ * whose `errors` hold each branch's issues, already carrying their full paths.
+ * The branch reported is the one that complained least, i.e. the upload the
+ * client was closest to sending; within it, the deepest path is the field the
+ * payload got furthest into.
+ */
+export function invalidSkillsRefusal(
+  error: { readonly issues: readonly unknown[] },
+  payload?: unknown,
+): string {
+  const issue = reportableIssue(error.issues)
+  if (!issue)
+    return 'Invalid skills: the request body is not a skills update. Please report this if it keeps happening.'
+  // `custom` is one of our own `.refine()` messages ("Skill names must be
+  // unique"), which says more than the code and contains nothing of the
+  // payload; every other code is reported as the code alone.
+  const because =
+    issue.code === 'custom' && issue.message
+      ? ` (${issue.message})`
+      : issue.code
+        ? ` (${issue.code})`
+        : ''
+  const [first, second, index, ...rest] = issue.path
+  if (
+    first === 'settings' &&
+    second === 'skills' &&
+    typeof index === 'number'
+  ) {
+    const name = skillNameAt(payload, index)
+    const subject = name ? `Skill "${name}"` : `The skill at index ${index}`
+    const field = renderIssuePath(rest)
+    return field
+      ? `${subject} cannot be saved: field "${field}" was rejected${because}. Fix it and save again.`
+      : `${subject} cannot be saved: the skill itself was rejected${because}. Fix it and save again.`
+  }
+  const field = renderIssuePath(issue.path)
+  return field
+    ? `Invalid skills: field "${field}" was rejected${because}. Fix it and save again.`
+    : `Invalid skills: the request body was rejected${because}. Please report this if it keeps happening.`
+}
+
+type RefusalIssue = {
+  code: string | undefined
+  message: string | undefined
+  path: readonly PropertyKey[]
+}
+
+/**
+ * The one issue worth reporting out of a list: the deepest path, since that is
+ * the field the payload got furthest into, with a union replaced by the issue
+ * of the branch it came closest to matching.
+ */
+function reportableIssue(issues: readonly unknown[]): RefusalIssue | undefined {
+  let best: RefusalIssue | undefined
+  for (const value of issues) {
+    if (!value || typeof value !== 'object') continue
+    const issue = value as {
+      code?: unknown
+      message?: unknown
+      path?: unknown
+      errors?: unknown
+    }
+    const candidate = Array.isArray(issue.errors)
+      ? closestBranchIssue(issue.errors)
+      : Array.isArray(issue.path)
+        ? {
+            code: typeof issue.code === 'string' ? issue.code : undefined,
+            message:
+              typeof issue.message === 'string' ? issue.message : undefined,
+            path: issue.path as readonly PropertyKey[],
+          }
+        : undefined
+    if (candidate && (!best || candidate.path.length > best.path.length))
+      best = candidate
+  }
+  return best
+}
+
+/**
+ * The branch that complained least, which is the one the payload was closest
+ * to being. Without this an encoding fault in the base64 upload would be
+ * reported as the missing `revision` of the plain upload it is not.
+ */
+function closestBranchIssue(branches: readonly unknown[]) {
+  let closest: readonly unknown[] | undefined
+  for (const branch of branches)
+    if (Array.isArray(branch) && (!closest || branch.length < closest.length))
+      closest = branch
+  return closest ? reportableIssue(closest) : undefined
+}
+
+/**
+ * `files[2].contents` for a path of schema keys and array indices. Every key
+ * here comes from the schema, not from the payload: an issue's path points at
+ * the offending value, and for an unrecognized key at the object holding it.
+ */
+function renderIssuePath(path: readonly PropertyKey[]): string {
+  return path.reduce<string>(
+    (rendered, key) =>
+      typeof key === 'number'
+        ? `${rendered}[${key}]`
+        : rendered
+          ? `${rendered}.${String(key)}`
+          : String(key),
+    '',
+  )
+}
+
+/** The payload's own name for a skill, only when it is still a legal one. */
+function skillNameAt(payload: unknown, index: number): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined
+  const settings = (payload as { settings?: unknown }).settings
+  if (!settings || typeof settings !== 'object') return undefined
+  const skills = (settings as { skills?: unknown }).skills
+  if (!Array.isArray(skills)) return undefined
+  const skill = skills[index]
+  if (!skill || typeof skill !== 'object') return undefined
+  const name = (skill as { name?: unknown }).name
+  return typeof name === 'string' && SKILL_NAME_PATTERN.test(name)
+    ? name
+    : undefined
 }
