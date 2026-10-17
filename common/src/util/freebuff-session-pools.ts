@@ -162,7 +162,8 @@ export function getFreebuffModelMeter({
       budget: { price, balance: freebucks.balance },
       canStart:
         freebucks.quotaExempt === true ||
-        freebucks.balance + (freebucks.claimableGrantFreebucks ?? 0) >= price,
+        freebucks.balance + (freebucks.claimableGrantFreebucks ?? 0) >=
+          Math.max(0, price - (freebucks.soloDiscount ?? 0)),
     }
   }
   return {

@@ -198,8 +198,9 @@ export function useFreebuffChatAdmission(enabled: boolean) {
       hasExplicitPick ? admission.model : selectedModel,
       session,
     )
+    const freebucks = freebucksOf(session)
     const intent = freebucksRowIntent(
-      freebucksOf(session),
+      freebucks,
       model,
       session.status === 'active' ? session.model : undefined,
     )
@@ -214,7 +215,10 @@ export function useFreebuffChatAdmission(enabled: boolean) {
       })
     } else if (
       intent.kind === 'confirm' ||
-      (session.status === 'active' && session.model !== model)
+      // Full access is never asked, not even to end the live session.
+      (!freebucks?.spendWithoutAsking &&
+        session.status === 'active' &&
+        session.model !== model)
     ) {
       const cost =
         intent.price === undefined

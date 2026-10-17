@@ -298,6 +298,19 @@ export interface FreebuffFreebucksInfo {
   /** The account's most recent session refund from the last day. Clients
    *  announce an id they have not seen before; the first snapshot is history. */
   lastRefund?: FreebuffFreebucksRefund
+  /**
+   * The server's verdict that this viewer is never asked before an hour is
+   * bought (full access, 2026-10-16: the meter should feel unlimited). Pickers
+   * skip the wallet and model-switch questions, and an hour that ran out
+   * renews on the next send or mid-turn. Absent keeps every question.
+   */
+  spendWithoutAsking?: boolean
+  /**
+   * Freebucks a session started now takes off its price: present at full
+   * access while no session of the account is live. Pickers lock a row on
+   * `price - soloDiscount`; `prices` stay at list.
+   */
+  soloDiscount?: number
   /** The plan the daily pool and bonus were sized from; null on free. */
   planId: string | null
   /** Session price per model id. Only models on the meter appear here. */

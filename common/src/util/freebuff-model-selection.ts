@@ -75,6 +75,8 @@ export function freebucksRowIntent(
   if (!freebucks || price === undefined)
     return { kind: 'allow', price, walletSpend: 0 }
   if (!canStart) return { kind: 'paywall', price, walletSpend: 0 }
+  // Full access is never asked: no wallet, claim or session-ending question.
+  if (freebucks.spendWithoutAsking) return { kind: 'allow', price, walletSpend: 0 }
   if (freebucks.balance < price && freebucks.quotaExempt)
     return { kind: 'allow', price, walletSpend: 0 }
   const walletSpend = Math.max(0, price - freebucks.daily.remaining)
