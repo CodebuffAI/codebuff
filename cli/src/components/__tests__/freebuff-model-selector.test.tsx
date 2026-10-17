@@ -196,7 +196,7 @@ test.each([
   expect(requested).toEqual([id])
 })
 
-test('a row reads its price as a multiplier; free and 1x rows carry none', async () => {
+test('a row reads its price as a multiplier, 1x included; a free row carries none', async () => {
   useFreebuffSessionStore.getState().setSession({
     status: 'none',
     accessTier: 'full',
@@ -217,7 +217,7 @@ test('a row reads its price as a multiplier; free and 1x rows carry none', async
     lines[lines.findIndex((line) => line.includes(name)) + 1] ?? ''
   expect(detailsOf(getFreebuffModel(FREEBUFF_MIMO_V25_MODEL_ID).displayName)).toContain('3x')
   expect(detailsOf('GLM 5.3 Flash')).not.toMatch(/\dx\b/)
-  expect(detailsOf('DeepSeek V4.1 Flash')).not.toMatch(/\dx\b/)
+  expect(detailsOf('DeepSeek V4.1 Flash')).toContain('1x')
   expect(frame).not.toContain('0x')
   expect(frame).not.toContain('Freebucks')
   expect(frame).toContain('FREE · 5/5 hours daily')
@@ -354,7 +354,7 @@ describe('FreebuffModelSelector tier layout', () => {
     await setup.renderOnce()
     const frame = setup.captureCharFrame()
     expect(frame).toContain('› Solar Mini 4')
-    expect(frame).not.toContain('› MiMo Fast')
+    expect(frame).not.toContain('› MiMo v2.6 Flash Fast')
   })
 
   /**
@@ -460,7 +460,7 @@ describe('FreebuffModelSelector tier layout', () => {
     //
     // MiMo 2.5 is that row since 2026-08-18 — Flash moved into the premium
     // group and can no longer be what a spent user lands on.
-    const heroModelIndex = frame.indexOf('MiMo Fast', sectionHeaderIndex)
+    const heroModelIndex = frame.indexOf('MiMo v2.6 Flash Fast', sectionHeaderIndex)
 
     expect(sectionHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
     expect(heroModelIndex).toBeGreaterThan(sectionHeaderIndex)
@@ -632,7 +632,7 @@ describe('FreebuffModelSelector tier layout', () => {
       lines.findIndex((line) => line.startsWith('OPTIMIZED · Strongest')),
       // DeepSeek V4.1 Flash leads Optimized as its pick since 2026-10-14.
       cardLine('DeepSeek V4.1 Flash'),
-      cardLine('MiMo Fast'),
+      cardLine('MiMo v2.6 Flash Fast'),
       // GPT-6 Luna sits in Optimized since 2026-10-13.
       cardLine('GPT-6 Luna'),
       lines.findIndex((line) => line.startsWith('POWERFUL · Frontier')),
@@ -643,7 +643,7 @@ describe('FreebuffModelSelector tier layout', () => {
     expect(order.every((at) => at >= 0)).toBe(true)
     expect(order).toEqual([...order].sort((a, b) => a - b))
     expect(lines[cardLine('DeepSeek V4.1 Flash') + 1]).toContain('Recommended')
-    expect(lines[cardLine('MiMo Fast') + 1]).not.toContain('Recommended')
+    expect(lines[cardLine('MiMo v2.6 Flash Fast') + 1]).not.toContain('Recommended')
     // Flash Fast is not badged Recommended since 2026-10-07.
     if (FREEBUFF_ENABLE_FAST_MODE_IN_UI) {
       expect(lines[cardLine('DeepSeek V4.1 Flash Fast') + 1]).not.toContain('Recommended')
@@ -674,7 +674,7 @@ describe('FreebuffModelSelector tier layout', () => {
       expect(row).toBeGreaterThanOrEqual(0)
       expect(lines[row + 1] ?? '').not.toContain('Paid plan')
     }
-    expect(lines.some((line) => line.includes('MiMo Fast'))).toBe(true)
+    expect(lines.some((line) => line.includes('MiMo v2.6 Flash Fast'))).toBe(true)
   })
 
   test('shows MiMo 2.6 Pro to a paying account, with no price caveat', async () => {
@@ -706,9 +706,9 @@ describe('FreebuffModelSelector tier layout', () => {
     const frame = (await renderSelector()).captureCharFrame()
 
     // Natively multimodal: the badge is a real capability claim.
-    expect(rowOf(frame, 'MiMo Fast')).toContain('Images')
+    expect(rowOf(frame, 'MiMo v2.6 Flash Fast')).toContain('Images')
     expect(rowOf(frame, 'GPT-6 Luna')).toContain('Images')
-    expect(rowOf(frame, 'MiMo Fast')).toContain('Images')
+    expect(rowOf(frame, 'MiMo v2.6 Flash Fast')).toContain('Images')
     // Text-only. They still accept a pasted image (read server-side as a
     // description), but badging them made the label mean nothing — and the
     // badge is what widened the hero card.
@@ -1096,10 +1096,10 @@ describe('GLM selection uses the applicable meter', () => {
           : LIMITED_FREEBUFF_HERO_MODEL_ID,
       )
       if (balance >= 5) {
-        // GLM is the 1x row: priced, but it carries no label. The balance
-        // lives in the header line.
+        // GLM is the 1x row, and reads "1x". The balance lives in the header
+        // line.
         expect(setup.captureCharFrame()).toContain('› GLM 5.3 Flash')
-        expect(setup.captureCharFrame()).not.toContain('1x')
+        expect(setup.captureCharFrame()).toContain('1x')
       }
     },
   )
@@ -1634,11 +1634,9 @@ test.each([
       wake!()
     })
     await setup.renderOnce()
-    // A 1x row (5) carries no label; a dearer one reads as its multiplier.
+    // Every priced row reads as its multiplier, a 1x row (5) included.
     expect(setup.captureCharFrame()).toMatch(
-      price === 5
-        ? /Solar Mini 4[^\n]*\n(?![^\n]*\dx\b)/
-        : new RegExp(`Solar Mini 4[^\\n]*\\n[^\\n]*${price / 5}x`),
+      new RegExp(`Solar Mini 4[^\\n]*\\n[^\\n]*${price / 5}x`),
     )
     // Return to Solar if the price increase moved focus to a cheaper model.
     for (let i = 0; i < 12; i++) {

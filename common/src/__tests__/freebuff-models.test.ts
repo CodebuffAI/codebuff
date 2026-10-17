@@ -602,8 +602,8 @@ describe('freebuff model availability', () => {
       (model) => model.id === FREEBUFF_MIMO_V25_MODEL_ID,
     )!
     expect(FREEBUFF_MIMO_V25_MODEL_ID).toBe('mimo/mimo-v2.5')
-    // Shown as MiMo Fast since 2026-10-14, beside MiMo Slow.
-    expect(row.displayName).toBe('MiMo Fast')
+    // Shown as MiMo v2.6 Flash Fast since 2026-10-14, beside MiMo v2.6 Flash Slow.
+    expect(row.displayName).toBe('MiMo v2.6 Flash Fast')
     // Still the unmetered fallback every surface steps down to.
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
   })
@@ -1249,7 +1249,7 @@ describe('freebuff model availability', () => {
     // model is still named TO a user: the pick is gone, so pointing somewhere
     // is the alternative to a dead end.
     expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
-      'MiMo Fast',
+      'MiMo v2.6 Flash Fast',
     )
 
     // The AGENT door stays open, and that is not an oversight. Withdrawal is
@@ -1453,7 +1453,7 @@ describe('freebuff model availability', () => {
       ),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_MISMATCH_MESSAGE).toBe(
-      'Limited free access is only available with MiMo Fast or GLM 5.3 Flash or DeepSeek V4.1 Flash or Solar Mini 4 or Solar Pro 4.',
+      'Limited free access is only available with MiMo v2.6 Flash Fast or GLM 5.3 Flash or DeepSeek V4.1 Flash or Solar Mini 4 or Solar Pro 4.',
     )
     // No row in the tier supersedes another, so no picker may offer a switch
     // that admission would coerce straight back.

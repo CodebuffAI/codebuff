@@ -502,7 +502,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // line, in the same place on every row.
       //
       // The price is the row's multiplier of the 1x hour ("2x": an hour on it
-      // uses two hours of balance). A free row and a 1x row carry no label.
+      // uses two hours of balance). A free row carries no label; a 1x row reads "1x".
       // Warned when the balance cannot cover it — the same signal the dimmed
       // price carries on the other two surfaces.
       const rowPrice = freebucksPriceFor(freebucks, model.id)

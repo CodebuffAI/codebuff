@@ -47,9 +47,10 @@ describe('hours', () => {
     [25, '5x'],
     [250, '50x'],
     [2, '0.4x'],
-    // No label: free (Unlimited), 1x (MiMo Slow), unpriced.
+    // 1x reads "1x" since 2026-10-17 (MiMo v2.6 Flash Slow).
+    [5, '1x'],
+    // No label: free (Unlimited), unpriced.
     [0, null],
-    [5, null],
     [undefined, null],
     [null, null],
     [Number.NaN, null],

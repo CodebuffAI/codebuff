@@ -1,15 +1,15 @@
 /**
  * Hours: the unit users see for Freebucks (2026-10-14, product).
  *
- * One hour is 5 Freebucks, the price of an hour of MiMo Slow, the
+ * One hour is 5 Freebucks, the price of an hour of MiMo v2.6 Flash Slow, the
  * cheapest metered row. Everything underneath stays in Freebucks: the ledger,
  * the prices, admission and refunds. Only display converts,
  * which is why a client released before this keeps showing Freebucks against
  * the same server: the wire still carries Freebucks.
  *
  * A model's price reads as a multiplier of that hour ("2x" is a 10 Freebuck
- * row: an hour on it uses two hours of balance). A free row and a 1x row carry
- * no label.
+ * row: an hour on it uses two hours of balance). A free row carries no label;
+ * a 1x row reads "1x" since 2026-10-17.
  */
 export const FREEBUCKS_PER_HOUR = 5
 
@@ -21,7 +21,7 @@ export const HOURS_LABEL = 'Hours'
  * a balance, an allowance or a price, so a user who knew Freebucks learns what
  * changed where they look. Every surface uses this exact sentence.
  */
-export const HOURS_RELABEL_NOTE = `Balances now read in hours instead of Freebucks: 1 hour = ${FREEBUCKS_PER_HOUR} Freebucks, an hour on MiMo Slow. Nothing was taken from your balance, and a 3x model uses 3 hours per session hour.`
+export const HOURS_RELABEL_NOTE = `Balances now read in hours instead of Freebucks: 1 hour = ${FREEBUCKS_PER_HOUR} Freebucks, an hour on MiMo v2.6 Flash Slow. Nothing was taken from your balance, and a 3x model uses 3 hours per session hour.`
 
 /** Freebucks as hours, unrounded. */
 export function freebucksToHours(freebucks: number): number {
@@ -53,10 +53,10 @@ export function formatHoursShort(freebucks: number): string {
 }
 
 /**
- * A model's usage multiplier label from its hourly price in Freebucks: "2x"
- * for 10, "3x" for 15, "0.4x" for 2. Null for a free row (the Unlimited
- * section) and for a 1x row (MiMo Slow), which carry no label, and for an
- * unpriced one.
+ * A model's usage multiplier label from its hourly price in Freebucks: "1x"
+ * for 5 (MiMo v2.6 Flash Slow, labelled since 2026-10-17), "2x" for 10, "3x"
+ * for 15, "0.4x" for 2. Null for a free row (the Unlimited section), which
+ * carries no label, and for an unpriced one.
  */
 export function freebuffModelMultiplierLabel(
   priceFreebucks: number | null | undefined,
@@ -65,8 +65,7 @@ export function freebuffModelMultiplierLabel(
     priceFreebucks === null ||
     priceFreebucks === undefined ||
     !Number.isFinite(priceFreebucks) ||
-    priceFreebucks <= 0 ||
-    priceFreebucks === FREEBUCKS_PER_HOUR
+    priceFreebucks <= 0
   )
     return null
   const multiplier = Math.round((priceFreebucks / FREEBUCKS_PER_HOUR) * 10) / 10

@@ -108,8 +108,8 @@ describe('model picker presets', () => {
     ).toBe('high')
   })
 
-  test('the limited premium ladder leads with MiMo Slow where it is listed and open', () => {
-    const slow = { id: slowKey, displayName: 'MiMo Slow' }
+  test('the limited premium ladder leads with MiMo v2.6 Flash Slow where it is listed and open', () => {
+    const slow = { id: slowKey, displayName: 'MiMo v2.6 Flash Slow' }
     const input = { accessTier: 'limited' as const, isSubscriber: true }
     expect(ids({ ...input, models: [slow] })).toEqual([slowKey, flash, muse])
     expect(choices({ ...input, models: [slow] })[0]?.reasoningEffort).toBeNull()
@@ -122,8 +122,8 @@ describe('model picker presets', () => {
     expect(ids({ accessTier: 'full', models: [slow] })[0]).not.toBe(slowKey)
   })
 
-  test('a planless limited account builds its ladder on the server’s recommendation (MiMo Slow)', () => {
-    const slow = { id: 'm-slow', displayName: 'MiMo Slow' }
+  test('a planless limited account builds its ladder on the server’s recommendation (MiMo v2.6 Flash Slow)', () => {
+    const slow = { id: 'm-slow', displayName: 'MiMo v2.6 Flash Slow' }
     const glyph = { id: 'm-glyph', displayName: 'Glyph Cluster', price: 0 }
     // No free promotion: the recommendation fills both lower stops, and a new
     // chat (Balanced) starts on it.

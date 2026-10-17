@@ -30,7 +30,7 @@ export interface FreebuffPresetModel {
 }
 
 /**
- * MiMo Slow's catalog key (`defaultCatalogKey('fbc/mimo-slow')`):
+ * MiMo v2.6 Flash Slow's catalog key (`defaultCatalogKey('fbc/mimo-slow')`):
  * a catalog-only row, so it has no public id and is found by its opaque key,
  * as in freebuff-picker-sections.ts. Pinned to its id by the web catalog tests.
  */
@@ -44,12 +44,12 @@ export const FREEBUFF_MIMO_SLOW_CATALOG_KEY = 'm-61c26317cc'
  * The first stop is no longer a cheap model, so it reads Fast rather than
  * Efficient; limited ladders keep Efficient.
  *
- * A limited-access subscriber, or one holding 100 Freebucks, gets MiMo Slow
+ * A limited-access subscriber, or one holding 100 Freebucks, gets MiMo v2.6 Flash Slow
  * (MiMo where it is not listed, as on Web), Flash at high effort and Muse Spark
  * 1.3. Muse Spark is a paid-only row, so without a plan that stop is the
  * ordinary paywall, never an entitlement. Any other limited account gets the
  * free ladder below, built on the server's recommendation for it
- * (`recommendedModelId`, MiMo Slow since 2026-10-14) where the catalog sends
+ * (`recommendedModelId`, MiMo v2.6 Flash Slow since 2026-10-14) where the catalog sends
  * one, else MiMo. */
 export function getFreebuffModelPresets({
   accessTier,
@@ -108,7 +108,7 @@ export function getFreebuffModelPresets({
     ]
 
   if (premium) {
-    // MiMo Slow leads where it is listed and open (product, 2026-10-14).
+    // MiMo v2.6 Flash Slow leads where it is listed and open (product, 2026-10-14).
     const slow = models?.find(
       (row) =>
         row.id === FREEBUFF_MIMO_SLOW_CATALOG_KEY && row.available !== false,

@@ -121,7 +121,7 @@ export function freebuffDefaultModelForSession(
     accessTier,
     isSubscriber,
     balance: freebucks?.balance,
-    // The catalog's rows, so a catalog-only stop (MiMo Slow) is offered only
+    // The catalog's rows, so a catalog-only stop (MiMo v2.6 Flash Slow) is offered only
     // while it is listed and open, and the server's pick for this viewer (MiMo
     // Slow for a planless limited account). Without a catalog the compiled
     // ladder stands.
