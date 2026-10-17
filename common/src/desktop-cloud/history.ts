@@ -33,6 +33,8 @@ export type CloudHistoryChat = {
   archivedAt: string | null
   /** Continue locally (COD-878): when the chat moved to a computer, or null. Absent from older servers. */
   handedBackAt?: string | null
+  /** Archived Cloud files must land on this computer before another run. */
+  localRestoreRequired?: boolean
   metadataRevision: number
   phase: string
   updatedAt: string

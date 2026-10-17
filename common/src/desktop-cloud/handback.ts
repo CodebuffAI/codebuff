@@ -36,6 +36,13 @@ export const handbackRequestSchema = z
   .strict()
 export type HandbackRequest = z.infer<typeof handbackRequestSchema>
 
+/** Sent only after Desktop has committed the local landing. The timestamp identifies this move,
+ * so a delayed acknowledgement cannot reclaim a later Cloud workspace. */
+export const handbackCompleteSchema = handbackRequestSchema.extend({
+  handedBackAt: z.iso.datetime({ offset: true }),
+})
+export type HandbackCompleteRequest = z.infer<typeof handbackCompleteSchema>
+
 export interface HandbackResponse {
   workspaceId: string
   /** ISO time the chat left Cloud. Repeating the same handback returns the original time. */
@@ -71,7 +78,7 @@ export const CLOUD_EXPORT_BUNDLE_REF = 'HEAD'
 
 const commitSchema = z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/)
 
-export const cloudExportMetaSchema = z
+const cloudExportV2Schema = z
   .object({
     version: z.literal(2),
     /** The commit the worktree started from (its marker), or null for a chat initialized before it was recorded. */
@@ -86,4 +93,22 @@ export const cloudExportMetaSchema = z
     deleted: z.array(z.string().max(4096)).max(200_000),
   })
   .strict()
+/** V3 sends Git objects once plus only working files whose bytes differ from HEAD.
+ * `have` is a complete commit graph verified by the receiver; unknown bases send a full pack.
+ * `files` is the complete eligible working-file inventory, for plain-folder reconstruction.
+ * `shallow` preserves any history boundary already present in Cloud (never invents one).
+ */
+export const cloudExportV3Schema = cloudExportV2Schema.extend({
+  version: z.literal(3),
+  bundle: z.literal(false),
+  pack: z.boolean(),
+  have: commitSchema.nullable(),
+  shallow: z.array(commitSchema).max(200_000),
+  files: z.array(z.string().max(4096)).max(200_000),
+}).strict()
+export const cloudExportMetaSchema = z.union([cloudExportV2Schema, cloudExportV3Schema])
 export type CloudExportMeta = z.infer<typeof cloudExportMetaSchema>
+
+/** Archived chats resume through Desktop's existing local landing and Cloud upload. */
+export const ARCHIVED_CHAT_RESTORE_ERROR =
+  'This chat’s Cloud workspace was archived. Restore it in Freebuff Desktop to continue.'

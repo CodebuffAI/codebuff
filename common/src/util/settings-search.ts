@@ -41,6 +41,11 @@ const topics: Record<PageLabel, Topic[]> = {
       surface: 'desktop',
     },
     {
+      label: 'Pre-sync projects to Cloud',
+      keywords: 'cloud upload sync background faster move',
+      surface: 'desktop',
+    },
+    {
       label: 'Show in Discord status',
       keywords: 'discord presence playing activity',
       surface: 'desktop',
