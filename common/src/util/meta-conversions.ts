@@ -6,6 +6,10 @@ export const META_CONVERSION_EVENT_NAMES = [
   'CompleteRegistration',
   'CodingActivation',
   'Subscribe',
+  /** Meta's standard value event, which value bidding is built around. Sent
+   *  once per first-week active-day milestone, each with its own value and a
+   *  `content_name` naming the milestone. */
+  'Purchase',
 ] as const
 export type MetaConversionEventName =
   (typeof META_CONVERSION_EVENT_NAMES)[number]

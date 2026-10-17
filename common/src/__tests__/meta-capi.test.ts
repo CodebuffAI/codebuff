@@ -48,6 +48,54 @@ describe('Meta conversion payload and attribution', () => {
       buildMetaConversionBody(params).data[0]?.custom_data,
     ).not.toHaveProperty('value')
   })
+  test('sends an active-day Purchase as a native event carrying its value and milestone', () => {
+    const event = buildMetaConversionBody({
+      ...params,
+      eventName: 'Purchase',
+      surface: 'desktop',
+      conversionValue: { value: 11.25, currency: 'USD' },
+      contentName: 'freebuff_active_day_3',
+    }).data[0]
+    expect(event?.event_name).toBe('Purchase')
+    expect(event?.action_source).toBe('other')
+    expect(event).not.toHaveProperty('event_source_url')
+    expect(event?.custom_data).toEqual({
+      surface: 'desktop',
+      value: 11.25,
+      currency: 'USD',
+      content_name: 'freebuff_active_day_3',
+    })
+    // Value and milestone belong to Purchase alone.
+    expect(
+      buildMetaConversionBody({
+        ...params,
+        eventName: 'CodingActivation',
+        surface: 'desktop',
+        conversionValue: { value: 10, currency: 'USD' },
+        contentName: 'freebuff_active_day_1',
+      }).data[0]?.custom_data,
+    ).toEqual({ surface: 'desktop' })
+  })
+  test('refuses a Purchase without a positive USD value or a closed milestone name', () => {
+    for (const [conversionValue, contentName] of [
+      [undefined, 'freebuff_active_day_1'],
+      [{ value: 0, currency: 'USD' }, 'freebuff_active_day_1'],
+      [{ value: 10, currency: 'EUR' }, 'freebuff_active_day_1'],
+      [{ value: 10, currency: 'USD' }, undefined],
+      [{ value: 10, currency: 'USD' }, 'Free text from a request'],
+    ] as const) {
+      expect(() =>
+        buildMetaConversionBody({
+          ...params,
+          eventName: 'Purchase',
+          surface: 'cli',
+          conversionValue:
+            conversionValue as SendMetaConversionParams['conversionValue'],
+          contentName,
+        }),
+      ).toThrow('Purchase requires a positive USD value and a content name')
+    }
+  })
   test('refuses missing, non-positive, non-finite or unsupported subscription values', () => {
     for (const value of [
       undefined,
