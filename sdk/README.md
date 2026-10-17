@@ -134,6 +134,26 @@ async function main() {
 main()
 ```
 
+### Execution permissions
+
+`client.run()` accepts `noShell`, `askShell`, `projectOnly`, and `readOnly` to
+enforce tool restrictions in the SDK runtime. `noShell` disables shell commands;
+`askShell` requires a host-provided approval callback and denies commands when
+that callback is absent. `readOnly` denies writes, and `projectOnly` confines
+filesystem access to the project directory.
+
+Until the follow-up `apply_patch` target check is included, `apply_patch` calls
+are denied in `projectOnly` mode because their path is nested under
+`operation.path` and cannot yet be validated by the generic dispatcher.
+
+The SDK does not yet apply an operating-system sandbox to shell commands.
+Because an unrestricted shell can write outside the SDK filesystem adapter or
+access paths outside the project, both `readOnly` and `projectOnly` also disable
+shell commands. This means commands such as `git status`, `git diff`, `ls`, and
+`cat` are unavailable in those modes. External MCP, custom, and host-provided
+tools are denied while any restriction is active unless the host explicitly
+sets `allowExternalTools: true`.
+
 ## API Reference
 
 ### Knowledge Files

@@ -56,6 +56,16 @@ import { getFiles, getImageFile } from './tools/read-files'
 import { readUrl } from './tools/read-url'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import type { TerminalCommandBroker } from './tools/run-terminal-command'
+import {
+  createExecutionPolicy,
+  authorizeToolCall,
+  classifyTool,
+  guardFileSystem,
+} from './permissions/execution-policy'
+import type {
+  ExecutionPolicy,
+  ShellApprovalCallback,
+} from './permissions/execution-policy'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { CodebuffRequestHeadersProvider } from './impl/model-provider'
@@ -229,6 +239,15 @@ export type CodebuffClientOptions = {
   /** Optional filter to classify files before reading (runs before gitignore check) */
   fileFilter?: FileFilter
 
+  /** Disable shell command execution completely. */
+  noShell?: boolean
+  /** Ask for approval before every shell command. */
+  askShell?: boolean
+  /** Restrict filesystem access to the project and deny unrestricted shell. */
+  projectOnly?: boolean
+  /** Deny writes and unrestricted shell commands. */
+  readOnly?: boolean
+
   overrideTools?: OverrideToolHandlers
   customToolDefinitions?: CustomToolDefinition[]
 
@@ -343,6 +362,18 @@ export type RunOptions = {
    * `confineFileToolsToProject`.
    */
   refuseNonTextFileReads?: boolean
+  /** Disable shell command execution completely. */
+  noShell?: boolean
+  /** Ask for approval before every shell command. */
+  askShell?: boolean
+  /** Restrict filesystem access to the project and deny unrestricted shell. */
+  projectOnly?: boolean
+  /** Deny writes and unrestricted shell commands. */
+  readOnly?: boolean
+  /** Host approval callback required by `askShell`. */
+  shellApproval?: ShellApprovalCallback
+  /** Permit host-defined external tools under active restrictions. */
+  allowExternalTools?: boolean
 }
 
 /**
@@ -610,9 +641,25 @@ async function runOnce({
   traceSessionId: traceSessionIdOption,
   confineFileToolsToProject,
   refuseNonTextFileReads,
+  noShell = false,
+  askShell = false,
+  projectOnly = false,
+  readOnly = false,
+  shellApproval,
+  allowExternalTools = false,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
-  const fs = await fsSourceValue
+  const rawFs = await fsSourceValue
+  const policy = createExecutionPolicy({
+    projectRoot: cwd ?? process.cwd(),
+    noShell,
+    askShell,
+    projectOnly,
+    readOnly,
+    allowExternalTools,
+    ...(shellApproval ? { shellApproval } : {}),
+  })
+  const fs = guardFileSystem(rawFs, policy)
   let spawn: CodebuffSpawn
   if (spawnSource) {
     const spawnSourceValue = await spawnSource
@@ -855,6 +902,7 @@ async function runOnce({
         byok,
         signal,
         projectFence,
+        policy,
       })
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
@@ -876,6 +924,14 @@ async function runOnce({
       return filteredTools
     },
     requestFiles: async ({ filePaths, fileWindows }) => {
+      for (const filePath of filePaths) {
+        const decision = authorizeToolCall(policy, {
+          toolName: 'read_files',
+          capability: 'fs-read',
+          targetPath: path.resolve(requireCwd(cwd, 'read_files'), filePath),
+        })
+        if (!decision.allowed) throw new Error(decision.reason)
+      }
       const read = (paths: string[]) =>
         readFiles({
           filePaths: paths,
@@ -915,6 +971,17 @@ async function runOnce({
         ? undefined
         : async ({ filePath }) => {
             const imageCwd = requireCwd(cwd, 'read_files')
+            const decision = authorizeToolCall(policy, {
+              toolName: 'read_files',
+              capability: 'fs-read',
+              targetPath: path.resolve(imageCwd, filePath),
+            })
+            if (!decision.allowed) {
+              return {
+                path: resolveFilePath(imageCwd, filePath).relativePath,
+                error: decision.reason,
+              }
+            }
             if (projectFence && !(await projectFence.resolve(filePath))) {
               return {
                 path: resolveFilePath(imageCwd, filePath).relativePath,
@@ -929,6 +996,12 @@ async function runOnce({
             })
           },
     requestOptionalFile: async ({ filePath }) => {
+      const decision = authorizeToolCall(policy, {
+        toolName: 'read_files',
+        capability: 'fs-read',
+        targetPath: path.resolve(requireCwd(cwd, 'read_files'), filePath),
+      })
+      if (!decision.allowed) throw new Error(decision.reason)
       const files = await readFiles({
         filePaths: [filePath],
         override: overrideTools?.read_files,
@@ -1314,7 +1387,10 @@ async function dropMatchesOutsideProject(
   ) as Promise<ToolResultOutput[]>
 }
 
-async function handleToolCall({
+/**
+ * @internal Exposed so subagent tests can exercise the real permission boundary.
+ */
+export async function handleToolCall({
   action,
   overrides,
   customToolDefinitions,
@@ -1325,6 +1401,7 @@ async function handleToolCall({
   byok,
   signal,
   projectFence,
+  policy,
 }: {
   action: ServerAction<'tool-call-request'>
   overrides: NonNullable<CodebuffClientOptions['overrideTools']>
@@ -1337,6 +1414,7 @@ async function handleToolCall({
   signal?: AbortSignal
   /** RunOptions.confineFileToolsToProject: unset for every other run. */
   projectFence?: ProjectFence
+  policy: ExecutionPolicy
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
@@ -1360,6 +1438,98 @@ async function handleToolCall({
           },
         },
       ],
+    }
+  }
+
+  const denial = (message: string) => ({
+    output: [{ type: 'json' as const, value: { errorMessage: message } }],
+  })
+
+  // Authorize before MCP, custom-tool, override, or built-in dispatch so no
+  // execution path can bypass the run's immutable policy.
+  const capability = classifyTool(toolName)
+  if (capability === 'shell') {
+    const commandCwd = path.resolve(
+      requireCwd(cwd, 'run_terminal_command'),
+      (input as { cwd?: string }).cwd ?? '.',
+    )
+    const command = (input as { command?: string }).command ?? ''
+    const processType = (input as { process_type?: 'SYNC' | 'BACKGROUND' })
+      .process_type ?? 'SYNC'
+    const decision = authorizeToolCall(policy, {
+      toolName,
+      capability,
+      command,
+      cwd: commandCwd,
+      processType,
+      signal,
+    })
+    if (!decision.allowed) {
+      if (decision.approvalRequired) {
+        if (!policy.shellApproval) {
+          return denial('Shell command requires approval but no approval handler is configured')
+        }
+        let verdict: 'approve' | 'deny' = 'deny'
+        try {
+          verdict = await policy.shellApproval({
+            id: crypto.randomUUID(),
+            command,
+            cwd: commandCwd,
+            processType,
+            signal,
+          })
+        } catch {
+          verdict = 'deny'
+        }
+        if (verdict !== 'approve' || signal?.aborted) {
+          return denial('Shell command denied')
+        }
+      } else {
+        return denial(decision.reason ?? 'Shell command blocked by policy')
+      }
+    }
+  } else if (capability === 'fs-write' || capability === 'fs-read') {
+    if (toolName === 'code_search' && policy.projectOnly) {
+      return denial(
+        'code_search is not available in project-only mode because its flags can access paths outside the project',
+      )
+    }
+    const targets: string[] = []
+    if (toolName === 'apply_patch' && policy.projectOnly) {
+      // Fail closed until the dedicated follow-up validates the nested path.
+      return denial('apply_patch is unavailable in project-only mode until its target can be verified')
+    } else if (Array.isArray((input as { filePaths?: string[] }).filePaths)) {
+    } else if (Array.isArray((input as { filePaths?: string[] }).filePaths)) {
+      for (const filePath of (input as { filePaths: string[] }).filePaths) {
+        targets.push(path.resolve(requireCwd(cwd, toolName), filePath))
+      }
+    } else if (toolName === 'glob') {
+      const globCwd = (input as { cwd?: string }).cwd ?? '.'
+      targets.push(path.resolve(requireCwd(cwd, toolName), globCwd))
+    } else if (typeof (input as { path?: string }).path === 'string') {
+      targets.push(
+        path.resolve(
+          requireCwd(cwd, toolName),
+          (input as { path: string }).path,
+        ),
+      )
+    } else {
+      targets.push(requireCwd(cwd, toolName))
+    }
+    for (const targetPath of targets) {
+      const decision = authorizeToolCall(policy, {
+        toolName,
+        capability,
+        targetPath,
+      })
+      if (!decision.allowed) {
+        return denial(decision.reason ?? 'Operation blocked by policy')
+      }
+    }
+  } else if (capability === 'external') {
+    const decision = authorizeToolCall(policy, { toolName, capability })
+    if (!decision.allowed) {
+      return denial(decision.reason ?? 'Tool blocked by policy')
     }
   }
 
