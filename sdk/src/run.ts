@@ -866,6 +866,16 @@ async function runOnce({
       ? createProjectFence({ projectRoot: cwd, fs })
       : undefined
   const refuseNonText = refuseNonTextFileReads === true
+  const authorizeReadFileOverride = () => {
+    if (!overrideTools?.read_files) return
+    const decision = authorizeToolCall(policy, {
+      toolName: 'read_files',
+      capability: 'external',
+    })
+    if (!decision.allowed) {
+      throw new Error(decision.reason ?? 'External file-read override denied')
+    }
+  }
 
   const agentRuntimeImpl = getAgentRuntimeImpl({
     logger,
@@ -924,6 +934,7 @@ async function runOnce({
       return filteredTools
     },
     requestFiles: async ({ filePaths, fileWindows }) => {
+      authorizeReadFileOverride()
       for (const filePath of filePaths) {
         const decision = authorizeToolCall(policy, {
           toolName: 'read_files',
@@ -996,6 +1007,7 @@ async function runOnce({
             })
           },
     requestOptionalFile: async ({ filePath }) => {
+      authorizeReadFileOverride()
       const decision = authorizeToolCall(policy, {
         toolName: 'read_files',
         capability: 'fs-read',
@@ -1445,10 +1457,48 @@ export async function handleToolCall({
     output: [{ type: 'json' as const, value: { errorMessage: message } }],
   })
 
-  // Authorize before MCP, custom-tool, override, or built-in dispatch so no
-  // execution path can bypass the run's immutable policy.
-  const capability = classifyTool(toolName)
-  if (capability === 'shell') {
+  // Resolve the actual destination before authorizing. Tool names alone do not
+  // identify the trust boundary: MCP calls and host overrides execute outside
+  // the SDK, even when they reuse a registered built-in name.
+  const isBuiltinTool = toolNames.includes(toolName as ToolName)
+  const customToolHandler = isBuiltinTool
+    ? undefined
+    : customToolDefinitions[toolName]
+  const isMcpDispatch = Boolean(action.mcpConfig)
+  let override = overrides[toolName as PublishedClientToolName]
+  if (
+    !override &&
+    (toolName === 'str_replace' || toolName === 'apply_patch')
+  ) {
+    // Reuse the write_file override for file editing tools.
+    override = overrides['write_file']
+  }
+
+  const capability =
+    isMcpDispatch || customToolHandler
+      ? 'external'
+      : classifyTool(toolName)
+  const hasExternalDispatch =
+    isMcpDispatch || Boolean(customToolHandler) || Boolean(override)
+
+  // Require explicit host trust for every external destination. A trusted
+  // host override for a built-in still goes through that built-in's policy
+  // checks below; MCP name collisions use only the external classification.
+  if (hasExternalDispatch || capability === 'external') {
+    const decision = authorizeToolCall(policy, {
+      toolName,
+      capability: 'external',
+    })
+    if (!decision.allowed) {
+      return denial(decision.reason ?? 'External tool blocked by policy')
+    }
+  }
+
+  // Built-in policy is separate from dispatch-origin trust so a registered
+  // host override remains subject to the built-in's own limits when trusted.
+  if (capability === 'external') {
+    // External dispatch was authorized above.
+  } else if (capability === 'shell') {
     const commandCwd = path.resolve(
       requireCwd(cwd, 'run_terminal_command'),
       (input as { cwd?: string }).cwd ?? '.',
@@ -1526,11 +1576,6 @@ export async function handleToolCall({
         return denial(decision.reason ?? 'Operation blocked by policy')
       }
     }
-  } else if (capability === 'external') {
-    const decision = authorizeToolCall(policy, { toolName, capability })
-    if (!decision.allowed) {
-      return denial(decision.reason ?? 'Tool blocked by policy')
-    }
   }
 
   // Handle MCP tool calls when mcpConfig is present
@@ -1563,11 +1608,9 @@ export async function handleToolCall({
   }
 
   let result: ToolResultOutput[]
-  if (toolNames.includes(toolName as ToolName)) {
+  if (isBuiltinTool) {
     clientToolCallSchema.parse(action)
   } else {
-    const customToolHandler = customToolDefinitions[toolName]
-
     if (!customToolHandler) {
       throw new Error(
         `Custom tool handler not found for user input ID ${action.userInputId}`,
@@ -1579,14 +1622,6 @@ export async function handleToolCall({
   }
 
   try {
-    let override = overrides[toolName as PublishedClientToolName]
-    if (
-      !override &&
-      (toolName === 'str_replace' || toolName === 'apply_patch')
-    ) {
-      // Reuse the write_file override for file editing tools.
-      override = overrides['write_file']
-    }
     if (override) {
       // Note: This type assertion is necessary because TypeScript cannot narrow
       // the union type of all possible tool inputs based on the dynamic toolName.

@@ -2,6 +2,7 @@ import * as runAgentStep from '@codebuff/agent-runtime/run-agent-step'
 import { handleSpawnAgentInline } from '@codebuff/agent-runtime/tools/handlers/tool/spawn-agent-inline'
 import { handleSpawnAgents } from '@codebuff/agent-runtime/tools/handlers/tool/spawn-agents'
 import { extractSubagentContextParams } from '@codebuff/agent-runtime/tools/handlers/tool/spawn-agent-utils'
+import * as mcpClientModule from '@codebuff/common/mcp/client'
 import {
   mockFileContext,
   TEST_AGENT_RUNTIME_IMPL,
@@ -250,7 +251,7 @@ async function runSpawnCase(mode: SpawnMode) {
   for (const attempt of attempts) {
     const output = JSON.stringify(attempt.output)
     if (attempt.toolName === 'run_terminal_command') {
-      expect(output).toContain('--no-shell')
+      expect(output).toContain('external capability')
     } else if (attempt.toolName === 'list_directory') {
       expect(output).toContain('outside project root')
     } else if (attempt.toolName === 'write_file') {
@@ -273,5 +274,94 @@ describe('subagent execution policy inheritance', () => {
 
   test('spawn_agent_inline and nested agents retain the parent policy callback', async () => {
     await runSpawnCase('spawn_agent_inline')
+  })
+})
+
+describe('dispatch-origin execution policy', () => {
+  afterEach(() => mock.restore())
+
+  const action = (toolName: string, mcpConfig?: Record<string, unknown>) => ({
+    type: 'tool-call-request' as const,
+    requestId: crypto.randomUUID(),
+    userInputId: 'test-input',
+    toolName,
+    input: {
+      path: 'src/output.ts',
+      instructions: 'Create a file for the test',
+      content: 'export {}\n',
+    },
+    timeout: undefined,
+    mcpConfig,
+  })
+
+  test('MCP tools with built-in names are classified as external', async () => {
+    const getMCPClient = spyOn(
+      mcpClientModule,
+      'getMCPClient',
+    ).mockResolvedValue('mcp-client')
+    const policy = createExecutionPolicy({
+      projectRoot: '/project',
+      noShell: true,
+    })
+    const result = await handleToolCall({
+      action: action('write_file', {
+        type: 'http',
+        url: 'http://127.0.0.1:1',
+        params: {},
+        headers: {},
+      }),
+      overrides: {},
+      customToolDefinitions: {},
+      cwd: '/project',
+      fs: guardFileSystem(createMockFs(), policy),
+      policy,
+    })
+
+    expect(JSON.stringify(result.output)).toContain('external capability')
+    expect(getMCPClient).not.toHaveBeenCalled()
+  })
+
+  test('built-in host overrides require external trust under restrictions', async () => {
+    const hostOverride = mock(async () => [
+      { type: 'json' as const, value: { message: 'host override ran' } },
+    ])
+    const policy = createExecutionPolicy({
+      projectRoot: '/project',
+      noShell: true,
+    })
+    const result = await handleToolCall({
+      action: action('write_file'),
+      overrides: { write_file: hostOverride },
+      customToolDefinitions: {},
+      cwd: '/project',
+      fs: guardFileSystem(createMockFs(), policy),
+      policy,
+    })
+
+    expect(JSON.stringify(result.output)).toContain('external capability')
+    expect(hostOverride).not.toHaveBeenCalled()
+  })
+
+  test('trusted built-in overrides still follow built-in filesystem policy', async () => {
+    const hostOverride = mock(async () => [
+      { type: 'json' as const, value: { message: 'host override ran' } },
+    ])
+    const policy = createExecutionPolicy({
+      projectRoot: '/project',
+      noShell: true,
+      readOnly: true,
+      allowExternalTools: true,
+    })
+    const result = await handleToolCall({
+      action: action('write_file'),
+      overrides: { write_file: hostOverride },
+      customToolDefinitions: {},
+      cwd: '/project',
+      fs: guardFileSystem(createMockFs(), policy),
+      policy,
+    })
+
+    expect(JSON.stringify(result.output)).toContain('read-only mode')
+    expect(hostOverride).not.toHaveBeenCalled()
   })
 })
