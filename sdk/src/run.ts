@@ -1,3 +1,4 @@
+import { APPEND_INSTRUCTIONS_KEY, AppendInstructionsError, validateAppendInstructions } from '@codebuff/common/append-instructions'
 import path from 'path'
 
 import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
@@ -200,6 +201,8 @@ export type CodebuffClientOptions = {
    *  `computeProjectIndexFromFiles`). Skips the per-run tree-sitter parse;
    *  ignored when `projectFiles` is absent. */
   projectIndex?: ComputedProjectIndex
+  /** Immutable creation snapshot, rendered by native knowledge-aware templates. */
+  appendInstructions?: string
   knowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
   maxAgentSteps?: number
@@ -488,6 +491,15 @@ type RunExecutionOptions = RunOptions &
 type RunReturnType = RunState
 
 export async function run(options: RunExecutionOptions): Promise<RunState> {
+  if (options.appendInstructions !== undefined) {
+    validateAppendInstructions(options.appendInstructions)
+    if (options.previousRun?.sessionState &&
+        options.previousRun.sessionState.fileContext.userKnowledgeFiles?.[APPEND_INSTRUCTIONS_KEY] !== options.appendInstructions) {
+      throw new AppendInstructionsError(
+        'Append instructions are fixed when a conversation starts; start a new conversation.',
+      )
+    }
+  }
   const requestedInference = options.byok
     ? { source: 'byok' as const, connectionId: options.byok.id, revision: options.byok.revision, model: options.byok.model }
     : { source: 'codebuff' as const }
@@ -570,6 +582,7 @@ async function runOnce({
   projectFiles,
   projectIndex,
   knowledgeFiles,
+  appendInstructions,
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
@@ -666,6 +679,12 @@ async function runOnce({
       spawn,
       logger,
     })
+  }
+  if (!previousRun?.sessionState && appendInstructions !== undefined) {
+    sessionState.fileContext.userKnowledgeFiles = {
+      ...sessionState.fileContext.userKnowledgeFiles,
+      [APPEND_INSTRUCTIONS_KEY]: appendInstructions,
+    }
   }
   const traceSessionId =
     previousRun?.traceSessionId ?? traceSessionIdOption ?? crypto.randomUUID()

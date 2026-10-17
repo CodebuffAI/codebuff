@@ -144,9 +144,10 @@ async function main() {
     env: process.env,
   })
 
-  // Ensure SDK assets exist before compiling the CLI
+  // The binary consumes runtime SDK assets, not TypeScript declarations.
+  // Declaration generation remains a separate SDK CI check.
   log('Building SDK dependencies...')
-  runCommand('bun', ['run', '--cwd', '../sdk', 'build'], {
+  runCommand('bun', ['run', '--cwd', '../sdk', 'build', '--no-types'], {
     cwd: cliRoot,
     env: process.env,
   })

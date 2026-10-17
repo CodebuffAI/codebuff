@@ -3,6 +3,7 @@ import {
   requestFreebuffChatAdmission,
 } from '../state/freebuff-chat-store'
 import { capturePendingAttachments } from '../utils/pending-attachments'
+import { AppendInstructionsError } from '../utils/append-instructions'
 import { randomUUID } from 'node:crypto'
 
 import { useCallback, useEffect, useRef } from 'react'
@@ -568,7 +569,9 @@ export const useSendMessage = ({
         setMessages((prev) => [
           ...prev,
           createErrorChatMessage(
-            shouldUseByok
+            error instanceof AppendInstructionsError
+              ? error.message
+              : shouldUseByok
               ? byokLoadFailureMessage(error)
               : '⚠️ Unable to create the client. Please check your authentication and try again.',
           ),
