@@ -20,6 +20,7 @@ import {
 import { handleToolCall } from '../run'
 
 import type { SubagentContextParams } from '@codebuff/agent-runtime/tools/handlers/tool/spawn-agent-utils'
+import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { CustomToolDefinition } from '../custom-tool'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
@@ -280,7 +281,7 @@ describe('subagent execution policy inheritance', () => {
 describe('dispatch-origin execution policy', () => {
   afterEach(() => mock.restore())
 
-  const action = (toolName: string, mcpConfig?: Record<string, unknown>) => ({
+  const action = (toolName: string, mcpConfig?: MCPConfig) => ({
     type: 'tool-call-request' as const,
     requestId: crypto.randomUUID(),
     userInputId: 'test-input',
