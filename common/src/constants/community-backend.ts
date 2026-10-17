@@ -21,7 +21,7 @@
  */
 export type CommunityBackend = 'convex' | 'postgres'
 
-export const COMMUNITY_BACKEND: CommunityBackend = 'convex'
+export const COMMUNITY_BACKEND: CommunityBackend = 'postgres'
 
 /** Whether `backend` serves the community reads from Postgres. */
 export function communityOnPostgres(
