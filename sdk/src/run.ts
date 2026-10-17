@@ -979,7 +979,7 @@ async function runOnce({
             if (!decision.allowed) {
               return {
                 path: resolveFilePath(imageCwd, filePath).relativePath,
-                error: decision.reason,
+                error: decision.reason ?? 'Operation blocked by policy',
               }
             }
             if (projectFence && !(await projectFence.resolve(filePath))) {

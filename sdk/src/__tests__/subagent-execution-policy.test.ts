@@ -99,7 +99,6 @@ async function runSpawnCase(mode: SpawnMode) {
       customToolDefinitions,
       cwd: '/project',
       fs,
-      apiKey: 'test-api-key',
       signal,
       policy,
     })
