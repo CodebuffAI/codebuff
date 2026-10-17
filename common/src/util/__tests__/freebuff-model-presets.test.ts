@@ -4,6 +4,7 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID as flash,
   FREEBUFF_GPT_6_LUNA_MODEL_ID as luna,
   FREEBUFF_MIMO_V25_MODEL_ID as mimo,
+  FREEBUFF_MIMO_V26_PRO_MODEL_ID as mimoPro,
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID as muse,
 } from '../../constants/freebuff-models'
 import {
@@ -18,25 +19,25 @@ const ids = (input: Parameters<typeof getFreebuffModelPresets>[0] = {}) =>
   choices(input).map((preset) => preset.modelId)
 
 describe('model picker presets', () => {
-  test('every premium-access account gets MiMo, Flash at high and Muse Spark, whatever its country', () => {
-    // Signed-out preview, full access, and a full-access account of any country
-    // all read the same three stops. Fast is not on the slider.
-    expect(ids()).toEqual([mimo, flash, muse])
-    expect(ids({ accessTier: 'full' })).toEqual([mimo, flash, muse])
-    expect(ids({ accessTier: 'full', balance: 100 })).toEqual([
-      mimo,
-      flash,
-      muse,
+  test('full access gets Luna low, Flash high and MiMo 2.6 Pro, labelled Fast, Balanced and Powerful', () => {
+    // Signed-out preview and a full-access account of any country, plan or
+    // balance all read the same three stops.
+    for (const input of [
+      {},
+      { accessTier: 'full' as const },
+      { accessTier: 'full' as const, balance: 100 },
+      { accessTier: 'full' as const, isSubscriber: true },
     ])
-    expect(ids({ accessTier: 'full', isSubscriber: true })).toEqual([
-      mimo,
-      flash,
-      muse,
-    ])
+      expect(ids(input)).toEqual([luna, flash, mimoPro])
     expect(choices().map((preset) => preset.reasoningEffort)).toEqual([
+      'low',
+      'high',
       null,
-      'high',
-      'high',
+    ])
+    expect(choices().map((preset) => preset.label)).toEqual([
+      'Fast',
+      'Balanced',
+      'Powerful',
     ])
     expect(choices().map((preset) => preset.id)).toEqual([
       'efficient',
@@ -45,11 +46,20 @@ describe('model picker presets', () => {
     ])
   })
 
-  test('limited subscribers and limited accounts with at least 100 Freebucks get the same three', () => {
+  test('limited subscribers and limited accounts with at least 100 Freebucks get MiMo, Flash at high and Muse Spark', () => {
     expect(ids({ accessTier: 'limited', isSubscriber: true })).toEqual([
       mimo,
       flash,
       muse,
+    ])
+    expect(
+      choices({ accessTier: 'limited', isSubscriber: true }).map(
+        (preset) => [preset.label, preset.reasoningEffort],
+      ),
+    ).toEqual([
+      ['Efficient', null],
+      ['Balanced', 'high'],
+      ['Powerful', 'high'],
     ])
     expect(ids({ accessTier: 'limited', balance: 100 })).toEqual([
       mimo,
@@ -98,21 +108,18 @@ describe('model picker presets', () => {
     ).toBe('high')
   })
 
-  test('premium ladders lead with MiMo Slow where it is listed and open', () => {
+  test('the limited premium ladder leads with MiMo Slow where it is listed and open', () => {
     const slow = { id: slowKey, displayName: 'MiMo Slow' }
-    for (const input of [
-      { accessTier: 'full' as const },
-      { accessTier: 'limited' as const, isSubscriber: true },
-    ]) {
-      expect(ids({ ...input, models: [slow] })).toEqual([slowKey, flash, muse])
-      expect(choices({ ...input, models: [slow] })[0]?.reasoningEffort).toBeNull()
-      // Locked or unlisted (Web, a withdrawn row): MiMo, as before.
-      expect(
-        ids({ ...input, models: [{ ...slow, available: false }] })[0],
-      ).toBe(mimo)
-      expect(ids({ ...input, models: [] })[0]).toBe(mimo)
-    }
-    expect(ids({ accessTier: 'full' })[0]).toBe(mimo)
+    const input = { accessTier: 'limited' as const, isSubscriber: true }
+    expect(ids({ ...input, models: [slow] })).toEqual([slowKey, flash, muse])
+    expect(choices({ ...input, models: [slow] })[0]?.reasoningEffort).toBeNull()
+    // Locked or unlisted (Web, a withdrawn row): MiMo, as before.
+    expect(ids({ ...input, models: [{ ...slow, available: false }] })[0]).toBe(
+      mimo,
+    )
+    expect(ids({ ...input, models: [] })[0]).toBe(mimo)
+    // Full access never reads it.
+    expect(ids({ accessTier: 'full', models: [slow] })[0]).not.toBe(slowKey)
   })
 
   test('a planless limited account builds its ladder on the server’s recommendation (MiMo Slow)', () => {
@@ -155,41 +162,79 @@ describe('model picker presets', () => {
     for (const input of [
       { accessTier: 'limited' as const, isSubscriber: true },
       { accessTier: 'limited' as const, balance: 100 },
-      { accessTier: 'full' as const },
     ])
       expect(ids({ ...input, recommendedModelId: 'm-slow' })).toEqual([mimo, flash, muse])
+    expect(
+      ids({ accessTier: 'full', recommendedModelId: 'm-slow' }),
+    ).toEqual([luna, flash, mimoPro])
   })
 
-  test('uses catalog keys for compiled models, and falls back to Flash when Muse Spark is withdrawn', () => {
+  test('uses catalog keys for compiled models, and falls back to Flash when a stop is withdrawn', () => {
     const models = [
       { id: 'm-mimo', compiledId: mimo, displayName: 'MiMo' },
       { id: 'm-flash', compiledId: flash, displayName: 'DeepSeek Flash' },
+      { id: 'm-luna', compiledId: luna, displayName: 'GPT-6 Luna' },
+      { id: 'm-pro', compiledId: mimoPro, displayName: 'MiMo 2.6 Pro' },
       { id: 'm-muse', compiledId: muse, displayName: 'Muse Spark 1.3' },
     ]
-    expect(ids({ models })).toEqual(['m-mimo', 'm-flash', 'm-muse'])
-    const withdrawn = models.slice(0, 2)
-    expect(ids({ models: withdrawn })).toEqual(['m-mimo', 'm-flash', 'm-flash'])
+    expect(ids({ models })).toEqual(['m-luna', 'm-flash', 'm-pro'])
+    const withdrawn = models.filter(
+      (row) => row.compiledId !== luna && row.compiledId !== mimoPro,
+    )
+    expect(ids({ models: withdrawn })).toEqual([
+      'm-flash',
+      'm-flash',
+      'm-flash',
+    ])
     expect(
       choices({ models: withdrawn }).map((preset) => preset.reasoningEffort),
-    ).toEqual([null, 'high', 'high'])
+    ).toEqual(['high', 'high', 'high'])
+    // A withdrawn stop on the same model as Balanced reads as Balanced.
+    expect(
+      matchingFreebuffModelPreset(
+        choices({ models: withdrawn }),
+        'm-flash',
+        'high',
+      )?.id,
+    ).toBe('balanced')
+
+    const limited = { accessTier: 'limited' as const, isSubscriber: true }
+    expect(ids({ ...limited, models })).toEqual(['m-mimo', 'm-flash', 'm-muse'])
+    const noMuse = models.filter((row) => row.compiledId !== muse)
+    expect(ids({ ...limited, models: noMuse })).toEqual([
+      'm-mimo',
+      'm-flash',
+      'm-flash',
+    ])
   })
 
   test('custom models and effort overrides keep their detailed trigger labels', () => {
     const presets = choices()
+    expect(matchingFreebuffModelPreset(presets, luna, 'low')?.id).toBe(
+      'efficient',
+    )
     expect(matchingFreebuffModelPreset(presets, flash, 'high')?.id).toBe(
       'balanced',
     )
-    expect(matchingFreebuffModelPreset(presets, flash, 'low')).toBeUndefined()
-    // Fast and Luna are no longer slider stops: they read as custom picks.
-    expect(matchingFreebuffModelPreset(presets, fast, 'high')).toBeUndefined()
-    expect(matchingFreebuffModelPreset(presets, luna, 'xhigh')).toBeUndefined()
-    expect(matchingFreebuffModelPreset(presets, muse, 'high')?.id).toBe(
+    expect(matchingFreebuffModelPreset(presets, mimoPro, null)?.id).toBe(
       'powerful',
     )
-    expect(matchingFreebuffModelPreset(presets, muse, 'low')).toBeUndefined()
+    // Any other effort on a stop's model is a custom pick.
+    expect(matchingFreebuffModelPreset(presets, luna, 'xhigh')).toBeUndefined()
+    expect(matchingFreebuffModelPreset(presets, flash, 'low')).toBeUndefined()
+    // Flash's fast mode and Muse Spark are not full-access stops.
+    expect(matchingFreebuffModelPreset(presets, fast, 'high')).toBeUndefined()
+    expect(matchingFreebuffModelPreset(presets, muse, 'high')).toBeUndefined()
     expect(
       matchingFreebuffModelPreset(presets, 'byok/provider', null),
     ).toBeUndefined()
+    expect(
+      matchingFreebuffModelPreset(
+        choices({ accessTier: 'limited', isSubscriber: true }),
+        muse,
+        'high',
+      )?.id,
+    ).toBe('powerful')
     expect(
       matchingFreebuffModelPreset(
         choices({ accessTier: 'limited' }),

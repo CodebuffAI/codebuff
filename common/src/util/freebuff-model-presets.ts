@@ -1,6 +1,8 @@
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
+  FREEBUFF_MIMO_V26_PRO_MODEL_ID,
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
   freebuffModelIdMatches,
@@ -37,13 +39,18 @@ export const FREEBUFF_MIMO_SLOW_CATALOG_KEY = 'm-61c26317cc'
 /** Recommendations only. Catalog visibility, purchase consent and admission
  * remain owned by the existing model-selection path.
  *
- * Every account with premium access gets the same three stops, whatever its
- * country: MiMo Slow (MiMo where it is not listed, as on Web), DeepSeek V4
- * Flash at high effort (the Luminal lane), and Muse Spark 1.3. Muse Spark is a paid-only row, so for a free account that stop is
- * the ordinary paywall, never an entitlement. A limited-region account that is
- * neither a subscriber nor holds 100 Freebucks gets the free ladder below,
- * built on the server's recommendation for it (`recommendedModelId`, MiMo Slow
- * since 2026-10-14) where the catalog sends one, else MiMo. */
+ * Full access (product, 2026-10-16): GPT-6 Luna at low effort, DeepSeek V4.1
+ * Flash at high effort (the Luminal lane), and MiMo 2.6 Pro (no effort ladder).
+ * The first stop is no longer a cheap model, so it reads Fast rather than
+ * Efficient; limited ladders keep Efficient.
+ *
+ * A limited-access subscriber, or one holding 100 Freebucks, gets MiMo Slow
+ * (MiMo where it is not listed, as on Web), Flash at high effort and Muse Spark
+ * 1.3. Muse Spark is a paid-only row, so without a plan that stop is the
+ * ordinary paywall, never an entitlement. Any other limited account gets the
+ * free ladder below, built on the server's recommendation for it
+ * (`recommendedModelId`, MiMo Slow since 2026-10-14) where the catalog sends
+ * one, else MiMo. */
 export function getFreebuffModelPresets({
   accessTier,
   isSubscriber = false,
@@ -62,7 +69,7 @@ export function getFreebuffModelPresets({
   recommendedModelId?: string | null
 } = {}): readonly FreebuffModelPreset[] {
   const limited = accessTier === 'limited'
-  const premium = !limited || isSubscriber || balance >= 100
+  const premium = isSubscriber || balance >= 100
   const rowFor = (id: string) =>
     models?.find((row) => freebuffModelIdMatches(row.compiledId ?? row.id, id))
   const preset = (
@@ -92,6 +99,13 @@ export function getFreebuffModelPresets({
           : 'high',
     }
   }
+
+  if (!limited)
+    return [
+      preset('efficient', 'Fast', FREEBUFF_GPT_6_LUNA_MODEL_ID, 'low'),
+      preset('balanced', 'Balanced', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'high'),
+      preset('powerful', 'Powerful', FREEBUFF_MIMO_V26_PRO_MODEL_ID, null),
+    ]
 
   if (premium) {
     // MiMo Slow leads where it is listed and open (product, 2026-10-14).
