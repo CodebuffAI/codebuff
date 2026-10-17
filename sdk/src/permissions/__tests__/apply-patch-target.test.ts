@@ -1,10 +1,17 @@
 import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
 import { describe, expect, mock, test } from 'bun:test'
+import { mkdtempSync, mkdirSync, symlinkSync, rmSync } from 'fs'
+import { realpath as fsRealpath } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
 
 import { createExecutionPolicy } from '../execution-policy'
 import { handleToolCall } from '../../run'
 
-async function dispatchApplyPatch(path: string) {
+async function dispatchApplyPatch(
+  operation: unknown,
+  options: { projectRoot: string; cwd: string; canonicalize?: (p: string) => Promise<string> },
+) {
   const writeOverride = mock(async () => [
     { type: 'json' as const, value: { message: 'patch dispatched' } },
   ])
@@ -14,39 +21,90 @@ async function dispatchApplyPatch(path: string) {
       requestId: crypto.randomUUID(),
       userInputId: 'test-input',
       toolName: 'apply_patch',
-      input: {
-        operation: {
-          type: 'create_file',
-          path,
-          diff: '@@\n+content\n',
-        },
-      },
+      input: { operation },
       timeout: undefined,
     },
     overrides: { write_file: writeOverride },
     customToolDefinitions: {},
-    cwd: '/project',
+    cwd: options.cwd,
     fs: createMockFs(),
     policy: createExecutionPolicy({
-      projectRoot: '/project',
+      projectRoot: options.projectRoot,
       projectOnly: true,
+      allowExternalTools: true,
+      ...(options.canonicalize ? { canonicalize: options.canonicalize } : {}),
     }),
   })
   return { result, writeOverride }
 }
 
 describe('apply_patch project-only target resolution', () => {
-  test('dispatches a patch targeting a file inside the project', async () => {
-    const { result, writeOverride } = await dispatchApplyPatch('src/new.ts')
+  const withProject = async (
+    body: (paths: { base: string; root: string; outside: string }) => Promise<void>,
+  ) => {
+    const base = mkdtempSync(join(tmpdir(), 'apply-patch-test-'))
+    const root = join(base, 'project')
+    const outside = join(base, 'outside')
+    mkdirSync(root)
+    mkdirSync(outside)
+    try {
+      await body({ base, root, outside })
+    } finally {
+      rmSync(base, { recursive: true, force: true })
+    }
+  }
 
-    expect(writeOverride).toHaveBeenCalledTimes(1)
-    expect(JSON.stringify(result.output)).toContain('patch dispatched')
+  test('dispatches a patch targeting a file inside the project', async () => {
+    await withProject(async ({ root }) => {
+      const { result, writeOverride } = await dispatchApplyPatch(
+        { type: 'create_file', path: 'src/new.ts', diff: '@@\n+content\n' },
+        { projectRoot: root, cwd: root, canonicalize: fsRealpath },
+      )
+
+      expect(writeOverride).toHaveBeenCalledTimes(1)
+      expect(JSON.stringify(result.output)).toContain('patch dispatched')
+    })
   })
 
   test('rejects a patch targeting a file outside the project', async () => {
-    const { result, writeOverride } = await dispatchApplyPatch('../outside.txt')
+    await withProject(async ({ root }) => {
+      const { result, writeOverride } = await dispatchApplyPatch(
+        { type: 'create_file', path: '../outside.txt', diff: '@@\n+content\n' },
+        { projectRoot: root, cwd: root, canonicalize: fsRealpath },
+      )
 
-    expect(writeOverride).not.toHaveBeenCalled()
-    expect(JSON.stringify(result.output)).toContain('outside project root')
+      expect(writeOverride).not.toHaveBeenCalled()
+      expect(JSON.stringify(result.output)).toContain('outside project root')
+    })
+  })
+
+  test('rejects a patch whose in-project path is a symlink to outside the project', async () => {
+    await withProject(async ({ root, outside }) => {
+      symlinkSync(outside, join(root, 'link'))
+      const { result, writeOverride } = await dispatchApplyPatch(
+        { type: 'create_file', path: 'link/evil.txt', diff: '@@\n+content\n' },
+        { projectRoot: root, cwd: root, canonicalize: fsRealpath },
+      )
+
+      expect(writeOverride).not.toHaveBeenCalled()
+      expect(JSON.stringify(result.output)).toContain('outside project root')
+    })
+  })
+
+  test('rejects a malformed patch with no target path', async () => {
+    await withProject(async ({ root }) => {
+      for (const operation of [{ type: 'create_file' }, undefined, { path: '' }]) {
+        const { result, writeOverride } = await dispatchApplyPatch(operation, {
+          projectRoot: root,
+          cwd: root,
+          canonicalize: fsRealpath,
+        })
+
+        expect(writeOverride).not.toHaveBeenCalled()
+        expect(JSON.stringify(result.output)).toContain(
+          'apply_patch target could not be verified',
+        )
+      }
+    })
   })
 })
