@@ -5,6 +5,8 @@ import path from 'path'
 import { describe, expect, test, beforeEach, spyOn } from 'bun:test'
 import { z } from 'zod/v4'
 
+import { getAllFilePaths } from '@codebuff/common/project-file-tree'
+
 import { initialSessionState } from '../run-state'
 
 import type { MockStatResult } from '@codebuff/common/testing/mock-types'
@@ -158,6 +160,42 @@ describe('Initial Session State', () => {
     )
     expect(readFilePaths.some((p) => p.endsWith('README.md'))).toBe(false)
     expect(readFilePaths.some((p) => p.endsWith('AGENTS.md'))).toBe(true)
+  })
+
+  test('skipSymbolIndex builds the file tree without reading a source file', async () => {
+    mockFs.readdir = (async (dirPath: string) => {
+      if (dirPath === '/test-project') return ['src', '.gitignore']
+      if (dirPath === '/test-project/src') return ['index.ts', 'utils.ts']
+      return []
+    }) as CodebuffFileSystem['readdir']
+    mockFs.stat = (async (filePath: string) =>
+      ({
+        isDirectory: () => filePath === '/test-project/src',
+        isFile: () => filePath !== '/test-project/src',
+        size: 100,
+      }) as MockStatResult & { size: number }) as CodebuffFileSystem['stat']
+    const readFilePaths: string[] = []
+    const originalReadFile = mockFs.readFile
+    mockFs.readFile = (async (filePath: string, encoding?: BufferEncoding) => {
+      readFilePaths.push(filePath)
+      return originalReadFile(filePath, encoding)
+    }) as CodebuffFileSystem['readFile']
+
+    const sessionState = await initialSessionState({
+      cwd: '/test-project',
+      knowledgeFiles: {},
+      skipSymbolIndex: true,
+      fs: mockFs,
+      logger: mockLogger,
+    })
+
+    expect(getAllFilePaths(sessionState.fileContext.fileTree).sort()).toEqual(
+      ['.gitignore', 'src/index.ts', 'src/utils.ts'],
+    )
+    expect(sessionState.fileContext.fileTokenScores).toEqual({})
+    expect(sessionState.fileContext.tokenCallers).toEqual({})
+    // Only the walk's ignore files are read, never a file to parse.
+    expect(readFilePaths.some((p) => p.endsWith('.ts'))).toBe(false)
   })
 
   test('derives knowledgeFiles from projectFiles when not provided', async () => {

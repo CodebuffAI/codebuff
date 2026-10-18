@@ -116,6 +116,11 @@ export type InitialSessionStateOptions = {
   /** Precomputed index for exactly these `projectFiles` (see
    *  ComputedProjectIndex). Ignored when `projectFiles` is absent. */
   projectIndex?: ComputedProjectIndex
+  /** Build the file tree but skip the tree-sitter parse (it reads every
+   *  project file before the first request), leaving `fileTokenScores` and
+   *  `tokenCallers` empty. Only the file-picker's tree prompt, `read_subtree`
+   *  and `read_files`' `referencedBy` read them. */
+  skipSymbolIndex?: boolean
   knowledgeFiles?: Record<string, string>
   /** User-provided knowledge files that will be merged with home directory files */
   userKnowledgeFiles?: Record<string, string>
@@ -945,7 +950,9 @@ export async function initialSessionState(
           discoveredProject,
         })
       : undefined
-    if (projectIndex) {
+    if (projectIndex && params.skipSymbolIndex) {
+      fileTree = projectIndex.fileTree
+    } else if (projectIndex) {
       const result = await computeProjectIndex(projectIndex)
       fileTree = result.fileTree
       fileTokenScores = result.fileTokenScores

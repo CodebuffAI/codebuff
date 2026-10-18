@@ -176,7 +176,7 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
 /**
  * The base3-fast root and its worker subagent (agents/base3-fast.ts), one pair
  * for the one model that runs fast mode today. The root is a base3 root with
- * a fan-out: it spawns file-pickers in parallel, then
+ * a fan-out: it spawns code-searchers in parallel, then
  * splits the implementation across parallel workers that inherit its system
  * prompt and history (so their requests are prompt-cache hits), and verifies
  * the combined result itself. The worker is pinned to the same model as the
@@ -228,7 +228,7 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base3-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base3-free-deepseek-flash',
   // Fast mode runs the base3-FAST harness (agents/base3-fast.ts): base3's
-  // loop plus parallel file-pickers and prompt-cached worker
+  // loop plus parallel code-searchers and prompt-cached worker
   // subagents. Registered in the base3 maps because it is the base3 family's
   // rollout shape (windowed reads, mechanical compaction, no instructions
   // prompt) with a fan-out on top; the no-subagents assertions on this map

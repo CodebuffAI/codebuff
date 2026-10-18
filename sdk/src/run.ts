@@ -200,6 +200,8 @@ export type CodebuffClientOptions = {
    *  `computeProjectIndexFromFiles`). Skips the per-run tree-sitter parse;
    *  ignored when `projectFiles` is absent. */
   projectIndex?: ComputedProjectIndex
+  /** See `InitialSessionStateOptions.skipSymbolIndex`. */
+  skipSymbolIndex?: boolean
   knowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
   maxAgentSteps?: number
@@ -569,6 +571,7 @@ async function runOnce({
   includeHomeSkills,
   projectFiles,
   projectIndex,
+  skipSymbolIndex,
   knowledgeFiles,
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
@@ -661,6 +664,7 @@ async function runOnce({
       customToolDefinitions,
       projectFiles,
       projectIndex,
+      skipSymbolIndex,
       maxAgentSteps,
       fs,
       spawn,

@@ -4,6 +4,8 @@ All notable changes to the @codebuff/sdk package will be documented in this file
 
 ## [Unreleased]
 
+- New `skipSymbolIndex` run option: a fresh session builds the file tree but skips the tree-sitter parse of every project file, leaving `fileTokenScores` and `tokenCallers` empty. Set it when your agents do not use the file-picker, `read_subtree` symbols or `read_files`' `referencedBy`.
+
 - `compactRunState` now rewrites a run's history into at most 12k tokens (`MECHANICAL_HISTORY_TOKENS`) of summary plus a working set of file reads, whatever `maxContextLength` allows; it used to fill the budget. The newest read of each file not edited since comes back whole and every other read becomes an outline stub, so expect a much smaller `nextTokens`. The live request and the newest tool results are kept whole on top of the cap.
 
 - **Security:** `read_url` now connects only to an address it has just validated. Resolution and the private/reserved-address check happen in the connection's own `lookup`, and the host is refused if any answer is blocked, so a hostname can no longer pass the check with one answer and connect with another. Every redirect hop is validated the same way. More non-routable ranges are refused: IPv4-compatible IPv6 (`::a.b.c.d`), 198.18.0.0/15, `fec0::/10` and `64:ff9b:1::/48`. The tool call passes only `url` and `max_chars` through to `readUrl`. Under Bun with a proxy variable set, Bun's `fetch` is still used so the proxy keeps working.
