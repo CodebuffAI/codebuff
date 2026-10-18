@@ -4,7 +4,7 @@
  * of the same name). COD-742 sandboxes; runbook in
  * docs/freebuff-sandbox-errors-postgres.md, "Migration sidecar".
  *
- * - `convex` (default): nothing reads or writes the Postgres table, and the
+ * - `convex`  nothing reads or writes the Postgres table, and the
  *            `sandbox_migration.projection` chain ends at its next link.
  * - `shadow` the chain copies every Convex change (insert, patch, delete)
  *            into Postgres, so readers that moved off Convex can read the
@@ -18,7 +18,7 @@
  */
 export type SandboxMigrationBackend = 'convex' | 'shadow'
 
-export const SANDBOX_MIGRATION_BACKEND: SandboxMigrationBackend = 'convex'
+export const SANDBOX_MIGRATION_BACKEND: SandboxMigrationBackend = 'shadow'
 
 /** Whether the projection mirrors Convex into Postgres. */
 export function sandboxMigrationMirrored(
