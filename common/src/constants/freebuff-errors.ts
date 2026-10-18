@@ -31,8 +31,10 @@ export const CODEBUFF_OWN_CREDITS_ERROR_PATTERN = /codebuff\.com\/usage/i
 export const FREEBUFF_PROVIDER_USAGE_MESSAGE =
   'Freebuff ran out of provider usage and needs a refill. This is on us, not your account.'
 
-/** Legacy older-server refusal, retained by SDK/CLI/Web recovery handlers.
- * Current servers no longer emit this spend cutoff. */
+/** Final for the request's turn: the SDK does not retry it. The per-turn spend
+ * breaker that introduced it is gone; servers now send it only to a subagent
+ * whose research budget is spent (web/.../chat-subagent-budget.ts and
+ * free-mode-subagent-budget.ts), which fails that subagent, not the turn. */
 export const FREEBUFF_TURN_SPEND_LIMIT_ERROR_CODE = 'turn_spend_limit'
 
 export const FREEBUFF_TURN_SPEND_LIMIT_MESSAGE =
