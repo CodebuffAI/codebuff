@@ -28,10 +28,7 @@ import {
 } from '../state/freebuff-chat-store'
 import { formatHours } from '@codebuff/common/util/freebuff-hours'
 import { freebucksOf, freebucksRefundLine } from '../utils/freebucks'
-import {
-  getFreebuffStreakBonusNoteForLayout,
-  getFreebuffStreakBonusStatusForLayout,
-} from '../utils/freebuff-streak-line'
+import { getFreebuffStreakBonusNoteForLayout } from '../utils/freebuff-streak-line'
 import { getFreebuffModelAvailabilityNotice } from '@codebuff/common/util/freebuff-model-availability'
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 
@@ -88,11 +85,6 @@ export function FreebuffChatHeader({
     accessTier: tier,
     freebucksDailyBonus: streak.data?.freebucksDailyBonus,
     terminalHeight,
-    availableWidth: width - 4,
-  })
-  const streakBonusStatus = getFreebuffStreakBonusStatusForLayout({
-    note: streakBonus,
-    streak: streak.data,
     availableWidth: width - 4,
   })
   return (
@@ -170,11 +162,6 @@ export function FreebuffChatHeader({
         {streakBonus && (
           <text style={{ fg: theme.muted, wrapMode: 'word' }}>
             {streakBonus}
-          </text>
-        )}
-        {streakBonusStatus && (
-          <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-            {streakBonusStatus}
           </text>
         )}
         {referral && (
