@@ -14,6 +14,8 @@ import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import { realpath as fsRealpath } from 'fs/promises'
 import { z } from 'zod/v4'
 
+import { CodebuffClient } from '../client'
+import * as databaseModule from '../impl/database'
 import {
   createExecutionPolicy,
   guardFileSystem,
@@ -23,6 +25,7 @@ import { handleToolCall } from '../run'
 import type { SubagentContextParams } from '@codebuff/agent-runtime/tools/handlers/tool/spawn-agent-utils'
 import type { MCPConfig } from '@codebuff/common/types/mcp'
 import type { CustomToolDefinition } from '../custom-tool'
+import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 
@@ -449,5 +452,111 @@ describe('ask_user host override under execution restrictions', () => {
 
     expect(JSON.stringify(result.output)).toContain('external capability')
     expect(askOverride).not.toHaveBeenCalled()
+  })
+})
+
+describe('top-level client.run() sub-agent policy inheritance', () => {
+  afterEach(() => mock.restore())
+
+  test('a spawned agent inherits the run policy from client.run()', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-1',
+      email: 'test@example.com',
+      discord_id: null,
+      stripe_customer_id: null,
+      banned: false,
+      created_at: new Date('2024-01-01T00:00:00Z'),
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    const defineAgent = (id: string, spawnableAgents: string[]): AgentDefinition =>
+      ({
+        id,
+        displayName: id,
+        model: 'deepseek/deepseek-v4-flash',
+        outputMode: 'last_message',
+        toolNames: ['run_terminal_command', 'write_file', 'spawn_agents'],
+        spawnableAgents,
+        systemPrompt: `You are ${id}.`,
+        instructionsPrompt: '',
+      }) as AgentDefinition
+
+    const rootAgent = defineAgent('root', ['child'])
+    const childAgent = defineAgent('child', [])
+
+    const attempts: Array<{ toolName: string; output: ToolResultOutput[] }> = []
+    const loopSpy = spyOn(runAgentStep, 'loopAgentSteps').mockImplementation(
+      async (options) => {
+        const agentType = options.agentType as string
+        if (agentType === 'root') {
+          // Spawn a child through the real handler; it must receive the same
+          // requestToolCall closure (and therefore the same policy) as the root.
+          await handleSpawnAgents({
+            ...extractSubagentContextParams(options as SubagentContextParams),
+            agentState: options.agentState,
+            agentTemplate: options.localAgentTemplates[agentType]!,
+            ancestorRunIds: options.ancestorRunIds,
+            fingerprintId: options.fingerprintId,
+            system: options.system,
+            tools: options.tools ?? {},
+            userInputId: 'root-spawn',
+            writeToClient: () => {},
+            previousToolCallFinished: Promise.resolve(),
+            toolCall: {
+              toolName: 'spawn_agents',
+              toolCallId: 'root-tool-call',
+              input: {
+                agents: [{ agent_type: 'child', prompt: 'try restricted actions' }],
+              },
+            },
+          })
+        } else {
+          const shell = await options.requestToolCall({
+            userInputId: options.userInputId,
+            toolName: 'run_terminal_command',
+            input: {
+              command: 'touch /outside/should-not-run',
+              process_type: 'SYNC',
+            },
+          })
+          attempts.push({ toolName: 'run_terminal_command', output: shell.output })
+          const write = await options.requestToolCall({
+            userInputId: options.userInputId,
+            toolName: 'write_file',
+            input: { path: 'created.txt', content: 'must not be written' },
+          })
+          attempts.push({ toolName: 'write_file', output: write.output })
+        }
+
+        const response = assistantMessage('Mock agent response')
+        return {
+          agentState: {
+            ...options.agentState,
+            messageHistory: [response],
+          },
+          output: { type: 'lastMessage' as const, value: [response] },
+        }
+      },
+    )
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+      cwd: '/project',
+      noShell: true,
+      projectOnly: true,
+      readOnly: true,
+      agentDefinitions: [rootAgent, childAgent],
+    })
+
+    await client.run({ agent: 'root', prompt: 'spawn a child' })
+    loopSpy.mockRestore()
+
+    expect(attempts).toHaveLength(2)
+    // The inherited callback enforces the parent's policy for the child.
+    expect(JSON.stringify(attempts[0]!.output)).toContain('--no-shell')
+    expect(JSON.stringify(attempts[1]!.output)).toContain('--read-only')
   })
 })
