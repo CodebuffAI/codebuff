@@ -29,7 +29,7 @@
  */
 export type SandboxErrorsBackend = 'convex' | 'shadow' | 'postgres'
 
-export const SANDBOX_ERRORS_BACKEND: SandboxErrorsBackend = 'convex'
+export const SANDBOX_ERRORS_BACKEND: SandboxErrorsBackend = 'shadow'
 
 /** Whether the registry serves the error reads (for the browser to compare, in `shadow`). */
 export function sandboxErrorsReadsServed(
