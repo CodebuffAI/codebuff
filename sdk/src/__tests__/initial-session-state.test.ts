@@ -7,7 +7,7 @@ import { z } from 'zod/v4'
 
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 
-import { initialSessionState } from '../run-state'
+import { applyOverridesToSessionState, initialSessionState } from '../run-state'
 
 import type { MockStatResult } from '@codebuff/common/testing/mock-types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -196,6 +196,33 @@ describe('Initial Session State', () => {
     expect(sessionState.fileContext.tokenCallers).toEqual({})
     // Only the walk's ignore files are read, never a file to parse.
     expect(readFilePaths.some((p) => p.endsWith('.ts'))).toBe(false)
+  })
+
+  test('skipSymbolIndex also holds when a later run passes projectFiles', async () => {
+    const base = await initialSessionState({
+      cwd: '/test-project',
+      projectFiles: {},
+      fs: mockFs,
+      logger: mockLogger,
+    })
+    const projectFiles = {
+      'src/utils.ts':
+        'export function add(a: number, b: number) { return a + b; }',
+    }
+    const parsed = await applyOverridesToSessionState('/test-project', base, {
+      projectFiles,
+    })
+    expect(parsed.fileContext.fileTokenScores).not.toEqual({})
+
+    const skipped = await applyOverridesToSessionState('/test-project', base, {
+      projectFiles,
+      skipSymbolIndex: true,
+    })
+    expect(getAllFilePaths(skipped.fileContext.fileTree)).toEqual([
+      'src/utils.ts',
+    ])
+    expect(skipped.fileContext.fileTokenScores).toEqual({})
+    expect(skipped.fileContext.tokenCallers).toEqual({})
   })
 
   test('derives knowledgeFiles from projectFiles when not provided', async () => {

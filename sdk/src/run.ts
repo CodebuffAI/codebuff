@@ -649,6 +649,7 @@ async function runOnce({
         customToolDefinitions,
         projectFiles,
         projectIndex,
+        skipSymbolIndex,
         maxAgentSteps,
       },
     )

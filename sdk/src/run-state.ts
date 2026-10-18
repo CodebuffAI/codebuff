@@ -1135,6 +1135,8 @@ export async function applyOverridesToSessionState(
     /** Precomputed index for exactly these `projectFiles` (see
      *  ComputedProjectIndex). Ignored when `projectFiles` is absent. */
     projectIndex?: ComputedProjectIndex
+    /** See InitialSessionStateOptions.skipSymbolIndex. */
+    skipSymbolIndex?: boolean
     knowledgeFiles?: Record<string, string>
     agentDefinitions?: AgentDefinition[]
     customToolDefinitions?: CustomToolDefinition[]
@@ -1166,7 +1168,11 @@ export async function applyOverridesToSessionState(
         cwd,
         projectFiles: overrides.projectFiles,
       })
-      if (projectIndex) {
+      if (projectIndex && overrides.skipSymbolIndex) {
+        sessionState.fileContext.fileTree = projectIndex.fileTree
+        sessionState.fileContext.fileTokenScores = {}
+        sessionState.fileContext.tokenCallers = {}
+      } else if (projectIndex) {
         const { fileTree, fileTokenScores, tokenCallers } =
           await computeProjectIndex(projectIndex)
         sessionState.fileContext.fileTree = fileTree

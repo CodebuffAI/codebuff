@@ -4,7 +4,7 @@ All notable changes to the @codebuff/sdk package will be documented in this file
 
 ## [Unreleased]
 
-- New `skipSymbolIndex` run option: a fresh session builds the file tree but skips the tree-sitter parse of every project file, leaving `fileTokenScores` and `tokenCallers` empty. Set it when your agents do not use the file-picker, `read_subtree` symbols or `read_files`' `referencedBy`.
+- New `skipSymbolIndex` run option: the run builds the file tree but skips the tree-sitter parse of every project file, leaving `fileTokenScores` and `tokenCallers` empty. Set it when your agents do not use the file-picker, `read_subtree` symbols or `read_files`' `referencedBy`.
 
 - `compactRunState` now rewrites a run's history into at most 12k tokens (`MECHANICAL_HISTORY_TOKENS`) of summary plus a working set of file reads, whatever `maxContextLength` allows; it used to fill the budget. The newest read of each file not edited since comes back whole and every other read becomes an outline stub, so expect a much smaller `nextTokens`. The live request and the newest tool results are kept whole on top of the cap.
 
