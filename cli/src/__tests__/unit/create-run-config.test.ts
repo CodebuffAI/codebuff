@@ -1,6 +1,32 @@
 import { describe, test, expect } from 'bun:test'
 
-import { isSensitiveFile } from '../../utils/create-run-config'
+import { createRunConfig, isSensitiveFile } from '../../utils/create-run-config'
+
+import type { CreateRunConfigParams } from '../../utils/create-run-config'
+
+describe('createRunConfig', () => {
+  const config = (agent: CreateRunConfigParams['agent']) =>
+    createRunConfig({
+      agent,
+      prompt: 'hi',
+      content: undefined,
+      previousRunState: null,
+      agentDefinitions: [],
+      signal: new AbortController().signal,
+    } as unknown as CreateRunConfigParams)
+
+  test('skips the symbol index only for a base3 root', () => {
+    expect(config('base3-free-deepseek-flash').skipSymbolIndex).toBe(true)
+    expect(config('base3-fast-free-deepseek-flash').skipSymbolIndex).toBe(true)
+    expect(
+      config({ id: 'base3-free-catalog' } as CreateRunConfigParams['agent'])
+        .skipSymbolIndex,
+    ).toBe(true)
+    // base2 roots (the kill switch) and custom agents spawn the file-picker.
+    expect(config('base2-free-deepseek-flash').skipSymbolIndex).toBe(false)
+    expect(config('my-custom-agent').skipSymbolIndex).toBe(false)
+  })
+})
 
 describe('isSensitiveFile', () => {
   test.each([

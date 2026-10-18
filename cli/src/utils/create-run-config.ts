@@ -1,6 +1,7 @@
 import path from 'path'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { FREEBUFF_BASE3_AGENT_IDS } from '@codebuff/common/constants/free-agents'
 import { isSensitiveEnvFilePath } from '@codebuff/common/util/env-file-path'
 
 import {
@@ -115,6 +116,13 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     content,
     previousRun: previousRunState ?? undefined,
     agentDefinitions,
+    // A base3 root uses the symbol index only for read_files' referencedBy,
+    // which it does without (bench in #7364), so its new chats skip the parse.
+    // base2, Codebuff and custom roots keep it; a chat that later switches to
+    // one keeps the state it started with.
+    skipSymbolIndex: FREEBUFF_BASE3_AGENT_IDS.has(
+      typeof agent === 'string' ? agent : agent.id,
+    ),
     maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
     handleStreamChunk: createStreamChunkHandler(eventHandlerState),
     handleEvent: createEventHandler(eventHandlerState),
