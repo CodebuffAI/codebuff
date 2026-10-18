@@ -2,7 +2,6 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
-  FREEBUFF_MIMO_V26_PRO_MODEL_ID,
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
   freebuffModelIdMatches,
@@ -40,7 +39,8 @@ export const FREEBUFF_MIMO_SLOW_CATALOG_KEY = 'm-61c26317cc'
  * remain owned by the existing model-selection path.
  *
  * Full access (product, 2026-10-16): GPT-6 Luna at low effort, DeepSeek V4.1
- * Flash at high effort (the Luminal lane), and MiMo 2.6 Pro (no effort ladder).
+ * Flash at high effort (the Luminal lane), and Flash at max effort (since
+ * 2026-10-17; MiMo 2.6 Pro before).
  * The first stop is no longer a cheap model, so it reads Fast rather than
  * Efficient; limited ladders keep Efficient.
  *
@@ -104,7 +104,7 @@ export function getFreebuffModelPresets({
     return [
       preset('efficient', 'Fast', FREEBUFF_GPT_6_LUNA_MODEL_ID, 'low'),
       preset('balanced', 'Balanced', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'high'),
-      preset('powerful', 'Powerful', FREEBUFF_MIMO_V26_PRO_MODEL_ID, null),
+      preset('powerful', 'Powerful', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'max'),
     ]
 
   if (premium) {

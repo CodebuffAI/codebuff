@@ -4,7 +4,6 @@ import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID as flash,
   FREEBUFF_GPT_6_LUNA_MODEL_ID as luna,
   FREEBUFF_MIMO_V25_MODEL_ID as mimo,
-  FREEBUFF_MIMO_V26_PRO_MODEL_ID as mimoPro,
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID as muse,
 } from '../../constants/freebuff-models'
 import {
@@ -19,7 +18,7 @@ const ids = (input: Parameters<typeof getFreebuffModelPresets>[0] = {}) =>
   choices(input).map((preset) => preset.modelId)
 
 describe('model picker presets', () => {
-  test('full access gets Luna low, Flash high and MiMo 2.6 Pro, labelled Fast, Balanced and Powerful', () => {
+  test('full access gets Luna low, Flash high and Flash max, labelled Fast, Balanced and Powerful', () => {
     // Signed-out preview and a full-access account of any country, plan or
     // balance all read the same three stops.
     for (const input of [
@@ -28,11 +27,11 @@ describe('model picker presets', () => {
       { accessTier: 'full' as const, balance: 100 },
       { accessTier: 'full' as const, isSubscriber: true },
     ])
-      expect(ids(input)).toEqual([luna, flash, mimoPro])
+      expect(ids(input)).toEqual([luna, flash, flash])
     expect(choices().map((preset) => preset.reasoningEffort)).toEqual([
       'low',
       'high',
-      null,
+      'max',
     ])
     expect(choices().map((preset) => preset.label)).toEqual([
       'Fast',
@@ -166,7 +165,7 @@ describe('model picker presets', () => {
       expect(ids({ ...input, recommendedModelId: 'm-slow' })).toEqual([mimo, flash, muse])
     expect(
       ids({ accessTier: 'full', recommendedModelId: 'm-slow' }),
-    ).toEqual([luna, flash, mimoPro])
+    ).toEqual([luna, flash, flash])
   })
 
   test('uses catalog keys for compiled models, and falls back to Flash when a stop is withdrawn', () => {
@@ -174,13 +173,10 @@ describe('model picker presets', () => {
       { id: 'm-mimo', compiledId: mimo, displayName: 'MiMo' },
       { id: 'm-flash', compiledId: flash, displayName: 'DeepSeek Flash' },
       { id: 'm-luna', compiledId: luna, displayName: 'GPT-6 Luna' },
-      { id: 'm-pro', compiledId: mimoPro, displayName: 'MiMo 2.6 Pro' },
       { id: 'm-muse', compiledId: muse, displayName: 'Muse Spark 1.3' },
     ]
-    expect(ids({ models })).toEqual(['m-luna', 'm-flash', 'm-pro'])
-    const withdrawn = models.filter(
-      (row) => row.compiledId !== luna && row.compiledId !== mimoPro,
-    )
+    expect(ids({ models })).toEqual(['m-luna', 'm-flash', 'm-flash'])
+    const withdrawn = models.filter((row) => row.compiledId !== luna)
     expect(ids({ models: withdrawn })).toEqual([
       'm-flash',
       'm-flash',
@@ -188,7 +184,7 @@ describe('model picker presets', () => {
     ])
     expect(
       choices({ models: withdrawn }).map((preset) => preset.reasoningEffort),
-    ).toEqual(['high', 'high', 'high'])
+    ).toEqual(['high', 'high', 'max'])
     // A withdrawn stop on the same model as Balanced reads as Balanced.
     expect(
       matchingFreebuffModelPreset(
@@ -216,7 +212,7 @@ describe('model picker presets', () => {
     expect(matchingFreebuffModelPreset(presets, flash, 'high')?.id).toBe(
       'balanced',
     )
-    expect(matchingFreebuffModelPreset(presets, mimoPro, null)?.id).toBe(
+    expect(matchingFreebuffModelPreset(presets, flash, 'max')?.id).toBe(
       'powerful',
     )
     // Any other effort on a stop's model is a custom pick.
