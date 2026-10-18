@@ -29,6 +29,21 @@ import {
   FIRST_PARTY_VIEW_ACK_FIELD_NAMES,
 } from '../axiom-only-log'
 
+test('ships measured ad prediction latency and keeps absent timing absent', () => {
+  expect(
+    getAxiomOnlyLogEvent({
+      axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+      ad_score_prediction_ms: 19.457,
+    })?.data.ad_score_prediction_ms,
+  ).toBe(19.457)
+  expect(
+    getAxiomOnlyLogEvent({
+      axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+      outcome: 'fill',
+    })?.data,
+  ).not.toHaveProperty('ad_score_prediction_ms')
+})
+
 describe('getAxiomOnlyLogEvent', () => {
   test('ships click quality facts with explicit unknowns and bounded reasons', () => {
     const features = {

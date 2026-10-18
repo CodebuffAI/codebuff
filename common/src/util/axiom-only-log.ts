@@ -480,6 +480,9 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   ad_score_as_of: 'string',
   ad_score_payload_bytes: 'number',
   ad_score_decode_ms: 'number',
+  // Online scoring transport time for the representative placement; absent
+  // when no prediction call was timed, never synthesized from decode time.
+  ad_score_prediction_ms: 'number',
   ad_score_ranked: 'boolean',
   /**
    * The online feature store's SHADOW read (COD-755), on every request:
