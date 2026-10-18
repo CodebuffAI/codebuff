@@ -11,6 +11,7 @@ import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { assistantMessage } from '@codebuff/common/util/messages'
 import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import { realpath as fsRealpath } from 'fs/promises'
 import { z } from 'zod/v4'
 
 import {
@@ -59,6 +60,7 @@ async function runSpawnCase(mode: SpawnMode) {
     noShell: true,
     projectOnly: true,
     readOnly: true,
+    canonicalize: fsRealpath,
   })
   const rawFs = createMockFs()
   const fs = guardFileSystem(rawFs, policy)
@@ -364,5 +366,88 @@ describe('dispatch-origin execution policy', () => {
 
     expect(JSON.stringify(result.output)).toContain('read-only mode')
     expect(hostOverride).not.toHaveBeenCalled()
+  })
+})
+
+describe('ask_user host override under execution restrictions', () => {
+  afterEach(() => mock.restore())
+
+  const askAction = (mcpConfig?: MCPConfig) => ({
+    type: 'tool-call-request' as const,
+    requestId: crypto.randomUUID(),
+    userInputId: 'ask-input',
+    toolName: 'ask_user',
+    input: {
+      questions: [
+        {
+          question: 'Proceed?',
+          options: [{ label: 'Yes' }, { label: 'No' }],
+          multiSelect: false,
+        },
+      ],
+    },
+    timeout: undefined,
+    mcpConfig,
+  })
+
+  const modes: Array<[string, Parameters<typeof createExecutionPolicy>[0]]> = [
+    ['--no-shell', { projectRoot: '/project', noShell: true }],
+    ['--ask-shell', { projectRoot: '/project', askShell: true }],
+    [
+      '--project-only',
+      { projectRoot: '/project', projectOnly: true, canonicalize: fsRealpath },
+    ],
+    ['--read-only', { projectRoot: '/project', readOnly: true }],
+  ]
+
+  for (const [label, policyInput] of modes) {
+    test(`the CLI ask_user override still runs under ${label}`, async () => {
+      const askOverride = mock(async () => [
+        {
+          type: 'json' as const,
+          value: { answers: [{ questionIndex: 0, selectedOption: 'Yes' }] },
+        },
+      ])
+      const policy = createExecutionPolicy(policyInput)
+      const result = await handleToolCall({
+        action: askAction(),
+        overrides: { ask_user: askOverride },
+        customToolDefinitions: {},
+        cwd: '/project',
+        fs: guardFileSystem(createMockFs(), policy),
+        policy,
+      })
+
+      // The audited UI override runs through its built-in (inert) check rather
+      // than the external-tool gate, so the user can still be prompted.
+      expect(askOverride).toHaveBeenCalledTimes(1)
+      expect(JSON.stringify(result.output)).toContain('Yes')
+    })
+  }
+
+  test('an MCP tool that reuses the ask_user name is still external', async () => {
+    const askOverride = mock(async () => [
+      { type: 'json' as const, value: { message: 'should not run' } },
+    ])
+    const policy = createExecutionPolicy({
+      projectRoot: '/project',
+      noShell: true,
+    })
+    const result = await handleToolCall({
+      action: askAction({
+        type: 'http',
+        url: 'http://127.0.0.1:1',
+        params: {},
+        headers: {},
+      }),
+      overrides: { ask_user: askOverride },
+      customToolDefinitions: {},
+      cwd: '/project',
+      fs: guardFileSystem(createMockFs(), policy),
+      policy,
+    })
+
+    expect(JSON.stringify(result.output)).toContain('external capability')
+    expect(askOverride).not.toHaveBeenCalled()
   })
 })

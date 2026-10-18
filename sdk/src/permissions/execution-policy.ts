@@ -11,10 +11,30 @@
  */
 
 import { promises as nodeFs } from 'fs'
-import { resolve, sep as sep_default } from 'path'
+import { basename, resolve, sep as sep_default } from 'path'
 
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type { ToolName } from '@codebuff/common/tools/constants'
+
+/**
+ * Resolves a path through symlinks. Must match the filesystem the run actually
+ * uses: the default `fs.promises.realpath` only tells the truth about the real
+ * host filesystem, so a run with an injected adapter needs its own canonicalizer
+ * (see {@link createExecutionPolicy}).
+ */
+export type PathCanonicalizer = (path: string) => Promise<string>
+
+/** True for the exact Node default adapter; anything else may be a virtual fs. */
+function isNodeFileSystem(fs: CodebuffFileSystem): boolean {
+  return fs === (nodeFs as unknown as CodebuffFileSystem)
+}
+
+/** `realpath` failures that legitimately mean "the path does not exist yet". */
+function isMissingPathError(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || !('code' in error)) return false
+  const code = (error as { code?: unknown }).code
+  return code === 'ENOENT' || code === 'ENOTDIR'
+}
 
 /** What a tool can do, for authorization purposes. */
 export type ToolCapability =
@@ -55,6 +75,13 @@ export interface ExecutionPolicy {
    */
   readonly allowExternalTools: boolean
   readonly shellApproval?: ShellApprovalCallback
+  /**
+   * Canonicalizer used to resolve symlinks for filesystem confinement. Must be
+   * compatible with the run's filesystem adapter: a custom adapter that does not
+   * share the host `realpath` requires its own canonicalizer, or strict
+   * confinement (`--project-only`) is refused.
+   */
+  readonly canonicalize?: PathCanonicalizer
 }
 
 export interface PolicyDecision {
@@ -86,6 +113,7 @@ export function createExecutionPolicy(input: {
   readOnly?: boolean
   allowExternalTools?: boolean
   shellApproval?: ShellApprovalCallback
+  canonicalize?: PathCanonicalizer
 }): ExecutionPolicy {
   return Object.freeze({
     noShell: input.noShell ?? false,
@@ -95,6 +123,7 @@ export function createExecutionPolicy(input: {
     projectRoot: resolve(input.projectRoot),
     allowExternalTools: input.allowExternalTools ?? false,
     ...(input.shellApproval ? { shellApproval: input.shellApproval } : {}),
+    ...(input.canonicalize ? { canonicalize: input.canonicalize } : {}),
   })
 }
 
@@ -168,6 +197,11 @@ export function classifyTool(toolName: string): ToolCapability {
  * Canonicalize a path through symlinks by resolving the nearest existing
  * ancestor with realpath, then re-appending the not-yet-existing tail. This
  * catches a symlink inside the project that points outside it.
+ *
+ * Only a genuinely-missing path is walked up to its nearest existing ancestor.
+ * Every other `realpath` failure (permission denial, symlink loop, I/O error) is
+ * rethrown so callers fail closed rather than treating an unresolvable path as
+ * contained.
  */
 export async function canonicalizePath(
   targetPath: string,
@@ -180,13 +214,18 @@ export async function canonicalizePath(
     try {
       const real = await realpath(current)
       return segments.length === 0 ? real : resolve(real, ...segments.reverse())
-    } catch {
+    } catch (error) {
+      // ENOTDIR (a non-directory in the path) is as "missing" as ENOENT for our
+      // purposes; anything else is unexpected and must not be swallowed.
+      if (!isMissingPathError(error)) throw error
       const parent = resolve(current, '..')
       if (parent === current) {
         // Reached the filesystem root without finding an existing ancestor.
         return absolute
       }
-      segments.push(current.slice(parent.length + 1))
+      // `basename` is correct at the root boundary: for `/foo` with parent `/`
+      // a manual slice would drop the leading character.
+      segments.push(basename(current))
       current = parent
     }
   }
@@ -341,18 +380,40 @@ export function authorizeToolCall(
  * Filesystem adapter wrapper enforcing read/write containment for a run.
  * Defense in depth: even a tool path the dispatcher missed cannot read or
  * write outside the policy's root, and symlink escapes are caught via realpath.
+ *
+ * Confinement is only as trustworthy as the canonicalizer. When `--project-only`
+ * is active the guard needs a canonicalizer that describes the run's actual
+ * filesystem: the policy's `canonicalize`, an explicit `realpath` argument, or
+ * the Node default adapter. It refuses strict confinement rather than silently
+ * checking a virtual adapter against the host filesystem.
+ *
+ * This is NOT an OS security boundary. It authorizes and then delegates to the
+ * adapter, so a concurrent process can still swap a path (e.g. replace a checked
+ * file or directory with a symlink) between the check and the operation. It
+ * restricts SDK-managed filesystem operations; it does not defend against
+ * external processes mutating the same tree.
  */
 export function guardFileSystem(
   fs: CodebuffFileSystem,
   policy: ExecutionPolicy,
-  realpath?: (p: string) => Promise<string>,
+  realpath?: PathCanonicalizer,
 ): CodebuffFileSystem {
   const restricted = policy.projectOnly || policy.readOnly
   if (!restricted) return fs
 
+  const canonicalize = realpath ?? policy.canonicalize
+  if (policy.projectOnly && !canonicalize && !isNodeFileSystem(fs)) {
+    throw new Error(
+      'Strict confinement (--project-only) requires a path canonicalizer compatible with the run filesystem. Provide `canonicalize` for a custom filesystem adapter.',
+    )
+  }
+  // Only consulted when `canonicalize` is absent, which is already guaranteed to
+  // be the Node default adapter by the check above.
+  const resolveReal: PathCanonicalizer = canonicalize ?? nodeFs.realpath
+
   const assertReadable = async (target: string) => {
     if (!policy.projectOnly) return
-    if (!(await isPathWithinRoot(target, policy.projectRoot, realpath))) {
+    if (!(await isPathWithinRoot(target, policy.projectRoot, resolveReal))) {
       throw new Error(
         `Read of '${target}' blocked: outside project root '${policy.projectRoot}' (--project-only)`,
       )
@@ -363,7 +424,7 @@ export function guardFileSystem(
       throw new Error(`Write to '${target}' denied: read-only mode (--read-only)`)
     }
     if (!policy.projectOnly) return
-    if (!(await isPathWithinRoot(target, policy.projectRoot, realpath))) {
+    if (!(await isPathWithinRoot(target, policy.projectRoot, resolveReal))) {
       throw new Error(
         `Write to '${target}' blocked: outside project root '${policy.projectRoot}' (--project-only)`,
       )

@@ -64,6 +64,7 @@ import {
 } from './permissions/execution-policy'
 import type {
   ExecutionPolicy,
+  PathCanonicalizer,
   ShellApprovalCallback,
 } from './permissions/execution-policy'
 
@@ -258,6 +259,13 @@ export type CodebuffClientOptions = {
    *  history at each agent step boundary; implementations should append each
    *  message once (see TraceWriter). */
   traceWriter?: TraceWriter
+  /**
+   * Canonicalizer used to resolve symlinks for `projectOnly` confinement. It
+   * must describe the same filesystem as `fsSource`: when a custom adapter is
+   * supplied without one, strict confinement is refused rather than checked
+   * against the host filesystem. Defaults to `fs.promises.realpath`.
+   */
+  canonicalize?: PathCanonicalizer
 }
 
 export type ImageContent = {
@@ -617,6 +625,7 @@ async function runOnce({
   spawnSource,
   logger,
   traceWriter,
+  canonicalize,
 
   agent,
   prompt,
@@ -658,6 +667,7 @@ async function runOnce({
     readOnly,
     allowExternalTools,
     ...(shellApproval ? { shellApproval } : {}),
+    ...(canonicalize ? { canonicalize } : {}),
   })
   const fs = guardFileSystem(rawFs, policy)
   let spawn: CodebuffSpawn
@@ -1402,6 +1412,17 @@ async function dropMatchesOutsideProject(
 /**
  * @internal Exposed so subagent tests can exercise the real permission boundary.
  */
+/**
+ * Host overrides for these built-ins are UI capabilities that execute entirely
+ * inside the host's own process: they surface a prompt and return the user's
+ * answer. They cannot reach the filesystem or the shell, so requiring
+ * external-tool trust for them would disable the host's own UI under
+ * `--project-only` / `--read-only` / `--no-shell` without protecting anything.
+ * They remain subject to their built-in capability check below, and an MCP tool
+ * or custom tool that merely reuses the name is still classified external.
+ */
+const TRUSTED_UI_OVERRIDE_TOOLS: ReadonlySet<ToolName> = new Set(['ask_user'])
+
 export async function handleToolCall({
   action,
   overrides,
@@ -1478,8 +1499,16 @@ export async function handleToolCall({
     isMcpDispatch || customToolHandler
       ? 'external'
       : classifyTool(toolName)
+  const isTrustedUiOverride =
+    Boolean(override) &&
+    !isMcpDispatch &&
+    !customToolHandler &&
+    isBuiltinTool &&
+    TRUSTED_UI_OVERRIDE_TOOLS.has(toolName as ToolName)
   const hasExternalDispatch =
-    isMcpDispatch || Boolean(customToolHandler) || Boolean(override)
+    isMcpDispatch ||
+    Boolean(customToolHandler) ||
+    (Boolean(override) && !isTrustedUiOverride)
 
   // Require explicit host trust for every external destination. A trusted
   // host override for a built-in still goes through that built-in's policy
@@ -1545,12 +1574,12 @@ export async function handleToolCall({
       )
     }
     const targets: string[] = []
+    const filePaths = (input as { filePaths?: string[] }).filePaths
     if (toolName === 'apply_patch' && policy.projectOnly) {
       // Fail closed until the dedicated follow-up validates the nested path.
       return denial('apply_patch is unavailable in project-only mode until its target can be verified')
-    } else if (Array.isArray((input as { filePaths?: string[] }).filePaths)) {
-    } else if (Array.isArray((input as { filePaths?: string[] }).filePaths)) {
-      for (const filePath of (input as { filePaths: string[] }).filePaths) {
+    } else if (Array.isArray(filePaths)) {
+      for (const filePath of filePaths) {
         targets.push(path.resolve(requireCwd(cwd, toolName), filePath))
       }
     } else if (toolName === 'glob') {
@@ -1563,7 +1592,17 @@ export async function handleToolCall({
           (input as { path: string }).path,
         ),
       )
-    } else {
+    }
+    if (targets.length === 0) {
+      // A mutating tool whose target cannot be resolved must not fall back to
+      // the project root: that would authorize an operation whose real path was
+      // never checked. Read tools may fall back because the guarded filesystem
+      // adapter still enforces containment on the concrete path it is handed.
+      if (capability === 'fs-write' && policy.projectOnly) {
+        return denial(
+          `Cannot verify the target path for '${toolName}'; refusing to run a mutating tool without a verified target (--project-only)`,
+        )
+      }
       targets.push(requireCwd(cwd, toolName))
     }
     for (const targetPath of targets) {

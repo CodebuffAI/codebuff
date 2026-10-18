@@ -160,6 +160,7 @@ export {
 } from './permissions/execution-policy'
 export type {
   ExecutionPolicy,
+  PathCanonicalizer,
   ShellApprovalCallback,
   ShellApprovalRequest,
   ShellApprovalVerdict,

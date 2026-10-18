@@ -8,6 +8,7 @@
 
 import { describe, test, expect } from 'bun:test'
 import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, rmSync } from 'fs'
+import { realpath as fsRealpath } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -266,6 +267,44 @@ describe('symlink-aware containment', () => {
   })
 })
 
+describe('canonicalizePath failure handling', () => {
+  const errno = (code: string): NodeJS.ErrnoException => {
+    const error = new Error(code) as NodeJS.ErrnoException
+    error.code = code
+    return error
+  }
+
+  test('reappends the nearest existing ancestor without dropping a root-level character', async () => {
+    // Only the filesystem root exists; every other component is missing. The
+    // old `slice(parent.length + 1)` dropped the leading char of a root child.
+    const realpath = async (p: string) => {
+      if (p === '/') return '/'
+      throw errno('ENOENT')
+    }
+    expect(await canonicalizePath('/policy-root-test/child', realpath)).toBe(
+      '/policy-root-test/child',
+    )
+  })
+
+  test('fails closed on a permission error instead of walking up', async () => {
+    const realpath = async () => {
+      throw errno('EACCES')
+    }
+    await expect(canonicalizePath('/protected/child', realpath)).rejects.toThrow(
+      'EACCES',
+    )
+  })
+
+  test('fails closed on a symlink loop instead of walking up', async () => {
+    const realpath = async () => {
+      throw errno('ELOOP')
+    }
+    await expect(canonicalizePath('/loop/child', realpath)).rejects.toThrow(
+      'ELOOP',
+    )
+  })
+})
+
 describe('guardFileSystem (defense in depth)', () => {
   function mockFs(seen: { reads: string[]; writes: string[] }): CodebuffFileSystem {
     return {
@@ -309,7 +348,7 @@ describe('guardFileSystem (defense in depth)', () => {
       const root = join(base, 'project')
       mkdirSync(root)
       const seen = { reads: [] as string[], writes: [] as string[] }
-      const guarded = guardFileSystem(mockFs(seen), policy({ projectOnly: true, projectRoot: root }))
+      const guarded = guardFileSystem(mockFs(seen), policy({ projectOnly: true, projectRoot: root, canonicalize: fsRealpath }))
       await expect(guarded.writeFile(join(base, 'outside.ts'), 'x')).rejects.toThrow()
       await expect(guarded.readFile('/etc/passwd')).rejects.toThrow()
       // Inside the root is allowed.
@@ -325,5 +364,29 @@ describe('guardFileSystem (defense in depth)', () => {
     const raw = mockFs(seen)
     const guarded = guardFileSystem(raw, policy())
     expect(guarded).toBe(raw)
+  })
+
+  test('project-only refuses strict confinement for a custom adapter with no canonicalizer', () => {
+    const seen = { reads: [] as string[], writes: [] as string[] }
+    const customAdapter = mockFs(seen)
+    // A custom adapter is not the Node default, so Node's realpath says nothing
+    // about it. Refuse rather than silently mis-check containment.
+    expect(() =>
+      guardFileSystem(customAdapter, policy({ projectOnly: true })),
+    ).toThrow(/canonicalizer/i)
+  })
+
+  test('project-only accepts a policy-supplied canonicalizer for a custom adapter', async () => {
+    const seen = { reads: [] as string[], writes: [] as string[] }
+    const canonicalize = async (p: string) => p
+    const guarded = guardFileSystem(
+      mockFs(seen),
+      policy({ projectOnly: true, projectRoot: '/project', canonicalize }),
+    )
+    await expect(guarded.writeFile('/outside.ts', 'x')).rejects.toThrow(
+      'outside project root',
+    )
+    await guarded.writeFile('/project/a.ts', 'x')
+    expect(seen.writes).toEqual(['/project/a.ts'])
   })
 })
