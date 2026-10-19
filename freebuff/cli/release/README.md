@@ -55,6 +55,8 @@ and keep the extracted `freebuff` binary and `tree-sitter.wasm` together.
 
 **How is my data used and stored?** Freebuff uses your messages, agent traces, and files to run the service and respond to your requests. We may analyze this data, and how you use the app, to personalize ads and train ad models. We do not give separately uploaded files, project files, or connected repositories to advertising providers. Restricted partners may evaluate repositories you connect to Freebuff Cloud, but cannot otherwise use, broadly share, or train on them. See the Privacy Policy for details.
 
+**Does Freebuff read files outside my project?** No, with a few exceptions, such as files an agent reads in the conversation, files you share, and settings like your agent instructions and skills. See the Privacy Policy for details.
+
 See the [Privacy Policy](https://freebuff.com/privacy-policy) for complete details.
 
 <!-- END GENERATED FREEBUFF DATA USE -->
