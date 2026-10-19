@@ -17,6 +17,8 @@ import path from 'path'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 
+import { smokeSessionStatus } from '../../../scripts/lib/prod-smoke-session'
+
 import {
   FREEBUFF_CHAT_READY_TEXT,
   FreebuffSession,
@@ -46,14 +48,9 @@ const live = apiKey ? test : test.skip
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** The backend's own view of the account's session: `none` once it has been ended. */
-async function backendSessionStatus(): Promise<string> {
-  const res = await fetch('https://www.codebuff.com/api/v1/freebuff/session', {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  })
-  return (
-    ((await res.json()) as { status?: string }).status ?? `http ${res.status}`
-  )
+/** Observe the per-instance slots used by both smoke clients. */
+async function backendSessionStatus(): Promise<'active' | 'none'> {
+  return smokeSessionStatus('https://www.codebuff.com', apiKey!)
 }
 
 /**
@@ -198,6 +195,8 @@ describe('Freebuff: live turn against the backend', () => {
       expect(footer).toMatch(FLASH_FOOTER)
 
       await sendAndAwaitAnswer(session, SMOKE_PROMPT, SMOKE_ANSWER, 180_000)
+
+      expect(await backendSessionStatus()).toBe('active')
 
       // End the session the way a user does, then ask the backend directly.
       await session.send('/end-session')
