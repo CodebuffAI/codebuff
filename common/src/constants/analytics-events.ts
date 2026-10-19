@@ -471,6 +471,7 @@ export enum AnalyticsEvent {
   DESKTOP_PROJECT_REMOVED = 'desktop.project_removed',
   DESKTOP_TURN_COMPLETED = 'desktop.turn_completed',
   DESKTOP_FUNNEL_STEP = 'desktop.funnel_step',
+  DESKTOP_ACQUISITION_STEP = 'desktop.acquisition_step',
   DESKTOP_FAILED_TURN_RECOVERY = 'desktop.failed_turn_recovery',
   DESKTOP_HARNESS_CHANGED = 'desktop.harness_changed',
   DESKTOP_MODEL_CHANGED = 'desktop.model_changed',

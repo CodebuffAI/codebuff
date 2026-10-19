@@ -41,6 +41,7 @@ const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   AnalyticsEvent.DESKTOP_PROJECT_CREATED,
   AnalyticsEvent.DESKTOP_TURN_COMPLETED,
   AnalyticsEvent.DESKTOP_FUNNEL_STEP,
+  AnalyticsEvent.DESKTOP_ACQUISITION_STEP,
   AnalyticsEvent.FREEBUFF_AUTH_STEP,
   // Low-volume recovery funnel. Sampling any stage independently would make
   // creation-to-success and repeated-failure rates impossible to measure.

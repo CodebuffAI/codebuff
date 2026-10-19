@@ -1,9 +1,11 @@
 import { z } from 'zod'
 
 export const DESKTOP_FUNNEL_EVENT = 'desktop.funnel_step'
+/** Isolated journey events: these IDs are never identified or aliased to accounts. */
+export const DESKTOP_ACQUISITION_EVENT = 'desktop.acquisition_step'
 
 export const desktopFunnelStepSchema = z.enum([
-  'welcome', 'login', 'browser', 'provider', 'connect', 'survey', 'question',
+  'landing', 'install', 'launch', 'welcome', 'login', 'browser', 'provider', 'connect', 'survey', 'question',
   'folder', 'composer', 'draft', 'model_picker', 'model_selection', 'send',
   'turn', 'response',
 ])
@@ -20,6 +22,7 @@ const harness = z.enum(['codebuff', 'claude-code', 'codex'])
 // Entity IDs are local transport only; Desktop hashes them before external capture.
 export const desktopFunnelPropertiesSchema = z.object({
   event_id: z.string().uuid().optional(),
+  acquisition_id: z.string().uuid().optional(),
   flow_id: z.string().uuid().optional(),
   attempt_id: z.string().uuid().optional(),
   thread_id: entityId.optional(),
@@ -70,6 +73,7 @@ export type DesktopFunnelProperties = z.infer<typeof desktopFunnelPropertiesSche
 export type DesktopFunnelEvent = z.infer<typeof desktopFunnelEventSchema>
 
 export const DESKTOP_FUNNEL_LABELS = {
+  landing: 'Landing', install: 'Install', launch: 'Launch',
   welcome: 'Welcome', login: 'Login', browser: 'Browser', provider: 'Provider',
   connect: 'Connect', survey: 'Survey', question: 'Question', folder: 'Folder',
   composer: 'Compose', draft: 'Type', model_picker: 'Models',
