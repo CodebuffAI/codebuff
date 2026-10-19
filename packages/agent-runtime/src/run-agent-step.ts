@@ -126,7 +126,10 @@ import {
   recordContextUsage,
   recountContextTokens,
 } from './util/context-token-count'
-import { assertUserContentSize } from './util/context-size-guard'
+import {
+  assertUserContentSize,
+  UserContentTooLargeError,
+} from './util/context-size-guard'
 import {
   countTokens,
   countTokensJson,
@@ -212,6 +215,12 @@ async function additionalToolDefinitions(
 /** Run-id prefix for runs that skip the run-tracking ledger (context-pruner).
  *  These ids exist only in-process and must never be sent to the web API. */
 export const UNTRACKED_RUN_ID_PREFIX = 'untracked-'
+
+/** What a failed turn leaves at the end of the root's history. */
+export const TURN_FAILED_NOTE =
+  "The response failed with an error. The assistant's previous work has been preserved."
+export const USER_PROMPT_REFUSED_NOTE =
+  "The user's last message was too large to send, so it was not delivered."
 
 export const runAgentStep = async (
   params: {
@@ -1267,20 +1276,25 @@ export async function loopAgentSteps(
       (content && content.length > 0),
     )
 
-  const initialMessages = buildArray<Message>(
-    ...initialAgentState.messageHistory,
-
-    hasUserMessage && [
-      {
+  // Named so that a size refusal can take it back out of the history.
+  const userPromptMessage: Message | undefined = hasUserMessage
+    ? {
         // Actual user message!
-        role: 'user' as const,
+        role: 'user',
         content: buildUserMessageContent(prompt, spawnParams, content),
         tags: ['USER_PROMPT'],
         sentAt: Date.now(),
 
         // James: Deprecate the below, only use tags, which are not prescriptive.
         keepDuringTruncation: true,
-      },
+      }
+    : undefined
+
+  const initialMessages = buildArray<Message>(
+    ...initialAgentState.messageHistory,
+
+    hasUserMessage && [
+      userPromptMessage,
       prompt &&
         prompt in additionalSystemPrompts &&
         userMessage(
@@ -1373,15 +1387,8 @@ export async function loopAgentSteps(
         throw new AbortError()
       }
 
-      if (totalSteps === 1 && hasUserMessage) {
-        assertUserContentSize(
-          [
-            userMessage({
-              content: buildUserMessageContent(prompt, spawnParams, content),
-            }),
-          ],
-          agentTemplate,
-        )
+      if (totalSteps === 1 && userPromptMessage) {
+        assertUserContentSize([userPromptMessage], agentTemplate)
       }
 
       const startTime = new Date()
@@ -1988,6 +1995,23 @@ export async function loopAgentSteps(
     const statusCode = apiErrorDetails.statusCode
 
     const status = signal.aborted ? 'cancelled' : 'failed'
+    // A refused message is not kept: the next turn would send it anyway.
+    const refused =
+      error instanceof UserContentTooLargeError ? error.refused : undefined
+    if (refused)
+      currentAgentState.messageHistory =
+        currentAgentState.messageHistory.filter((m) => !refused.includes(m))
+    // End the failed turn in the root's history, as a cancellation is ended
+    // above: left bare, its prompt joins the next one in the live request
+    // that compaction keeps verbatim. A 402 propagates; the SDK ends it.
+    if (!initialAgentState.parentId && statusCode !== 402) {
+      currentAgentState.messageHistory = [
+        ...currentAgentState.messageHistory,
+        userMessage(
+          withSystemTags(refused ? USER_PROMPT_REFUSED_NOTE : TURN_FAILED_NOTE),
+        ),
+      ]
+    }
     // A failed turn still leaves history behind, and the host still shows the
     // user a context reading before their next message.
     recountContextTokensForTurnEnd()
