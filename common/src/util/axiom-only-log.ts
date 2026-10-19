@@ -515,6 +515,14 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    * campaign handle on Axiom, the raw id stays in Postgres.
    */
   eligible_campaign_count: 'number',
+  /**
+   * THE UNIFORM ARM (`first-party-selection.ts`, `firstPartyExploreArm`):
+   * the placement's arm on every request whose direct stage ran on a leg in
+   * the experiment, `uniform` or `ranked`, no-fills included, so the split
+   * can be checked. Absent on the exempt legs and where our book was never
+   * asked. The served campaign's propensity is on `ad_candidate`.
+   */
+  explore_arm: 'string',
   excluded_campaign_count: 'number',
   eligible_campaign_labels: 'string',
   exclusion_reasons: 'string',
@@ -758,6 +766,8 @@ const ADS_FIRST_PARTY_DECISION_FIELDS = {
   primary_allocation_invalid: 'boolean',
   no_fill_reason: 'string',
   selection_reason: 'string',
+  /** The uniform arm per request: `uniform`, `ranked` or `mixed`; absent on an exempt leg. */
+  explore_arm: 'string',
   ad_count: 'number',
   placement_count: 'number',
   candidate_count: 'number',
