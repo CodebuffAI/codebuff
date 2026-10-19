@@ -183,8 +183,10 @@ type GravityController = {
   eligibleSlotCounts: Map<string, number>
 }
 
+type ChoiceCache = Pick<GravityController, 'choiceCache' | 'choiceCacheIndex'>
+
 // Pure helper: add an ad set to the cache
-function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
+function addToChoiceCache(ctrl: ChoiceCache, ads: AdResponse[]): void {
   // Deduplicate by checking if any set has the same first impUrl
   const key = ads[0]?.impUrl
   if (key && ctrl.choiceCache.some((set) => set[0]?.impUrl === key)) return
@@ -193,11 +195,52 @@ function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
 }
 
 // Pure helper: get the next cached ad set
-function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
+function nextFromChoiceCache(ctrl: ChoiceCache): AdResponse[] | null {
   if (ctrl.choiceCache.length === 0) return null
   const set = ctrl.choiceCache[ctrl.choiceCacheIndex % ctrl.choiceCache.length]!
   ctrl.choiceCacheIndex = (ctrl.choiceCacheIndex + 1) % ctrl.choiceCache.length
   return set
+}
+
+/**
+ * COD-906: the server CHOSE no ad for this request (the new-user ad ramp,
+ * docs/experiments.md) -- not a no-fill. Only `{ ads: [], withheld: true }`
+ * counts; any other body is read as before.
+ */
+export function isWithheldAdResponse(data: unknown): boolean {
+  if (typeof data !== 'object' || data === null) return false
+  const body = data as { ads?: unknown; withheld?: unknown }
+  return (
+    body.withheld === true && Array.isArray(body.ads) && body.ads.length === 0
+  )
+}
+
+/** A fetch: served ads, a withheld request, or nothing usable. */
+export type AdFetchResult =
+  | { ads: AdResponse[] }
+  | { withheld: true }
+  | null
+
+/**
+ * What one rotation tick does with its fetch. Served ads are cached and
+ * shown; a withheld request clears the slot (COD-906: re-showing a cached
+ * ad would undo the server's decision); a failed or empty fetch falls back
+ * to the cache as before, and leaves the slot alone when the cache is empty.
+ * `undefined` means "leave the slot as it is".
+ */
+export function rotationStep(
+  ctrl: ChoiceCache,
+  result: AdFetchResult,
+): { show: AdResponse[] | null | undefined; countsAsShown: boolean } {
+  if (result && 'withheld' in result) return { show: null, countsAsShown: false }
+  if (result) {
+    addToChoiceCache(ctrl, result.ads)
+    return { show: result.ads, countsAsShown: true }
+  }
+  const cachedSet = nextFromChoiceCache(ctrl)
+  return cachedSet
+    ? { show: cachedSet, countsAsShown: true }
+    : { show: undefined, countsAsShown: false }
 }
 
 /**
@@ -600,7 +643,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
     })
   }
 
-  type FetchAdResult = { ads: AdResponse[] } | null
+  type FetchAdResult = AdFetchResult
 
   // Fetch an ad via web API
   const fetchAd = async (params?: {
@@ -645,6 +688,8 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
       }
 
       const data = await response.json()
+
+      if (isWithheldAdResponse(data)) return { withheld: true }
 
       if (Array.isArray(data.ads) && data.ads.length > 0) {
         // Receipt stamp for `renderDelayMs` (COD-365): the response is in
@@ -696,18 +741,9 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
           ? await fetchAd({ placementId: slotPlacementId, placementIds })
           : null
 
-        if (result) {
-          addToChoiceCache(ctrl, result.ads)
-          ctrl.adsShownSinceActivity += 1
-          setAds(result.ads)
-        } else {
-          // Fall back to cached ads
-          const cachedSet = nextFromChoiceCache(ctrl)
-          if (cachedSet) {
-            ctrl.adsShownSinceActivity += 1
-            setAds(cachedSet)
-          }
-        }
+        const step = rotationStep(ctrl, result)
+        if (step.countsAsShown) ctrl.adsShownSinceActivity += 1
+        if (step.show !== undefined) setAds(step.show)
       } finally {
         ctrl.tickInFlight = false
       }
@@ -738,7 +774,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         placementId: slotPlacementId,
         placementIds,
       })
-      if (result) {
+      if (result && 'ads' in result) {
         const ctrl = ctrlRef.current
         addToChoiceCache(ctrl, result.ads)
         setAds(result.ads)
@@ -816,7 +852,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
       count,
       fetchOne: async () => {
         const result = await fetchAd({ placementId: inlinePlacementId })
-        return result?.ads[0] ?? null
+        return result && 'ads' in result ? (result.ads[0] ?? null) : null
       },
       onAd: (ad) => {
         setResponseAds((prev) => ({

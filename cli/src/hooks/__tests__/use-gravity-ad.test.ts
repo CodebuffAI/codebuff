@@ -5,13 +5,16 @@ import {
   dispatchFirstPartyViewAcknowledgement,
   isAnswerMessage,
   isInlineAdEligibleAnswer,
+  isWithheldAdResponse,
   NO_RESPONSE_ADS,
   renderDelaySinceReceipt,
+  rotationStep,
   sendClickAfterView,
   shouldHideGravityAds,
   visibleResponseAds,
 } from '../use-gravity-ad'
 
+import type { AdResponse } from '../use-gravity-ad'
 import type { ChatMessage } from '../../types/chat'
 import {
   acknowledgeFirstPartyView,
@@ -265,5 +268,50 @@ describe('sendClickAfterView', () => {
       sent = true
     })
     expect(sent).toBe(true)
+  })
+})
+
+describe('a withheld ad response (COD-906)', () => {
+  const ad = (impUrl: string) => ({ impUrl }) as unknown as AdResponse
+  const cache = () => ({
+    choiceCache: [[ad('cached-1')]] as AdResponse[][],
+    choiceCacheIndex: 0,
+  })
+
+  test('only an empty ads list flagged withheld counts', () => {
+    expect(isWithheldAdResponse({ ads: [], withheld: true })).toBe(true)
+    expect(isWithheldAdResponse({ ads: [], provider: 'gravity' })).toBe(false)
+    expect(isWithheldAdResponse({ ads: [], withheld: 'true' })).toBe(false)
+    expect(isWithheldAdResponse({ ads: [ad('a')], withheld: true })).toBe(false)
+    expect(isWithheldAdResponse(null)).toBe(false)
+  })
+
+  test('clears the slot instead of re-showing a cached ad', () => {
+    const ctrl = cache()
+    expect(rotationStep(ctrl, { withheld: true })).toEqual({
+      show: null,
+      countsAsShown: false,
+    })
+    expect(ctrl.choiceCacheIndex).toBe(0)
+  })
+
+  test('a failed or empty fetch still falls back to the cache', () => {
+    const ctrl = cache()
+    expect(rotationStep(ctrl, null)).toEqual({
+      show: [ad('cached-1')],
+      countsAsShown: true,
+    })
+    expect(rotationStep({ choiceCache: [], choiceCacheIndex: 0 }, null)).toEqual(
+      { show: undefined, countsAsShown: false },
+    )
+  })
+
+  test('served ads are cached and shown', () => {
+    const ctrl = cache()
+    expect(rotationStep(ctrl, { ads: [ad('new')] })).toEqual({
+      show: [ad('new')],
+      countsAsShown: true,
+    })
+    expect(ctrl.choiceCache).toHaveLength(2)
   })
 })
