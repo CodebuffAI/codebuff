@@ -323,6 +323,7 @@ export enum AnalyticsEvent {
   FREEBUFF_GET_STARTED_VIEWED = 'freebuff.get_started_viewed',
   FREEBUFF_GET_STARTED_SIGN_IN_CLICKED = 'freebuff.get_started_sign_in_clicked',
   FREEBUFF_GET_STARTED_SIGNED_IN = 'freebuff.get_started_signed_in',
+  FREEBUFF_EMAIL_AUTH = 'freebuff.email_auth',
   FREEBUFF_GET_STARTED_ELIGIBILITY_RESOLVED = 'freebuff.get_started_eligibility_resolved',
   FREEBUFF_GET_STARTED_CONNECT_GITHUB_CLICKED = 'freebuff.get_started_connect_github_clicked',
   FREEBUFF_GET_STARTED_INSTALL_COMMAND_COPIED = 'freebuff.get_started_install_command_copied',

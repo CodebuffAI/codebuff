@@ -28,7 +28,7 @@ export const desktopFunnelPropertiesSchema = z.object({
   project_id: entityId.optional(),
   login_surface: z.enum(['splash', 'gate', 'notice', 'feedback', 'unknown']).optional(),
   login_phase: z.enum(['idle', 'starting', 'waiting', 'failed', 'connected']).optional(),
-  provider: z.enum(['github', 'google', 'apple', 'current_account', 'switch_account']).optional(),
+  provider: z.enum(['github', 'google', 'apple', 'email', 'current_account', 'switch_account']).optional(),
   question_id: z.enum(['referral_source', 'role', 'proficiency', 'intended_use', 'subscriptions']).optional(),
   question_index: z.number().int().min(0).max(50).optional(),
   question_count: z.number().int().min(0).max(50).optional(),
