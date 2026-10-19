@@ -81,6 +81,8 @@ const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
     // Unlimited
     // Nemotron 3.5 Lightning (2026-10-14): new, the picker's first row.
     'm-ddc687c50f': { section: 'unlimited', order: 1 }, // Nemotron 3.5 Lightning
+    // MiniMax M3.1 Flash (2026-10-19): new, second after Nemotron.
+    'm-b2a427415d': { section: 'unlimited', order: 2 }, // MiniMax M3.1 Flash
     // Glyph Cluster (2026-10-07): never under More.
     'm-02244092cb': { section: 'unlimited', order: 5 }, // Glyph Cluster
     // Solar Pro 4 (2026-10-05): free as a promotion, moved from Optimized.
