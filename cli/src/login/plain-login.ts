@@ -1,4 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { randomUUID } from 'node:crypto'
 import { cyan, green, red, yellow, bold } from 'picocolors'
 
 import { LOGIN_WEBSITE_URL } from './constants'
@@ -7,11 +8,7 @@ import {
   FREEBUFF_DISCORD_INVITE_URL,
 } from './discord-invite'
 import { generateLoginUrl, pollLoginStatus } from './login-flow'
-import {
-  flushAnalytics,
-  identifyUser,
-  trackEvent,
-} from '../utils/analytics'
+import { flushAnalytics, identifyUser, trackEvent } from '../utils/analytics'
 import { saveUserCredentials } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
 import { getFingerprintId } from '../utils/fingerprint'
@@ -39,7 +36,12 @@ export async function runPlainLogin(): Promise<void> {
   try {
     loginData = await generateLoginUrl(
       { logger, trackEvent },
-      { baseUrl: LOGIN_WEBSITE_URL, fingerprintId, via: 'plain_command' },
+      {
+        baseUrl: LOGIN_WEBSITE_URL,
+        fingerprintId,
+        via: 'plain_command',
+        cliFlowId: IS_FREEBUFF ? randomUUID() : undefined,
+      },
     )
   } catch (error) {
     console.error(
@@ -97,11 +99,13 @@ export async function runPlainLogin(): Promise<void> {
     }
 
     console.log()
-    console.log(green(
+    console.log(
+      green(
         user.name
           ? `✓ Logged in as ${user.name} (${user.email})`
           : `✓ Logged in as ${user.email}`,
-      ))
+      ),
+    )
     console.log()
     const cliName = IS_FREEBUFF ? 'freebuff' : 'codebuff'
     console.log('You can now run ' + cyan(cliName) + ' to start.')
