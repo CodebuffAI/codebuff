@@ -5,6 +5,7 @@ import { getErrorObject } from '../error'
 import { serializeLogData } from '../log-data'
 import {
   redactHeadersForLog,
+  redactQueryErrorForLog,
   redactUrlForLog,
   summarizeRequestBodyForLog,
 } from '../log-redaction'
@@ -181,5 +182,54 @@ describe('serializeLogData on an AI SDK APICallError', () => {
     expect(JSON.parse(serialized).error.path).toBe(
       'https://freebuff.com/api/auth/cli/status',
     )
+  })
+})
+
+describe('redactQueryErrorForLog', () => {
+  // freebuff-web's 2026-10-19 `LinkAccountError` line: drizzle's message
+  // carried the Google access token and ID token being inserted.
+  const query =
+    'insert into "account" ("userId", "access_token", "id_token") values ($1, $2, $3)'
+  const params = ['user-1', 'ya29.access-secret', 'eyJ.id-secret']
+  function queryError() {
+    const cause = Object.assign(new Error('duplicate key value'), {
+      code: '23505',
+    })
+    const error = new Error(`Failed query: ${query}\nparams: ${params}`, {
+      cause,
+    })
+    error.name = 'DrizzleQueryError'
+    return Object.assign(error, { query, params })
+  }
+
+  test('keeps the statement and cause, never the params', () => {
+    const redacted = redactQueryErrorForLog(queryError())
+    expect(redacted).toBeInstanceOf(Error)
+    expect(redacted.name).toBe('DrizzleQueryError')
+    expect(redacted.message).toBe(
+      `Failed query: ${query}\nparams: [3 params omitted]`,
+    )
+    expect(redacted.stack).toStartWith(`DrizzleQueryError: ${redacted.message}`)
+    expect(redacted.stack).toContain('    at ')
+    expect(redacted.query).toBe(query)
+    expect(redacted.params).toBe('[3 params omitted]' as never)
+    expect((redacted.cause as { code: string }).code).toBe('23505')
+    for (const out of [
+      JSON.stringify({ ...redacted }),
+      redacted.message,
+      redacted.stack,
+      serializeLogData({ error: queryError() }),
+      JSON.stringify(getErrorObject(queryError(), { includeRawError: true })),
+    ]) {
+      expect(out).not.toContain('ya29.access-secret')
+      expect(out).not.toContain('eyJ.id-secret')
+    }
+  })
+
+  test('returns any other value unchanged', () => {
+    const plain = new Error('boom')
+    expect(redactQueryErrorForLog(plain)).toBe(plain)
+    expect(redactQueryErrorForLog('text')).toBe('text')
+    expect(redactQueryErrorForLog(undefined)).toBeUndefined()
   })
 })

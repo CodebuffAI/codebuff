@@ -121,3 +121,34 @@ export function redactErrorFieldForLog(key: string, val: unknown): unknown {
   }
   return val
 }
+
+const QUERY_PARAMS_MARKER = '\nparams: '
+
+/**
+ * A drizzle `DrizzleQueryError` without its bound values. Drizzle writes every
+ * param into `message` (and so into `stack`) as well as `params`, and the
+ * values of an auth write are credentials: on 2026-10-19 freebuff-web logged a
+ * Google access token and ID token from a failed `linkAccount` insert. The
+ * statement and the `cause` holding the Postgres reason are kept; the params
+ * become their count. Any other value is returned unchanged.
+ */
+export function redactQueryErrorForLog<T>(error: T): T {
+  if (!(error instanceof Error)) return error
+  const fields = error as Error & { query?: unknown; params?: unknown }
+  if (typeof fields.query !== 'string' || !('params' in fields)) return error
+  const marker = error.message.indexOf(QUERY_PARAMS_MARKER)
+  const count = Array.isArray(fields.params) ? fields.params.length : 0
+  const omitted = `[${count} params omitted]`
+  const message =
+    marker === -1
+      ? error.message
+      : `${error.message.slice(0, marker)}${QUERY_PARAMS_MARKER}${omitted}`
+  const redacted = new Error(message, { cause: error.cause })
+  Object.assign(redacted, error, { params: omitted })
+  redacted.name = error.name
+  redacted.stack =
+    error.stack && error.stack.includes(error.message)
+      ? error.stack.replace(error.message, () => message)
+      : `${error.name}: ${message}`
+  return redacted as T
+}

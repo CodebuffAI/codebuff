@@ -1,5 +1,6 @@
 import {
   redactErrorFieldForLog,
+  redactQueryErrorForLog,
   redactUrlForLog,
   summarizeRequestBodyForLog,
 } from './log-redaction'
@@ -566,9 +567,11 @@ function safeStringify(
 }
 
 export function getErrorObject(
-  error: unknown,
+  original: unknown,
   options: { includeRawError?: boolean } = {},
 ): ErrorObject {
+  // A drizzle query error's message, stack and `params` carry every bound value.
+  const error = redactQueryErrorForLog(original)
   if (error instanceof Error) {
     const extError = error as Error & Partial<ExtendedErrorProperties>
 

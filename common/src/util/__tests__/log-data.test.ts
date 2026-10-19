@@ -58,12 +58,17 @@ describe('serializeLogData', () => {
     expect(row.error.message.length).toBeLessThan(2_100)
   })
 
-  test('a short failed query keeps its params', () => {
-    const error = Object.assign(new Error('Failed query: select $1'), {
-      query: 'select $1',
-      params: ['x'],
-    })
-    expect(parse({ error }).error.params).toEqual(['x'])
+  // A failed auth insert's params are OAuth tokens (2026-10-19).
+  test('a short failed query drops its params everywhere', () => {
+    const error = Object.assign(
+      new Error(
+        'Failed query: insert into "account" values ($1)\nparams: ya29.secret',
+      ),
+      { query: 'insert into "account" values ($1)', params: ['ya29.secret'] },
+    )
+    const serialized = serializeLogData({ error })!
+    expect(serialized).not.toContain('ya29.secret')
+    expect(JSON.parse(serialized).error.params).toBe('[1 params omitted]')
   })
 
   test('trims a long stack', () => {
