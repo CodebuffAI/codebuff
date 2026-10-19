@@ -886,7 +886,7 @@ function createSkillCommand(skillName: string): CommandDefinition {
  */
 export function dispatchSkillPrompt(
   params: RouterParams,
-  skill: { name: string; content: string },
+  skill: { name: string; content: string; filePath: string },
   input: string,
 ): void {
   const userPrompt = buildSkillPrompt(skill, input)
