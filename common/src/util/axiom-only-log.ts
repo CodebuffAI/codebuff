@@ -664,6 +664,22 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    */
   sponsor_break_cap_status: 'string',
   /**
+   * COD-904, the new-user ad ramp (docs/experiments.md). Present only for an
+   * account enrolled in `new_user_ad_ramp_2026_10` while it is live; absent
+   * on every other completion event. `new_user_ramp_outcome` is `decided`,
+   * or `timeout` / `error` when the decision failed open (then only that
+   * field is present, and the request was served as before).
+   * `session_index` is the account's lifetime `free_session_admit` count,
+   * capped at 4; `new_user_ramp_keep_bps` the keep probability it implied;
+   * `new_user_signup_day` the Pacific day the account was created.
+   */
+  new_user_ramp_outcome: 'string',
+  new_user_ramp_arm: 'string',
+  session_index: 'number',
+  new_user_ramp_suppressed: 'boolean',
+  new_user_ramp_keep_bps: 'number',
+  new_user_signup_day: 'string',
+  /**
    * Why a response carried zero ads (COD-760; COD-453 introduced it for
    * `break_capped` alone). Set on EVERY response with zero ads, on both
    * rails, naming the PAID stage that decided it -- never the house floor.
@@ -672,7 +688,8 @@ const ADS_FETCH_COMPLETED_FIELDS = {
    * - a refusal ahead of the chain: `break_capped` (unchanged; it also
    *   drives `exclusion_reasons: 'break_capped:1'`), `setup_invitation`,
    *   `invitation_recheck`, `partner_slot_empty`, `billboard_slot_empty`,
-   *   `no_visible_slot`, `global_load`, `no_placements`;
+   *   `no_visible_slot`, `global_load`, `no_placements`, `new_user_ramp`
+   *   (COD-904: the new-user ad ramp withheld this request);
    * - Gravity, when it was the last paid stage asked:
    *   `gravity_passed_to_us` (a 205), `gravity_kept_slot_empty` (a 204),
    *   `gravity_timeout`, `gravity_error`, `gravity_no_api_key`,

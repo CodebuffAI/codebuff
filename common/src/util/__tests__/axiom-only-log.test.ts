@@ -137,6 +137,33 @@ describe('getAxiomOnlyLogEvent', () => {
     })
   })
 
+  test('ships the new-user ad ramp fields with their types (COD-904)', () => {
+    const fields = {
+      new_user_ramp_outcome: 'decided',
+      new_user_ramp_arm: 'ramp',
+      session_index: 2,
+      new_user_ramp_suppressed: true,
+      new_user_ramp_keep_bps: 3333,
+      new_user_signup_day: '2026-10-21',
+      no_fill_reason: 'new_user_ramp',
+    }
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+        ...fields,
+        user_created_at: '2026-10-21T00:00:00Z',
+      }),
+    ).toEqual({ event: ADS_FETCH_COMPLETED_EVENT, data: fields })
+    // A wrong type is dropped, not coerced.
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+        session_index: '2',
+        new_user_ramp_suppressed: 'yes',
+      })?.data,
+    ).toEqual({})
+  })
+
   test('strictly bounds client-reported Showcase presentation telemetry', () => {
     const valid = {
       axiomEvent: ADS_SHOWCASE_PRESENTED_EVENT,
