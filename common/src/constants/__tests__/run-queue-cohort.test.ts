@@ -11,9 +11,9 @@ import {
 } from '../run-queue-cohort'
 
 describe('run queue cohort (COD-742)', () => {
-  test('is off as checked in: merging the cutover moves no run', () => {
-    expect(RUN_QUEUE_COHORT).toBe('off')
-    expect(parseRunQueueCohort(RUN_QUEUE_COHORT)).toEqual({ kind: 'off' })
+  test('ships at drain: runners claim, Convex marks no run', () => {
+    expect(RUN_QUEUE_COHORT).toBe('drain')
+    expect(parseRunQueueCohort(RUN_QUEUE_COHORT)).toEqual({ kind: 'drain' })
   })
 
   test('parses the ladder, and anything else reads as off', () => {
