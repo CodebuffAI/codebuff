@@ -1688,11 +1688,13 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   // build date was standing in for, in the vocabulary the vendor and the user
   // both already use.
   //
-  // Note what this costs: `compactChatModelName` and `shortModelName` both
-  // strip a trailing ` MM/DD`, so they are now no-ops on this row and the full
-  // name reaches the compact surfaces. That is intended — 'DeepSeek V4.1 Flash'
-  // is shorter than the dated name it replaces, so nothing got wider.
-  displayName: 'DeepSeek V4.1 Flash',
+  // DATED AGAIN 2026-10-19: DeepSeek moved the id onto V4.1 Flash's 1017 build
+  // on 2026-10-17 with no new version number, so a build date says which V4.1
+  // this is. Every lane serves 1017 (web/src/llm-api/deepseek-router.ts).
+  // `compactChatModelName` and `shortModelName` strip a trailing ` MM/DD`, so
+  // the collapsed triggers still read 'DeepSeek V4.1 Flash'; open menus show
+  // the date.
+  displayName: 'DeepSeek V4.1 Flash 10/17',
   // "Smart & Fast" survived Flash becoming premium on 2026-08-18: it describes
   // the model, and the one word in it that described the TIER ("unlimited") had
   // already gone when Pro took the recommendation on 2026-08-12. The picker
@@ -1826,7 +1828,9 @@ const DEEPSEEK_V4_FLASH_MODEL = {
  */
 const DEEPSEEK_V4_FLASH_FAST_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
-  displayName: 'DeepSeek V4.1 Flash Fast',
+  // The build date trails 'Fast' so the collapsed triggers strip it, as on the
+  // Flash row.
+  displayName: 'DeepSeek V4.1 Flash Fast 10/17',
   tagline: 'Parallel agents',
   taglineTooltip:
     'Gathers context with parallel subagents. Runs on DeepSeek’s own API.',

@@ -1453,7 +1453,7 @@ describe('freebuff model availability', () => {
       ),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_MISMATCH_MESSAGE).toBe(
-      'Limited free access is only available with MiMo v2.6 Flash Fast or GLM 5.3 Flash or DeepSeek V4.1 Flash or Solar Mini 4 or Solar Pro 4.',
+      'Limited free access is only available with MiMo v2.6 Flash Fast or GLM 5.3 Flash or DeepSeek V4.1 Flash 10/17 or Solar Mini 4 or Solar Pro 4.',
     )
     // No row in the tier supersedes another, so no picker may offer a switch
     // that admission would coerce straight back.
@@ -1727,12 +1727,13 @@ describe('freebuff model availability', () => {
     // Flash carries a VERSION rather than a build date as of 2026-09-10:
     // DeepSeek moved the id onto V4.1 Flash, and a version number is what the
     // date was always standing in for. The invariant is unchanged — the name
-    // must still say which build this is — only its spelling moved.
+    // must still say which build this is — only its spelling moved. The 1017
+    // build (2026-10-17) kept the version, so both names carry the date again.
     const dated = [
-      [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'V4.1'],
+      [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'V4.1 Flash 10/17'],
       // Fast mode (2026-09-26) is the same V4.1 build on its own row; the
-      // version travels with the name.
-      [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID, 'V4.1'],
+      // version and date travel with the name.
+      [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID, 'V4.1 Flash Fast 10/17'],
     ] as const
     // Widened to the interface: the const-asserted tuple's union type only
     // exposes optional fields set on EVERY member, so `isNew` is unreachable
