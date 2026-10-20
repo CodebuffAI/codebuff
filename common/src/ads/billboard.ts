@@ -58,13 +58,6 @@ export type BillboardFrequencyCap = {
 const HOUR_MS = 60 * 60_000
 const DAY_MS = 24 * HOUR_MS
 
-/** Each slot's limits: 5 per rolling day, at most 2 of them in a rolling hour. */
-const BILLBOARD_SLOT_LIMITS = [
-  // The daily limit stays first: it keeps the bare key, so counts carry across deploys.
-  { maxImpressions: 5, windowMs: DAY_MS },
-  { maxImpressions: 2, windowMs: HOUR_MS },
-] as const
-
 /**
  * The frequency cap on each billboard slot, per user. It REPLACES the
  * campaign's own cap and the hourly ad and advertiser caps for these serves,
@@ -73,22 +66,28 @@ const BILLBOARD_SLOT_LIMITS = [
  * the sidebar all day. Billboard serves therefore do not spend the
  * campaign's hourly cap on its other placements either.
  *
- * Each slot serves each campaign 5 times a rolling day, at most 2 in a rolling
- * hour. One a day (2026-10-08 to 10-20) left the slots empty for heavy users:
- * on 10-19, 144k tier-1 billboard asks went unfilled because the one CPM
+ * The sidebar serves each campaign 5 times a rolling day, at most 2 in a
+ * rolling hour. One a day (2026-10-08 to 10-20) left it empty for heavy users:
+ * on 10-19, 130k tier-1 sidebar asks went unfilled because the one CPM
  * campaign had spent its serve. The hourly limit stops a minute-by-minute
- * sidebar from spending the day's 5 in one sitting. The slots count
- * separately, so a campaign can fill the sidebar and the panel in the same
- * hour (neither Desktop nor the Cloud workspace fills both in the same minute).
+ * sidebar from spending the day's 5 in one sitting. The panel stays at once a
+ * rolling day per campaign: it opens a full right panel, not a card. The slots
+ * count separately, so a campaign can fill the sidebar and the panel on the
+ * same day (neither Desktop nor the Cloud workspace fills both in the same
+ * minute). In every list the daily limit stays first: it keeps the bare key,
+ * so counts carry across deploys.
  */
 export const BILLBOARD_FREQUENCY_CAPS: Readonly<Record<string, BillboardFrequencyCap>> = {
   [BILLBOARD_SIDEBAR_PLACEMENT_ID]: {
     per: 'campaign',
-    limits: BILLBOARD_SLOT_LIMITS,
+    limits: [
+      { maxImpressions: 5, windowMs: DAY_MS },
+      { maxImpressions: 2, windowMs: HOUR_MS },
+    ],
   },
   [BILLBOARD_PANEL_PLACEMENT_ID]: {
     per: 'campaign',
-    limits: BILLBOARD_SLOT_LIMITS,
+    limits: [{ maxImpressions: 1, windowMs: DAY_MS }],
   },
 }
 
