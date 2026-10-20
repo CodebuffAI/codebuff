@@ -39,8 +39,34 @@ const ADMISSION_TAKEOVER = 'Enter: take over'
 const ADMISSION_OPEN = 'Esc: back to draft'
 // The `/model` picker's key hint, shown while it holds the composer's place.
 const MODEL_PICKER_OPEN = 'Enter select · Esc cancel'
-// The footer under the composer: "<model>[ • <effort>] · <cwd> · /model to change · …".
-const FLASH_FOOTER = new RegExp(`${FLASH_DISPLAY_NAME}( • \\w+)? · `)
+// Catalog labels can include a release date, e.g. "Flash 10/17". Keep the name
+// boundary so "Flash Fast" cannot satisfy the selected-model assertion.
+const FLASH_FOOTER = new RegExp(
+  `${FLASH_DISPLAY_NAME}(?: \\d{1,2}/\\d{1,2})?(?: • \\w+)? · `,
+)
+
+test('Flash footer accepts release dates without accepting Flash Fast', () => {
+  for (const label of [
+    'DeepSeek V4.1 Flash',
+    'DeepSeek V4.1 Flash • high',
+    'DeepSeek V4.1 Flash 10/17',
+    'DeepSeek V4.1 Flash 10/17 • high',
+    'DeepSeek V4.1 Flash 1/7 • low',
+  ]) {
+    expect(`${label} · /tmp/freebuff-smoke · /model to change`).toMatch(
+      FLASH_FOOTER,
+    )
+  }
+  for (const label of [
+    'DeepSeek V4.1 Flash Fast',
+    'DeepSeek V4.1 Flash Fast 10/17 • high',
+    'DeepSeek V4.1 Flash Fastest • high',
+  ]) {
+    expect(`${label} · /tmp/freebuff-smoke · /model to change`).not.toMatch(
+      FLASH_FOOTER,
+    )
+  }
+})
 
 const apiKey =
   process.env.FREEBUFF_SMOKE_API_KEY || process.env.CODEBUFF_API_KEY || null
