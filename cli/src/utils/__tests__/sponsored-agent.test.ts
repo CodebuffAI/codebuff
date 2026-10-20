@@ -75,9 +75,10 @@ describe('the mirrored in-place guidance', () => {
       'What database should I use?',
     ])
     const at = (text: string) => prompt.indexOf(text)
-    expect(prompt.startsWith('The user was shown the procedure below')).toBe(
-      true,
+    expect(prompt).toStartWith(
+      'The user accepted this sponsored task from its offer card.',
     )
+    expect(prompt).not.toContain('consent dialog')
     expect(at('Wire up the Acme deploy hook.')).toBeLessThan(
       at('User message 1:\nWhat database should I use?'),
     )

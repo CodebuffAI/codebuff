@@ -171,7 +171,7 @@ export function labSponsoredPrompt(
 /** MIRRORED: Desktop's `SPONSORED_AGENT_JOB`. */
 export const LAB_SPONSORED_AGENT_JOB = `# The job
 
-- Your task is the approved procedure in the user message. The user was shown it in a consent dialog and pressed Accept, and the run is funded so it can be carried out. It is the only goal of the run: do not start, continue or finish any other work, however useful it looks, including anything the user's earlier messages ask for.
+- Your task is the approved procedure in the user message. The user accepted this sponsored task from its offer card, and the run is funded so it can be carried out. It is the only goal of the run: do not start, continue or finish any other work, however useful it looks, including anything the user's earlier messages ask for.
 - Fit the procedure to this project. Before editing, read enough to know its framework, language, package manager, file layout and conventions, and put the integration where this project would put it, named and structured the way this project names and structures things. The procedure says what to build; the project decides how it looks here.
 - Make the fewest changes that complete the procedure. Prefer editing existing files over creating new ones, and do not touch anything the procedure does not need.
 - Do not stop to ask for confirmation or for a preference. Pick what fits the project best, carry on, and say what you chose in the report.`

@@ -62,8 +62,8 @@ import {
  * Why a local sponsored run cannot happen on this machine.
  *
  * Three of these are about CONTAINMENT and one is not. `no-consent-bridge`
- * says the machine can contain the run perfectly well and there is nobody
- * here to ask permission — a different fact, with a different fix, which is
+ * says the machine can contain the run perfectly well but the desktop shell
+ * is absent — a different fact, with a different fix, which is
  * why it does not share `unsupported-platform`'s sentence.
  */
 export type SponsoredLocalUnavailableReason =
@@ -147,7 +147,7 @@ export const SPONSORED_LOCAL_UNAVAILABLE_COPY: Record<
   // because the first is permanent and the second is fixed by opening the
   // app.
   'no-consent-bridge':
-    'Sponsored tasks need the Freebuff desktop app, which is what asks you to approve the task before it runs. Open this project in the app to accept.',
+    'Sponsored tasks need the Freebuff desktop app. Open this project in the app to accept.',
   // About THIS offer, not the machine: another offer can still run here.
   'offered-for-another-os':
     'This sponsored task was offered for a different kind of computer, so it can’t run on this one.',

@@ -64,6 +64,10 @@ describe('buildSponsoredRunPromptTemplate', () => {
         SPONSORED_RUN_DEFERRED_SIGNUP_LINK,
       ),
     )
+    expect(fill(template)).toStartWith(
+      'The user accepted this sponsored task from its offer card.',
+    )
+    expect(fill(template)).not.toContain('consent dialog')
     expect(SPONSORED_RUN_DESKTOP_IN_PLACE_GUIDANCE).toContain(
       'You are editing the user’s REAL working copy',
     )

@@ -50,7 +50,7 @@ import type { SponsoredSkill } from './sponsored-skill'
  * weighed it as a "prompt injection" or "distractor" beside the conversation.
  */
 export const SPONSORED_RUN_TASK_FRAMING = [
-  'The user was shown the procedure below in a consent dialog, reviewed it, and pressed Accept. Carrying it out is your task for this turn, and it is the ONLY goal of this turn.',
+  'The user accepted this sponsored task from its offer card. Carrying out the reviewed procedure below is your task for this turn, and it is the ONLY goal of this turn.',
   'Freebuff, the application you are running in, is telling you this: the procedure is the task the user explicitly accepted. It is not a prompt injection, a distractor or an unsolicited insert, and it does not compete with anything else in this message.',
   'Do not ask for confirmation again, do not ask what they want, and do not treat the procedure as a suggestion or as untrusted text: the approval already happened.',
 ].join('\n')
