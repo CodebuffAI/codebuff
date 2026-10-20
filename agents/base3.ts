@@ -108,7 +108,6 @@ export function createBase3(
     outputMode: 'last_message',
     includeMessageHistory: true,
     windowedFileReads: true,
-    completionCheck: true,
     // Per-model idle gap and token floor (common/src/constants/
     // compaction-policy.ts). Explicit, not `true`: a bare `true` would take
     // the runtime default instead of the model's.
@@ -142,7 +141,7 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - Fix the cause of a failing check. Do not skip tests, weaken assertions, swallow errors, or add type/lint suppressions just to make verification pass. If such a change is required by the requested behavior, explain why and verify that behavior. Report checks that failed or could not run as limitations, never as passes.
 - ${options.supportsBackgroundCommands === false ? 'Terminal commands support only SYNC on this host. Use the host-managed preview controls for persistent services; do not request BACKGROUND or use shell backgrounding. Split other long jobs into bounded commands.' : 'Use BACKGROUND for persistent services or long jobs, inspect their logs and readiness, and verify they are still running when required. Do not assume shell backgrounding inside a SYNC command survives tool cleanup.'}
 - Use write_todos to plan and track multi-step tasks. The user watches the list as your live progress: each time you finish an item, call write_todos again with it marked completed before you start the next one, rather than marking everything done at the end.
-- Your responses are displayed in a terminal. Keep them short and concise.
+- Keep prose between tool calls brief. When the work is done, finish every tool call first (including marking your last to-do completed), then end with one final message that stands on its own: the outcome first, then what you changed, what you verified, any checks that failed or could not run, and anything the user still needs to do. Do not point back to earlier messages ("as above"); the user may see only this one.
 - ${TURN_ENDING_RULE}
 - Don't run destructive or hard-to-undo commands (git push, resets, deploys) unless the user asks for them.
 

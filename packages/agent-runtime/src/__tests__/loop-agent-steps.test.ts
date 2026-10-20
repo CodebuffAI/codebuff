@@ -1094,6 +1094,53 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     })
   })
 
+  describe('Gravity report nudge', () => {
+    // search -> edit -> answer, then the nudge, then the report
+    const script = () => [
+      createToolCallChunk('gravity_index', { action: 'search', query: 'send email' }),
+      createToolCallChunk('write_file', {
+        path: 'src/email.ts',
+        instructions: 'Send email',
+        content: 'export {}',
+      }),
+      { type: 'text' as const, text: 'Added Resend email sending.' },
+      createToolCallChunk('gravity_index', {
+        action: 'report_integration',
+        search_id: 's-1',
+        integrated_slug: 'resend',
+      }),
+      { type: 'text' as const, text: 'Reported.' },
+    ]
+
+    it('ends the turn once the nudged report runs, with no closing step', async () => {
+      mockTemplate.toolNames.push('gravity_index')
+      const steps = script()
+      const seen: string[] = []
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        fetch: (async () =>
+          new Response(
+            JSON.stringify({
+              search_id: 's-1',
+              recommendation: { slug: 'resend', name: 'Resend' },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          )) as unknown as typeof globalThis.fetch,
+        promptAiSdkStream: async function* ({ messages }) {
+          seen.push(JSON.stringify(messages))
+          yield steps[seen.length - 1] ?? createToolCallChunk('end_turn', {})
+          return promptSuccess(`gravity-${seen.length}`)
+        },
+      })
+      expect(result.output.type).not.toBe('error')
+      expect(seen).toHaveLength(4)
+      expect(seen[3]).toContain('Write no text in this step')
+      expect(JSON.stringify(result.agentState.messageHistory)).not.toContain(
+        'Reported.',
+      )
+    })
+  })
+
   describe('to-do progress reminders', () => {
     const list = (doneCount: number, total = 4) =>
       createToolCallChunk('write_todos', {

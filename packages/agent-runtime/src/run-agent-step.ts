@@ -70,6 +70,7 @@ import {
 } from './util/suggest-prompts-before-answer'
 import {
   decideGravityReportNudge,
+  endsOnGravityReport,
   GRAVITY_REPORT_NUDGE_TAG,
 } from './util/gravity-report-nudge'
 import {
@@ -829,6 +830,16 @@ export const runAgentStep = async (
     shouldEndTurn =
       !hadToolCallError &&
       (hasTaskCompleted || (hasNoToolResults && !isThinkOnly))
+  }
+
+  // The answer to a Gravity report nudge ends the turn once its reports run;
+  // see util/gravity-report-nudge.ts.
+  if (
+    !shouldEndTurn &&
+    !hadToolCallError &&
+    endsOnGravityReport(toolCalls, agentState.messageHistory)
+  ) {
+    shouldEndTurn = true
   }
 
   // Cards before the answer; see util/suggest-prompts-before-answer.ts.
