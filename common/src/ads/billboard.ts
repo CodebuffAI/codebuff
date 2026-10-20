@@ -55,7 +55,15 @@ export type BillboardFrequencyCap = {
   limits: readonly { maxImpressions: number; windowMs: number }[]
 }
 
-const DAY_MS = 24 * 60 * 60_000
+const HOUR_MS = 60 * 60_000
+const DAY_MS = 24 * HOUR_MS
+
+/** Each slot's limits: 5 per rolling day, at most 2 of them in a rolling hour. */
+const BILLBOARD_SLOT_LIMITS = [
+  // The daily limit stays first: it keeps the bare key, so counts carry across deploys.
+  { maxImpressions: 5, windowMs: DAY_MS },
+  { maxImpressions: 2, windowMs: HOUR_MS },
+] as const
 
 /**
  * The frequency cap on each billboard slot, per user. It REPLACES the
@@ -65,18 +73,22 @@ const DAY_MS = 24 * 60 * 60_000
  * the sidebar all day. Billboard serves therefore do not spend the
  * campaign's hourly cap on its other placements either.
  *
- * Each slot serves each campaign once a rolling day. The slots count
- * separately, so a campaign can fill the sidebar and the panel on the same
- * day (neither Desktop nor the Cloud workspace fills both in the same minute).
+ * Each slot serves each campaign 5 times a rolling day, at most 2 in a rolling
+ * hour. One a day (2026-10-08 to 10-20) left the slots empty for heavy users:
+ * on 10-19, 144k tier-1 billboard asks went unfilled because the one CPM
+ * campaign had spent its serve. The hourly limit stops a minute-by-minute
+ * sidebar from spending the day's 5 in one sitting. The slots count
+ * separately, so a campaign can fill the sidebar and the panel in the same
+ * hour (neither Desktop nor the Cloud workspace fills both in the same minute).
  */
 export const BILLBOARD_FREQUENCY_CAPS: Readonly<Record<string, BillboardFrequencyCap>> = {
   [BILLBOARD_SIDEBAR_PLACEMENT_ID]: {
     per: 'campaign',
-    limits: [{ maxImpressions: 1, windowMs: DAY_MS }],
+    limits: BILLBOARD_SLOT_LIMITS,
   },
   [BILLBOARD_PANEL_PLACEMENT_ID]: {
     per: 'campaign',
-    limits: [{ maxImpressions: 1, windowMs: DAY_MS }],
+    limits: BILLBOARD_SLOT_LIMITS,
   },
 }
 
