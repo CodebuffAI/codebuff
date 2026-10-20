@@ -12,10 +12,9 @@
  *            Postgres
  *   drain    no new run goes to Postgres, but runners keep claiming from it:
  *            the first rung going live (runners first) and the last one
- *            rolling back (until the Postgres queue is empty). Today
- *            (Owen, 2026-10-20): the runners' claim loop goes live before
- *            `staff` marks a run
- *   staff    god/admin accounts only
+ *            rolling back (until the Postgres queue is empty)
+ *   staff    god/admin accounts only. Today (Owen, 2026-10-20): a short
+ *            staff test of the queue before the agent core writer flip
  *   <1-99>   that percentage of users by a stable hash of the user id, plus
  *            staff
  *   all      every run
@@ -35,7 +34,7 @@ export type RunQueueCohortSetting =
   | 'all'
   | `${number}`
 
-export const RUN_QUEUE_COHORT: RunQueueCohortSetting = 'drain'
+export const RUN_QUEUE_COHORT: RunQueueCohortSetting = 'staff'
 
 export type RunQueueCohort =
   | { kind: 'off' }
