@@ -816,7 +816,7 @@ const ADS_FIRST_PARTY_DECISION_FIELDS = {
    * whenever the scorer is configured: the model label, the attempt outcome
    * (`scored`, `control`, `timeout`, `http_error`, `no_candidates`, ...), its
    * latency, how many ads it asked about out of how many were eligible (the
-   * cut keeps the best 25), and the input budget's token estimate, provider
+   * cut keeps the best 10), and the input budget's token estimate, provider
    * usage and whether it trimmed context or omitted view history. Id-free.
    */
   decisions_pctr_model: 'string',
