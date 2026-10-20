@@ -23,6 +23,7 @@ import {
   selectFreebuffChatModel,
   requestFreebuffChatAdmission,
 } from '../state/freebuff-chat-store'
+import { captureCliFunnel } from '../utils/cli-product-funnel'
 import { isPlainEnterKey } from '../utils/terminal-enter-detection'
 
 export function FreebuffChatControls() {
@@ -36,11 +37,25 @@ export function FreebuffChatControls() {
   const session = useFreebuffSessionStore((s) => s.session)
   const { clearQueue, queuePaused } = useChatRuntime()
   useEffect(() => {
-    if (pickerOpen) void refreshFreebuffSessionMetadata().catch(() => {})
+    if (pickerOpen) {
+      captureCliFunnel('model_picker', 'shown', { model: nextModel ?? model })
+      void refreshFreebuffSessionMetadata().catch(() => {})
+    }
   }, [pickerOpen])
+  useEffect(() => {
+    if (!admission) return
+    const state =
+      admission.phase === 'failed'
+        ? 'failed'
+        : admission.phase === 'starting'
+          ? 'started'
+          : 'shown'
+    captureCliFunnel('admission', state, { model: admission.model })
+  }, [admission?.phase, admission?.model])
 
   const cancel = useCallback(async () => {
     if (pickerOpen) {
+      captureCliFunnel('model_picker', 'cancelled')
       useFreebuffChatStore.setState({ pickerOpen: false })
       return
     }
@@ -60,6 +75,7 @@ export function FreebuffChatControls() {
         return
       }
     }
+    captureCliFunnel('admission', 'cancelled', { model: current.model })
     const queued = clearQueue()
     const chat = useChatStore.getState()
     const text = [...queued.map((m) => m.content), chat.inputValue]
@@ -81,6 +97,11 @@ export function FreebuffChatControls() {
 
   const confirm = useCallback(() => {
     if (!admission) return
+    if (
+      session?.status === 'takeover_prompt' ||
+      ['confirm', 'failed'].includes(admission.phase)
+    )
+      captureCliFunnel('admission', 'clicked', { model: admission.model })
     if (session?.status === 'takeover_prompt') {
       void takeOverFreebuffSession()
     } else if (admission.phase === 'confirm') {
@@ -117,8 +138,20 @@ export function FreebuffChatControls() {
           maxHeight={Math.max(4, Math.floor(terminalHeight * 0.65) - 2)}
           selectedModelOverride={nextModel ?? model}
           initialView={pickerInitialView}
-          onSelectModel={selectFreebuffChatModel}
-          onCancel={() => useFreebuffChatStore.setState({ pickerOpen: false })}
+          onSelectModel={(selected) => {
+            selectFreebuffChatModel(selected)
+            if (!useFreebuffChatStore.getState().pickerOpen)
+              captureCliFunnel('model_selection', 'selected', {
+                model: selected,
+                previous_model: nextModel ?? model,
+                selection_kind:
+                  selected === (nextModel ?? model) ? 'reselected' : 'changed',
+              })
+          }}
+          onCancel={() => {
+            captureCliFunnel('model_picker', 'cancelled')
+            useFreebuffChatStore.setState({ pickerOpen: false })
+          }}
         />
       </box>
     )

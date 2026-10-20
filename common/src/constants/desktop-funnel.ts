@@ -23,6 +23,7 @@ const harness = z.enum(['codebuff', 'claude-code', 'codex'])
 export const desktopFunnelPropertiesSchema = z.object({
   event_id: z.string().uuid().optional(),
   acquisition_id: z.string().uuid().optional(),
+  acquisition_channel: z.enum(['students', 'organic', 'campaign', 'unknown']).optional(),
   flow_id: z.string().uuid().optional(),
   attempt_id: z.string().uuid().optional(),
   thread_id: entityId.optional(),

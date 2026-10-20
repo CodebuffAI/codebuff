@@ -9,6 +9,7 @@ import {
 } from './discord-invite'
 import { generateLoginUrl, pollLoginStatus } from './login-flow'
 import { flushAnalytics, identifyUser, trackEvent } from '../utils/analytics'
+import { captureCliFunnel } from '../utils/cli-product-funnel'
 import { saveUserCredentials } from '../utils/auth'
 import { IS_FREEBUFF } from '../utils/constants'
 import { getFingerprintId } from '../utils/fingerprint'
@@ -32,6 +33,7 @@ export async function runPlainLogin(): Promise<void> {
   console.log()
   console.log('Generating login URL...')
 
+  captureCliFunnel('login', 'started')
   let loginData
   try {
     loginData = await generateLoginUrl(
@@ -44,6 +46,7 @@ export async function runPlainLogin(): Promise<void> {
       },
     )
   } catch (error) {
+    captureCliFunnel('login', 'failed', { reason: 'error' })
     console.error(
       red(
         `Failed to generate login URL: ${
@@ -51,10 +54,13 @@ export async function runPlainLogin(): Promise<void> {
         }`,
       ),
     )
+    await flushAnalytics()
     process.exit(1)
   }
 
   console.log()
+  captureCliFunnel('login', 'ready')
+  captureCliFunnel('browser', 'shown')
   console.log('Open this URL in your browser to log in:')
   console.log()
   console.log(cyan(loginData.loginUrl))
@@ -89,6 +95,7 @@ export async function runPlainLogin(): Promise<void> {
     // process.exit would otherwise drop the buffered PostHog events.
     if (user.id) {
       identifyUser(user.id, { email: user.email, freebuff: IS_FREEBUFF })
+      captureCliFunnel('login', 'succeeded', { restored: false })
       trackEvent(AnalyticsEvent.LOGIN, {
         userId: user.id,
         via: 'plain_command',
@@ -116,10 +123,14 @@ export async function runPlainLogin(): Promise<void> {
     }
     process.exit(0)
   } else if (result.status === 'timeout') {
+    captureCliFunnel('login', 'failed', { reason: 'timeout' })
     console.error(red('Login timed out. Please try again.'))
+    await flushAnalytics()
     process.exit(1)
   } else {
+    captureCliFunnel('login', 'cancelled')
     console.error(red('Login was aborted.'))
+    await flushAnalytics()
     process.exit(1)
   }
 }

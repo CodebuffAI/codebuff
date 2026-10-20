@@ -13,6 +13,8 @@ const SAMPLED_EVENT_RATES: Partial<Record<AnalyticsEvent, number>> = {
 const ALWAYS_TRACK_EVENTS = new Set<AnalyticsEvent>([
   // DAU is measured from MESSAGE_SENT, so it must never be sampled.
   AnalyticsEvent.MESSAGE_SENT,
+  // Every conversion stage must have the same unsampled denominator.
+  AnalyticsEvent.PRODUCT_FUNNEL_STEP,
   // Engaged-time is summed from event counts, so it must never be sampled.
   AnalyticsEvent.PRODUCT_ACTIVE_MINUTE,
   AnalyticsEvent.APP_LAUNCHED,

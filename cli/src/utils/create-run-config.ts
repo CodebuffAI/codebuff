@@ -9,7 +9,8 @@ import {
   createStreamChunkHandler,
 } from './sdk-event-handlers'
 
-import type { EventHandlerState } from './sdk-event-handlers'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { EventHandlerState, StreamChunkEvent } from './sdk-event-handlers'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   AgentDefinition,
@@ -38,6 +39,9 @@ export type CreateRunConfigParams = {
    *  returned texts are appended as user prompts and keep the turn going
    *  (see RunOptions.drainSteeringMessages). */
   drainSteeringMessages?: () => string[]
+  /** Best-effort native analytics observers, independent of UI projection. */
+  observeEvent?: (event: PrintModeEvent) => void
+  observeChunk?: (event: StreamChunkEvent) => void
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -109,6 +113,8 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     drainSteeringMessages,
   } = params
 
+  const handleEvent = createEventHandler(eventHandlerState)
+  const handleStreamChunk = createStreamChunkHandler(eventHandlerState)
   return {
     logger,
     agent,
@@ -124,8 +130,26 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
       typeof agent === 'string' ? agent : agent.id,
     ),
     maxAgentSteps: MAX_AGENT_STEPS_DEFAULT,
-    handleStreamChunk: createStreamChunkHandler(eventHandlerState),
-    handleEvent: createEventHandler(eventHandlerState),
+    handleStreamChunk: (event: StreamChunkEvent) => {
+      handleStreamChunk(event)
+      if (eventHandlerState.isActive?.() !== false) {
+        try {
+          params.observeChunk?.(event)
+        } catch {
+          // Analytics must not fail a run.
+        }
+      }
+    },
+    handleEvent: (event: PrintModeEvent) => {
+      handleEvent(event)
+      if (eventHandlerState.isActive?.() !== false) {
+        try {
+          params.observeEvent?.(event)
+        } catch {
+          // Analytics must not fail a run.
+        }
+      }
+    },
     signal: params.signal,
     costMode,
     byok,

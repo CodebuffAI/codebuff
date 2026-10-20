@@ -19,6 +19,7 @@ export enum AnalyticsEvent {
   // desktop's analytics module; web/cloud via the Convex send mutation
   // (PostHog + Axiom, both direct from Convex — see convex/analytics.ts).
   MESSAGE_SENT = 'message_sent',
+  PRODUCT_FUNNEL_STEP = 'freebuff.product_funnel_step',
 
   // Cross-surface — engaged time
   // Emitted once per minute of *active engagement* on each surface (cli / web /

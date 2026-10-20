@@ -11,7 +11,10 @@ import { setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
 import { getFreebuffInstanceId } from './use-freebuff-session'
-import { getSelectedFreebuffReasoningEffort } from '../state/freebuff-model-store'
+import {
+  getSelectedFreebuffReasoningEffort,
+  getSelectedFreebuffModel,
+} from '../state/freebuff-model-store'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import {
   byokLoadFailureMessage,
@@ -21,6 +24,8 @@ import {
 } from '../utils/byok'
 import { AGENT_MODE_TO_COST_MODE, IS_FREEBUFF } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
+import { captureCliFunnel, cliFunnelKey } from '../utils/cli-product-funnel'
+import { createCliRunFunnel } from '../utils/cli-run-funnel'
 import { createRunConfig } from '../utils/create-run-config'
 import { getAgentIdForMode } from '../utils/freebuff-agent-selection'
 import {
@@ -364,7 +369,34 @@ export const useSendMessage = ({
       // context switch during attachment processing, validation, or client
       // creation had no controller to stop.
       const runOwnerId = randomUUID()
+      const funnelDetails = {
+        run_id: runOwnerId,
+        thread_id: cliFunnelKey(useChatStore.getState().chatSessionId),
+        model: shouldUseByok ? 'byok' : getSelectedFreebuffModel(),
+        harness: 'codebuff' as const,
+        has_attachments:
+          (attachments?.length ??
+            useChatStore.getState().pendingAttachments.length) > 0,
+        character_count: Math.min(content.length, 10_000_000),
+      }
+      const runFunnel = createCliRunFunnel({
+        capture: (stage, state, details) => {
+          // Sponsored work and its generated followups never count as conversion.
+          if (!sponsored) {
+            if (stage === 'send' && state === 'accepted')
+              captureCliFunnel('model_selection', 'applied', funnelDetails)
+            captureCliFunnel(stage, state, { ...funnelDetails, ...details })
+          }
+        },
+      })
       const abortController = new AbortController()
+      abortController.signal.addEventListener(
+        'abort',
+        () => runFunnel.cancel(),
+        {
+          once: true,
+        },
+      )
       const runChatDir = resolveCurrentChatDir()
       const runChatIsCurrent = () => resolveCurrentChatDir() === runChatDir
       let latestRunStateSnapshot: RunState = previousRunStateRef.current ?? {
@@ -769,6 +801,8 @@ export const useSendMessage = ({
               previousRunState: previousRunStateForTurn,
               agentDefinitions,
               eventHandlerState,
+              observeEvent: (event) => runFunnel.event(event),
+              observeChunk: (chunk) => runFunnel.chunk(chunk),
               signal: abortController.signal,
               // BYOK never enters the Freebuff free-mode admission or budget path.
               costMode: byok ? 'normal' : AGENT_MODE_TO_COST_MODE[agentMode],
@@ -820,6 +854,9 @@ export const useSendMessage = ({
               },
             })
 
+        funnelDetails.model = shouldUseByok
+          ? 'byok'
+          : getSelectedFreebuffModel()
         let runConfig = buildRunConfig()
 
         // Log a summary only: the full run config contains the entire
@@ -863,8 +900,12 @@ export const useSendMessage = ({
                   agentId,
                   agentDefinitions,
                 )
+                funnelDetails.model = shouldUseByok
+                  ? 'byok'
+                  : getSelectedFreebuffModel()
                 runConfig = buildRunConfig()
               }
+              runFunnel.accept()
               return client.run(runConfig as Parameters<typeof client.run>[0])
             },
             canRetry: () =>
@@ -876,6 +917,9 @@ export const useSendMessage = ({
               runChatIsCurrent(),
           }),
           selectedByok,
+        )
+        runFunnel.finish(
+          Boolean(runState.output && runState.output.type !== 'error'),
         )
         // THE CHECKS DECIDE WHEN A SPONSORED SKILL IS DONE (Desktop parity,
         // `docs/ads/agentic/step-checks.md`): a driven run's steps are
@@ -982,6 +1026,7 @@ export const useSendMessage = ({
           )
         }
       } catch (error) {
+        runFunnel.finish(false)
         if (sponsored) {
           sponsoredErrorText =
             error instanceof Error ? error.message : String(error)

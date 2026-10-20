@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuthQuery, useLogoutMutation } from './use-auth-query'
 import { useChatStore } from '../state/chat-store'
 import { useLoginStore } from '../state/login-store'
+import { captureCliFunnel } from '../utils/cli-product-funnel'
 import { identifyUser, trackEvent } from '../utils/analytics'
 import { getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
@@ -80,6 +81,7 @@ export const useAuthState = ({
         // the login modal, so `cli.login` would otherwise never fire for them —
         // making them look like a login-step drop-off in the funnel even though
         // they're authenticated. Emit it here too, tagged by `via`.
+        captureCliFunnel('login', 'succeeded', { restored: true }, 'restore')
         trackEvent(AnalyticsEvent.LOGIN, {
           userId: authQuery.data.id,
           via: 'session_restore',
@@ -105,6 +107,8 @@ export const useAuthState = ({
           email: loggedInUser.email,
         })
       }
+
+      captureCliFunnel('login', 'succeeded', { restored: false })
 
       // Track successful login
       trackEvent(AnalyticsEvent.LOGIN, {
