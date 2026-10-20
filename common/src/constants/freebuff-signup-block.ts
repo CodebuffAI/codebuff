@@ -31,6 +31,12 @@ export type SignupBlockReason =
   // A new account on a privacy, alias or disposable mail provider
   // (`isPrivacyEmailDomain` in @codebuff/auth/link-guard).
   | 'email_provider_not_allowed'
+  // Email/password sign-ups only (docs/freebuff-email-password.md): the
+  // VPN/proxy check could not answer, and that path fails closed where OAuth
+  // fails open.
+  | 'privacy_unverified'
+  // Email/password sign-ups only: too many on one custom email domain today.
+  | 'email_domain_velocity'
 
 /**
  * Deliberately actionable and non-accusatory.
@@ -68,6 +74,10 @@ export const SIGNUP_BLOCK_MESSAGES: Record<SignupBlockReason, string> = {
   // and the same two remedies apply.
   email_provider_not_allowed:
     "New accounts can't use a privacy, alias or disposable email address (such as Proton Mail, Tutanota, DuckDuckGo or Firefox Relay). Please sign up with Gmail, Outlook, iCloud, or your work or school email. If you use GitHub, make one of those your primary email in GitHub's settings (Settings → Emails) first.",
+  privacy_unverified:
+    "We couldn't check your connection just now. Please try again in a few minutes, or continue with Google, Apple or GitHub.",
+  email_domain_velocity:
+    'Too many accounts have been created with this email domain today. Please try again tomorrow, or continue with Google, Apple or GitHub.',
   github_email_unverified:
     "GitHub sign-in needs a verified email. Verify your email in GitHub's settings (Settings → Emails) and try again, or sign in with Google instead. If your email is already verified, GitHub may be temporarily unreachable; please try again in a few minutes.",
 }
