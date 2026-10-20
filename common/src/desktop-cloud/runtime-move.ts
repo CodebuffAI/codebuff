@@ -1,6 +1,8 @@
 /** A runtime stops at a move tool; the owning Desktop turn remains running. */
 export const RUNTIME_MOVE_ABORT = 'runtime-move'
 export const RUNTIME_CONTEXT_EVENT = 'runtime_context'
+/** Ordinary prompts are bounded separately from a runtime handoff's full context. */
+export const CLOUD_PROMPT_MAX_CHARS = 200_000
 
 export class RuntimeMoveRequested extends Error {
   constructor() {

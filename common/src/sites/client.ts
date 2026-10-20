@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod/v4'
 import { bundleSite, readSiteSecret } from './local-files'
+import { prepareNextSite } from './next-prepare'
 import { SITE_ARGS } from './tools'
 
 import { SitesClientError } from './errors'
@@ -68,6 +69,7 @@ export class SitesClient {
       getToken: () => string | null | undefined
       originApp: 'desktop' | 'web'
       files?: { bundle: typeof bundleSite; secret: typeof readSiteSecret }
+      prepareNext?: typeof prepareNextSite
       host: string
       fetcher?: (url: string, init: RequestInit) => Promise<Response>
     },
@@ -135,6 +137,9 @@ export class SitesClient {
           site_deletion_needs_reconciliation:
             'An earlier operation on this site never reported its result, so deletion is held until it is reconciled. Contact support@freebuff.com to have the site removed.',
           site_deleting: 'This site is being deleted.',
+          subdomain_taken: 'This subdomain is already taken. Try another name.',
+          invalid_subdomain: 'Use 1–63 letters, numbers or hyphens. Start and end with a letter or number; generated addresses and customers are reserved.',
+          production_subdomain_only: 'Switch to Production to customize your Freebuff address.',
           invalid_domain: 'Enter a subdomain such as www.example.com, without a URL or path. Root domains and platform domains are not supported.',
           domain_claimed: 'This domain is already connected or being verified. Remove it from the other site or contact support to recover access.',
           domain_limit: 'Remove the existing domain before connecting another.',
@@ -169,6 +174,11 @@ export class SitesClient {
         'Couldn’t reach Sites. Check your connection and try again.',
       )
     }
+  }
+  async setSubdomain(siteId: string, env: string, raw: unknown, requestId: string) {
+    const input = z.strictObject({ subdomain: z.string().min(1).max(100) }).safeParse(raw)
+    if (!uuid.safeParse(siteId).success || !environment.safeParse(env).success || !key.safeParse(requestId).success || !input.success) throw invalid('Invalid subdomain request.')
+    return this.request(`/${siteId}/environments/${env}/subdomain`, 'POST', input.data, requestId)
   }
   async domainAction(siteId: string, env: string, raw: unknown, requestId: string) {
     const input = z.discriminatedUnion('action', [
@@ -254,7 +264,7 @@ export class SitesClient {
       !(
         suffix.length === 0 ||
         (suffix.length === 1 &&
-          ['operations', 'analytics', 'domains'].includes(suffix[0])) ||
+          ['operations', 'analytics', 'domains', 'subdomain'].includes(suffix[0])) ||
         (suffix.length === 2 &&
           suffix[0] === 'auth' &&
           ['analytics', 'users'].includes(suffix[1])) ||
@@ -269,7 +279,7 @@ export class SitesClient {
     )
       throw invalid('Unknown Sites path.')
     const search = new URLSearchParams()
-    for (const field of ['table', 'offset', 'cursor', 'q', 'days']) {
+    for (const field of ['table', 'offset', 'cursor', 'q', 'days', 'name']) {
       const value = query.get(field)
       if (value !== null && value.length <= 2000) search.set(field, value)
     }
@@ -302,6 +312,17 @@ export class SitesClient {
         throw invalid('Sites mutations are unavailable in plan mode.')
       if (tool === 'sites_list')
         return await this.request('', 'GET', undefined, undefined, signal)
+      if (tool === 'sites_prepare_next') {
+        const args = z
+          .object({ projectDirectory: SITE_ARGS.workspacePath.optional() })
+          .strict()
+          .parse(raw)
+        return await (this.options.prepareNext ?? prepareNextSite)(
+          cwd,
+          args.projectDirectory ?? '.',
+          signal,
+        )
+      }
       if (tool === 'sites_create') {
         const args = z
           .object({ siteId: uuid, name: z.string().min(1).max(80) })

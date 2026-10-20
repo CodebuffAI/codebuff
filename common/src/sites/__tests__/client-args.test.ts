@@ -28,6 +28,50 @@ const run = (tool: string, args: unknown, mode = 'build') =>
     message?: string
   }>
 
+test('Next.js preparation runs in the workspace without creating or deploying a site', async () => {
+  const calls: unknown[] = []
+  const result = {
+    manifestPath: 'app/freebuff-sites-build/manifest.json',
+    localWranglerConfigPath: 'app/freebuff.wrangler.jsonc',
+    logPath: 'app/freebuff-sites-build/build.log',
+    runtime: 'opennext' as const,
+    nextVersion: '16.4.1',
+    adapterVersion: '1.20.12',
+  }
+  const client = new SitesClient({
+    getToken: () => undefined,
+    host: 'https://example.invalid',
+    originApp: 'desktop',
+    fetcher: async () => {
+      throw new Error('Preparation must not make hosting requests')
+    },
+    prepareNext: async (...args) => {
+      calls.push(args)
+      return result
+    },
+  })
+  const signal = new AbortController().signal
+  expect(
+    await client.runToolWithContext(
+      'sites_prepare_next',
+      { projectDirectory: 'app' },
+      '/workspace',
+      'build',
+      signal,
+    ),
+  ).toEqual(result)
+  expect(calls).toEqual([['/workspace', 'app', signal]])
+  expect(
+    await client.runToolWithContext(
+      'sites_prepare_next',
+      {},
+      '/workspace',
+      'plan',
+    ),
+  ).toMatchObject({ error: 'invalid_site_request' })
+  expect(calls).toHaveLength(1)
+})
+
 describe('the published schema is the schema that is enforced', () => {
   // The drift itself: every constraint the client applies must be visible in
   // the JSON Schema the model reads, or a refusal is unexplainable by design.
@@ -36,7 +80,9 @@ describe('the published schema is the schema that is enforced', () => {
       const json = z.toJSONSchema(z.object(spec.shape), { io: 'input' }) as {
         properties?: Record<string, unknown>
       }
-      expect(Object.keys(json.properties ?? {})).toEqual(Object.keys(spec.shape))
+      expect(Object.keys(json.properties ?? {})).toEqual(
+        Object.keys(spec.shape),
+      )
     }
   })
 
@@ -64,7 +110,9 @@ describe('the published schema is the schema that is enforced', () => {
       // `format` and the length bounds do not survive; a pattern does, which is
       // why every constraint a model must satisfy is expressed as one.
       if ('siteId' in spec.shape)
-        expect(roundTripped.properties?.siteId.pattern).toContain('[0-9a-fA-F]{8}')
+        expect(roundTripped.properties?.siteId.pattern).toContain(
+          '[0-9a-fA-F]{8}',
+        )
       if (spec.name === 'sites_add_storage' || spec.name === 'sites_set_secret')
         expect(roundTripped.properties?.name.pattern).toBe(
           '^[A-Z][A-Z0-9_]{0,63}$',
@@ -146,7 +194,9 @@ describe('a rejected argument says which one', () => {
       { siteId: '11111111-1111-4111-8111-111111111111', name: 'My Site' },
       'plan',
     )
-    expect(planned.message).toBe('Sites mutations are unavailable in plan mode.')
+    expect(planned.message).toBe(
+      'Sites mutations are unavailable in plan mode.',
+    )
 
     const unknown = await run('sites_teleport', {
       siteId: '11111111-1111-4111-8111-111111111111',

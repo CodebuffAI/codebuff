@@ -36,13 +36,16 @@ describe('the Sites tool surface', () => {
       'sites_enable_auth',
       'sites_inspect',
       'sites_list',
+      'sites_prepare_next',
       'sites_set_published',
       'sites_set_secret',
     ])
   })
 
   test('the tool that says data is retained also says where deletion lives, so the model never reports a gap that is not there', () => {
-    const retaining = SITE_TOOL_SPECS.filter((spec) => /retained/i.test(spec.description))
+    const retaining = SITE_TOOL_SPECS.filter((spec) =>
+      /retained/i.test(spec.description),
+    )
     expect(retaining.map((spec) => spec.name)).toEqual(['sites_set_published'])
     const [{ description }] = retaining
     expect(description).toContain('Unpublishing is not deletion')
