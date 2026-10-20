@@ -45,6 +45,12 @@ import {
   deliveredSponsoredSkillForProcedure,
   deliveredSponsoredSkillForRef,
 } from './sponsored-skill-delivery'
+import {
+  sponsoredRepoFactsFiles,
+  sponsoredSkillFactChecksOnly,
+  sponsoredStaticCheckContext,
+  type SponsoredRepoFacts,
+} from './sponsored-skill-fit'
 import { resolveSponsoredSkill } from './sponsored-skills/registry'
 import {
   evaluateSponsoredSkillChecks,
@@ -554,6 +560,32 @@ export async function runSponsoredSkillPreflight(
       preflight: checks,
     },
   }
+}
+
+/**
+ * THE PREFLIGHT over repository facts instead of a worktree: the same
+ * {@link runSponsoredSkillPreflight} the run calls, on the checks facts can
+ * decide (`sponsoredSkillFactChecksOnly`), over the project exactly as the
+ * facts show it (`sponsoredRepoFactsFiles`: their files and manifests, and
+ * nothing else). No command runs. So where a run would find no manifest or
+ * no dependency its preflight needs, this fails the same check, with the
+ * same evaluator and label.
+ *
+ * The offer route holds a Desktop V1 snapshot (`localCapability.framework`,
+ * which says only whether a root package.json exists and declares next) to
+ * it: docs/freebuff-agentic-ads.md, "Skill fit on the offer route".
+ */
+export function runSponsoredSkillPreflightOverFacts(input: {
+  skill: SponsoredSkill
+  facts: SponsoredRepoFacts
+  /** The device OS, as `requirements.os` names it; unknown skips that check. */
+  platform: string | null | undefined
+}): Promise<SponsoredSkillPreflightOutcome> {
+  return runSponsoredSkillPreflight({
+    skill: sponsoredSkillFactChecksOnly(input.skill),
+    ctx: sponsoredStaticCheckContext(sponsoredRepoFactsFiles(input.facts)),
+    platform: input.platform,
+  })
 }
 
 /** The run error's opening, as {@link runSponsoredSkillPreflight} writes it. */
