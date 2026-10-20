@@ -139,6 +139,46 @@ describe('terminal command process diagnostics', () => {
     }
   })
 
+  test('names a missing working directory instead of the shell', async () => {
+    // Spawning in a missing cwd fails with an ENOENT naming the shell
+    // ("uv_spawn 'C:\Program Files\Git\bin\bash.exe'"), which models read as
+    // bash being missing and retried for hundreds of calls.
+    const tempDir = mkdtempSync(join(tmpdir(), 'codebuff-missing-cwd-'))
+    const missing = join(tempDir, 'not-created-yet')
+
+    try {
+      for (const process_type of ['SYNC', 'BACKGROUND'] as const) {
+        await expect(
+          runTerminalCommand({
+            command: 'true',
+            process_type,
+            cwd: missing,
+            timeout_seconds: 5,
+          }),
+        ).rejects.toThrow(`Working directory "${missing}" does not exist.`)
+      }
+      // Only a failed spawn is diagnosed: a broker's own refusal (a sponsored
+      // run's containment) still reads the same for every path outside it.
+      await expect(
+        runTerminalCommand({
+          command: 'true',
+          process_type: 'SYNC',
+          cwd: missing,
+          timeout_seconds: 5,
+          terminalCommandBroker: {
+            start: () => {
+              throw new Error('only inside its own worktree')
+            },
+          },
+        }),
+      ).rejects.toThrow(
+        'Failed to start terminal command broker: only inside its own worktree',
+      )
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
   test('uses broker output and completion without spawning directly', async () => {
     const stdout = new PassThrough()
     const stderr = new PassThrough()

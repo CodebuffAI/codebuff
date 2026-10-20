@@ -108,6 +108,10 @@ export function createBase3(
     outputMode: 'last_message',
     includeMessageHistory: true,
     windowedFileReads: true,
+    // A root built on this that can spawn lists those agents once, at the end
+    // of its system prompt, not in a message after every user prompt that
+    // stays in history.
+    spawnableAgentsInSystemPrompt: true,
     // Per-model idle gap and token floor (common/src/constants/
     // compaction-policy.ts). Explicit, not `true`: a bare `true` would take
     // the runtime default instead of the model's.

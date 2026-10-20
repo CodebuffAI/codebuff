@@ -10,6 +10,7 @@ import { getBundledRgPath } from '../native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 import { Logger } from '@codebuff/common/types/contracts/logger'
+import { missingDirectoryError } from './run-terminal-command'
 import type {
   TerminalCommandBroker,
   TerminalCommandProcess,
@@ -195,7 +196,11 @@ export function codeSearch({
       return resolve([
         {
           type: 'json',
-          value: { errorMessage: `Failed to execute ripgrep: ${message}` },
+          value: {
+            errorMessage:
+              missingDirectoryError(error, searchCwd, 'Search directory') ??
+              `Failed to execute ripgrep: ${message}`,
+          },
         },
       ])
     }
@@ -539,7 +544,9 @@ export function codeSearch({
         if (isResolved) return
         const message = error instanceof Error ? error.message : String(error)
         settle({
-          errorMessage: `Failed to execute ripgrep: ${message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
+          errorMessage:
+            missingDirectoryError(error, searchCwd, 'Search directory') ??
+            `Failed to execute ripgrep: ${message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
         })
       })
   })

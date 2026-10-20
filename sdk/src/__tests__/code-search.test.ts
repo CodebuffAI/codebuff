@@ -935,6 +935,26 @@ describe('codeSearch', () => {
       expect(spawnOptions.cwd).toBe('/test/project/subdir')
     })
 
+    it('names a missing search directory instead of ripgrep', async () => {
+      // ripgrep spawned in a missing cwd fails with an ENOENT naming ripgrep
+      mockSpawn.mockImplementation(() => {
+        throw Object.assign(
+          new Error("ENOENT: no such file or directory, posix_spawn 'rg'"),
+          { code: 'ENOENT' },
+        )
+      })
+
+      const result = await codeSearch({
+        projectPath: '/test/project',
+        pattern: 'test',
+        cwd: 'not-created-yet',
+      })
+
+      expect(asCodeSearchResult(result[0]).errorMessage).toBe(
+        'Search directory "/test/project/not-created-yet" does not exist.',
+      )
+    })
+
     it('should search cwd outside the project directory', async () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
