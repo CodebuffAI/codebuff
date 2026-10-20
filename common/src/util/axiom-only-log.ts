@@ -1,3 +1,4 @@
+import { readClientEventId } from '../ads/ad-event-hygiene'
 import { AnalyticsEvent } from '../constants/analytics-events'
 import {
   ADS_BREAK_CLICKED_EVENT,
@@ -158,6 +159,33 @@ const SHOWCASE_PRESENTATION_VARIANTS = [
   'inline_fallback',
   'text_only_image_failure',
 ] as const
+
+/** Web does not run Desktop's Gravity creative experiment. Keep this shape
+ * distinct so a presentation never fabricates its experiment identifiers. */
+export function createWebShowcasePresentationTelemetry(
+  value: unknown,
+): Record<string, string | number | boolean> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const row = value as Record<string, unknown>
+  if (
+    row.placement_id !== 'Desktop-Showcase:web' ||
+    row.surface !== 'freebuff_web_chat' ||
+    row.format !== 'showcase' ||
+    row.client_family !== 'web' ||
+    !readClientEventId(row.client_event_id)
+  )
+    return null
+  const clean = sanitizeAllowlistedFields(row, ADS_SPONSOR_BREAK_FIELDS)
+  if (
+    ['curated', 'legacy', 'text_only_image_failure'].includes(
+      String(row.showcase_variant),
+    )
+  )
+    clean.showcase_variant = String(row.showcase_variant)
+  if (row.showcase_arm === 'control' || row.showcase_arm === 'showcase')
+    clean.showcase_arm = row.showcase_arm
+  return clean
+}
 
 /** Bounded client report of a presentation; this does not prove delivery. */
 export function createGravityShowcasePresentationTelemetry(
@@ -1136,6 +1164,8 @@ const ADS_SPONSOR_BREAK_FIELDS = {
   /** `spotlight` | `showcase` | `intermission`. */
   format: 'string',
   sponsor_break_arm: 'string',
+  policy_provenance: 'string',
+  showcase_arm: 'string',
   campaign_label: 'string',
   creative_version: 'number',
   opportunity_id: 'string',
@@ -1152,6 +1182,8 @@ const ADS_SPONSOR_BREAK_FIELDS = {
   /** Intermission's countdown, and whether it ran out before they acted. */
   timer_ms: 'number',
   timer_completed: 'boolean',
+  dismiss_lock_ms: 'number',
+  lock_completed: 'boolean',
   // COD-365 hygiene, required on every client ads event by the CI guard.
   client_event_id: 'string',
   client_family: 'string',
@@ -1337,7 +1369,9 @@ export function getAxiomOnlyLogEvent(
     }
   }
   if (eventName === ADS_SHOWCASE_PRESENTED_EVENT) {
-    const data = createGravityShowcasePresentationTelemetry(record)
+    const data =
+      createGravityShowcasePresentationTelemetry(record) ??
+      createWebShowcasePresentationTelemetry(record)
     // Keep the event inside the restricted branch even when malformed. The
     // sink treats `null` as an ordinary row and would otherwise retain the raw
     // client payload that failed validation.

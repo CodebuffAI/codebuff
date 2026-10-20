@@ -1204,3 +1204,64 @@ describe('getAxiomOnlyLogEvent', () => {
     })
   })
 })
+
+test('web showcase telemetry is separately validated and never manufactures Desktop experiment fields', () => {
+  const result = getAxiomOnlyLogEvent({
+    axiomEvent: ADS_SHOWCASE_PRESENTED_EVENT,
+    placement_id: 'Desktop-Showcase:web',
+    surface: 'freebuff_web_chat',
+    format: 'showcase',
+    client_family: 'web',
+    client_event_id: '12345678-1234-4234-8234-123456789abc',
+    sponsor_break_arm: 'unknown',
+    policy_provenance: 'unavailable',
+    showcase_variant: 'legacy',
+    impUrl: 'secret',
+    userId: 'secret',
+    gravity_showcase_version: 'forged',
+  })
+  expect(result?.data).toMatchObject({
+    placement_id: 'Desktop-Showcase:web',
+    showcase_variant: 'legacy',
+    policy_provenance: 'unavailable',
+  })
+  expect(result?.data).not.toHaveProperty('gravity_showcase_version')
+  expect(result?.data).not.toHaveProperty('impUrl')
+  expect(result?.data).not.toHaveProperty('userId')
+  expect(
+    getAxiomOnlyLogEvent({
+      axiomEvent: ADS_SHOWCASE_PRESENTED_EVENT,
+      placement_id: 'Desktop-Showcase:web',
+      format: 'showcase',
+      client_family: 'desktop',
+    })?.data,
+  ).toEqual({})
+})
+
+test('sponsor lifecycle retains dismissal lock semantics in the restricted sink', () => {
+  for (const event of [
+    'ads.break_shown',
+    'ads.break_clicked',
+    'ads.break_closed',
+    ADS_SHOWCASE_PRESENTED_EVENT,
+  ]) {
+    const result = getAxiomOnlyLogEvent({
+      axiomEvent: event,
+      placement_id: 'Desktop-Showcase:web',
+      surface: 'freebuff_web_chat',
+      format: 'showcase',
+      client_family: 'web',
+      client_event_id: '12345678-1234-4234-8234-123456789abc',
+      dismiss_lock_ms: 5000,
+      lock_completed: false,
+      userId: 'private',
+      impUrl: 'private',
+    })
+    expect(result?.data).toMatchObject({
+      dismiss_lock_ms: 5000,
+      lock_completed: false,
+    })
+    expect(result?.data).not.toHaveProperty('userId')
+    expect(result?.data).not.toHaveProperty('impUrl')
+  }
+})
