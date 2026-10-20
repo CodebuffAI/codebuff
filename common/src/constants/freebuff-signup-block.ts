@@ -32,10 +32,11 @@ export type SignupBlockReason =
   // (`isPrivacyEmailDomain` in @codebuff/auth/link-guard).
   | 'email_provider_not_allowed'
   // Email/password sign-ups only (docs/freebuff-email-password.md): the
-  // VPN/proxy check could not answer, and that path fails closed where OAuth
-  // fails open.
+  // signup gate could not run, and that path fails closed where OAuth fails
+  // open.
   | 'privacy_unverified'
-  // Email/password sign-ups only: too many on one custom email domain today.
+  // Email/password sign-ups only: 3 new accounts on one custom email domain
+  // today (`EMAIL_DOMAIN_DAILY_ACCOUNTS`).
   | 'email_domain_velocity'
 
 /**
