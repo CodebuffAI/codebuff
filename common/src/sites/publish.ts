@@ -216,6 +216,22 @@ type Operation = {
     provider?: { codes?: number[]; stage?: string; status?: number }
   } | null
 }
+type SiteEnvironment = {
+  url: string
+  published?: boolean
+  deployed_at?: string | null
+  unpublished_at?: string | null
+  auth?: unknown
+  bindings?: { name: string; kind: string }[]
+}
+
+// Older backends have the timestamps but no explicit publication field.
+function isPublished(environment: SiteEnvironment): boolean {
+  return (
+    environment.published ??
+    Boolean(environment.deployed_at && !environment.unpublished_at)
+  )
+}
 
 /** Receipts keep only codes; say what each means without vendor prose. */
 export function operationFailureMessage(operation: Operation): string {
@@ -287,14 +303,9 @@ export async function publishSite(options: {
       await call('sites_create', { siteId, name })
     }
     const target = { siteId, environment }
-    const inspected = await call<{
-      environment: {
-        url: string
-        unpublished_at?: string | null
-        auth?: unknown
-        bindings?: { name: string; kind: string }[]
-      }
-    }>('sites_inspect', target)
+    const inspect = () =>
+      call<{ environment: SiteEnvironment }>('sites_inspect', target)
+    const inspected = await inspect()
     const details = inspected.environment
     if (prepared.usesAuth && !details.auth)
       await call('sites_enable_auth', target)
@@ -338,14 +349,29 @@ export async function publishSite(options: {
     if (operation.state !== 'succeeded')
       return fail(operationFailureMessage(operation))
 
-    if (details.unpublished_at) {
+    // A successful upload is not publication. Republish only when this request
+    // started with an unpublished environment; preserve a newer Unpublish.
+    let current = (await inspect()).environment
+    if (!isPublished(current) && details.unpublished_at) {
       options.onEvent({ type: 'stage', stage: 'publishing' })
-      await call('sites_set_published', {
-        ...target,
-        published: true,
-        requestId: id(),
-      })
+      const publication = await call<{ operation: Operation }>(
+        'sites_set_published',
+        {
+          ...target,
+          published: true,
+          requestId: id(),
+        },
+      )
+      if (publication.operation.state !== 'succeeded')
+        return fail(
+          'Publication was not confirmed. Check deployment activity in Manage site.',
+        )
+      current = (await inspect()).environment
     }
+    if (!isPublished(current))
+      return fail(
+        'The deployment succeeded, but this environment is unpublished. Check Publication in Manage site.',
+      )
     const event = {
       type: 'done' as const,
       siteId,

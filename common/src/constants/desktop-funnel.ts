@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { templateAnalyticsFields } from '../templates/analytics'
 
 export const DESKTOP_FUNNEL_EVENT = 'desktop.funnel_step'
 /** Isolated journey events: these IDs are never identified or aliased to accounts. */
@@ -6,7 +7,7 @@ export const DESKTOP_ACQUISITION_EVENT = 'desktop.acquisition_step'
 
 export const desktopFunnelStepSchema = z.enum([
   'landing', 'install', 'launch', 'welcome', 'login', 'browser', 'provider', 'connect', 'survey', 'question',
-  'folder', 'composer', 'draft', 'model_picker', 'model_selection', 'send',
+  'template', 'folder', 'composer', 'draft', 'model_picker', 'model_selection', 'send',
   'turn', 'response',
 ])
 export const desktopFunnelStateSchema = z.enum([
@@ -21,6 +22,7 @@ const harness = z.enum(['codebuff', 'claude-code', 'codex'])
 // Deliberately closed: no text, local paths, URLs, auth codes or arbitrary property bags.
 // Entity IDs are local transport only; Desktop hashes them before external capture.
 export const desktopFunnelPropertiesSchema = z.object({
+  ...templateAnalyticsFields,
   event_id: z.string().uuid().optional(),
   acquisition_id: z.string().uuid().optional(),
   acquisition_channel: z.enum(['students', 'organic', 'campaign', 'unknown']).optional(),
@@ -39,7 +41,7 @@ export const desktopFunnelPropertiesSchema = z.object({
   answered_count: z.number().int().min(0).max(50).optional(),
   selection_count: z.number().int().min(0).max(100).optional(),
   has_other_text: z.boolean().optional(),
-  project_kind: z.enum(['folder', 'no_folder', 'cloud', 'empty_local', 'cloud_repo', 'cloud_empty']).optional(),
+  project_kind: z.enum(['folder', 'no_folder', 'cloud', 'empty_local', 'cloud_repo', 'cloud_empty', 'template']).optional(),
   harness: harness.optional(),
   previous_harness: harness.optional(),
   model: modelId.optional(),
@@ -77,6 +79,6 @@ export const DESKTOP_FUNNEL_LABELS = {
   landing: 'Landing', install: 'Install', launch: 'Launch',
   welcome: 'Welcome', login: 'Login', browser: 'Browser', provider: 'Provider',
   connect: 'Connect', survey: 'Survey', question: 'Question', folder: 'Folder',
-  composer: 'Compose', draft: 'Type', model_picker: 'Models',
+  template: 'Template', composer: 'Compose', draft: 'Type', model_picker: 'Models',
   model_selection: 'Select', send: 'Send', turn: 'Complete', response: 'Reply',
 } satisfies Record<DesktopFunnelStep, string>

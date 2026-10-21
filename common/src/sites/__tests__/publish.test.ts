@@ -51,6 +51,13 @@ function fakeSites(
 ) {
   const calls: [string, Record<string, unknown>][] = []
   let ids = 0
+  const details = {
+    url: 'https://env.freebuff.page',
+    bindings: [],
+    auth: null,
+    deployed_at: null as string | null,
+    ...environment,
+  }
   return {
     calls,
     id: () => `id-${++ids}`,
@@ -58,10 +65,17 @@ function fakeSites(
       calls.push([name, args])
       if (name === 'sites_inspect')
         return {
-          environment: { url: 'https://env.freebuff.page', bindings: [], auth: null, ...environment },
+          environment: { ...details },
           activity: { operations: [] },
         }
-      if (name === 'sites_deploy') return deploy
+      if (name === 'sites_deploy') {
+        details.deployed_at = '2026-10-21T00:00:00Z'
+        return deploy
+      }
+      if (name === 'sites_set_published') {
+        Object.assign(details, { published: true, unpublished_at: null })
+        return { operation: { id: 'publication', state: 'succeeded' } }
+      }
       if (name === 'sites_add_storage') return { operation: { id: 's', state: 'succeeded' } }
       if (name === 'sites_prepare_next')
         return { manifestPath: 'freebuff-sites-build/manifest.json' }
@@ -91,6 +105,7 @@ test('publishing a new project creates its site, then deploys it with no agent',
     'sites_create',
     'sites_inspect',
     'sites_deploy',
+    'sites_inspect',
   ])
   expect(sites.calls[0]![1]).toEqual({ siteId: 'id-1', name: 'My project' })
   expect(sites.calls[2]![1]).toEqual({
@@ -127,20 +142,22 @@ test('an existing site gets auth, declared storage and republishing, never a dup
     'sites_enable_auth',
     'sites_add_storage',
     'sites_deploy',
+    'sites_inspect',
     'sites_set_published',
+    'sites_inspect',
   ])
   expect(sites.calls[3]![1]).toMatchObject({ kind: 'r2', name: 'FILES', siteId: SITE })
-  expect(sites.calls[5]![1]).toMatchObject({ published: true, environment: 'production' })
+  expect(sites.calls[6]![1]).toMatchObject({ published: true, environment: 'production' })
 })
 
 test('a refused tool call or a rejected deployment ends with an explanation', async () => {
   const refused = await publishSite({
     environment: 'preview',
-    tool: async () => ({ error: 'sites_request_failed', message: 'Your free hosting allowance includes 3 sites.' }),
+    tool: async () => ({ error: 'sites_request_failed', message: 'Your free hosting allowance includes 3 published sites.' }),
     prepare: async () => prepared(),
     onEvent: () => {},
   })
-  expect(refused).toEqual({ type: 'error', message: 'Your free hosting allowance includes 3 sites.' })
+  expect(refused).toEqual({ type: 'error', message: 'Your free hosting allowance includes 3 published sites.' })
 
   const rejected = fakeSites({}, {
     operation: {
@@ -179,7 +196,7 @@ test('a deployment still running is polled by its operation id', async () => {
       if (name === 'sites_deploy') return { operation: { id: 'op', state: 'running' } }
       if (name === 'sites_inspect')
         return {
-          environment: { url: 'https://env.freebuff.page', bindings: [] },
+          environment: { url: 'https://env.freebuff.page', bindings: [], published: true },
           activity: {
             operations: [
               { id: 'op', state: ++polls > 2 ? 'succeeded' : 'running', result: polls > 2 ? { url: 'https://done.page' } : null },
@@ -193,6 +210,72 @@ test('a deployment still running is polled by its operation id', async () => {
     sleep: async () => {},
   })
   expect(result).toMatchObject({ type: 'done', url: 'https://done.page' })
+})
+
+test('publishing preserves a newer Unpublish made during the upload', async () => {
+  const sites = fakeSites()
+  let inspections = 0
+  let publications = 0
+  const result = await publishSite({
+    environment: 'production',
+    siteId: SITE,
+    tool: async (name, args) => {
+      if (name === 'sites_inspect')
+        return {
+          environment: {
+            url: 'https://env.freebuff.page',
+            deployed_at: '2026-10-21T00:00:00Z',
+            // It was published initially, then unpublished during upload.
+            published: ++inspections === 1,
+          },
+        }
+      if (name === 'sites_set_published') {
+        publications++
+        return { error: 'sites_request_failed', message: 'Your free hosting allowance includes 3 published sites.' }
+      }
+      return sites.tool(name, args)
+    },
+    prepare: async () => prepared(),
+    onEvent: () => {},
+  })
+  expect(inspections).toBe(2)
+  expect(publications).toBe(0)
+  expect(result).toEqual({ type: 'error', message: 'The deployment succeeded, but this environment is unpublished. Check Publication in Manage site.' })
+})
+
+test('publishing an unpublished environment reports the publication limit', async () => {
+  const sites = fakeSites({ unpublished_at: '2026-10-20T00:00:00Z' })
+  const result = await publishSite({
+    environment: 'production',
+    siteId: SITE,
+    tool: async (name, args) => name === 'sites_set_published'
+      ? { error: 'sites_request_failed', message: 'Your free hosting allowance includes 3 published sites.' }
+      : sites.tool(name, args),
+    prepare: async () => prepared(),
+    onEvent: () => {},
+  })
+  expect(result).toEqual({ type: 'error', message: 'Your free hosting allowance includes 3 published sites.' })
+})
+
+test('a successful publication receipt cannot announce done if the environment is now unpublished', async () => {
+  const sites = fakeSites({ published: false, unpublished_at: '2026-10-20T00:00:00Z' })
+  const events: SitePublishEvent[] = []
+  const result = await publishSite({
+    environment: 'preview',
+    siteId: SITE,
+    tool: async (name, args) => {
+      if (name === 'sites_set_published')
+        return { operation: { id: 'publication', state: 'succeeded' } }
+      return sites.tool(name, args)
+    },
+    prepare: async () => prepared(),
+    onEvent: (event) => events.push(event),
+  })
+  expect(result).toEqual({
+    type: 'error',
+    message: 'The deployment succeeded, but this environment is unpublished. Check Publication in Manage site.',
+  })
+  expect(events.some((event) => event.type === 'done')).toBe(false)
 })
 
 test('failure messages come from receipt codes, never vendor prose', () => {

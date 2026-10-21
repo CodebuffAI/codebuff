@@ -284,6 +284,29 @@ describe('base3 CLI roots', () => {
     }
   })
 
+  // Flash on this prompt read every verification and planning rule as a
+  // standing order and built far past small asks, and built a large version of
+  // open-ended asks instead of settling scope (docs/freebuff-base3-harness.md,
+  // "Scope discipline"). The completeness half stays: base3 once lost to base2
+  // on Flash for leaving requested work undone.
+  test('sizes the work to the request, without dropping completeness', () => {
+    for (const prompt of [
+      createBase3().systemPrompt!,
+      ...ALL_CLI_ROOTS.map((root) => root.systemPrompt!),
+    ]) {
+      expect(prompt).toContain('Size the work to the request')
+      expect(prompt).toContain('Do everything the user asked for, completely')
+      expect(prompt).toContain('settle the scope before building')
+      expect(prompt).toContain('Verify in proportion to the change')
+      // Unasked screenshots cost minutes a turn: a local loop of 19 captures
+      // on a "make it full screen" ask, and Cloud turns rebuilding Chromium.
+      expect(prompt).toContain(
+        'Take screenshots or drive a browser for visual inspection only when the user explicitly asks',
+      )
+      expect(prompt).not.toContain('through the interface the user will use')
+    }
+  })
+
   test('brands Freebuff roots as Freebuff, and Codebuff roots as Codebuff', () => {
     expect(base3FreeDeepseek.systemPrompt).toContain('Freebuff')
     expect(base3FreeDeepseek.systemPrompt).not.toContain('/usage')

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { templateAnalyticsFields } from '../templates/analytics'
 
 export const PRODUCT_FUNNEL_EVENT = 'freebuff.product_funnel_step'
 export const productFunnelProductSchema = z.enum([
@@ -20,6 +21,7 @@ export const productFunnelStageSchema = z.enum([
   'composer',
   'draft',
   'project',
+  'template',
   'model_picker',
   'model_selection',
   'admission',
@@ -73,6 +75,7 @@ const modelId = z
 /** Closed payload: no prompts, paths, URLs, account IDs, auth IDs or provider errors. */
 export const productFunnelPropertiesSchema = z
   .object({
+    ...templateAnalyticsFields,
     entry_account_state: z
       .enum(['signed_out', 'signed_in', 'stored_credentials'])
       .optional(),
@@ -93,6 +96,7 @@ export const productFunnelPropertiesSchema = z
         'cloud_repo',
         'cloud_empty',
         'local',
+        'template',
         'unknown',
       ])
       .optional(),

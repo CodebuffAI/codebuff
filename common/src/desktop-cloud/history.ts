@@ -5,6 +5,8 @@ export type CloudHistoryProject = {
   name: string
   createdAt: string
   github?: import('./github').GitHubRepository | null
+  /** The starter selected at project creation; absent from older servers. */
+  template?: import('../templates/selected').SelectedTemplate | null
   /**
    * When the user removed it from their project list, or null. A removed project is left out of
    * `listProjects` until someone prompts in it again. Absent from older servers.

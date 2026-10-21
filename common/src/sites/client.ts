@@ -123,7 +123,9 @@ export class SitesClient {
           sites_usage_unavailable:
             'Hosting usage is being checked. Try again shortly.',
           project_limit:
-            'Your free hosting allowance includes 3 sites. You can continue updating your existing sites.',
+            'Your saved Sites limit has been reached. Delete an unused site to create another.',
+          published_site_limit:
+            'Your free hosting allowance includes 3 published sites. Unpublish every published environment of one site to publish another. Your saved sites and data are preserved.',
           binding_limit:
             'Each site environment includes one database and one storage bucket. Reuse the existing binding.',
           variable_limit:
