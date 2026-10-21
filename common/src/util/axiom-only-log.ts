@@ -525,6 +525,18 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   ad_features_lookup: 'string',
   ad_features_ms: 'number',
   /**
+   * The conversation's newest message classification, read beside the
+   * feature store's user read (`ml-feature-store/message-classification.ts`)
+   * for the Flash pCTR call's `state.messageClassification`:
+   * `message_classification_lookup` is `ready`, `missing` (none for this
+   * conversation), `no_conversation` (no `sessionId`), `opted_out`,
+   * `unconfigured`, `disabled`, `gate_unavailable`, `unavailable`, `timeout`
+   * or `not_read`; `message_classification_age_s` how old the one found was.
+   * Id-free.
+   */
+  message_classification_lookup: 'string',
+  message_classification_age_s: 'number',
+  /**
    * The pclick SHADOW (`pclick-shadow.ts`) for the request's first shadow
    * decision, as known on the serve path; absent when none ran:
    * `pclick_shadow_outcome` (`pending` once the call to the pclick-scorer
@@ -856,6 +868,13 @@ const ADS_FIRST_PARTY_DECISION_FIELDS = {
   decisions_pctr_input_tokens: 'number',
   decisions_pctr_context_trimmed: 'boolean',
   decisions_pctr_history_omitted: 'boolean',
+  /**
+   * Whether the conversation's message classification went with the batch:
+   * `sent`, `none` (the store had none), `other_model` (from a classifier
+   * version this prompt does not describe) or `omitted` (dropped to fit the
+   * token budget). The block itself rides the decision into the training log.
+   */
+  decisions_pctr_message_classification: 'string',
   /**
    * The intent pipeline's one Flash relevance batch
    * (`ad-model/intent-relevance.ts`), on composer intent decisions only: the
