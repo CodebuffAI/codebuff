@@ -16,7 +16,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 
-import { loadLocalAgents } from './agents/load-agents'
+import { getUserAgentDir, loadLocalAgents } from './agents/load-agents'
 import { loadSkills } from './skills/load-skills'
 
 // Re-export for SDK consumers
@@ -125,6 +125,13 @@ export type InitialSessionStateOptions = {
   /** User-provided knowledge files that will be merged with home directory files */
   userKnowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
+  /**
+   * Directories `loadLocalAgents` may import when the host did not supply
+   * `agentDefinitions`. A host that gates repository `.agents` content passes
+   * only what the user trusted; omitting it loads the user's own `~/.agents`
+   * and never the repository (AB827V0 #070).
+   */
+  agentDirs?: string[]
   customToolDefinitions?: CustomToolDefinition[]
   maxAgentSteps?: number
   fs?: CodebuffFileSystem
@@ -920,11 +927,20 @@ export async function initialSessionState(
     }
   }
 
+  // An explicit list — even an empty one — is the host's answer, not a cue to
+  // go looking. A host that gates repository `.agents` content passes the
+  // directories that survived; `[]` means none did. Discovering the defaults
+  // here re-imported the very repository directory the gate had just skipped
+  // (AB827V0 #070: a cloned repo's `.agents/*.ts` ran on import), and the
+  // unhosted default is now the user's own `~/.agents` rather than the cwd.
   let processedAgentTemplates: Record<string, any> = {}
-  if (agentDefinitions && agentDefinitions.length > 0) {
+  if (params.agentDefinitions !== undefined) {
     processedAgentTemplates = processAgentDefinitions(agentDefinitions)
   } else {
-    processedAgentTemplates = await loadLocalAgents({ verbose: false })
+    processedAgentTemplates = await loadLocalAgents({
+      verbose: false,
+      agentDirs: params.agentDirs ?? [getUserAgentDir()],
+    })
   }
   const processedCustomToolDefinitions = processCustomToolDefinitions(
     customToolDefinitions,
@@ -1056,6 +1072,7 @@ export async function generateInitialRunState({
   knowledgeFiles,
   userKnowledgeFiles,
   agentDefinitions,
+  agentDirs,
   customToolDefinitions,
   maxAgentSteps,
   fs,
@@ -1066,6 +1083,7 @@ export async function generateInitialRunState({
   knowledgeFiles?: Record<string, string>
   userKnowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
+  agentDirs?: string[]
   customToolDefinitions?: CustomToolDefinition[]
   maxAgentSteps?: number
   fs: CodebuffFileSystem
@@ -1079,6 +1097,7 @@ export async function generateInitialRunState({
       knowledgeFiles,
       userKnowledgeFiles,
       agentDefinitions,
+      agentDirs,
       customToolDefinitions,
       maxAgentSteps,
       fs,

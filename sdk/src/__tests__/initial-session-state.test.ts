@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs'
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
@@ -7,7 +7,11 @@ import { z } from 'zod/v4'
 
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
 
-import { applyOverridesToSessionState, initialSessionState } from '../run-state'
+import {
+  applyOverridesToSessionState,
+  generateInitialRunState,
+  initialSessionState,
+} from '../run-state'
 
 import type { MockStatResult } from '@codebuff/common/testing/mock-types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -603,5 +607,103 @@ describe('Initial Session State', () => {
     expect(sessionState.mainAgentState.directCreditsUsed).toBe(0)
     expect(sessionState.mainAgentState.output).toBeUndefined()
     expect(sessionState.mainAgentState.parentId).toBeUndefined()
+  })
+
+  describe('repository .agents are never imported by default', () => {
+    // The CLI resolves trusted agent dirs, then passes the resulting
+    // definitions. An empty list (no agents, or the repository directory was
+    // skipped as untrusted) used to fall back to `loadLocalAgents()` with its
+    // defaults, importing `{cwd}/.agents`, whose files execute on import.
+    const makeRepo = () => {
+      const dir = mkdtempSync(path.join(os.tmpdir(), 'codebuff-agent-trust-'))
+      const marker = path.join(dir, 'imported')
+      mkdirSync(path.join(dir, '.agents'), { recursive: true })
+      writeFileSync(
+        path.join(dir, '.agents', 'agent.ts'),
+        `import { writeFileSync } from 'fs'\nwriteFileSync(${JSON.stringify(
+          marker,
+        )}, 'imported')\nexport default { id: 'repo-agent', model: 'test/model' }\n`,
+      )
+      return { dir, marker }
+    }
+
+    // The defaults are built from `process.cwd()`, the directory a clone
+    // controls, so the tests have to stand in it.
+    const inRepo = async (
+      dir: string,
+      run: () => Promise<void>,
+    ): Promise<void> => {
+      const launchDir = process.cwd()
+      try {
+        process.chdir(dir)
+        await run()
+      } finally {
+        process.chdir(launchDir)
+        rmSync(dir, { recursive: true, force: true })
+      }
+    }
+
+    test('an explicit empty agentDefinitions is the answer, not a cue to scan', async () => {
+      const { dir, marker } = makeRepo()
+      await inRepo(dir, async () => {
+        const sessionState = await initialSessionState({
+          cwd: dir,
+          projectFiles: {},
+          agentDefinitions: [],
+          fs: mockFs,
+          logger: mockLogger,
+        })
+        expect(existsSync(marker)).toBe(false)
+        expect(sessionState.fileContext.agentTemplates['repo-agent']).toBe(
+          undefined,
+        )
+      })
+    })
+
+    test('no agentDefinitions and no agentDirs does not scan the cwd either', async () => {
+      const { dir, marker } = makeRepo()
+      await inRepo(dir, async () => {
+        await initialSessionState({
+          cwd: dir,
+          projectFiles: {},
+          fs: mockFs,
+          logger: mockLogger,
+        })
+        expect(existsSync(marker)).toBe(false)
+      })
+    })
+
+    test('a host-supplied agentDirs is still loaded (discovery stays opt-in)', async () => {
+      const { dir, marker } = makeRepo()
+      await inRepo(dir, async () => {
+        const sessionState = await initialSessionState({
+          cwd: dir,
+          projectFiles: {},
+          agentDirs: [path.join(dir, '.agents')],
+          fs: mockFs,
+          logger: mockLogger,
+        })
+        expect(existsSync(marker)).toBe(true)
+        expect(
+          sessionState.fileContext.agentTemplates['repo-agent'],
+        ).toBeDefined()
+      })
+    })
+
+    test('generateInitialRunState passes agentDirs through', async () => {
+      const { dir, marker } = makeRepo()
+      await inRepo(dir, async () => {
+        const runState = await generateInitialRunState({
+          cwd: dir,
+          projectFiles: {},
+          agentDirs: [path.join(dir, '.agents')],
+          fs: mockFs,
+        })
+        expect(existsSync(marker)).toBe(true)
+        expect(
+          runState.sessionState!.fileContext.agentTemplates['repo-agent'],
+        ).toBeDefined()
+      })
+    })
   })
 })

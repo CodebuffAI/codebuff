@@ -204,6 +204,10 @@ export type CodebuffClientOptions = {
   skipSymbolIndex?: boolean
   knowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
+  /** See `InitialSessionStateOptions.agentDirs`: the directories a fresh
+   *  session may import agent modules from when `agentDefinitions` is
+   *  omitted. Defaults to `~/.agents`; never the repository. */
+  agentDirs?: string[]
   maxAgentSteps?: number
   env?: Record<string, string>
   /** Optional host process boundary that keeps terminal tools away from an
@@ -574,6 +578,7 @@ async function runOnce({
   skipSymbolIndex,
   knowledgeFiles,
   agentDefinitions,
+  agentDirs,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
   terminalCommandBroker,
@@ -662,6 +667,7 @@ async function runOnce({
       includeHomeSkills,
       knowledgeFiles,
       agentDefinitions,
+      agentDirs,
       customToolDefinitions,
       projectFiles,
       projectIndex,
