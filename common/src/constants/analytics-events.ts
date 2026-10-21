@@ -334,6 +334,12 @@ export enum AnalyticsEvent {
   FREEBUFF_GET_STARTED_HELP_EXPANDED = 'freebuff.get_started_help_expanded',
   FREEBUFF_GET_STARTED_EDITOR_CLICKED = 'freebuff.get_started_editor_clicked',
 
+  // Paid signup destinations. A handoff arrival is not a signup; compare the
+  // signed-out entry with canonical web.signup and message_sent conversions.
+  FREEBUFF_START_VIEWED = 'freebuff.start_viewed',
+  FREEBUFF_START_SIGN_IN_CLICKED = 'freebuff.start_sign_in_clicked',
+  FREEBUFF_START_SIGNED_IN = 'freebuff.start_signed_in',
+
   // Freebuff - Chat
   // Emitted once per new-thread title generation attempt (server-side). The
   // `outcome` property is one of: generated | empty | unknown_model | error |
