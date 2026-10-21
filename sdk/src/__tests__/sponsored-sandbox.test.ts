@@ -25,7 +25,8 @@ import {
   sponsoredMacSecretReadRules,
   sponsoredSecretFiles,
 } from '../tools/sponsored-sandbox'
-import { codeSearch, parseCodeSearchFlags } from '../tools/code-search'
+import { parseCodeSearchFlags } from '@codebuff/common/util/code-search-flags'
+import { codeSearch } from '../tools/code-search'
 import { probeSponsoredRuntimes } from '../tools/sponsored-runtimes'
 import { sponsoredContainmentTestGate } from '../../test/sponsored-containment-gate'
 

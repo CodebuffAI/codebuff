@@ -9,6 +9,9 @@ import {
   createRgJsonContext,
 } from '@codebuff/common/testing/mocks'
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { PassThrough } from 'node:stream'
 
 import { codeSearch } from '../tools/code-search'
@@ -953,6 +956,58 @@ describe('codeSearch', () => {
       expect(asCodeSearchResult(result[0]).errorMessage).toBe(
         'Search directory "/test/project/not-created-yet" does not exist.',
       )
+    })
+
+    describe('a file named as cwd', () => {
+      let root: string
+      beforeEach(() => {
+        root = mkdtempSync(path.join(tmpdir(), 'code-search-file-cwd-'))
+        mkdirSync(path.join(root, 'src'))
+        writeFileSync(path.join(root, 'src', 'app.ts'), 'test content\n')
+      })
+      afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+      it('searches that file from its directory', async () => {
+        const searchPromise = codeSearch({
+          projectPath: root,
+          pattern: 'test',
+          cwd: 'src/app.ts',
+        })
+        mockProcess.emit('close', 0)
+        await searchPromise
+
+        const [, args, options] = mockSpawn.mock.calls[0]! as [
+          string,
+          string[],
+          { cwd: string },
+        ]
+        expect(options.cwd).toBe(path.join(root, 'src'))
+        expect(args.slice(-3)).toEqual(['--', 'test', 'app.ts'])
+      })
+
+      it('leaves a broker the cwd as named', async () => {
+        const requests: Parameters<TerminalCommandBroker['start']>[0][] = []
+        await codeSearch({
+          projectPath: root,
+          pattern: 'test',
+          cwd: 'src/app.ts',
+          processBroker: {
+            start: (request) => {
+              requests.push(request)
+              return {
+                stdout: new PassThrough(),
+                stderr: new PassThrough(),
+                completion: Promise.resolve(1),
+                kill: () => {},
+                isAlive: () => false,
+              }
+            },
+          },
+        })
+
+        expect(requests[0]!.cwd).toBe(path.join(root, 'src', 'app.ts'))
+        expect(requests[0]!.args.at(-1)).toBe('.')
+      })
     })
 
     it('should search cwd outside the project directory', async () => {

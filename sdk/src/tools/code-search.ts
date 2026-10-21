@@ -3,7 +3,10 @@ import { spawn } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { codeSearchExecFlagRefusal } from '../../../common/src/util/code-search-flags'
+import {
+  codeSearchExecFlagRefusal,
+  parseCodeSearchFlags,
+} from '../../../common/src/util/code-search-flags'
 import { isSensitiveEnvFilePath } from '../../../common/src/util/env-file-path'
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
@@ -27,43 +30,6 @@ export const INCLUDED_HIDDEN_DIRS: readonly string[] = [
   '.circleci', // CircleCI configuration
   '.husky', // Git hooks
 ]
-
-/**
- * Parse the user-facing flag string once so validation and process spawning see
- * the same argv. Quotes group whitespace but are not passed to ripgrep because
- * spawn() does not invoke a shell.
- */
-export function parseCodeSearchFlags(flags: string | undefined): string[] | null {
-  if (!flags?.trim()) return []
-  const tokens: string[] = []
-  let token = ''
-  let quote: "'" | '"' | null = null
-  let tokenStarted = false
-  for (const character of flags) {
-    if (quote) {
-      if (character === quote) quote = null
-      else token += character
-      tokenStarted = true
-      continue
-    }
-    if (character === "'" || character === '"') {
-      quote = character
-      tokenStarted = true
-    } else if (/\s/.test(character)) {
-      if (tokenStarted) {
-        tokens.push(token)
-        token = ''
-        tokenStarted = false
-      }
-    } else {
-      token += character
-      tokenStarted = true
-    }
-  }
-  if (quote) return null
-  if (tokenStarted) tokens.push(token)
-  return tokens
-}
 
 export function codeSearch({
   projectPath,
@@ -100,6 +66,16 @@ export function codeSearch({
     // directory on the system.
     const projectRoot = path.resolve(projectPath)
     const searchCwd = cwd ? path.resolve(projectRoot, cwd) : projectRoot
+    // A `cwd` naming a file asks for that file's matches, so search it from
+    // its directory instead of failing to start in it. Never through a
+    // broker: a sponsored run's broker admits only the directory search
+    // below, and must not be preceded by a stat of a path the model chose.
+    let searchFile = false
+    if (!processBroker) {
+      try {
+        searchFile = fs.statSync(searchCwd).isFile()
+      } catch {}
+    }
 
     // Do not deduplicate: repeated flag-argument pairs such as `-g *.ts` are
     // meaningful. The shared parser keeps quoted values as one argv entry.
@@ -133,7 +109,11 @@ export function codeSearch({
         return false
       }
     })
-    const searchPaths = ['.', ...existingHiddenDirs]
+    // ripgrep searches a path it is given whatever the ignore rules, `-g` and
+    // `-t` filters say.
+    const searchPaths = searchFile
+      ? [path.basename(searchCwd)]
+      : ['.', ...existingHiddenDirs]
     const args = [
       '--no-config',
       '-n',
@@ -174,7 +154,7 @@ export function codeSearch({
         })
       } else {
         const child = spawn(rgPath, args, {
-          cwd: searchCwd,
+          cwd: searchFile ? path.dirname(searchCwd) : searchCwd,
           stdio: ['ignore', 'pipe', 'pipe'],
         })
         childProcess = {
