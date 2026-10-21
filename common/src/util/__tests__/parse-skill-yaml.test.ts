@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import matter from 'gray-matter'
+
 import { parseSkillFileContent } from '../parse-skill'
 
 // AB827V0 #288: skill frontmatter is user-controlled, and gray-matter's own
@@ -34,5 +36,17 @@ describe('skill frontmatter YAML', () => {
     )
     expect(skill?.name).toBe('demo-skill')
     expect(skill?.description).toBe('Does a thing')
+  })
+
+  // gray-matter's DEFAULT engine (still used by the web docs) calls js-yaml 3's
+  // `safeLoad`, which js-yaml 4 removed; patches/gray-matter@4.0.3.patch
+  // switches it to `load`, which is safe by default in 4. Without the patch
+  // this throws "Function yaml.safeLoad is removed in js-yaml 4".
+  test("gray-matter's default engine runs on js-yaml 4 and refuses JS tags", () => {
+    const fresh = (s: string) => matter(s, { excerpt: false })
+    expect(fresh('---\ntitle: Hello\n---\nBody').data).toEqual({ title: 'Hello' })
+    expect(() =>
+      fresh('---\nf: !!js/function "function () {}"\n---\n'),
+    ).toThrow('unknown tag')
   })
 })
