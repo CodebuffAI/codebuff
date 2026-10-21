@@ -311,6 +311,15 @@ export interface FreebuffFreebucksInfo {
    * `price - soloDiscount`; `prices` stay at list.
    */
   soloDiscount?: number
+  /**
+   * Rows on which this viewer is not shown the session clock (2026-10-21:
+   * full access in tiers 1 and 2, on a row of five hours or less). Clients
+   * draw no time left, countdown or hour-end notice for a session on one.
+   * Sent only beside `spendWithoutAsking`, so an hour that runs out renews
+   * without a question. Display only: the session is still an hour. Absent
+   * keeps every clock.
+   */
+  untimedModelIds?: readonly string[]
   /** The plan the daily pool and bonus were sized from; null on free. */
   planId: string | null
   /** Session price per model id. Only models on the meter appear here. */

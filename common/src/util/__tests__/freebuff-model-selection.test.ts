@@ -11,6 +11,7 @@ import {
 import type { FreebuffFreebucksInfo } from '../../types/freebuff-session'
 import {
   freebuffPlanRequired,
+  freebuffSessionUntimed,
   freebucksRowIntent,
 } from '../freebuff-model-selection'
 
@@ -94,5 +95,16 @@ describe('the full-access session policy', () => {
     expect(intent(freebucks(never), 'flash')).toBe('paywall')
     // 30 less 15 is still more than 10.
     expect(intent(freebucks({ ...never, soloDiscount: 15 }), 'pro')).toBe('paywall')
+  })
+
+  it('hides the clock only on the rows the server names', () => {
+    const info = freebucks({ spendWithoutAsking: true, untimedModelIds: ['flash'] })
+    expect(freebuffSessionUntimed('flash', info)).toBe(true)
+    expect(freebuffSessionUntimed('pro', info)).toBe(false)
+    expect(freebuffSessionUntimed(undefined, info)).toBe(false)
+    // No verdict (an older server, another tier, an unreadable balance) keeps it.
+    expect(freebuffSessionUntimed('flash', freebucks())).toBe(false)
+    expect(freebuffSessionUntimed('flash', null)).toBe(false)
+    expect(freebuffSessionUntimed('flash', undefined)).toBe(false)
   })
 })
