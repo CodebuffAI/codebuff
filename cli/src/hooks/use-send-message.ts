@@ -527,24 +527,24 @@ export const useSendMessage = ({
           if (releaseIfStopped()) return
 
           if (!validationResult.success) {
-            logger.warn(
-              { errors: validationResult.errors },
-              '[send-message] Validation failed',
-            )
             const errorsToAttach =
               validationResult.errors.length === 0
                 ? [
-                    // Hide this for now, as validate endpoint may be flaky and we don't want to bother users.
-                    // {
-                    //   id: NETWORK_ERROR_ID,
-                    //   message:
-                    //     'Agent validation failed. This may be due to a network issue or temporary server problem. Please try again.',
-                    // },
+                    {
+                      id: 'validation_error',
+                      message:
+                        'The validation check failed without an explanation.',
+                    },
                   ]
                 : validationResult.errors
 
-            setMessages((prev) =>
-              prev.map((msg) => {
+            // Error-level telemetry retains details; warnings are summarized.
+            logger.error(
+              { errors: errorsToAttach },
+              '[send-message] Validation failed',
+            )
+            setMessages((prev) => [
+              ...prev.map((msg) => {
                 if (msg.id !== userMessageId) {
                   return msg
                 }
@@ -553,7 +553,13 @@ export const useSendMessage = ({
                   validationErrors: errorsToAttach,
                 }
               }),
-            )
+              createErrorChatMessage(
+                `Message not sent: agent validation failed. ${errorsToAttach[0].message} Check the error and try again.`,
+              ),
+            ])
+            await yieldToEventLoop()
+            if (releaseIfStopped()) return
+            setTimeout(() => scrollToLatest(), 0)
             finishPreflight()
             return
           }
