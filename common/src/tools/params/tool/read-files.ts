@@ -52,7 +52,7 @@ const legacyInputSchema = z
       .describe('List of file paths to read.'),
   })
   .describe(
-    `Read multiple files from disk. Returned file content shares a 20,000 estimated-token limit and a 100,000-character hard limit. Prefer the smallest relevant set of files and use code_search for targeted discovery.`,
+    `Read text files and view images (PNG, JPEG, GIF, WebP) from disk. Local image reads attach the image for visual inspection rather than returning its bytes as text. Returned text content shares a 20,000 estimated-token limit and a 100,000-character hard limit. Prefer the smallest relevant set of files and use code_search for targeted discovery.`,
   )
 
 const windowedInputSchema = z
@@ -64,7 +64,7 @@ const windowedInputSchema = z
       ),
   })
   .describe(
-    `Read files from disk. List several paths to read several files in one call. Large files are cut off after 2,000 lines, with a note telling you the file's total line count. Don't read a large file whole: use code_search to locate the part you need (matches come with line numbers), then read a window around it with { path, offset, limit }. Avoid tiny repeated slices; when in doubt, take a window of a few hundred lines.`,
+    `Read text files and view images (PNG, JPEG, GIF, WebP) from disk. Local image reads attach the image for visual inspection rather than returning its bytes as text. List several paths to read several files in one call. Line ranges apply only to text files. Large text files are cut off after 2,000 lines, with a note telling you the file's total line count. Don't read a large text file whole: use code_search to locate the part you need (matches come with line numbers), then read a window around it with { path, offset, limit }. Avoid tiny repeated slices; when in doubt, take a window of a few hundred lines.`,
   )
 
 const description = `
@@ -73,7 +73,7 @@ ${$getNativeToolCallExampleString({
   toolName,
   inputSchema: legacyInputSchema,
   input: {
-    paths: ['path/to/file1.ts', 'path/to/file2.ts'],
+    paths: ['path/to/file.ts', 'path/to/screenshot.png'],
   },
   endsAgentStep,
 })}
