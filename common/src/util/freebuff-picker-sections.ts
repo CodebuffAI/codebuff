@@ -103,17 +103,18 @@ const PLACEMENTS: Readonly<Record<string, FreebuffPickerPlacement>> =
     'meta/muse-spark-1.3-contributor': { section: 'optimized', order: 20 }, // 15
     'z-ai/glm-5.3-flash': { section: 'optimized', order: 40 }, // 20
     'openai/gpt-6-luna': { section: 'optimized', order: 50 }, // 20
-    // Powerful (2026-10-13): Gemini 4 Argon, then Claude Haiku 5.5's
-    // 100k-context row, then cheapest to dearest; Gemini 3.8 Flash and
-    // GPT-6.1 Sol under More, Gemini first.
-    'google/gemini-4-argon': { section: 'powerful', order: 1 },
+    // Powerful: Claude Haiku 5.5's 100k-context row, then cheapest to dearest.
+    // The dearest rows wait under More, cheapest first (product, 2026-10-22,
+    // so the expensive models are less visible): Claude Haiku 5.5 full
+    // context, Gemini 3.8 Flash, Gemini 4 Argon, GPT-6.1 Sol.
     'm-5b6a604eb6': { section: 'powerful', order: 2 }, // Claude Haiku 5.5, 100k context
     'mimo/mimo-v2.6-pro': { section: 'powerful', order: 10 }, // 25
     // 25, or 50 in DeepSeek's peak window, so after MiMo 2.6 Pro's flat 25.
     'deepseek/deepseek-v4-flash-fast': { section: 'powerful', order: 20 },
-    'm-79293c5b7d': { section: 'powerful', order: 30 }, // Claude Haiku 5.5, 75
-    'google/gemini-3.8-flash': { section: 'powerful', order: 40, more: true },
-    'openai/gpt-6.1-sol': { section: 'powerful', order: 50, more: true },
+    'm-79293c5b7d': { section: 'powerful', order: 35, more: true }, // Claude Haiku 5.5, 75
+    'google/gemini-3.8-flash': { section: 'powerful', order: 40, more: true }, // 80
+    'google/gemini-4-argon': { section: 'powerful', order: 45, more: true }, // 100
+    'openai/gpt-6.1-sol': { section: 'powerful', order: 50, more: true }, // 250
   })
 
 /** The compiled place of one id, if it has one: the server's default. */

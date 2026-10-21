@@ -14,7 +14,7 @@ import {
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
 import { SOLAR_PRO_4_OFFER, SOLAR_PROMOTIONAL } from './freebuff-solar-promo'
-import { GEMINI_4_ARGON_PROMOTIONAL } from './freebuff-sol-promo'
+import { GEMINI_4_ARGON_ENDING_SOON } from './freebuff-sol-promo'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -2523,7 +2523,7 @@ const GPT_5_6_LUNA_MODEL = {
 
 /** The tooltip on every "Price change" badge (2026-10-21, product). */
 export const FREEBUFF_PRICE_CHANGE_TOOLTIP =
-  'This model’s price is changing soon. The picker will show the new hourly rate before it takes effect.'
+  'This model’s price will change soon to reflect what our provider charges (out of our control).'
 
 const GPT_6_LUNA_MODEL = {
   id: FREEBUFF_GPT_6_LUNA_MODEL_ID,
@@ -2602,8 +2602,9 @@ const GEMINI_4_ARGON_MODEL = {
   // PROMOTIONAL, by product decision (2026-10-13): 100 Freebucks is a
   // temporary price (FREEBUFF_GEMINI_4_ARGON_MODEL_ID), and the label says so
   // rather than letting a user build a habit on it.
-  promotional: GEMINI_4_ARGON_PROMOTIONAL,
-  priceChange: { tooltip: FREEBUFF_PRICE_CHANGE_TOOLTIP },
+  // ENDING SOON, by product decision (2026-10-22): the one pill, replacing
+  // Promotional and Price change (GEMINI_4_ARGON_ENDING_SOON).
+  dealEndingSoon: GEMINI_4_ARGON_ENDING_SOON,
   taglineTooltip:
     'On Google flex capacity, with a standard-tier backup when it’s busy.',
 } as const satisfies FreebuffModelOption

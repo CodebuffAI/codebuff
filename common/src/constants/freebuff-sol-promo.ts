@@ -3,7 +3,7 @@
  * Argon (2026-10-13). Both are ONE SESSION A DAY for every account, paid
  * plans included.
  *
- * `GEMINI_4_ARGON_PROMOTIONAL` is Argon's `promotional` field and its server
+ * `GEMINI_4_ARGON_ENDING_SOON` is Argon's `dealEndingSoon` field and its server
  * price notice (`freebucksPricing().priceNotices`) that released CLI and
  * Desktop builds render in place of the tagline: one constant so the two
  * cannot disagree, naming the daily limit so nobody meets it first as a
@@ -20,16 +20,15 @@ export const GPT_61_SOL_MODEL_ID = 'openai/gpt-6.1-sol'
 export const GEMINI_4_ARGON_MODEL_ID = 'google/gemini-4-argon'
 
 /**
- * The tooltip also says the row is NEW and EXPERIMENTAL (product,
- * 2026-10-13): Desktop and the Web workspace draw only the promotional pill
- * beside a model name, so its hover text is where those two facts are seen.
- * Since 2026-10-16 it leads with the promotion ending very soon (product: the
- * promotional price does not cover the row's cost).
+ * Argon's one pill since 2026-10-22 (product): "Ending soon", replacing the
+ * Promotional and Price change pills. The promotional price does not cover
+ * the row's cost and will move to what Google charges; the hover also keeps
+ * the daily limit, so nobody meets it first as a refusal.
  */
-export const GEMINI_4_ARGON_PROMOTIONAL = {
-  short: 'Promotional · 1 session a day',
+export const GEMINI_4_ARGON_ENDING_SOON = {
+  short: 'Ending soon',
   tooltip:
-    'This promotional price ends very soon. New and experimental: it may be unreliable or change without notice. Free in the US, a paid plan elsewhere, until the promotion ends. One session a day on every plan.',
+    'This promotional price ends soon, to reflect what our provider charges (out of our control). One session a day on every plan.',
 } as const
 
 /**

@@ -53,7 +53,9 @@ describe('freebuffPickerPlacement', () => {
     for (const id of [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID, FREEBUFF_GPT_6_LUNA_MODEL_ID]) {
       expect(at(id)).toEqual({ section: 'optimized', order: expect.any(Number) })
     }
-    expect(at(FREEBUFF_GEMINI_4_ARGON_MODEL_ID)).toEqual({ section: 'powerful', order: 1 })
+    // Gemini 4 Argon waits under Powerful's More since 2026-10-22, between
+    // Gemini 3.8 Flash and GPT-6.1 Sol by price.
+    expect(at(FREEBUFF_GEMINI_4_ARGON_MODEL_ID)).toEqual({ section: 'powerful', order: 45, more: true })
     expect(at(FREEBUFF_MIMO_V26_PRO_MODEL_ID)).toEqual({ section: 'powerful', order: expect.any(Number) })
     // Gemini 3.8 Flash, then GPT-6.1 Sol, under Powerful's More.
     expect(at(FREEBUFF_GEMINI_38_FLASH_MODEL_ID)).toMatchObject({ section: 'powerful', more: true })
