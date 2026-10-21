@@ -36,7 +36,7 @@ export const SITE_ARGS = {
   siteId: z
     .string()
     .uuid()
-    .describe('Project UUID returned by sites_create or sites_list.'),
+    .describe('Site UUID returned by sites_create or sites_list.'),
   environment: z.enum(['preview', 'production']),
   requestId: z
     .string()
@@ -96,7 +96,7 @@ export const SITE_TOOL_SPECS: SiteToolSpec[] = [
   ),
   spec(
     'sites_create',
-    'Create a Sites project with isolated preview and production environments. Generate a UUID for siteId and reuse it on retries. Save the returned id in the workspace. The user must have asked to create/publish a site; this does not deploy anything yet.',
+    'Create a Sites project with isolated preview and production environments. Generate a UUID for siteId and reuse it on retries. Save the returned id in the workspace, never in .freebuff/project-id (Freebuff’s own project marker). The user must have asked to create/publish a site; this does not deploy anything yet.',
     { siteId: SITE_ARGS.siteId, name: SITE_ARGS.siteName },
   ),
   spec(
