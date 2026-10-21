@@ -5,6 +5,7 @@ import {
 } from '../state/freebuff-chat-store'
 import { getFreebuffModelDirectory } from '../state/freebuff-catalog-store'
 import { safeOpen } from '../utils/open-url'
+import { adReports } from '../ads/ad-reports'
 
 import {
   handleAdsEnable,
@@ -224,6 +225,15 @@ const FREEBUFF_ONLY_COMMANDS = new Set([
 ])
 
 const ALL_COMMANDS: CommandDefinition[] = [
+  defineCommandWithArgs({
+    name: 'ads:report',
+    handler: async (params, args) => {
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      const message = await adReports.command(args)
+      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+    },
+  }),
   defineCommand({
     name: 'ads:enable',
     handler: (params) => {

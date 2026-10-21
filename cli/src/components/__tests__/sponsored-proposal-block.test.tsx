@@ -39,6 +39,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import React from 'react'
+import { AdReportRegistryContext } from '../ad-report-button'
+import { createAdReportRegistry } from '../../ads/ad-reports'
 
 import {
   SponsoredProposalBlock,
@@ -85,7 +87,13 @@ const render = async (
   const setup = await createTestRenderer({ width, height: 24 })
   const root = createRoot(setup.renderer)
   flushSync(() => {
-    root.render(<SponsoredProposalBlock block={block} availableWidth={width} />)
+    root.render(
+      <AdReportRegistryContext.Provider
+        value={createAdReportRegistry(async () => {})}
+      >
+        <SponsoredProposalBlock block={block} availableWidth={width} />
+      </AdReportRegistryContext.Provider>,
+    )
   })
   try {
     await setup.renderOnce()

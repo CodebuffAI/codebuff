@@ -11,6 +11,7 @@ import { safeOpen } from './utils/open-url'
 import { getAuthToken } from './utils/auth'
 import { isSponsoredProposalBlock } from './types/chat'
 import { runSponsoredProposalControl } from './utils/sponsored-proposal-control'
+import { toSponsoredProposalAdReport } from '@codebuff/common/ads/ad-report'
 import {
   replaySponsoredTerminalReports,
   sponsoredRunFor,
@@ -424,7 +425,11 @@ export const Chat = ({
           // without a network and without mounting chat.
           succeeded = await runSponsoredProposalControl(
             control,
-            { proposalId, advertiserId },
+            {
+              proposalId,
+              advertiserId,
+              reportSnapshot: toSponsoredProposalAdReport(block.proposal, 'cli'),
+            },
             authToken,
           )
         } finally {

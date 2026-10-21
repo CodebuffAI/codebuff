@@ -1,4 +1,5 @@
 import { useMessageBlockStore } from '../state/message-block-store'
+import { toSponsoredProposalAdReport } from '@codebuff/common/ads/ad-report'
 import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
 import { getSystemMessage } from '../utils/message-history'
@@ -147,6 +148,7 @@ export const handleProposalReport = (
         {
           proposalId: block.proposal._id,
           advertiserId: block.proposal.advertiser_id,
+          reportSnapshot: toSponsoredProposalAdReport(block.proposal, 'cli'),
         },
         authToken,
       ),

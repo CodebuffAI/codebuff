@@ -3,6 +3,8 @@ import {
   reportSponsoredProposal,
   setSponsoredProposalPrefs,
 } from './sponsored-proposal-api'
+import type { AdReport } from '@codebuff/common/ads/ad-report'
+import { reportAd } from './ad-report'
 
 export type SponsoredProposalControl =
   | 'dismiss'
@@ -15,12 +17,14 @@ export type SponsoredProposalControl =
  * tested without a network (docs/testing.md: DI over module mocking).
  */
 export interface SponsoredProposalControlDeps {
+  notify: (ad: AdReport) => Promise<void>
   report: typeof reportSponsoredProposal
   dismiss: typeof dismissSponsoredProposal
   setPrefs: typeof setSponsoredProposalPrefs
 }
 
 const DEFAULT_DEPS: SponsoredProposalControlDeps = {
+  notify: reportAd,
   report: reportSponsoredProposal,
   dismiss: dismissSponsoredProposal,
   setPrefs: setSponsoredProposalPrefs,
@@ -52,12 +56,30 @@ const DEFAULT_DEPS: SponsoredProposalControlDeps = {
  */
 export async function runSponsoredProposalControl(
   control: SponsoredProposalControl,
-  proposal: { proposalId: string; advertiserId: string },
+  proposal: {
+    proposalId: string
+    advertiserId: string
+    reportSnapshot?: AdReport
+  },
   authToken: string,
   deps: SponsoredProposalControlDeps = DEFAULT_DEPS,
 ): Promise<boolean> {
   const { proposalId, advertiserId } = proposal
   if (control === 'report') {
+    // Keep the existing dismissal semantics, but only after notifications land.
+    try {
+      await deps.notify(
+        proposal.reportSnapshot ?? {
+          title: 'Sponsored task offer',
+          provider: 'first_party',
+          surface: 'cli',
+          placementId: 'sponsored-proposal',
+          proposalId,
+        },
+      )
+    } catch {
+      return false
+    }
     return deps.report(proposalId, authToken)
   }
   if (control === 'dismiss') {

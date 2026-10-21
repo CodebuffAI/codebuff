@@ -10,6 +10,7 @@ import {
   sponsoredProposalViewModel,
 } from '@codebuff/common/ads/sponsored-proposal-view'
 import { sponsoredProgressPill } from '@codebuff/common/ads/sponsored-offer-plan'
+import { toSponsoredProposalAdReport } from '@codebuff/common/ads/ad-report'
 import {
   sanitizeTerminalStrings,
   sanitizeTerminalText,
@@ -19,6 +20,7 @@ import { useKeyboard } from '@opentui/react'
 import React, { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '../button'
+import { AdReportButton } from '../ad-report-button'
 import { useMessageBlockStore } from '../../state/message-block-store'
 import { getAuthToken } from '../../utils/auth'
 import { safeOpen } from '../../utils/open-url'
@@ -479,6 +481,7 @@ export const SponsoredProposalBlock: React.FC<{
         </box>
       )}
 
+      <AdReportButton ad={toSponsoredProposalAdReport(block.proposal, 'cli')} />
       <text style={{ fg: theme.foreground }}>
         {clip(
           delivered

@@ -23,6 +23,9 @@ function deps(
 ) {
   const calls: string[] = []
   const impl: SponsoredProposalControlDeps = {
+    notify: async () => {
+      calls.push('notify')
+    },
     report: async () => {
       calls.push('report')
       return results.report ?? true
@@ -76,12 +79,23 @@ describe('the preference write gates the dismiss', () => {
 })
 
 describe('the single-call controls report what happened', () => {
-  test('report touches nothing else', async () => {
+  test('report notifies before updating the proposal', async () => {
     const { calls, impl } = deps()
     expect(
       await runSponsoredProposalControl('report', PROPOSAL, 'tok', impl),
     ).toBe(true)
-    expect(calls).toEqual(['report'])
+    expect(calls).toEqual(['notify', 'report'])
+  })
+
+  test('failed notifications keep the proposal report retryable', async () => {
+    const { calls, impl } = deps()
+    impl.notify = async () => {
+      throw new Error('offline')
+    }
+    expect(
+      await runSponsoredProposalControl('report', PROPOSAL, 'tok', impl),
+    ).toBe(false)
+    expect(calls).toEqual([])
   })
 
   test('dismiss touches nothing else', async () => {
