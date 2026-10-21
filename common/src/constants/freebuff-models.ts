@@ -147,6 +147,10 @@ export interface FreebuffModelOption {
    *  deal actually ends (or update the copy if it is extended). `short` is
    *  the CLI's form, which has no tooltip and little width. */
   dealEndingSoon?: { tooltip: string; short: string }
+  /** A price change we have decided on but not yet made: rendered as a
+   *  "Price change" badge (kind `ending`, which every picker draws beside the
+   *  name) whose tooltip is `tooltip`. Clear it once the new price is live. */
+  priceChange?: { tooltip: string }
   /** A TEMPORARY promotional price with no announced end: rendered as a
    *  "Promotional" badge whose tooltip is `tooltip` (the CLI, which has no
    *  tooltips, prints `short`). Distinct from `dealEndingSoon`, which names a
@@ -2517,6 +2521,10 @@ const GPT_5_6_LUNA_MODEL = {
   // difference in either direction would not be.
 } as const satisfies FreebuffModelOption
 
+/** The tooltip on every "Price change" badge (2026-10-21, product). */
+export const FREEBUFF_PRICE_CHANGE_TOOLTIP =
+  'This model’s price is changing soon. The picker will show the new hourly rate before it takes effect.'
+
 const GPT_6_LUNA_MODEL = {
   id: FREEBUFF_GPT_6_LUNA_MODEL_ID,
   displayName: 'GPT-6 Luna',
@@ -2595,6 +2603,7 @@ const GEMINI_4_ARGON_MODEL = {
   // temporary price (FREEBUFF_GEMINI_4_ARGON_MODEL_ID), and the label says so
   // rather than letting a user build a habit on it.
   promotional: GEMINI_4_ARGON_PROMOTIONAL,
+  priceChange: { tooltip: FREEBUFF_PRICE_CHANGE_TOOLTIP },
   taglineTooltip:
     'On Google flex capacity, with a standard-tier backup when it’s busy.',
 } as const satisfies FreebuffModelOption
@@ -2676,6 +2685,7 @@ const SOLAR_MINI_4_MODEL = {
 const GEMINI_38_FLASH_MODEL = {
   id: FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   displayName: 'Gemini 3.8 Flash',
+  priceChange: { tooltip: FREEBUFF_PRICE_CHANGE_TOOLTIP },
   // The 1M context is the thing a user picks this row FOR, and it is the
   // largest in the catalog by a wide margin.
   tagline: '1M context',
