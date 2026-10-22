@@ -54,7 +54,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'ads:report',
     label: 'ads:report',
-    description: 'Report an ad: /ads:report <number> (or list recent ads)',
+    description: 'Explain a problem with an ad: /ads:report <number> (or list recent ads)',
   },
   {
     id: 'help',

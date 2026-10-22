@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  AD_REPORT_REASON_MAX_LENGTH,
+  AD_REPORT_REASON_MIN_LENGTH,
+  AdReportReasonSchema,
   AdReportSchema,
   toAdReport,
   toSponsoredProposalAdReport,
@@ -10,6 +13,41 @@ import {
 const ad = { title: 'Example ad', url: 'https://example.com/product' }
 
 describe('ad report payload', () => {
+  test('preserves a written reason through selection and normalizes it on parsing', () => {
+    const reason =
+      '  This ad falsely promises a guaranteed refund.\nPlease review it.  '
+    const selected = toAdReport({ ...ad, reason })
+    expect(selected.reason).toBe(reason)
+    expect(
+      AdReportSchema.parse(JSON.parse(JSON.stringify(selected))).reason,
+    ).toBe(reason.trim())
+    expect(AdReportSchema.safeParse(toAdReport(ad)).success).toBe(true)
+  })
+
+  test('bounds supplied reasons after trimming without truncating them', () => {
+    for (const size of [
+      AD_REPORT_REASON_MIN_LENGTH,
+      AD_REPORT_REASON_MAX_LENGTH,
+    ]) {
+      const reason = 'x'.repeat(size)
+      expect(AdReportReasonSchema.parse(` \n${reason}\t `)).toBe(reason)
+      expect(AdReportSchema.safeParse({ ...ad, reason }).success).toBe(true)
+    }
+    for (const reason of [
+      '',
+      ' \n\t ',
+      `  ${'x'.repeat(AD_REPORT_REASON_MIN_LENGTH - 1)}  `,
+      'x'.repeat(AD_REPORT_REASON_MAX_LENGTH + 1),
+      null,
+      42,
+    ]) {
+      expect(AdReportReasonSchema.safeParse(reason).success).toBe(false)
+      expect(AdReportSchema.safeParse({ ...ad, reason }).success).toBe(false)
+    }
+    const reason = 'x'.repeat(AD_REPORT_REASON_MAX_LENGTH + 1)
+    expect(toAdReport({ ...ad, reason }).reason).toBe(reason)
+  })
+
   test('reports offers and sponsored questions without inventing a destination or including answers', () => {
     const proposal = toSponsoredProposalAdReport(
       {

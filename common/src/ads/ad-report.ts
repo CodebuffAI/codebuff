@@ -2,7 +2,15 @@ import { z } from 'zod/v4'
 import type { SponsoredProposalRow } from './sponsored-proposal-view'
 import type { SponsoredSurveyOffer } from '../constants/freebuff-sponsored-survey-client'
 
-/** Only the ad's visible content and identifiers belong in a user report. */
+export const AD_REPORT_REASON_MIN_LENGTH = 20
+export const AD_REPORT_REASON_MAX_LENGTH = 2000
+export const AdReportReasonSchema = z
+  .string()
+  .trim()
+  .min(AD_REPORT_REASON_MIN_LENGTH)
+  .max(AD_REPORT_REASON_MAX_LENGTH)
+
+/** A report contains visible ad details, identifiers, and the user's explanation. */
 export const AdReportSchema = z
   .object({
     title: z.string().trim().min(1).max(300),
@@ -31,6 +39,9 @@ export const AdReportSchema = z
     campaignId: z.string().trim().min(1).max(200).optional(),
     proposalId: z.string().trim().min(1).max(200).optional(),
     questionId: z.string().trim().min(1).max(200).optional(),
+    // Older installed clients cannot collect a reason yet. A supplied reason
+    // must still pass the same validation used by clients that require it.
+    reason: AdReportReasonSchema.optional(),
   })
   .refine(
     (report) => report.url || report.campaignId || report.proposalId,
@@ -56,6 +67,7 @@ export function toAdReport(ad: AdReport & { clickUrl?: string }): AdReport {
     campaignId: ad.campaignId,
     proposalId: ad.proposalId,
     questionId: ad.questionId,
+    ...(ad.reason === undefined ? {} : { reason: ad.reason }),
   }
 }
 

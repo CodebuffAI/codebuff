@@ -27,6 +27,7 @@ const AD = {
   impUrl: 'original-impression',
   favicon: '',
 }
+const REASON = 'This ad makes a misleading claim.'
 
 function locate(frame: string, label: string) {
   const lines = frame.split('\n')
@@ -86,12 +87,18 @@ describe('ad report controls', () => {
         const { x, y } = locate(setup.captureCharFrame(), '[Report 1]')
         await setup.mockMouse.click(x, y)
         await setup.renderOnce()
+        expect(sent).toEqual([])
+        const prompt = registry.getPrompt()!
+        expect(prompt.entry.snapshot.title).toBe(AD.title)
+        await registry.submit(prompt.entry, REASON, prompt.send)
+        await setup.renderOnce()
         expect(setup.captureCharFrame()).toContain('[Reported 1]')
         expect(sent).toHaveLength(1)
         expect(sent[0]).toMatchObject({
           title: AD.title,
           impUrl: AD.impUrl,
           surface: 'cli',
+          reason: REASON,
         })
         expect(actions).toBe(0)
       } finally {
@@ -125,13 +132,18 @@ describe('ad report controls', () => {
     try {
       await setup.renderOnce()
       await setup.mockMouse.click(4, 0)
+      const prompt = registry.getPrompt()!
+      expect(sent).toEqual([])
+      await registry.submit(prompt.entry, REASON, prompt.send)
       await setup.renderOnce()
       expect(setup.captureCharFrame()).toContain('[Retry 1]')
       await setup.mockMouse.click(4, 0)
+      const sending = registry.submit(prompt.entry, REASON, prompt.send)
       await setup.renderOnce()
       expect(setup.captureCharFrame()).toContain('[Sending… 1]')
       flushSync(() => rotate())
       finish()
+      await sending
       await setup.renderOnce()
       expect(setup.captureCharFrame()).toContain('[Report 2]')
       expect(setup.captureCharFrame()).not.toContain('Reported')
@@ -197,8 +209,12 @@ describe('ad report controls', () => {
       const frame = setup.captureCharFrame()
       expect(frame).toContain('[Report 1]')
       expect(frame).toContain('[Report 2]')
-      expect(await registry.command('1')).toBe('Ad reported. Thank you.')
-      expect(await registry.command('2')).toBe('Ad reported. Thank you.')
+      for (const id of ['1', '2']) {
+        expect(await registry.command(id)).toBeNull()
+        const prompt = registry.getPrompt()!
+        expect(sent).toHaveLength(Number(id) - 1)
+        await registry.submit(prompt.entry, REASON, prompt.send)
+      }
       expect(sent[0]!.proposalId).toBe('proposal-1')
       expect(sent[1]).toMatchObject({
         campaignId: 'survey-campaign',

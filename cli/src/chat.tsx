@@ -11,6 +11,7 @@ import { safeOpen } from './utils/open-url'
 import { getAuthToken } from './utils/auth'
 import { isSponsoredProposalBlock } from './types/chat'
 import { runSponsoredProposalControl } from './utils/sponsored-proposal-control'
+import { patchSponsoredProposalBlock } from './utils/sponsored-proposal-state'
 import { toSponsoredProposalAdReport } from '@codebuff/common/ads/ad-report'
 import {
   replaySponsoredTerminalReports,
@@ -47,6 +48,8 @@ import {
   getDockPanelLayout,
 } from '@codebuff/common/ads/inline-ad-layout'
 import { ChatInputBar } from './components/chat-input-bar'
+import { AdReportPrompt, useAdReportPrompt } from './components/ad-report-prompt'
+import { adReports } from './ads/ad-reports'
 import { ChatHeader } from './components/chat-header'
 import { FreebuffActiveSessionSummary } from './components/freebuff-active-session-summary'
 import { LoadPreviousButton } from './components/load-previous-button'
@@ -189,6 +192,7 @@ export const Chat = ({
   const headerRef = useRef<BoxRenderable | null>(null)
   const [isHeaderVisible, setIsHeaderVisible] = useState(true)
   const [todoPanelOpen, setTodoPanelOpen] = useState(false)
+  const adReportPrompt = useAdReportPrompt()
   const chatSessionId = useChatStore((state) => state.chatSessionId)
   useEffect(() => setTodoPanelOpen(false), [chatSessionId])
 
@@ -317,23 +321,13 @@ export const Chat = ({
   messagesRef.current = messages
 
   const patchProposalBlock = useEvent(
-    (target: string, patch: Partial<SponsoredProposalContentBlock>) => {
+    (
+      target: string,
+      patch: Partial<SponsoredProposalContentBlock>,
+      proposalId?: string,
+    ) => {
       setMessages((prev) =>
-        prev.map((message) =>
-          message.blocks?.some(
-            (block) =>
-              isSponsoredProposalBlock(block) && block.target === target,
-          )
-            ? {
-                ...message,
-                blocks: message.blocks.map((block) =>
-                  isSponsoredProposalBlock(block) && block.target === target
-                    ? { ...block, ...patch }
-                    : block,
-                ),
-              }
-            : message,
-        ),
+        patchSponsoredProposalBlock(prev, target, patch, proposalId),
       )
     },
   )
@@ -413,6 +407,40 @@ export const Chat = ({
         !authToken
       )
         return
+      if (control === 'report') {
+        const entry = adReports.register(
+          toSponsoredProposalAdReport(block.proposal, 'cli'),
+        )
+        const proposalId = block.proposal._id
+        patchProposalBlock(target, { menuOpen: false })
+        adReports.open(entry, async (reportSnapshot) => {
+          if (getAuthToken() !== authToken)
+            throw new Error('The report account changed')
+          patchProposalBlock(target, { busy: true }, proposalId)
+          let succeeded = false
+          try {
+            succeeded = await runSponsoredProposalControl(
+              'report',
+              {
+                proposalId,
+                advertiserId: block.proposal.advertiser_id,
+                reportSnapshot,
+              },
+              authToken,
+            )
+            if (!succeeded) throw new Error('Could not send the proposal report')
+          } finally {
+            if (getAuthToken() === authToken) {
+              patchProposalBlock(
+                target,
+                succeeded ? { busy: false, answered: true } : { busy: false },
+                proposalId,
+              )
+            }
+          }
+        })
+        return
+      }
       patchProposalBlock(target, { busy: true, menuOpen: false })
       const proposalId = block.proposal._id
       const advertiserId = block.proposal.advertiser_id
@@ -1920,6 +1948,7 @@ export const Chat = ({
     // card claims no keys at all outside this span; that is what makes turning
     // chat's off for the span safe rather than a second overlap.
     disabled:
+      adReportPrompt !== null ||
       askUserState !== null ||
       sponsoredAccountAsking ||
       reviewMode ||
@@ -2136,6 +2165,7 @@ export const Chat = ({
   // it simply closes for the duration -- and `collapse` is a no-op when it was
   // already shut, so this fires exactly one `dock_collapsed`.
   const dockTakeoverActive =
+    adReportPrompt !== null ||
     askUserState !== null ||
     sponsoredAccountAsking ||
     reviewMode ||
@@ -2382,7 +2412,9 @@ export const Chat = ({
           />
         )}
 
-        {freebuffControlsOpen && !askUserState ? (
+        {adReportPrompt ? (
+          <AdReportPrompt key={adReportPrompt.entry.id} prompt={adReportPrompt} />
+        ) : freebuffControlsOpen && !askUserState ? (
           <FreebuffChatControls />
         ) : reviewMode ? (
           // Review and ask_user take precedence over the session-ended banner:

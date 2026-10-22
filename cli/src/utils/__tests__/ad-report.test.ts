@@ -7,9 +7,27 @@ const AD = {
   adText: 'Visible copy',
   surface: 'cli',
   impUrl: 'impression-1',
+  reason: 'This ad makes a misleading claim.',
 }
 
 describe('CLI ad reporting transport', () => {
+  test('an account change at the transport boundary cannot reattribute an open report', async () => {
+    let requests = 0
+    const send = createAdReportClient({
+      getToken: () => 'new-account-token',
+      fetchImpl: (async () => {
+        requests++
+        return Response.json({ ok: true })
+      }) as unknown as typeof fetch,
+    })
+    await expect(send(AD, 'opening-account-token')).rejects.toThrow(
+      'account changed',
+    )
+    expect(requests).toBe(0)
+    await send(AD, 'new-account-token')
+    expect(requests).toBe(1)
+  })
+
   test('sends the selected snapshot with CLI session auth, never private context or a click', async () => {
     const calls: { url: string; init?: RequestInit }[] = []
     const send = createAdReportClient({
@@ -22,6 +40,7 @@ describe('CLI ad reporting transport', () => {
     })
     await send({
       ...AD,
+      reason: `  ${AD.reason}  `,
       prompt: 'private',
       clickUrl: 'https://example.com/click',
     } as typeof AD)
@@ -33,6 +52,21 @@ describe('CLI ad reporting transport', () => {
       'Bearer session-token',
     )
     expect(JSON.parse(String(calls[0]!.init?.body))).toEqual(AD)
+  })
+
+  test('requires a typed explanation before contacting the report endpoint', async () => {
+    let requests = 0
+    const send = createAdReportClient({
+      getToken: () => 'token',
+      fetchImpl: (async () => {
+        requests++
+        return Response.json({ ok: true })
+      }) as unknown as typeof fetch,
+    })
+    for (const reason of [undefined, '  ', 'too short', 'a'.repeat(2001)]) {
+      await expect(send({ ...AD, reason })).rejects.toThrow()
+    }
+    expect(requests).toBe(0)
   })
 
   test('requires both a successful HTTP response and explicit acknowledgement', async () => {

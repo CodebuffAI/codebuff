@@ -231,7 +231,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
       const message = await adReports.command(args)
-      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      if (message)
+        params.setMessages((prev) => [...prev, getSystemMessage(message)])
     },
   }),
   defineCommand({
@@ -309,7 +310,8 @@ const ALL_COMMANDS: CommandDefinition[] = [
       const message = await handleProposalReport(
         useChatStore.getState().messages,
       )
-      params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      if (message)
+        params.setMessages((prev) => [...prev, getSystemMessage(message)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

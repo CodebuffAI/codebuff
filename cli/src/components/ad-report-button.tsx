@@ -29,10 +29,14 @@ export function AdReportButton({
   const theme = useTheme()
   const contextRegistry = useContext(AdReportRegistryContext)
   const registry = suppliedRegistry ?? contextRegistry
+  const generation = useSyncExternalStore(
+    registry.subscribe,
+    registry.getGeneration,
+  )
   const key = JSON.stringify(ad)
   const entry = useMemo(
     () => registry.register(JSON.parse(key) as AdReport),
-    [registry, key],
+    [registry, key, generation],
   )
   const pressed = useRef(false)
   useEffect(() => {
@@ -66,7 +70,7 @@ export function AdReportButton({
       }}
       onMouseUp={(event) => {
         ;(event as MouseEvent | undefined)?.stopPropagation()
-        if (pressed.current) void registry.submit(entry)
+        if (pressed.current) registry.open(entry)
         pressed.current = false
       }}
       onMouseOut={() => {

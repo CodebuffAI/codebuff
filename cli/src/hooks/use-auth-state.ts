@@ -1,12 +1,13 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 
 import { useAuthQuery, useLogoutMutation } from './use-auth-query'
+import { adReports } from '../ads/ad-reports'
 import { useChatStore } from '../state/chat-store'
 import { useLoginStore } from '../state/login-store'
 import { captureCliFunnel } from '../utils/cli-product-funnel'
 import { identifyUser, trackEvent } from '../utils/analytics'
-import { getUserCredentials } from '../utils/auth'
+import { getAuthToken, getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
 import { IS_FREEBUFF } from '../utils/constants'
 import { loggerContext } from '../utils/logger'
@@ -49,6 +50,8 @@ export const useAuthState = ({
     initialAuthState,
   )
   const [user, setUser] = useState<User | null>(null)
+  const authToken = getAuthToken()
+  useLayoutEffect(() => adReports.syncAccount(), [authToken])
 
   // Update authentication state when requireAuth changes
   useEffect(() => {
@@ -90,6 +93,7 @@ export const useAuthState = ({
         })
       }
     } else if (authQuery.isError) {
+      adReports.reset()
       setIsAuthenticated(false)
       setUser(null)
       clearAuthLoggerContext()
@@ -99,6 +103,7 @@ export const useAuthState = ({
   // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
+      adReports.reset()
       // Identify first (aliases the pre-login anonymous history to the real
       // user id) so the login event below is attributed to the user.
       if (loggedInUser.id && loggedInUser.email) {

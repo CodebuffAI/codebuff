@@ -1,5 +1,4 @@
 import { useMessageBlockStore } from '../state/message-block-store'
-import { toSponsoredProposalAdReport } from '@codebuff/common/ads/ad-report'
 import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
 import { getSystemMessage } from '../utils/message-history'
@@ -139,21 +138,17 @@ export function handleProposalDismiss(messages: ChatMessage[]): string | null {
 
 export const handleProposalReport = (
   messages: ChatMessage[],
-): Promise<string> =>
-  withProposal(
-    messages,
-    (block, authToken) =>
-      runSponsoredProposalControl(
-        'report',
-        {
-          proposalId: block.proposal._id,
-          advertiserId: block.proposal.advertiser_id,
-          reportSnapshot: toSponsoredProposalAdReport(block.proposal, 'cli'),
-        },
-        authToken,
-      ),
-    'Reported. Thanks — we review every report.',
-  )
+  getToken = getAuthToken,
+): string | null => {
+  const block = liveSponsoredProposal(messages)
+  if (!block) return 'No sponsored proposal on screen.'
+  if (block.refreshUnavailable) return proposalRefreshUnavailableMessage()
+  if (!getToken()) return 'Sign in to report this sponsored proposal.'
+  useMessageBlockStore
+    .getState()
+    .callbacks.onSponsoredProposalControl(block.target, 'report')
+  return null
+}
 
 export const handleProposalNeverAdvertiser = (
   messages: ChatMessage[],
