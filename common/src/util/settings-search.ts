@@ -267,6 +267,7 @@ export function searchSettings<T extends SettingsSearchPage>(
   query: string,
   pages: readonly T[],
   surface: Surface,
+  hidden: readonly string[] = [],
 ): { page: T; detail?: string }[] {
   const normalized = normalize(query)
   if (!normalized) return query.trim() ? [] : pages.map((page) => ({ page }))
@@ -276,6 +277,7 @@ export function searchSettings<T extends SettingsSearchPage>(
       let detail: string | undefined
       for (const topic of topics[page.label]) {
         if (topic.surface && topic.surface !== surface) continue
+        if (hidden.includes(topic.label)) continue
         const value = score(
           normalized,
           topic.label,
