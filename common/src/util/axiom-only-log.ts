@@ -525,6 +525,15 @@ const ADS_FETCH_COMPLETED_FIELDS = {
   ad_features_lookup: 'string',
   ad_features_ms: 'number',
   /**
+   * On a `ready` read only: the model's live click history
+   * (`liveLabels.status`: `ready`, `expired`, `not_ready`, `no_through`,
+   * `no_version` or `disabled`; anything but `ready` serves the frozen labels
+   * alone) and, when `ready`, `ad_features_live_label_days`, L's day through
+   * today (60 is the last before `expired`).
+   */
+  ad_features_live_labels: 'string',
+  ad_features_live_label_days: 'number',
+  /**
    * The conversation's newest message classification, read beside the
    * feature store's user read (`ml-feature-store/message-classification.ts`)
    * for the Flash pCTR call's `state.messageClassification`:
