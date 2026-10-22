@@ -6,6 +6,7 @@ import { SitesClientError } from './errors'
 const manifestSchema = z
   .object({
     runtime: z.literal('opennext').optional(),
+    realtime: z.literal(true).optional(),
     entrypoint: z.string(),
     compatibilityDate: z.string(),
     compatibilityFlags: z.array(z.string()).optional(),
@@ -186,6 +187,7 @@ export async function bundleSite(cwd: string, manifestPath: string) {
   }
   return {
     ...(manifest.runtime ? { runtime: manifest.runtime } : {}),
+    ...(manifest.realtime ? { realtime: true as const } : {}),
     entrypoint: manifest.entrypoint,
     compatibilityDate: manifest.compatibilityDate,
     compatibilityFlags: manifest.compatibilityFlags ?? [],

@@ -411,7 +411,7 @@ const json = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const slash = (path) => path.split(sep).join('/');
 const record = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 const bindingName = (value) => typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(value);
-const privateName = (part) => part.startsWith('.') || part === 'node_modules' || part === 'freebuff-sites-build' || /\.(map|pem|key|p12|pfx)$/i.test(part);
+const privateName = (part) => part.startsWith('.') || part === 'node_modules' || part === 'freebuff-sites-build' || part === 'freebuff-realtime' || /\.(map|pem|key|p12|pfx)$/i.test(part);
 try {
   const root = await realpath(process.cwd());
   const project = root;
@@ -555,7 +555,9 @@ try {
       ['workflows', 'Workflows'], ['dispatch_namespaces', 'dispatch namespaces'], ['mtls_certificates', 'mTLS certificates'],
       ['send_email', 'Email'], ['pipelines', 'Pipelines'], ['secrets_store_secrets', 'Secrets Store'], ['tail_consumers', 'tail consumers'],
     ].filter(([key]) => key === 'queues' ? count(config.queues?.producers) + count(config.queues?.consumers) > 0 : count(config[key]) > 0).map(([, label]) => label);
-    if (count(config.durable_objects?.bindings) > 0) unsupported.push('Durable Objects');
+    const durableBindings = config.durable_objects?.bindings || [];
+    const realtime = durableBindings.some((binding) => binding.name === 'REALTIME');
+    if (durableBindings.some((binding) => binding.name !== 'REALTIME' || binding.class_name !== 'FreebuffRealtime' || binding.script_name !== 'freebuff-sites-realtime-local') || durableBindings.length > 1 || count(config.migrations) > 0) unsupported.push('custom Durable Objects (only the platform REALTIME binding is supported)');
     for (const [key, label] of [['ai', 'Workers AI'], ['browser', 'Browser Rendering'], ['images', 'Images'], ['version_metadata', 'version metadata']]) if (config[key]) unsupported.push(label);
     if (unsupported.length) throw safeError('This Worker uses ' + unsupported.join(', ') + ', which Freebuff Sites does not provide. Ask the agent to adapt it before publishing.');
     if (count(config.vars) > 0) throw safeError('This Worker sets Wrangler vars, which Freebuff Sites does not deploy. Move them to Sites variables (Manage site → Variables) and remove them from the Wrangler configuration.');
@@ -603,6 +605,7 @@ try {
         manifest.assetsDirectory = 'assets';
       }
     }
+    if (realtime) manifest.realtime = true;
     const manifestPath = await writeManifest(manifest);
     await log.close(); log = undefined;
     emit({ kind, manifestPath, storage: { d1: databases, r2: buckets }, logPath });

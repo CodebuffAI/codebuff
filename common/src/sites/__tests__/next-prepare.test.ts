@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { bundleSite } from '../local-files'
+import { withNodeStdinProbe } from './node-transport-fixture'
 import {
   NEXT_ADAPTER_VERSION,
   NEXT_WRANGLER_VERSION,
@@ -119,6 +120,20 @@ async function fixture() {
   return root
 }
 
+test.skipIf(process.platform === 'win32')(
+  'large Next preparation programs execute through stdin instead of the Windows-limited command line',
+  async () => {
+    const root = await fixture()
+    const { result, records } = await withNodeStdinProbe(root, () =>
+      prepareNextSite(root, '.', undefined, { realtime: true }),
+    )
+    expect(records).toHaveLength(1)
+    expect(records[0].bytes).toBeGreaterThan(32767)
+    expect(records[0].args).toEqual(['--input-type=module', '-'])
+    expect((await bundleSite(root, result.manifestPath)).realtime).toBe(true)
+  },
+)
+
 test('prepares the same private cache and public artifact contract without replacing user configs', async () => {
   const root = await fixture()
   const result = await prepareNextSite(root)
@@ -194,6 +209,47 @@ test('refuses to overwrite an existing deployment config or unrelated output dir
   expect(
     await readFile(join(second, 'freebuff-sites-build/notes.txt'), 'utf8'),
   ).toBe('user notes')
+})
+
+test('Next realtime generates a local helper and retains the capability on rebuild without shipping helper code', async () => {
+  const root = await fixture()
+  // This fixture reads the generated local config on rebuild, like Wrangler.
+  await writeFile(
+    join(root, 'node_modules/wrangler/index.js'),
+    `
+    import {readFile} from 'node:fs/promises';
+    export async function unstable_readConfig({config}) {
+      if (!config.endsWith('.jsonc')) return {};
+      return JSON.parse((await readFile(config,'utf8')).split('\\n').slice(1).join('\\n'));
+    }
+  `,
+  )
+  const first = await prepareNextSite(root, '.', undefined, { realtime: true })
+  expect(first.realtimeWranglerConfigPath).toBe(
+    'freebuff-realtime/wrangler.jsonc',
+  )
+  const local = JSON.parse(
+    (await readFile(join(root, first.localWranglerConfigPath), 'utf8'))
+      .split('\n')
+      .slice(1)
+      .join('\n'),
+  )
+  expect(local.durable_objects.bindings).toContainEqual({
+    name: 'REALTIME',
+    class_name: 'FreebuffRealtime',
+    script_name: 'freebuff-sites-realtime-local',
+  })
+  expect((await bundleSite(root, first.manifestPath)).realtime).toBe(true)
+  await writeFile(join(root, 'freebuff-realtime/browser.js'), '// customized\n')
+  const next = await prepareNextSite(root)
+  const bundle = await bundleSite(root, next.manifestPath)
+  expect(bundle.realtime).toBe(true)
+  expect(
+    bundle.modules.every((module) => !module.name.includes('realtime')),
+  ).toBe(true)
+  expect(
+    await readFile(join(root, 'freebuff-realtime/browser.js'), 'utf8'),
+  ).toBe('// customized\n')
 })
 
 test('hosted entry preserves asset routing and reuses a private runtime env without exporting tenant durable objects', async () => {

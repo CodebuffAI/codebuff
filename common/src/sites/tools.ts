@@ -16,6 +16,7 @@ export const SITE_RESERVED_BINDINGS = [
   'WORKER_SELF_REFERENCE',
   'NEXT_CACHE_DO_QUEUE',
   'NEXT_TAG_CACHE_DO_SHARDED',
+  'REALTIME',
 ] as const
 
 /**
@@ -115,9 +116,26 @@ export const SITE_TOOL_SPECS: SiteToolSpec[] = [
     { ...target, localOrigin: SITE_ARGS.localOrigin.optional() },
   ),
   spec(
+    'sites_prepare_realtime',
+    'Create local Freebuff Sites realtime helpers and documentation without provisioning or deploying. Returns paths to a server module, reconnecting browser client, README, and a Wrangler helper Worker for local multi-worker tests. Existing files and project configs are preserved. Read the README; implement an authenticated same-origin ticket endpoint that checks room membership and uses the server user ID, plus durable D1 snapshots. Add realtime:true to the deploy manifest (Next.js: sites_prepare_next with realtime:true). Deploy injects the isolated REALTIME binding. Rooms support ephemeral broadcast and presence, not automatic database subscriptions. Test two clients, nonmember rejection, disconnect/reconnect and durable snapshot recovery in local Wrangler before publishing. No Cloudflare credentials are needed.',
+    {
+      projectDirectory: SITE_ARGS.workspacePath
+        .optional()
+        .describe(
+          'Application directory inside the workspace; defaults to the workspace root.',
+        ),
+    },
+  ),
+  spec(
     'sites_prepare_next',
     'Automatically prepare a Next.js project for Freebuff Sites. Installs the supported OpenNext and Wrangler versions with the project package manager, preserves user configs, creates dedicated Freebuff build configs, builds Next.js, and validates/bundles its Worker with Wrangler. Returns manifestPath, localWranglerConfigPath, and a private build log path. Pass projectDirectory for a nested app. It uses no Cloudflare credentials, does not deploy, and does not start a server. If the app uses auth/D1/R2 bindings in next dev, you must read its Next config and add/update one development initOpenNextCloudflareForDev({configPath:"./freebuff.wrangler.jsonc"}) call; preserve module syntax and existing exports/options, avoid duplicate imports/calls, and use only local bindings/development auth variables. Restart next dev and verify a bound route before showing the preview. Run the separate local Wrangler preview and auth/data tests, then pass manifestPath to sites_deploy. Next.js versions outside the supported adapter range return an actionable upgrade error; this tool never silently upgrades Next.js.',
     {
+      realtime: z
+        .literal(true)
+        .optional()
+        .describe(
+          'Include Freebuff Sites realtime, generate its local helper files and add the platform REALTIME binding. Existing realtime stays enabled on rebuilds.',
+        ),
       projectDirectory: SITE_ARGS.workspacePath
         .optional()
         .describe(
@@ -127,7 +145,7 @@ export const SITE_TOOL_SPECS: SiteToolSpec[] = [
   ),
   spec(
     'sites_deploy',
-    'Deploy prebuilt Worker code and static assets from this workspace. For Next.js, first call sites_prepare_next and use its returned manifestPath; Sites automatically provisions its isolated framework cache on the first deployment. Build/test locally first. Other Workers use a JSON manifest: {entrypoint:"index.js",compatibilityDate:"YYYY-MM-DD",modules:[{name:"index.js",type:"esm",path:"./worker.js"}],assetsDirectory:"./public",spa:true}. Paths resolve relative to the manifest. types: esm/text/wasm. Upload only dedicated public build output (no secrets, hidden files, symlinks, dependencies or source maps); max 10 MiB/1000 assets (OpenNext:32 MiB including private cache,10 MiB compressed code). Worker handles API routes then env.ASSETS.fetch(request). Omit assetsDirectory to preserve assets; an empty directory removes them. D1/R2 bindings attach and existing secrets survive. Returns a durable operation receipt; succeeded confirms deployment, not publication. Inspect published status before reporting the environment as published. An unpublished environment stays offline until explicitly republished with sites_set_published. running/unknown requires inspection, never a new requestId to retry. Deploy only when publishing is authorized by the user.',
+    'Deploy prebuilt Worker code and static assets from this workspace. For Next.js, first call sites_prepare_next and use its returned manifestPath; Sites automatically provisions its isolated framework cache on the first deployment. Build/test locally first. Other Workers use a JSON manifest: {entrypoint:"index.js",compatibilityDate:"YYYY-MM-DD",modules:[{name:"index.js",type:"esm",path:"./worker.js"}],assetsDirectory:"./public",spa:true}. Paths resolve relative to the manifest. types: esm/text/wasm. Upload only dedicated public build output (no secrets, hidden files, symlinks, dependencies or source maps); max 10 MiB/1000 assets (OpenNext:32 MiB including private cache,10 MiB compressed code). Worker handles API routes then env.ASSETS.fetch(request). Omit assetsDirectory to preserve assets; an empty directory removes them. D1/R2 bindings attach and existing secrets survive. Add realtime:true to the manifest for managed room broadcast/presence through env.REALTIME; first use sites_prepare_realtime and read its README. Enabled realtime remains attached on later deployments; arbitrary Durable Object classes are not supported. Returns a durable operation receipt; succeeded confirms deployment, not publication. Inspect published status before reporting the environment as published. An unpublished environment stays offline until explicitly republished with sites_set_published. running/unknown requires inspection, never a new requestId to retry. Deploy only when publishing is authorized by the user.',
     { ...mutation, manifestPath: SITE_ARGS.workspacePath },
   ),
   spec(

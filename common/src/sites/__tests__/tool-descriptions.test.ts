@@ -38,6 +38,7 @@ describe('the Sites tool surface', () => {
       'sites_inspect',
       'sites_list',
       'sites_prepare_next',
+      'sites_prepare_realtime',
       'sites_set_published',
       'sites_set_secret',
     ])

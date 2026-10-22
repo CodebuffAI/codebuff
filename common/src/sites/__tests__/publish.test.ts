@@ -304,6 +304,7 @@ test('a static site is prepared from public files only and passes the upload che
     'css/site.css': 'body{}',
     '.env': 'SECRET=1',
     'app.js.map': '{}',
+    'freebuff-realtime/worker.js': 'private local-only helper',
   })
   const result = await prepareSiteLocally(root)
   expect(result).toMatchObject({ kind: 'static', manifestPath: 'freebuff-sites-build/manifest.json', usesAuth: false })
@@ -373,6 +374,47 @@ test('unsupported projects and Worker features are refused with a reason', async
   })
   await symlink(resolve(import.meta.dir, '../../../../node_modules'), join(kv, 'node_modules'))
   await expect(prepareSiteLocally(kv)).rejects.toThrow('KV namespaces')
+}, 60_000)
+
+test('automatic Worker publishing includes only the managed realtime binding and refuses custom Durable Objects', async () => {
+  const binding = {
+    name: 'REALTIME',
+    class_name: 'FreebuffRealtime',
+    script_name: 'freebuff-sites-realtime-local',
+  }
+  const config = {
+    name: 'realtime-app',
+    main: 'src/index.js',
+    compatibility_date: '2026-10-01',
+    durable_objects: { bindings: [binding] },
+  }
+  const root = await project({
+    'package.json': JSON.stringify({
+      name: 'realtime-app',
+      devDependencies: { wrangler: '4' },
+    }),
+    'src/index.js': 'export default { fetch: () => new Response("ok") };\n',
+    'wrangler.json': JSON.stringify(config),
+  })
+  await symlink(
+    resolve(import.meta.dir, '../../../../node_modules'),
+    join(root, 'node_modules'),
+  )
+  const result = await prepareSiteLocally(root)
+  expect((await bundleSite(root, result.manifestPath!)).realtime).toBe(true)
+  for (const invalid of [
+    { ...binding, script_name: 'someone-elses-worker' },
+    { ...binding, class_name: 'Custom' },
+    { ...binding, name: 'CUSTOM' },
+  ]) {
+    await writeFile(
+      join(root, 'wrangler.json'),
+      JSON.stringify({ ...config, durable_objects: { bindings: [invalid] } }),
+    )
+    await expect(prepareSiteLocally(root)).rejects.toThrow(
+      'custom Durable Objects',
+    )
+  }
 }, 60_000)
 
 test('Next.js is left to sites_prepare_next with its declared storage', async () => {

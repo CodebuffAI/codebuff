@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod/v4'
 import { bundleSite, readSiteSecret } from './local-files'
 import { prepareNextSite } from './next-prepare'
+import { prepareRealtimeSite } from './realtime-prepare'
 import { SITE_ARGS } from './tools'
 
 import { SitesClientError } from './errors'
@@ -70,6 +71,7 @@ export class SitesClient {
       originApp: 'desktop' | 'web'
       files?: { bundle: typeof bundleSite; secret: typeof readSiteSecret }
       prepareNext?: typeof prepareNextSite
+      prepareRealtime?: typeof prepareRealtimeSite
       host: string
       fetcher?: (url: string, init: RequestInit) => Promise<Response>
     },
@@ -314,16 +316,31 @@ export class SitesClient {
         throw invalid('Sites mutations are unavailable in plan mode.')
       if (tool === 'sites_list')
         return await this.request('', 'GET', undefined, undefined, signal)
-      if (tool === 'sites_prepare_next') {
+      if (tool === 'sites_prepare_realtime') {
         const args = z
           .object({ projectDirectory: SITE_ARGS.workspacePath.optional() })
           .strict()
           .parse(raw)
-        return await (this.options.prepareNext ?? prepareNextSite)(
+        return await (this.options.prepareRealtime ?? prepareRealtimeSite)(
           cwd,
           args.projectDirectory ?? '.',
           signal,
         )
+      }
+      if (tool === 'sites_prepare_next') {
+        const args = z
+          .object({
+            projectDirectory: SITE_ARGS.workspacePath.optional(),
+            realtime: z.literal(true).optional(),
+          })
+          .strict()
+          .parse(raw)
+        const prepare = this.options.prepareNext ?? prepareNextSite
+        return args.realtime
+          ? await prepare(cwd, args.projectDirectory ?? '.', signal, {
+              realtime: true,
+            })
+          : await prepare(cwd, args.projectDirectory ?? '.', signal)
       }
       if (tool === 'sites_create') {
         const args = z

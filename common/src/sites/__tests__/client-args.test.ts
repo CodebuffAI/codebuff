@@ -72,6 +72,80 @@ test('Next.js preparation runs in the workspace without creating or deploying a 
   expect(calls).toHaveLength(1)
 })
 
+test('realtime preparation runs locally without credentials and Next passes the explicit capability', async () => {
+  const calls: unknown[] = []
+  const realtimeResult = {
+    directory: 'app/freebuff-realtime',
+    localWranglerConfigPath: 'app/freebuff-realtime/wrangler.jsonc',
+    serverModulePath: 'app/freebuff-realtime/server.js',
+    browserModulePath: 'app/freebuff-realtime/browser.js',
+    readmePath: 'app/freebuff-realtime/README.md',
+    created: [],
+    preserved: [],
+  }
+  const local = new SitesClient({
+    getToken: () => undefined,
+    host: 'https://example.invalid',
+    originApp: 'desktop',
+    fetcher: async () => {
+      throw new Error('No hosting request is permitted')
+    },
+    prepareRealtime: async (...args) => {
+      calls.push(args)
+      return realtimeResult
+    },
+    prepareNext: async (...args) => {
+      calls.push(args)
+      return {
+        manifestPath: 'manifest.json',
+        localWranglerConfigPath: 'wrangler.jsonc',
+        logPath: 'build.log',
+        runtime: 'opennext',
+        nextVersion: '16.4.1',
+        adapterVersion: '1.20.12',
+      }
+    },
+  })
+  const signal = new AbortController().signal
+  expect(
+    await local.runToolWithContext(
+      'sites_prepare_realtime',
+      { projectDirectory: 'app' },
+      '/workspace',
+      'build',
+      signal,
+    ),
+  ).toEqual(realtimeResult)
+  await local.runToolWithContext(
+    'sites_prepare_next',
+    { realtime: true },
+    '/workspace',
+    'build',
+    signal,
+  )
+  expect(calls).toEqual([
+    ['/workspace', 'app', signal],
+    ['/workspace', '.', signal, { realtime: true }],
+  ])
+  expect(
+    await local.runToolWithContext(
+      'sites_prepare_realtime',
+      {},
+      '/workspace',
+      'plan',
+    ),
+  ).toMatchObject({ error: 'invalid_site_request' })
+  expect(
+    await local.runToolWithContext(
+      'sites_prepare_next',
+      { realtime: false },
+      '/workspace',
+      'build',
+    ),
+  ).toMatchObject({ error: 'invalid_site_request' })
+  expect(calls).toHaveLength(2)
+})
+
 describe('the published schema is the schema that is enforced', () => {
   // The drift itself: every constraint the client applies must be visible in
   // the JSON Schema the model reads, or a refusal is unexplainable by design.

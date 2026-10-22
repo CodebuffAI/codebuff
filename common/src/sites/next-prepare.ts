@@ -1,9 +1,12 @@
-import { spawn } from 'node:child_process'
 import { SitesClientError } from './errors'
+import {
+  REALTIME_LOCAL_BINDING,
+  realtimePreparationFiles,
+} from './realtime-prepare'
+import { NEXT_ADAPTER_VERSION, NEXT_WRANGLER_VERSION } from './versions'
 
 /** Keep this adapter/Wrangler pair together: the generated cache format is versioned. */
-export const NEXT_ADAPTER_VERSION = '1.20.12'
-export const NEXT_WRANGLER_VERSION = '4.148.0'
+export { NEXT_ADAPTER_VERSION, NEXT_WRANGLER_VERSION } from './versions'
 export const NEXT_RESULT_PREFIX = 'FREEBUFF_NEXT_RESULT:'
 export const NEXT_ERROR_PREFIX = 'FREEBUFF_NEXT_ERROR:'
 export type NextPreparationResult = {
@@ -13,6 +16,7 @@ export type NextPreparationResult = {
   runtime: 'opennext'
   nextVersion: string
   adapterVersion: string
+  realtimeWranglerConfigPath?: string
 }
 
 /** Only fixed package-manager commands enter cmd.exe; project paths never do. */
@@ -54,6 +58,8 @@ export function parseNextPreparationOutput(
   ) as NextPreparationResult
   if (
     value.runtime !== 'opennext' ||
+    (value.realtimeWranglerConfigPath !== undefined &&
+      typeof value.realtimeWranglerConfigPath !== 'string') ||
     ![
       'manifestPath',
       'localWranglerConfigPath',
@@ -83,7 +89,7 @@ export function parseNextPreparationError(output: string): string | undefined {
  * the tool response. No Cloudflare API or account credentials are used here.
  */
 export function nextPreparationScript(
-  options: { projectDirectory?: string } = {},
+  options: { projectDirectory?: string; realtime?: true } = {},
 ): string {
   const installCommands = Object.fromEntries(
     ['win32', 'posix'].map((platform) => [
@@ -97,7 +103,7 @@ export function nextPreparationScript(
     ]),
   )
   return (
-    `const input = ${JSON.stringify({ projectDirectory: options.projectDirectory ?? '.', adapterVersion: NEXT_ADAPTER_VERSION, wranglerVersion: NEXT_WRANGLER_VERSION, installCommands })};\n` +
+    `const input = ${JSON.stringify({ projectDirectory: options.projectDirectory ?? '.', realtime: options.realtime, realtimeFiles: realtimePreparationFiles(), realtimeBinding: REALTIME_LOCAL_BINDING, adapterVersion: NEXT_ADAPTER_VERSION, wranglerVersion: NEXT_WRANGLER_VERSION, installCommands })};\n` +
     NEXT_PREPARATION_PROGRAM
   )
 }
@@ -106,27 +112,25 @@ export async function prepareNextSite(
   cwd: string,
   projectDirectory = '.',
   signal?: AbortSignal,
+  options: { realtime?: true } = {},
 ): Promise<NextPreparationResult> {
+  // This program comes from stdin, not a file to bundle. Keep the native
+  // import at runtime so Turbopack does not trace Node's flags as file paths.
+  const { spawn } = await import(
+    /* webpackIgnore: true */ /* turbopackIgnore: true */ 'node:child_process'
+  )
   const stdout = await new Promise<string>((resolve, reject) => {
     const buildSignal = AbortSignal.any([
       AbortSignal.timeout(15 * 60 * 1000),
       ...(signal ? [signal] : []),
     ])
-    const child = spawn(
-      'node',
-      [
-        '--input-type=module',
-        '-e',
-        nextPreparationScript({ projectDirectory }),
-      ],
-      {
-        cwd,
-        signal: buildSignal,
-        detached: process.platform !== 'win32',
-        env: nextPreparationEnvironment(process.env),
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    )
+    const child = spawn('node', ['--input-type=module', '-'], {
+      cwd,
+      signal: buildSignal,
+      detached: process.platform !== 'win32',
+      env: nextPreparationEnvironment(process.env),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
     const stop = () => {
       if (process.platform !== 'win32' && child.pid) {
         try {
@@ -169,6 +173,20 @@ export async function prepareNextSite(
             ),
           )
     })
+    // The generated program exceeds Windows' command-line limit. Stream it to
+    // Node instead; a child that exits/aborts before reading reports via close.
+    child.stdin.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EPIPE') return
+      child.kill()
+      reject(
+        new SitesClientError(
+          400,
+          'next_prepare_failed',
+          'Could not send the Next.js preparation program to Node.js.',
+        ),
+      )
+    })
+    child.stdin.end(nextPreparationScript({ projectDirectory, ...options }))
   })
   return parseNextPreparationOutput(stdout)
 }
@@ -327,6 +345,20 @@ try {
     }
   }
   const bindingName = (value) => typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(value);
+  const realtime = input.realtime === true || (previous.durable_objects?.bindings || []).some((binding) => binding.name === 'REALTIME');
+  if (realtime) {
+    const directory = join(project, 'freebuff-realtime');
+    if (!await exists(directory)) await mkdir(directory);
+    const info = await lstat(directory);
+    if (info.isSymbolicLink() || !info.isDirectory()) throw safeError('freebuff-realtime must be a regular directory, not a symlink.');
+    for (const [name, content] of Object.entries(input.realtimeFiles)) {
+      const path = join(directory, name);
+      if (await exists(path)) {
+        const existing = await lstat(path);
+        if (existing.isSymbolicLink() || !existing.isFile()) throw safeError('Existing realtime files must be regular files, not symlinks.');
+      } else await writeFile(path, content, { flag: 'wx' });
+    }
+  }
   const databases = (previous.d1_databases || []).filter((binding) => bindingName(binding.binding));
   const buckets = (previous.r2_buckets || []).filter((binding) => bindingName(binding.binding) && binding.binding !== 'NEXT_INC_CACHE_R2_BUCKET');
   if (databases.length > 1 || buckets.length > 1) throw safeError('Freebuff Sites supports one application database and one file bucket per environment. Consolidate the Wrangler application bindings before publishing.');
@@ -336,7 +368,7 @@ try {
     vars: previous.vars || {},
     d1_databases: (databases.length ? databases : [{binding:'DB'}]).map((binding) => ({binding:binding.binding,database_name:'freebuff-next-db-local',database_id:'00000000-0000-0000-0000-000000000001',...(typeof binding.migrations_dir === 'string' ? {migrations_dir:binding.migrations_dir} : {})})),
     r2_buckets: [{binding:'NEXT_INC_CACHE_R2_BUCKET',bucket_name:'freebuff-next-cache-local'},...(buckets.length ? buckets : [{binding:'FILES'}]).map((binding) => ({binding:binding.binding,bucket_name:'freebuff-next-files-local'}))],
-    durable_objects: {bindings: [{name:'NEXT_CACHE_DO_QUEUE',class_name:'DOQueueHandler'},{name:'NEXT_TAG_CACHE_DO_SHARDED',class_name:'DOShardedTagCache'}]},
+    durable_objects: {bindings: [{name:'NEXT_CACHE_DO_QUEUE',class_name:'DOQueueHandler'},{name:'NEXT_TAG_CACHE_DO_SHARDED',class_name:'DOShardedTagCache'},...(realtime?[input.realtimeBinding]:[])]},
     migrations: [{tag:'freebuff-next-v1',new_sqlite_classes:['DOQueueHandler','DOShardedTagCache']}],
   };
   // JSONC keeps the ownership marker while remaining readable by Wrangler.
@@ -431,12 +463,12 @@ try {
     await copyFile(path,join(cacheDir,file));
     cache.push({key,path:'cache/'+file});
   });
-  const manifest={runtime:'opennext',entrypoint:'deploy-entry.js',compatibilityDate:localConfig.compatibility_date,compatibilityFlags:hostedFlags,modules,assetsDirectory:'assets',cache,spa:false};
+  const manifest={runtime:'opennext',...(realtime?{realtime:true}:{}),entrypoint:'deploy-entry.js',compatibilityDate:localConfig.compatibility_date,compatibilityFlags:hostedFlags,modules,assetsDirectory:'assets',cache,spa:false};
   await writeFile(join(out,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
   stage = 'seeding the local preview cache';
   await run(process.execPath,[adapterCli,'populateCache','local','--config','freebuff.wrangler.jsonc']);
   await log.close(); log=undefined;
-  process.stdout.write('FREEBUFF_NEXT_RESULT:'+JSON.stringify({runtime:'opennext',manifestPath:slash(relative(root,join(out,'manifest.json'))),localWranglerConfigPath:slash(relative(root,join(project,'freebuff.wrangler.jsonc'))),logPath,nextVersion,adapterVersion:input.adapterVersion})+'\n');
+  process.stdout.write('FREEBUFF_NEXT_RESULT:'+JSON.stringify({runtime:'opennext',manifestPath:slash(relative(root,join(out,'manifest.json'))),localWranglerConfigPath:slash(relative(root,join(project,'freebuff.wrangler.jsonc'))),...(realtime?{realtimeWranglerConfigPath:slash(relative(root,join(project,'freebuff-realtime/wrangler.jsonc')))}:{}),logPath,nextVersion,adapterVersion:input.adapterVersion})+'\n');
 } catch(error) {
   if(log) { await log.write('\nPreparation failed at '+stage+'\n'); await log.close(); }
   const message=(error?.safe?error.message:'Next.js preparation failed while '+stage+'. Inspect '+logPath+' for the build error.').slice(0,4096);
