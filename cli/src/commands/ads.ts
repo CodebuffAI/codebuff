@@ -29,11 +29,43 @@ export const handleAdsEnable = (): {
   }
 }
 
-export const handleAdsDisable = (): {
+/**
+ * What `/ads:disable` says in Freebuff, where it cannot do what it names.
+ *
+ * The rail is part of free mode's price: `getAdsEnabled()` below returns true
+ * unconditionally on this binary, so there is no state this command could
+ * write that the free client would read. Persisting `adsEnabled: false` anyway
+ * was worse than useless -- the SAME settings file is read by Codebuff LITE,
+ * which is a paid mode where that key DOES turn ads off, so a free user's
+ * dead switch quietly preselected an ad-free paid session later. The command
+ * stays reachable (a discoverable answer beats a missing command); only the
+ * claim that it worked is gone.
+ */
+export const FREEBUFF_ADS_FIXED_COPY =
+  'Ads cannot be turned off in Freebuff - they pay for the free sessions. ' +
+  'This switch applies only to the Codebuff client.'
+
+export const handleAdsDisable = (
+  deps: {
+    /** Pinned for tests only; production reads the build constant. */
+    isFreebuff?: boolean
+    save?: typeof saveSettings
+  } = {},
+): {
   postUserMessage: (messages: ChatMessage[]) => ChatMessage[]
 } => {
+  if (deps.isFreebuff ?? IS_FREEBUFF) {
+    logger.info('[gravity] Ads: disable refused (free mode has no ad switch)')
+    return {
+      postUserMessage: (messages) => [
+        ...messages,
+        getSystemMessage(FREEBUFF_ADS_FIXED_COPY),
+      ],
+    }
+  }
+
   logger.info('[gravity] Disabling ads')
-  saveSettings({ adsEnabled: false })
+  ;(deps.save ?? saveSettings)({ adsEnabled: false })
 
   return {
     postUserMessage: (messages) => [
