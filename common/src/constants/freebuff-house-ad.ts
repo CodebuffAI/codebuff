@@ -14,25 +14,12 @@ import {
  * strings: the floor is variation 0 of each surface, so the safety net always
  * reads like the product rather than like something written once and forgotten.
  *
- * THE FLOOR IS COPY, NOT INVENTORY. There is no campaign row, no budget, no
- * frequency cap and no targeting behind it, and that is deliberate: a house
- * fallback that can itself return nothing is not a fallback. It is also off by
- * default and unset in production. The CAMPAIGN is a different thing and is
- * capped: it carries the shared per-user frequency default, the same as any
- * advertiser who configured none. The floor's serving mechanism lives in
- * `@codebuff/internal/ad-serving/house-ad` and is required to be total over
- * every surface below.
- *
- * ONE EXCEPTION, AND IT IS NOT TARGETING: since 2026-09-02 an entitled
- * subscriber is served nothing here. This copy advertises the subscription, so
- * the one reader it must never reach is the one who already bought it. Every
- * serve path -- the campaign's candidate filter and all four checked-in floors
- * -- asks `resolveHouseSuppressedForUser` first. That is the ONLY thing a
- * serve path reads about a subscription; the claims below are unaffected, and
- * in particular a subscription still does not remove ads. The candidate filter
- * withholds only house campaigns measured on `subscription_started`
- * (`sellsSubscription`, COD-707); every other house campaign -- the Discord
- * join, a Freebucks top-up, a model launch -- reaches subscribers.
+ * THE UNCAPPED FLOOR IS RETIRED. These constants still supply campaign copy
+ * and historical consumers, but `resolveHouseSubscriptionAd` no longer serves
+ * them. All live house promotions use capped campaigns. Subscription/top-up
+ * campaigns additionally require a known limited-country audience, and
+ * subscribers never see the subscription pitch. Product-discovery campaigns
+ * have their own catalog and UX targeting.
  *
  * **This file is published.** `common` ships wholesale to the public mirror
  * (docs/public-repo-sync.md). That is fine here -- it is marketing copy and a
@@ -172,7 +159,10 @@ export const HOUSE_AD_FAVICON_URL = `${FREEBUFF_WEB_URL_PROD}/favicon/favicon-32
 const FAVICON = HOUSE_AD_FAVICON_URL
 
 /**
- * What the inline renderer actually gives a creative, in characters.
+ * Legacy subscription-copy budgets, in characters. These are NOT campaign
+ * field limits or Desktop/web limits. New Desktop/web copy should not import
+ * them; all-inline copy can validate the normal 48-column preview baseline
+ * and accept ellipsis on unusually narrow terminals (as the Discord copy does).
  *
  * Both numbers come from `getInlineAdLayout` in `common/src/ads/inline-ad-layout.ts`.
  * The adjacent test RECOMPUTES them from that function rather than trusting
