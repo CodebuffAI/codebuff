@@ -124,6 +124,7 @@ interface RenderState {
 const createRenderState = (
   palette: MarkdownPalette,
   codeBlockWidth: number,
+  keyPrefix = '',
 ): RenderState => {
   let counter = 0
   return {
@@ -131,7 +132,7 @@ const createRenderState = (
     codeBlockWidth,
     nextKey: () => {
       counter += 1
-      return `markdown-${counter}`
+      return `${keyPrefix}markdown-${counter}`
     },
   }
 }
@@ -1005,6 +1006,35 @@ const normalizeOutput = (nodes: ReactNode[]): ReactNode => {
     </>
   )
 }
+
+/**
+ * Parses and renders markdown without trimming the trailing block separator.
+ *
+ * `renderMarkdown` drops that separator, which is correct for a whole document
+ * but not when several rendered fragments are stitched back together: the
+ * incremental streaming renderer needs the separators to line up exactly as a
+ * single render would produce them.
+ */
+export function renderMarkdownNodes(
+  markdown: string,
+  options: MarkdownRenderOptions = {},
+  keyPrefix = '',
+): ReactNode[] {
+  try {
+    const palette = resolvePalette(options.palette)
+    const codeBlockWidth = options.codeBlockWidth ?? 80
+    const state = createRenderState(palette, codeBlockWidth, keyPrefix)
+    const ast = processor.parse(markdown) as Root
+    applyInlineFallbackFormatting(ast)
+    return renderNode(ast, state, ast.type, undefined)
+  } catch (error) {
+    logger.error(error, 'Failed to parse markdown')
+    return [markdown]
+  }
+}
+
+/** Drops the whitespace-only nodes a rendered document ends with. */
+export const trimTrailingWhitespace = trimTrailingWhitespaceNodes
 
 export function renderMarkdown(
   markdown: string,
