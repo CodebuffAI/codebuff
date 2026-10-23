@@ -370,6 +370,13 @@ export interface FreebuffFreebucksInfo {
    * that predates the field.
    */
   upgrade?: FreebuffFreebucksUpgrade
+  /**
+   * The server's verdict that this account is shown no upgrade button, not
+   * even a subscriber's next plan up (2026-10-22: full access in tiers 1 and
+   * 2, whose pools cover most use). Overrides `upgrade`. Absent keeps the
+   * button.
+   */
+  upgradeHidden?: boolean
 }
 
 export interface FreebuffFreebucksUpgrade {
