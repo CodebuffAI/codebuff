@@ -24,7 +24,7 @@ import {
 import { clientEnvironmentHeaders } from '../utils/client-environment'
 import { getAuthToken } from '../utils/auth'
 import { logger } from '../utils/logger'
-import { sponsoredCliCapability } from '../utils/sponsored-cli-capability'
+import { cachedSponsoredCliCapability } from '../utils/sponsored-cli-capability'
 
 import type { Message } from '@codebuff/sdk'
 import type { AdProvider, AdSurface } from '../hooks/use-gravity-ad'
@@ -170,7 +170,7 @@ export async function buildAdAuctionRequest(params: {
   const { adTraceContext, chatSessionId } = useChatStore.getState()
   const projectRoot = params.allowSponsoredRoute ? tryGetProjectRoot() : null
   const capability = projectRoot
-    ? await sponsoredCliCapability(projectRoot)
+    ? await cachedSponsoredCliCapability(projectRoot)
     : null
   const capabilityRoute = capability !== null
   const dockArm = getSessionDockArm()

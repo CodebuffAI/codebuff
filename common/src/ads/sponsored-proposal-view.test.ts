@@ -77,6 +77,19 @@ describe('state copy', () => {
 })
 
 describe('setup handoff', () => {
+  test('VM-44 agent-managed conversions do not repeat the account handoff after delivery', () => {
+    for (const state of [
+      'delivered',
+      'committed',
+      'landed',
+      'merged',
+    ] as const) {
+      expect(
+        view({ state, agent_managed_conversion: true }).setupGuide,
+      ).toBeNull()
+      expect(view({ state }).setupGuide).not.toBeNull()
+    }
+  })
   test('VM-33 prompts before merge without claiming an already-merged PR is pending', () => {
     for (const state of ['committed', 'landed'] as const) {
       expect(view({ state }).setupGuide?.eyebrow).toBe('Before you merge')
@@ -645,7 +658,9 @@ describe('offer plan and progress pill', () => {
 
   test('VM-41 an offered card with a plan says its steps, estimate and the step that needs the user', () => {
     const v = view({ state: 'offered', offer_plan: PLAN })
-    expect(v.offerSummary).toBe('6 steps · ~4 min · 1 needs you (Archil account)')
+    expect(v.offerSummary).toBe(
+      '6 steps · ~4 min · 1 needs you (Archil account)',
+    )
     expect(v.offerPlan).toEqual({
       stepCount: 6,
       needsUser: ['Archil account'],
@@ -698,7 +713,12 @@ describe('offer plan and progress pill', () => {
       }),
     ).toBe('3/6 · 2m')
     expect(
-      sponsoredProgressPill({ state: 'accepted', steps: [], plan, needsYou: true }),
+      sponsoredProgressPill({
+        state: 'accepted',
+        steps: [],
+        plan,
+        needsYou: true,
+      }),
     ).toBe('Needs you')
     for (const state of ['committed', 'delivered', 'landed', 'merged'] as const)
       expect(sponsoredProgressPill({ state, steps: [], plan })).toBe('6/6 ✓')

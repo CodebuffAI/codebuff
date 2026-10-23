@@ -246,6 +246,8 @@ export type SponsoredProposalRow = {
    * `href`.
    */
   advertiser_cta_url?: string
+  /** The accepted run owns the account question and conversion assessment. */
+  agent_managed_conversion?: true
   /**
    * The execution surface the offer was minted for (`desktop_macos`,
    * `desktop_windows`, ...). A surface refuses to accept a row minted for a
@@ -725,40 +727,41 @@ export function sponsoredProposalViewModel(
     logoSrc: sponsoredLogoSrc(row.advertiser_logo_token),
     pullRequestHref,
     advertiserCtaHref,
-    setupGuide: ctaStates.includes(row.state)
-      ? {
-          title: 'Finish setup and verify',
-          eyebrow:
-            row.state === 'merged'
-              ? 'Finish setup'
-              : // Nothing is merged on an in-place run, so "Before you merge"
-                // would name a step that does not exist here.
-                row.state === 'delivered'
-                ? 'Before you keep it'
-                : 'Before you merge',
-          heading: `Connect ${row.advertiser_name}`,
-          description:
-            'Your code is ready. Create an account or sign in, then add your project settings.',
-          steps: [
-            {
-              title: '1. Review the code',
-              detail:
-                'Review the changes and setup notes. The code is ready for review; the live connection still needs checking.',
-            },
-            {
-              title: '2. Set up your account',
-              detail: `Create or sign in to your ${row.advertiser_name} account if needed. Follow the setup notes to connect your project and configure credentials in your environment settings.`,
-            },
-            {
-              title: '3. Verify in your app',
-              detail:
-                'Run the feature against your connected project using the setup notes. A signup or passing local tests alone does not verify the integration.',
-            },
-          ],
-          verificationNote:
-            'Live integration verification is not recorded by this card. These are your next steps; they do not restart the sponsored run.',
-        }
-      : null,
+    setupGuide:
+      ctaStates.includes(row.state) && !row.agent_managed_conversion
+        ? {
+            title: 'Finish setup and verify',
+            eyebrow:
+              row.state === 'merged'
+                ? 'Finish setup'
+                : // Nothing is merged on an in-place run, so "Before you merge"
+                  // would name a step that does not exist here.
+                  row.state === 'delivered'
+                  ? 'Before you keep it'
+                  : 'Before you merge',
+            heading: `Connect ${row.advertiser_name}`,
+            description:
+              'Your code is ready. Create an account or sign in, then add your project settings.',
+            steps: [
+              {
+                title: '1. Review the code',
+                detail:
+                  'Review the changes and setup notes. The code is ready for review; the live connection still needs checking.',
+              },
+              {
+                title: '2. Set up your account',
+                detail: `Create or sign in to your ${row.advertiser_name} account if needed. Follow the setup notes to connect your project and configure credentials in your environment settings.`,
+              },
+              {
+                title: '3. Verify in your app',
+                detail:
+                  'Run the feature against your connected project using the setup notes. A signup or passing local tests alone does not verify the integration.',
+              },
+            ],
+            verificationNote:
+              'Live integration verification is not recorded by this card. These are your next steps; they do not restart the sponsored run.',
+          }
+        : null,
     verification,
     actions: [
       ...stateActions,

@@ -11,6 +11,7 @@ import type {
 } from './sponsored-windows'
 import type { SPONSORED_IN_PLACE_VERSION } from './sponsored-in-place'
 import type { SPONSORED_RUN_SPEC_VERSION } from './sponsored-run-spec'
+import type { SPONSORED_CONVERSION_TOOLS_VERSION } from './sponsored-conversion'
 
 /** The clients a funded Accept can come from. */
 export const SPONSORED_ACCEPT_SURFACES = ['desktop', 'cli', 'web'] as const
@@ -61,6 +62,14 @@ export type SponsoredAcceptRequest = {
    * charges nothing again and is safe to retry).
    */
   runSpecVersion?: typeof SPONSORED_RUN_SPEC_VERSION
+  /**
+   * `1`: this client has the sponsored conversion tools
+   * (`./sponsored-conversion.ts`). Without it a skill with a conversion
+   * definition is refused before anything is charged: `409
+   * client_update_required` on Desktop, `409 unsupported_surface` on the
+   * CLI and web, which have no such tools in any build.
+   */
+  conversionToolsVersion?: typeof SPONSORED_CONVERSION_TOOLS_VERSION
 }
 
 /**

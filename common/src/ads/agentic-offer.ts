@@ -218,6 +218,14 @@ export const agenticOfferRequestSchema = z.object({
    */
   runSpecVersion: z.literal(SPONSORED_RUN_SPEC_VERSION).optional(),
   /**
+   * `SPONSORED_CONVERSION_TOOLS_VERSION`: this client has the sponsored
+   * conversion tools (`sponsored-conversion.ts`), so a skill with a
+   * conversion definition may be offered to it. Unknown here and read with
+   * `clientHasSponsoredConversionTools`, so a malformed value reads as absent
+   * instead of failing the request.
+   */
+  conversionToolsVersion: z.unknown().optional(),
+  /**
    * Pointer ids to the conversation's trace, never its text
    * (`trace-context.ts`). Unknown here and read with `parseAdTraceContext`, so
    * a malformed value is dropped instead of failing the request.
@@ -261,7 +269,11 @@ export const AGENTIC_OFFER_NONE_REASONS = [
   'not_tier1',
   /** Classification ran and nothing matched or was invitable. */
   'no_match',
-  /** Matched, but the pool declined: cap, no fill, mint rules, not offered. */
+  /**
+   * Matched, but the pool declined: cap, no fill, mint rules, not offered.
+   * Also the user-wide pre-check before relevance: the user opted out, or
+   * already has a live proposal on this target, so nothing could be minted.
+   */
   'suppressed',
   'deadline',
   'error',

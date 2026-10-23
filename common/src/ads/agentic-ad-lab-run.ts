@@ -235,29 +235,43 @@ export function labSponsoredSystemSections(): string {
 // --------------------------------------------------------------- account step
 
 /** MIRRORED: the answers Desktop's account-step questions offer. */
-export const LAB_SIGNUP_YES = 'Yes, I’m signed in'
-export const LAB_SIGNUP_NO = 'No, I don’t want to sign up'
+export const LAB_SIGNUP_YES = 'I’m signed in'
+export const LAB_SIGNUP_NO = 'Not now'
+/** MIRRORED: the descriptions of Desktop's sign-in answers. */
+export const LAB_SIGNUP_YES_DESCRIPTION = 'Continue connecting your project.'
+export const LAB_SIGNUP_NO_DESCRIPTION =
+  'Keep the work so far. Leave the account connection for later.'
 export const LAB_INSTANT_SETUP_YES = 'Yes, set it up'
 export const LAB_INSTANT_SETUP_NO = 'No, I’ll sign up myself'
 export const LAB_PREFILL_YES = 'Yes, fill in my email'
 export const LAB_PREFILL_NO = 'No, I’ll type it'
 
+/** MIRRORED: the sentence Desktop's sign-in question adds when a key follows. */
+export const LAB_SIGNIN_CONNECT_NEXT =
+  ' Next, I’ll ask you to connect your API key securely.'
+
 /** MIRRORED: Desktop's sign-in question. */
-export function labSignInQuestion(offerName: string): string {
-  return `To finish your free ${offerName}, please sign in to the browser tab I just opened.`
+export function labSignInQuestion(
+  advertiserName: string,
+  connectNext = false,
+): string {
+  return `Sign in to ${advertiserName} in the tab I opened so I can finish your free setup. Create an account if you don’t have one. Keep that tab open when you’re done.${connectNext ? LAB_SIGNIN_CONNECT_NEXT : ''}`
 }
 
 /** MIRRORED: Desktop's Instant setup question (COD-830). */
 export function labInstantSetupQuestion(
-  offerName: string,
+  advertiserName: string,
   email: string,
 ): string {
-  return `${offerName} can create your account and an API key for this task, with no sign-up. Freebuff will send ${email} to them to do it.`
+  return `${advertiserName} can create your account and an API key for this task, with no sign-up. Freebuff will send ${email} to them to do it.`
 }
 
 /** MIRRORED: Desktop's `{email}` prefill question (COD-830). */
-export function labPrefillQuestion(offerName: string, email: string): string {
-  return `Fill in ${email} on the ${offerName} sign-up page? This shares your email with them before you sign up.`
+export function labPrefillQuestion(
+  advertiserName: string,
+  email: string,
+): string {
+  return `Fill in ${email} on the ${advertiserName} sign-up page? This shares your email with them before you sign up.`
 }
 
 /**

@@ -105,6 +105,42 @@ export const AGENTIC_FUNNEL_EVENT_TYPES = [
    * opened from", and for one of these rows no such commit does.
    */
   'run_delivered',
+  // The client-and-server funnel (agentic ads revamp, 2026-10-23, COD-935).
+  // Every one is telemetry: `accepted` stays the only billable stage, and
+  // `accept_clicked` below is the press, not the charge.
+  /**
+   * A client was handed an offered proposal: the agentic offer route's
+   * response that carried it went out (`/api/v1/ads/agentic/offer`; the
+   * legacy `/api/ads` agentic slot does not write it). Later than
+   * `proposal_offered` (the server minted the offer) and earlier than
+   * `proposal_displayed` (the card was visible), so a drop between the three
+   * says whether the offer was lost in transit or never shown.
+   */
+  'offer_received',
+  /** The user opened the card's plan (its procedure preview). */
+  'plan_viewed',
+  /**
+   * The user pressed Accept on the client, recorded before the Accept POST
+   * answers. NOT a charge and never billable: the charge is `accepted`,
+   * which only the funded Accept writes. Pressed-but-not-accepted is the gap
+   * between the two.
+   */
+  'accept_clicked',
+  /**
+   * The server refused an Accept (a 409: the offer expired, the procedure
+   * changed, the project is not a fit, ...). REPEATING: each refusal has its
+   * own event id, and the refusal code is in `metadata.reason`.
+   */
+  'accept_refused',
+  /** The accepted run started executing on the user's machine. */
+  'run_started',
+  /**
+   * The run stopped to wait on the user (an account step, a credential).
+   * REPEATING: each wait has its own event id.
+   */
+  'needs_you',
+  /** The user undid the run's changes. */
+  'undo',
 ] as const
 
 export type AgenticFunnelEventType = (typeof AGENTIC_FUNNEL_EVENT_TYPES)[number]
@@ -117,6 +153,72 @@ export type AgenticFunnelEventType = (typeof AGENTIC_FUNNEL_EVENT_TYPES)[number]
  * funnel stage. Kept as data so the exclusion is asserted rather than trusted.
  */
 export const RETIRED_AGENTIC_FUNNEL_EVENT_TYPES = ['pr_made'] as const
+
+/**
+ * Stages that can happen more than once per proposal. Funnel recording
+ * dedupes on `(campaign_id, event_id)`, so each occurrence carries its own
+ * event id rather than one derived from the proposal alone, which would keep
+ * only the first.
+ */
+export const REPEATING_AGENTIC_FUNNEL_EVENT_TYPES = [
+  'accept_refused',
+  'needs_you',
+  'tool_used',
+] as const satisfies readonly AgenticFunnelEventType[]
+
+/**
+ * The stages a proposal's owner reports from their client, through
+ * `POST /api/v1/ads/proposal/{id}/event` (Desktop, the CLI) or
+ * `POST /api/web/ads/proposal/{id}/event` (the browser workspace). Only what
+ * the client alone can see: the server records `offer_received`,
+ * `accept_refused` and `run_started` itself, where it observes them, and
+ * `accepted` stays the funded Accept's own row.
+ */
+export const CLIENT_REPORTED_AGENTIC_FUNNEL_EVENT_TYPES = [
+  'plan_viewed',
+  'accept_clicked',
+  'needs_you',
+  'undo',
+] as const satisfies readonly AgenticFunnelEventType[]
+
+export type ClientReportedAgenticFunnelEventType =
+  (typeof CLIENT_REPORTED_AGENTIC_FUNNEL_EVENT_TYPES)[number]
+
+export function isClientReportedAgenticFunnelEvent(
+  value: unknown,
+): value is ClientReportedAgenticFunnelEventType {
+  return (
+    CLIENT_REPORTED_AGENTIC_FUNNEL_EVENT_TYPES as readonly unknown[]
+  ).includes(value)
+}
+
+export function isRepeatingAgenticFunnelEvent(
+  eventType: AgenticFunnelEventType,
+): boolean {
+  return (REPEATING_AGENTIC_FUNNEL_EVENT_TYPES as readonly string[]).includes(
+    eventType,
+  )
+}
+
+/** A client's occurrence id: what tells two waits on one run apart. */
+export const AGENTIC_FUNNEL_OCCURRENCE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/
+
+/**
+ * The idempotency key of one funnel stage of one proposal:
+ * `<type>:<proposalId>`, as the state route and the funnel bridge derive
+ * theirs, so a retried report records once. A REPEATING stage appends the
+ * occurrence (`<type>:<proposalId>:<occurrence>`): one row per wait or
+ * refusal, and still one per retry of the same one.
+ */
+export function agenticProposalFunnelEventId(
+  eventType: AgenticFunnelEventType,
+  proposalId: string,
+  occurrenceId?: string,
+): string {
+  return occurrenceId === undefined
+    ? `${eventType}:${proposalId}`
+    : `${eventType}:${proposalId}:${occurrenceId}`
+}
 
 /**
  * The `accepted` event's idempotency key, derived from the PROPOSAL id.
