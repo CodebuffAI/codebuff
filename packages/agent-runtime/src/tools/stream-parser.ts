@@ -85,6 +85,20 @@ export const MAX_FOLLOWUP_SUGGESTION_CALLS_PER_RESPONSE = 8
 export const FOLLOWUP_SUGGESTION_LIMIT_TAG = 'FOLLOWUP_SUGGESTION_LIMIT'
 export const FOLLOWUP_SUGGESTION_LIMIT_MESSAGE = `Your previous response was cut off because it called a follow-up suggestion tool more than ${MAX_FOLLOWUP_SUGGESTION_CALLS_PER_RESPONSE} times. The first ${MAX_FOLLOWUP_SUGGESTION_CALLS_PER_RESPONSE} suggestions were shown to the user. Do not suggest more follow-ups this turn.`
 
+/**
+ * Any tool, once a single response has made this many calls. Seen 10-22 on
+ * Freebuff Desktop and Cloud (mostly MiMo v2.5): a response streamed one tool
+ * call per assistant message, 0-1 ms apart, for 6 to 58 minutes (3,539,
+ * 6,723, 7,623 and 12,146 calls, mostly run_terminal_command with a few
+ * hundred distinct inputs). Compaction always keeps the newest tool exchange
+ * whole, so the chat could never shrink back under the model's window and
+ * every later turn failed with the 400k compaction-budget error. A real
+ * response fans out to a few dozen calls at most.
+ */
+export const MAX_TOOL_CALLS_PER_RESPONSE = 100
+export const TOOL_CALL_LIMIT_TAG = 'TOOL_CALL_LIMIT'
+export const TOOL_CALL_LIMIT_MESSAGE = `Your previous response was cut off because it made more than ${MAX_TOOL_CALLS_PER_RESPONSE} tool calls. The first ${MAX_TOOL_CALLS_PER_RESPONSE} ran and their results are above. Do not repeat a call whose result you already have; if more work is needed, make fewer calls per response.`
+
 const RECOVERY_BY_SOURCE: Record<
   StreamRecoverySource,
   { tag: string; giveUpMessage: string }
@@ -168,7 +182,7 @@ export async function processStream(
     onCostCalculated: (credits: number) => Promise<void>
     onResponseChunk: (chunk: string | PrintModeEvent) => void
     /** Cancels this step's model request (not the run). Called when the
-     *  response is cut short by the follow-up suggestion cap. */
+     *  response is cut short by the follow-up suggestion or tool-call cap. */
     stopStream?: () => void
     /** The finish reason the model's stream reported, once it has ended
      *  (undefined when it never reported one). Tells the think-tag split
@@ -258,6 +272,10 @@ export async function processStream(
   let sawToolCall = false
   let followupSuggestionCalls = 0
   let followupSuggestionLimitHit = false
+  let toolCallsInResponse = 0
+  let toolCallLimitHit = false
+  // Either cap ends the response: no more calls run, and the loop stops reading.
+  const responseCutOff = () => followupSuggestionLimitHit || toolCallLimitHit
   const errorMessages: Message[] = []
   let resolveStreamDonePromise!: () => void
   const streamDonePromise = new Promise<void>((resolve) => {
@@ -307,7 +325,24 @@ export async function processStream(
         providerOptions?: ProviderMetadata,
       ) => {
         sawToolCall = true
-        if (signal.aborted || followupSuggestionLimitHit) {
+        if (signal.aborted || responseCutOff()) {
+          return
+        }
+        toolCallsInResponse++
+        if (toolCallsInResponse > MAX_TOOL_CALLS_PER_RESPONSE) {
+          toolCallLimitHit = true
+          logger.warn(
+            {
+              metric: 'tool_call_limit_hit',
+              toolName,
+              limit: MAX_TOOL_CALLS_PER_RESPONSE,
+              model: agentTemplate.model,
+              agentId: agentTemplate.id,
+              userId,
+              runId,
+            },
+            'Response made more tool calls than the per-response cap; cutting it off',
+          )
           return
         }
         if (FOLLOWUP_SUGGESTION_TOOL_NAMES.has(toolName)) {
@@ -509,7 +544,7 @@ export async function processStream(
         break
       }
       const { value: chunk, done } = await streamWithTags.next()
-      if (followupSuggestionLimitHit && !done) {
+      if (responseCutOff() && !done) {
         // Stop reading the runaway response and cancel the request behind it;
         // the rest of this step (tool completion, history) proceeds normally.
         stopStream?.()
@@ -651,6 +686,16 @@ export async function processStream(
         }),
       )
     }
+    if (toolCallLimitHit) {
+      // The calls that ran return results, so the turn continues on its own;
+      // this tells the model why its response stopped.
+      errorMessages.push(
+        userMessage({
+          content: withSystemTags(TOOL_CALL_LIMIT_MESSAGE),
+          tags: [TOOL_CALL_LIMIT_TAG],
+        }),
+      )
+    }
 
     // The step's content is complete: release anything the split still holds,
     // before the tool-completion await below, so a released head keeps its
@@ -669,7 +714,7 @@ export async function processStream(
           !signal.aborted &&
           !sawStreamRecovery &&
           !sawToolCall &&
-          !followupSuggestionLimitHit &&
+          !responseCutOff() &&
           finishReason !== undefined &&
           finishReason !== 'length',
       }),
