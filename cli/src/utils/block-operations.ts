@@ -170,14 +170,27 @@ const appendTextWithThinkParsingToBlocks = (
     lastBlock?.type === 'text' &&
     lastBlock.textType === 'text'
   ) {
-    const combinedText = lastBlock.content + text
+    // A think tag can only be *completed* by this delta, at the seam between
+    // the block's tail and `text`; a tag already sitting inside the block was
+    // split out when it arrived. So scan the seam first and only fall back to
+    // the whole block when a '<' could still be mid-tag. Concatenating and
+    // scanning the full block per delta made this O(block) per chunk, i.e.
+    // quadratic over a long reply: a 470KB stream spent ~430ms here.
+    const seamLength = Math.max(THINK_OPEN_TAG.length, THINK_CLOSE_TAG.length) - 1
+    const seam = lastBlock.content.slice(
+      Math.max(0, lastBlock.content.length - seamLength),
+    )
 
-    if (
-      combinedText.includes(THINK_OPEN_TAG) ||
-      combinedText.includes(THINK_CLOSE_TAG)
-    ) {
-      textToParse = combinedText
-      nextBlocks.pop()
+    if (seam.includes('<') || text.includes('<')) {
+      const combinedText = lastBlock.content + text
+
+      if (
+        combinedText.includes(THINK_OPEN_TAG) ||
+        combinedText.includes(THINK_CLOSE_TAG)
+      ) {
+        textToParse = combinedText
+        nextBlocks.pop()
+      }
     }
   }
 
