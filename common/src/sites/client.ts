@@ -137,7 +137,7 @@ export class SitesClient {
             'That name is already used by a database or storage binding.',
           secret_not_found: 'This variable no longer exists. Refresh the list.',
           environment_busy:
-            'An operation is running or needs reconciliation. Refresh deployment activity before trying again.',
+            'An operation is still running, or an earlier one never reported its result. If this keeps happening, contact support@freebuff.com.',
           site_deletion_needs_reconciliation:
             'An earlier operation on this site never reported its result, so deletion is held until it is reconciled. Contact support@freebuff.com to have the site removed.',
           site_deleting: 'This site is being deleted.',
