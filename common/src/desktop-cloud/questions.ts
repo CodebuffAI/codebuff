@@ -19,6 +19,8 @@ export const cloudQuestionsSchema = z.object({
           .max(6)
           .optional()
           .catch(undefined),
+        allowFreeText: z.boolean().optional(),
+        isSecret: z.boolean().optional(),
         multiSelect: z.boolean().optional().catch(undefined),
       }),
     )
