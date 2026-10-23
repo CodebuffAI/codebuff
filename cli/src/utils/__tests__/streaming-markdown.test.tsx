@@ -151,3 +151,42 @@ describe('renderStreamingMarkdownCached', () => {
     expect(actual).toEqual(expected)
   })
 })
+
+describe('merged styled runs keep block boundaries', () => {
+  // Regression: merging same-styled nodes must not swallow the blank line
+  // between a code block and the paragraph that follows it.
+  test('a paragraph after a code block starts on its own line', async () => {
+    const doc = `\`\`\`ts
+const a = 1
+const b = 2
+\`\`\`
+
+After the block.
+`
+    const frame = await renderFrame(
+      renderStreamingMarkdown(doc, { codeBlockWidth: 60 }),
+    )
+    const lines = frame.split('\n').map((line) => line.trimEnd())
+
+    expect(lines).toContain('const b = 2')
+    expect(lines).toContain('After the block.')
+    expect(lines.some((line) => line.includes('const b = 2After'))).toBe(false)
+  })
+
+  test('code block lines stay on separate lines', async () => {
+    const doc = `\`\`\`ts
+const a = 1
+const b = 2
+const c = 3
+\`\`\`
+`
+    const frame = await renderFrame(
+      renderStreamingMarkdown(doc, { codeBlockWidth: 60 }),
+    )
+    const lines = frame.split('\n').map((line) => line.trimEnd())
+
+    expect(lines).toContain('const a = 1')
+    expect(lines).toContain('const b = 2')
+    expect(lines).toContain('const c = 3')
+  })
+})
