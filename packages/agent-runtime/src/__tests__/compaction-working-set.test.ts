@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import {
   MECHANICAL_HISTORY_TOKENS,
+  USER_MEMORY_TOKENS,
   compactHistoryNow,
 } from '../compact-history'
 import {
@@ -22,6 +23,25 @@ const said = (text: string): Message => ({
   role: 'assistant',
   content: [{ type: 'text', text }],
 })
+const todos = (list: Array<{ task: string; completed: boolean }>): Message[] => [
+  {
+    role: 'assistant',
+    content: [
+      {
+        type: 'tool-call',
+        toolCallId: 'todos',
+        toolName: 'write_todos',
+        input: { todos: list },
+      },
+    ],
+  },
+  {
+    role: 'tool',
+    toolCallId: 'todos',
+    toolName: 'write_todos',
+    content: [{ type: 'json', value: { message: 'Todos updated' } }],
+  },
+]
 const read = (id: string, files: Record<string, string>): Message[] => [
   {
     role: 'assistant',
@@ -324,7 +344,7 @@ describe('mechanical compaction size', () => {
     expect(compacted.previousTokens).toBeGreaterThan(300_000)
     const live = countTokensMessages(messages.slice(-1))
     expect(compacted.nextTokens - live).toBeLessThanOrEqual(
-      MECHANICAL_HISTORY_TOKENS,
+      MECHANICAL_HISTORY_TOKENS + USER_MEMORY_TOKENS,
     )
     // Still carries the newest unedited file and stubs the rest.
     const files = workingSet(compacted.messages)!
@@ -362,7 +382,35 @@ describe('mechanical compaction size', () => {
       historyTokens: 60_000,
     })!
     expect(compacted.nextTokens).toBeGreaterThan(MECHANICAL_HISTORY_TOKENS * 2)
-    expect(compacted.nextTokens).toBeLessThanOrEqual(61_000)
+    expect(compacted.nextTokens).toBeLessThanOrEqual(61_000 + USER_MEMORY_TOKENS)
+  })
+
+  it('keeps an earlier long request, shortened, and the newest to-do list instead of dropping them', () => {
+    const spec = `Build the billing page. ${'Requirement: invoices list totals per month. '.repeat(1_500)}END OF SPEC`
+    const messages: Message[] = [
+      user(spec),
+      ...Array.from({ length: 30 }, (_, i) => [
+        ...read(`r${i}`, { [`src/a${i}.ts`]: source(`a${i}`, 600) }),
+        said(`Step ${i} done. ${'notes '.repeat(300)}`),
+      ]).flat(),
+      ...todos([
+        { task: 'Wire the invoices table', completed: true },
+        { task: 'Add the monthly totals chart', completed: false },
+      ]),
+      ...Array.from({ length: 20 }, (_, i) => [
+        ...read(`s${i}`, { [`src/c${i}.ts`]: source(`c${i}`, 600) }),
+        said(`More work ${i}. ${'notes '.repeat(300)}`),
+      ]).flat(),
+      user('Now finish it.', true),
+    ]
+    const compacted = compactHistoryNow({
+      messages,
+      maxContextLength: 400_000,
+      fixedTokenCount: 16_000,
+    })!
+    expect(compacted.summaryText).toContain('Build the billing page.')
+    expect(compacted.summaryText).toContain('END OF SPEC')
+    expect(compacted.summaryText).toContain('Add the monthly totals chart')
   })
 })
 
