@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { memo, useCallback, useMemo, type ReactNode } from 'react'
+import { memo, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import React from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -21,6 +21,10 @@ import {
   hasMarkdown,
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
+import {
+  createStreamingMarkdownCache,
+  renderStreamingMarkdownCached,
+} from '../utils/streaming-markdown'
 
 import type { ChatMessage } from '../types/chat'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
@@ -357,6 +361,29 @@ const AgentMessage = memo(
     const isStreaming = useChatStore((state) => state.streamingAgents.has(message.id))
     const setFocusedAgentId = useChatStore((state) => state.setFocusedAgentId)
 
+    // A streaming agent re-renders on every flush, and a full markdown parse of
+    // its whole body per flush is the same quadratic cost the root message had.
+    const markdownCache = useRef<ReturnType<typeof createStreamingMarkdownCache> | null>(null)
+    if (markdownCache.current === null) {
+      markdownCache.current = createStreamingMarkdownCache()
+    }
+
+    const agentCodeBlockWidth = Math.max(
+      10,
+      availableWidth - AGENT_CONTENT_HORIZONTAL_PADDING,
+    )
+    const agentPalette: MarkdownPalette | undefined = useMemo(
+      () => markdownPalette ? {
+        ...markdownPalette,
+        codeTextFg: theme?.foreground ?? markdownPalette.codeTextFg,
+      } : undefined,
+      [markdownPalette, theme?.foreground],
+    )
+    const agentMarkdownOptions = useMemo(
+      () => ({ codeBlockWidth: agentCodeBlockWidth, palette: agentPalette! }),
+      [agentCodeBlockWidth, agentPalette],
+    )
+
     // Guard against missing agent info (should not happen for agent variant messages)
     if (!message.agent) {
       return (
@@ -389,21 +416,15 @@ const AgentMessage = memo(
         ? lastLine.replace(/[#*_`~\[\]()]/g, '').trim()
         : ''
 
-    const agentCodeBlockWidth = Math.max(
-      10,
-      availableWidth - AGENT_CONTENT_HORIZONTAL_PADDING,
-    )
-    const agentPalette: MarkdownPalette | undefined = markdownPalette ? {
-      ...markdownPalette,
-      codeTextFg: theme?.foreground ?? markdownPalette.codeTextFg,
-    } : undefined
-    const agentMarkdownOptions = {
-      codeBlockWidth: agentCodeBlockWidth,
-      palette: agentPalette!,
-    }
-    const displayContent = hasMarkdown(rawDisplayContent)
-      ? renderMarkdown(rawDisplayContent, agentMarkdownOptions)
-      : rawDisplayContent
+    const displayContent = !hasMarkdown(rawDisplayContent)
+      ? rawDisplayContent
+      : isStreaming
+        ? renderStreamingMarkdownCached(
+            rawDisplayContent,
+            agentMarkdownOptions,
+            markdownCache.current,
+          )
+        : renderMarkdown(rawDisplayContent, agentMarkdownOptions)
 
     const handleTitleClick = (): void => {
       onToggleCollapsed(message.id)
