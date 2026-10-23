@@ -101,7 +101,7 @@ export const productFunnelPropertiesSchema = z
       ])
       .optional(),
     destination: z
-      .enum(['desktop', 'cli', 'web', 'app_builder', 'mobile'])
+      .enum(['desktop', 'cli', 'web', 'app_builder', 'cowork', 'mobile'])
       .optional(),
     location: z
       .enum([
