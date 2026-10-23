@@ -955,6 +955,57 @@ function latestToolExchangeStart(messages: Message[]): number {
     : messages.length
 }
 
+/**
+ * The most tool calls of the newest exchange a pass keeps verbatim; any older
+ * calls in the same batch, with their results, go to the summary instead.
+ *
+ * Why (2026-10-23): a runaway response (3,539 to 12,146 calls, 10-22) left a
+ * batch whose calls alone were 150k-330k tokens and whole was up to ~9M.
+ * The pass kept the batch whole, `fitToolResults` can clip results but not
+ * calls, so it threw on every later turn and the chat stayed stuck at the 400k
+ * budget error. Matches the per-response cap in tools/stream-parser.ts.
+ */
+export const MAX_PROTECTED_TOOL_CALLS = 100
+
+/** Splits an oversized newest exchange: the newest calls (and every result of
+ *  a kept message) stay; the rest are returned to be summarized. */
+export function capProtectedToolBatch(batch: Message[]): {
+  kept: Message[]
+  spilled: Message[]
+} {
+  const callIds = batch.flatMap((message) =>
+    message.role === 'assistant' && Array.isArray(message.content)
+      ? message.content.flatMap((part) =>
+          part.type === 'tool-call' ? [part.toolCallId] : [],
+        )
+      : [],
+  )
+  if (callIds.length <= MAX_PROTECTED_TOOL_CALLS) return { kept: batch, spilled: [] }
+  const newest = new Set(callIds.slice(-MAX_PROTECTED_TOOL_CALLS))
+  const keptIds = new Set<string>()
+  const keptAssistant = new Set<Message>()
+  for (const message of batch) {
+    if (message.role !== 'assistant' || !Array.isArray(message.content)) continue
+    const ids = message.content.flatMap((part) =>
+      part.type === 'tool-call' ? [part.toolCallId] : [],
+    )
+    if (ids.some((id) => newest.has(id))) {
+      keptAssistant.add(message)
+      ids.forEach((id) => keptIds.add(id))
+    }
+  }
+  const keep = (message: Message) =>
+    message.role === 'tool'
+      ? keptIds.has(message.toolCallId)
+      : message.role === 'assistant'
+        ? keptAssistant.has(message)
+        : true
+  return {
+    kept: batch.filter(keep),
+    spilled: batch.filter((message) => !keep(message)),
+  }
+}
+
 /** Runtime-only request budgeting around the shared historical summarizer.
  * The serialized context-pruner still uses compactMessages' summary algorithm;
  * it does not own the parent's live model request or its fixed token overhead.
@@ -1001,13 +1052,19 @@ function compactRequestHistory(
       sentAt: Date.now(),
     })
   }
-  const fresh = messages
-    .slice(tailStart)
-    .filter((message) => !message.tags?.includes('STEP_PROMPT'))
+  const { kept: fresh, spilled } = capProtectedToolBatch(
+    messages
+      .slice(tailStart)
+      .filter((message) => !message.tags?.includes('STEP_PROMPT')),
+  )
   const protectedMessages = new Set([...prefix, ...fresh])
-  const older = messages
-    .slice(0, tailStart)
-    .filter((message) => !protectedMessages.has(message))
+  const older = [
+    ...messages
+      .slice(0, tailStart)
+      .filter((message) => !protectedMessages.has(message)),
+    // An oversized batch's older calls are history now, after everything else.
+    ...spilled,
+  ]
   // A previous pass's working set is reads, not conversation: it feeds this
   // pass's working set and stays out of the summary's tool log.
   const result = compactMessages({

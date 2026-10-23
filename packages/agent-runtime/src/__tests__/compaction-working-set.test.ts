@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import {
+  capProtectedToolBatch,
+  MAX_PROTECTED_TOOL_CALLS,
   MECHANICAL_HISTORY_TOKENS,
   USER_MEMORY_TOKENS,
   compactHistoryNow,
@@ -449,5 +451,55 @@ describe('outlineOf', () => {
     )
     expect(lines).toBe(400)
     expect(outline).toBe('L120 export function middle()')
+  })
+})
+
+describe('an oversized newest tool batch (a runaway response)', () => {
+  // 10-22: one response made thousands of calls, then every later turn threw
+  // because the pass kept the whole batch and could not shrink the calls.
+  const runaway = (calls: number): Message[] => [
+    user('Fix the build.', true),
+    ...Array.from({ length: calls }, (_, i): Message => ({
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: `c${i}`,
+          toolName: 'run_terminal_command',
+          input: { command: `npm run build -- --filter package-${i % 400} ${'--verbose '.repeat(30)}` },
+        },
+      ],
+    })),
+    ...Array.from({ length: calls }, (_, i): Message => ({
+      role: 'tool',
+      toolCallId: `c${i}`,
+      toolName: 'run_terminal_command',
+      content: [{ type: 'json', value: { stdout: `build ${i} ok`, exitCode: 0 } }],
+    })),
+  ]
+
+  it('keeps the newest calls with their results and summarizes the rest instead of failing', () => {
+    const compacted = compactHistoryNow({
+      messages: runaway(5_000),
+      maxContextLength: 400_000,
+      fixedTokenCount: 20_000,
+    })!
+    expect(compacted).not.toBeNull()
+    const calls = compacted.messages.flatMap((m) =>
+      m.role === 'assistant' && Array.isArray(m.content)
+        ? m.content.filter((p) => p.type === 'tool-call').map((p) => (p as { toolCallId: string }).toolCallId)
+        : [],
+    )
+    const results = compacted.messages.flatMap((m) => (m.role === 'tool' ? [m.toolCallId] : []))
+    expect(calls).toHaveLength(MAX_PROTECTED_TOOL_CALLS)
+    expect(calls.at(-1)).toBe('c4999')
+    expect(new Set(results)).toEqual(new Set(calls))
+    expect(compacted.nextTokens + 20_000).toBeLessThanOrEqual(400_000)
+  })
+
+  it('leaves a normal batch whole', () => {
+    const { kept, spilled } = capProtectedToolBatch(runaway(20).slice(1))
+    expect(spilled).toHaveLength(0)
+    expect(kept).toHaveLength(40)
   })
 })
