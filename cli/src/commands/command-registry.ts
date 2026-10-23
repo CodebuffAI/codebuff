@@ -18,6 +18,7 @@ import {
   handleProposalReport,
   handleProposalsOff,
 } from './ads'
+import { handleDealsCommand } from './deals'
 import { handleCopyConversationCommand } from './copy-conversation'
 import { handleExportConversationCommand } from './export-conversation'
 import { handleHelpCommand } from './help'
@@ -217,6 +218,8 @@ const FREEBUFF_ONLY_COMMANDS = new Set([
   'end-session',
   'model',
   'dashboard',
+  // The mock display-ad list behind the Freebuff footer's sponsor row.
+  'deals',
   // Freebuff-only because the ladder it reads is the FREEBUFF catalog's, and
   // the metadata it sets is honored only for free-mode traffic
   // (isFreebuffOriginatedRequest). On Codebuff the command would take a value
@@ -332,6 +335,15 @@ const ALL_COMMANDS: CommandDefinition[] = [
     handler: async (params) => {
       const message = await handleProposalsOff()
       params.setMessages((prev) => [...prev, getSystemMessage(message)])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'deals',
+    handler: async (params, args) => {
+      const content = await handleDealsCommand(args)
+      params.setMessages((prev) => [...prev, getSystemMessage(content)])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

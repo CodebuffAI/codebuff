@@ -3,6 +3,11 @@ import {
   isWebDesktopPlacement,
   webDesktopPlacement,
 } from '../ads/web-desktop-placements'
+import {
+  DISPLAY_AD_SERVING_LIVE,
+  isDarkDisplayAdPlacement,
+  isDisplayAdServingLive,
+} from '../ads/display-ads/serving'
 /**
  * The placements ad rail — first-party text ads in our own inventory.
  *
@@ -120,8 +125,30 @@ export const PLACEMENT_FORMATS = [
   'intermission',
   'partner',
   'billboard',
+  'branded',
 ] as const
 export type PlacementFormat = (typeof PLACEMENT_FORMATS)[number]
+
+/**
+ * The formats the operator `ad_placement` catalog (platform Convex) may
+ * STORE: every format but `branded`. Convex is being retired (COD-742) and
+ * its stored validator is frozen, and the catalog no longer reaches serving,
+ * so a branded slot's format is never written there: its catalog row leaves
+ * `format` unset and `resolveCatalogPlacementFormat` degrades that to the
+ * static registry, which says `branded`.
+ */
+export type CatalogPlacementFormat = Exclude<PlacementFormat, 'branded'>
+export const CATALOG_PLACEMENT_FORMATS: readonly CatalogPlacementFormat[] =
+  PLACEMENT_FORMATS.filter(isCatalogPlacementFormat)
+
+export function isCatalogPlacementFormat(
+  format: string,
+): format is CatalogPlacementFormat {
+  return (
+    format !== 'branded' &&
+    (PLACEMENT_FORMATS as readonly string[]).includes(format)
+  )
+}
 
 /**
  * The formats that are a sponsor break.
@@ -189,11 +216,34 @@ export function isBillboardFormat(format: PlacementFormat): boolean {
 }
 
 /**
+ * BRANDED PLACEMENTS: the display-ad units drawn in the sponsor's own colours
+ * (`common/src/ads/display-ads/`): Desktop's top banner, home takeover and
+ * Settings › MCP featured row, the CLI's launch splash, statusline and
+ * `/deals`.
+ *
+ * A TEXT creative (title, body, CTA, logo) plus the creative's
+ * `brand_color` / `brand_ink`, so no hero and no artwork is required. Like a
+ * billboard it is competitive first-party inventory that no paid network can
+ * draw, so a branded request takes the billboard ROUTE -- the paid
+ * first-party auction alone, never Gravity, never the house floor
+ * (`billboardRequestShape`, `dropUnfitBillboardFills`). Every branded slot is
+ * DARK until its id is in `DISPLAY_AD_SERVING_LIVE`
+ * (`common/src/ads/display-ads/serving.ts`).
+ */
+export function isBrandedFormat(format: PlacementFormat): boolean {
+  return format === 'branded'
+}
+
+/**
  * Formats no paid network, CPC backfill or house floor may fill, served by
  * the first-party CPM leg alone.
  */
 export function isFirstPartyOnlyFormat(format: PlacementFormat): boolean {
-  return isPartnerFormat(format) || isBillboardFormat(format)
+  return (
+    isPartnerFormat(format) ||
+    isBillboardFormat(format) ||
+    isBrandedFormat(format)
+  )
 }
 
 /**
@@ -409,6 +459,24 @@ const ORIGINAL_PLACEMENT_SLOTS = [
     available: false,
     format: 'billboard',
   },
+  // The display-ad (branded) units. `available` is the serving gate: an id is
+  // sellable exactly when it is in `DISPLAY_AD_SERVING_LIVE`, and until then
+  // it is refused by targeting validation and withheld by the serve path.
+  ...(
+    [
+      'Desktop-Top-Banner',
+      'Desktop-Home-Takeover',
+      'Desktop-MCP-Featured',
+      'CLI-Splash',
+      'CLI-Statusline',
+      'CLI-Deals',
+    ] as const
+  ).map((id) => ({
+    id,
+    surface: 'cli_chat' as const,
+    available: isDisplayAdServingLive(id),
+    format: 'branded' as const,
+  })),
   {
     id: 'Web-Chat-After-User-Message',
     surface: 'freebuff_web_chat',
@@ -434,7 +502,11 @@ export const PLACEMENT_SLOTS = [
   ...ORIGINAL_PLACEMENT_SLOTS,
   ...ORIGINAL_PLACEMENT_SLOTS.flatMap((slot) => {
     const id = webDesktopPlacement(slot.id)
-    return id ? [{ ...slot, id, surface: 'freebuff_web_chat' as const }] : []
+    if (!id) return []
+    // A branded mirror is its own gate: Desktop going live does not open web.
+    const available =
+      slot.format === 'branded' ? isDisplayAdServingLive(id) : slot.available
+    return [{ ...slot, id, surface: 'freebuff_web_chat' as const, available }]
   }),
 ] as const
 
@@ -525,6 +597,31 @@ export const BILLBOARD_PLACEMENT_IDS: readonly string[] =
   PLACEMENT_SLOTS.filter((slot) => slot.format === 'billboard').map(
     (slot) => slot.id,
   )
+
+/** Every branded (display-ad) slot in the registry, live or dark. */
+export const BRANDED_PLACEMENT_IDS: readonly string[] = PLACEMENT_SLOTS.filter(
+  (slot) => slot.format === 'branded',
+).map((slot) => slot.id)
+
+export function isBrandedPlacement(placementId: string): boolean {
+  return isBrandedFormat(placementFormat(placementId))
+}
+
+/**
+ * Whether a campaign may TARGET this placement id: registered, and not a dark
+ * display-ad placement. The one question campaign validation asks, for an
+ * advertiser and an operator alike -- `available` additionally decides what
+ * an advertiser may add on their own. `live` is a test seam.
+ */
+export function isTargetablePlacement(
+  placementId: string,
+  live: ReadonlySet<string> = DISPLAY_AD_SERVING_LIVE,
+): boolean {
+  return (
+    PLACEMENT_SLOTS.some((slot) => slot.id === placementId) &&
+    !isDarkDisplayAdPlacement(placementId, live)
+  )
+}
 
 /**
  * What a creative must look like to fill a SPONSOR BREAK.
@@ -642,6 +739,12 @@ const PLACEMENT_FORMAT_LABELS: Record<string, string> = {
   'CLI-Partner-Composer-Launch': 'CLI — Composer (launch intent)',
   'Desktop-Billboard-Sidebar': 'Desktop — Sidebar billboard',
   'Desktop-Billboard-Panel': 'Desktop — Right panel billboard',
+  'Desktop-Top-Banner': 'Desktop — Top banner',
+  'Desktop-Home-Takeover': 'Desktop — New chat takeover',
+  'Desktop-MCP-Featured': 'Desktop — Featured MCP servers',
+  'CLI-Splash': 'CLI — Launch splash',
+  'CLI-Statusline': 'CLI — Statusline',
+  'CLI-Deals': 'CLI — /deals',
 }
 
 export function placementSlotLabel(placementId: string): string {

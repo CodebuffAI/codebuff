@@ -224,10 +224,14 @@ describe('copy and configuration', () => {
     // that they are not: one advertiser is in each by agreement, and an
     // `available` partner slot would appear in the self-serve picker. The
     // billboards are operator-placed until the console can upload their art.
+    // The branded (display-ad) units are sellable exactly when live, and none
+    // is live yet (`DISPLAY_AD_SERVING_LIVE`).
     for (const slot of PLACEMENT_SLOTS) {
       expect([slot.id, slot.available]).toEqual([
         slot.id,
-        slot.format !== 'partner' && slot.format !== 'billboard',
+        slot.format !== 'partner' &&
+          slot.format !== 'billboard' &&
+          slot.format !== 'branded',
       ])
     }
     expect(new Set(PLACEMENT_SLOTS.map((slot) => slot.id)).size).toBe(
@@ -247,10 +251,11 @@ describe('copy and configuration', () => {
     // Plus the three sponsor breaks, the six partner slots and the two
     // billboards, which are deliberately the same surface: each is a different
     // RENDERER on the same chat surface, not a new surface, and adding a
-    // surface costs a house creative and a pinned rollup row.
-    expect(bySurface('cli_chat')).toBe(15)
+    // surface costs a house creative and a pinned rollup row. So are the six
+    // branded (display-ad) units, three of them mirrored to web.
+    expect(bySurface('cli_chat')).toBe(21)
     expect(bySurface('waiting_room')).toBe(4)
-    expect(bySurface('freebuff_web_chat')).toBe(12)
+    expect(bySurface('freebuff_web_chat')).toBe(15)
     expect(bySurface('chat_assistant')).toBe(1)
   })
 
@@ -551,7 +556,7 @@ describe('placement daily cap', () => {
 
 it('web copies retain format labels and name the web surface', () => {
   const aliases = PLACEMENT_SLOTS.filter((slot) => slot.id.endsWith(':web'))
-  expect(aliases).toHaveLength(10)
+  expect(aliases).toHaveLength(13)
   for (const slot of aliases) {
     expect(placementSlotLabel(slot.id)).toStartWith('Web — ')
     expect(placementSlotLabel(slot.id)).not.toContain(':web')
@@ -560,5 +565,7 @@ it('web copies retain format labels and name the web surface', () => {
   expect(placementSlotLabel('Desktop-Partner-Composer-PR:web')).toBe('Web — Composer (PR intent)')
   expect(placementSlotLabel('Desktop-Billboard-Sidebar:web')).toBe('Web — Sidebar billboard')
   expect(placementSlotLabel('Desktop-Intermission:web')).toBe('Web — Intermission')
+  expect(placementSlotLabel('Desktop-Top-Banner:web')).toBe('Web — Top banner')
+  expect(placementSlotLabel('CLI-Deals')).toBe('CLI — /deals')
   expect(placementSlotLabel('Desktop-Future:web')).toBe('Desktop Future:web')
 })

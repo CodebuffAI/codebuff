@@ -11,12 +11,17 @@ import {
   formatPlanWindows,
 } from '@codebuff/common/util/freebuff-plan-summary'
 
+import {
+  DisplayAdSplash,
+  displayAdSplashVariant,
+} from './display-ad-splash'
 import { FreebuffPausedPlanNotice } from './freebuff-paused-plan-notice'
 import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
   FREEBUFF_WORDMARK,
   FREEBUFF_WORDMARK_COMPACT,
 } from '../utils/freebuff-wordmark'
+import { CLI_DISPLAY_AD_PLACEMENT_IDS } from '../ads/display-ads'
 import { useTheme } from '../hooks/use-theme'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useFreebuffStreakQuery } from '../hooks/use-freebuff-streak-query'
@@ -177,6 +182,11 @@ export function FreebuffChatHeader({
           />
         )}
       </box>
+      <DisplayAdSplash
+        width={width}
+        variant={displayAdSplashVariant(terminalHeight)}
+        placementId={CLI_DISPLAY_AD_PLACEMENT_IDS.cliSplash}
+      />
     </box>
   )
 }

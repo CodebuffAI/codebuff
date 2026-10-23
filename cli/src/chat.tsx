@@ -68,6 +68,7 @@ import { TodoPanel } from './components/todo-panel'
 import { TopBanner } from './components/top-banner'
 import { useChatRuntime } from './contexts/chat-runtime-context'
 import { getSlashCommandsWithSkills } from './data/slash-commands'
+import { cliDisplayAdEnabled } from './ads/display-ads'
 import { useAskUserBridge } from './hooks/use-ask-user-bridge'
 import { useChatInput } from './hooks/use-chat-input'
 import {
@@ -849,6 +850,8 @@ export const Chat = ({
     return allCommands.filter((cmd) => {
       if (cmd.id === 'ads:enable') return !hasSubscription && !adsEnabled
       if (cmd.id === 'ads:disable') return !hasSubscription && adsEnabled
+      // The mock display-ad list rides the cliStatusline flag (off by default).
+      if (cmd.id === 'deals') return cliDisplayAdEnabled('cliStatusline')
       return true
     })
   }, [inputValue, loadedSkills, hasSubscription]) // Re-evaluate when input changes (user may have just toggled)

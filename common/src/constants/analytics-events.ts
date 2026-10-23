@@ -517,6 +517,15 @@ export enum AnalyticsEvent {
   ADS_SHOWCASE_PRESENTED = 'ads.showcase_presented',
   DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
   DESKTOP_INLINE_AD_SLOT_ELIGIBLE = 'desktop.inline_ad_slot_eligible',
+  // Mock display-ad placements (common/src/ads/display-ads/telemetry.ts):
+  // analytics ONLY. Every row carries mock_creative: true and billable: false;
+  // nothing is served behind them, so no ad_impression / ledger row, view ack
+  // or ads.impression_recorded / desktop.ad_shown is ever written for one.
+  DISPLAY_AD_IMPRESSION = 'display_ads.impression',
+  DISPLAY_AD_CLICK = 'display_ads.click',
+  DISPLAY_AD_DISMISS = 'display_ads.dismiss',
+  DISPLAY_AD_RESTORE = 'display_ads.restore',
+  DISPLAY_AD_ACTION = 'display_ads.action',
   // Shutdown/crash lifecycle of harness CLI children: turns aborted at quit so
   // their CLIs terminate, orphans from a dead orchestrator reaped at launch,
   // and interrupted turns auto-resumed by recovery. Together these answer "how

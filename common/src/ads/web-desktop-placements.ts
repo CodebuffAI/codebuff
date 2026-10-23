@@ -13,6 +13,11 @@ export const WEB_DESKTOP_SOURCE_PLACEMENTS = [
   'Desktop-Partner-Composer-Launch',
   'Desktop-Billboard-Sidebar',
   'Desktop-Billboard-Panel',
+  // Display-ad (branded) units; each `:web` copy is gated on its own id in
+  // `DISPLAY_AD_SERVING_LIVE` (`display-ads/serving.ts`).
+  'Desktop-Top-Banner',
+  'Desktop-Home-Takeover',
+  'Desktop-MCP-Featured',
 ] as const
 export type DesktopPlacementId = (typeof WEB_DESKTOP_SOURCE_PLACEMENTS)[number]
 export type WebDesktopPlacementId = `${DesktopPlacementId}:web`
