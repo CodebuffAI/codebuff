@@ -816,6 +816,7 @@ describe('getAxiomOnlyLogEvent', () => {
       decisions_pctr_input_tokens: 3150,
       decisions_pctr_context_trimmed: false,
       decisions_pctr_history_omitted: true,
+      decisions_pctr_message_context: 'withheld',
     }
     expect(
       getAxiomOnlyLogEvent({

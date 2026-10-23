@@ -878,6 +878,13 @@ const ADS_FIRST_PARTY_DECISION_FIELDS = {
   decisions_pctr_context_trimmed: 'boolean',
   decisions_pctr_history_omitted: 'boolean',
   /**
+   * The message-context split (`DECISIONS_PCTR_MESSAGES_WITHHELD_SHARE_BPS`,
+   * `ad-model/decisions-pctr.ts`): `sent`, the conversation went as
+   * `state.messages`; `withheld`, the batch went with an empty conversation.
+   * Set on every outcome inside the Flash arm, `no_context` included.
+   */
+  decisions_pctr_message_context: 'string',
+  /**
    * Whether the conversation's message classification went with the batch:
    * `sent`, `none` (the store had none), `other_model` (from a classifier
    * version this prompt does not describe) or `omitted` (dropped to fit the
