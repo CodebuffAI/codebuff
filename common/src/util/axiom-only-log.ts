@@ -44,8 +44,8 @@ export const CONTEXT_PRUNING_COMPLETED_EVENT =
 /** Stream-cut / output-limit recovery (sdk/src/impl/stream-interruption.ts,
  *  packages/agent-runtime/src/tools/stream-parser.ts). `metric` distinguishes
  *  the log sites (stream_recovery_detected / _rescued) that share this one
- *  allowlisted event — `_gave_up` logs at error level, which already ships
- *  raw and doesn't need the allowlist. */
+ *  allowlisted event — `_gave_up` logs at error level, which ships its
+ *  scalar fields (CLI error sanitizer) and doesn't need the allowlist. */
 export const STREAM_RECOVERY_EVENT = 'stream_recovery' as const
 /** A file edit was refused because it looked cut off mid-generation
  *  (packages/agent-runtime/src/util/truncated-write-guard.ts). `metric`
