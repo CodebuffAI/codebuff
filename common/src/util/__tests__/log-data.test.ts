@@ -89,8 +89,8 @@ describe('serializeLogData', () => {
     expect(parse({ error }).error.message).toBe('loop')
   })
 
-  // The CLI's `Agent execution failed` line, as production emits it. Measured
-  // 2026-10-14: 171 of 281 rows in one hour (61%, 149 distinct users) reached
+  // Historical shape of the CLI's `Agent execution failed` payload, pre-2026-10-23.
+  // Measured 2026-10-14: 171 of 281 rows in one hour (61%, 149 distinct users) reached
   // Axiom with no queryable error, agent or run id, because `messageHistory`
   // and `systemPrompt` alone run past the cap and the whole payload collapsed
   // to one `preview` string.

@@ -1975,8 +1975,8 @@ export async function loopAgentSteps(
         totalSteps,
         directCreditsUsed: currentAgentState.directCreditsUsed,
         creditsUsed: currentAgentState.creditsUsed,
-        messageHistory: currentAgentState.messageHistory,
-        systemPrompt: system,
+        messageCount: currentAgentState.messageHistory.length,
+        systemPromptChars: system.length,
       },
       'Agent execution failed',
     )

@@ -2257,6 +2257,32 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       expect(finishAgentRunStatus).toBe('failed')
     })
 
+    it('logs failure shape without message or system prompt contents', async () => {
+      const errorLogs: unknown[] = []
+      const logger = {
+        ...loopAgentStepsBaseParams.logger,
+        error: (data: unknown, message?: string) => {
+          if (message === 'Agent execution failed') errorLogs.push(data)
+        },
+      }
+
+      const result = await loopAgentSteps({
+        ...loopAgentStepsBaseParams,
+        logger,
+        promptAiSdkStream: async function* () {
+          throw new Error('Agent execution failed for test')
+        },
+      })
+
+      expect(result.output.type).toBe('error')
+      expect(errorLogs).toHaveLength(1)
+      const errorPayload = errorLogs[0] as Record<string, unknown>
+      expect(errorPayload).not.toHaveProperty('messageHistory')
+      expect(errorPayload).not.toHaveProperty('systemPrompt')
+      expect(typeof errorPayload.messageCount).toBe('number')
+      expect(typeof errorPayload.systemPromptChars).toBe('number')
+    })
+
     it('should handle signal.aborted before loop starts', async () => {
       // Test that if signal is already aborted when loopAgentSteps is called,
       // it returns immediately with a cancelled message
