@@ -316,11 +316,12 @@ export enum AnalyticsEvent {
   // also exactly what a genuine in-person referral looks like ("try it,
   // here's my laptop").
   FREEBUFF_REFERRAL_SOCK_SIGNAL = 'freebuff.referral.sock_signal',
-  // Freebuff - Get Started Page (referral onboarding funnel, in order:
+  // Freebuff - Get Started Page (sign-up, then Freebuff Desktop; in order:
   //   viewed → sign_in_clicked → signed_in → eligibility_resolved →
-  //   [connect_github_clicked] → install_command_copied | web_clicked).
-  // Every event carries a `referrer` prop (the inviter's name) for per-referrer
-  // funnel breakdowns.
+  //   [connect_github_clicked] → web_clicked | freebuff.desktop_download_clicked
+  //   (location get_started)).
+  // Every get_started event carries a `referrer` prop (the inviter's name) for
+  // per-referrer funnel breakdowns.
   FREEBUFF_GET_STARTED_VIEWED = 'freebuff.get_started_viewed',
   FREEBUFF_GET_STARTED_SIGN_IN_CLICKED = 'freebuff.get_started_sign_in_clicked',
   FREEBUFF_GET_STARTED_SIGNED_IN = 'freebuff.get_started_signed_in',
@@ -328,9 +329,9 @@ export enum AnalyticsEvent {
   FREEBUFF_AUTH_STEP = 'freebuff.auth_step',
   FREEBUFF_GET_STARTED_ELIGIBILITY_RESOLVED = 'freebuff.get_started_eligibility_resolved',
   FREEBUFF_GET_STARTED_CONNECT_GITHUB_CLICKED = 'freebuff.get_started_connect_github_clicked',
-  FREEBUFF_GET_STARTED_INSTALL_COMMAND_COPIED = 'freebuff.get_started_install_command_copied',
   FREEBUFF_GET_STARTED_WEB_CLICKED = 'freebuff.get_started_web_clicked',
-  // Deprecated (previous get-started design — no longer fired):
+  // Deprecated (previous get-started designs — no longer fired):
+  FREEBUFF_GET_STARTED_INSTALL_COMMAND_COPIED = 'freebuff.get_started_install_command_copied',
   FREEBUFF_GET_STARTED_HELP_EXPANDED = 'freebuff.get_started_help_expanded',
   FREEBUFF_GET_STARTED_EDITOR_CLICKED = 'freebuff.get_started_editor_clicked',
 
