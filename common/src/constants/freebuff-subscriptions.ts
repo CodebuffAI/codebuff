@@ -5,6 +5,7 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS,
   FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS,
   getFreebuffWebModel,
@@ -63,8 +64,10 @@ export const FREEBUFF_SUBSCRIPTION_PREMIUM_MODEL_IDS: readonly string[] =
     // without the cap, a subscriber spending every daily session here would
     // have to be priced for, and the allowance would shrink for everyone.
     FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-    // GPT-6.1 Sol (2026-09-29) is dearer still, for the same reason.
+    // GPT-6.1 Sol (2026-09-29) and Gemini 4 Argon (2026-10-13) are dearer
+    // still, for the same reason.
     FREEBUFF_GPT_61_SOL_MODEL_ID,
+    FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   ])
 
 export function isFreebuffSubscriptionPremiumModelId(modelId: string): boolean {
@@ -199,6 +202,23 @@ export const FREEBUFF_FREE_TIER_ALLOWANCE = Object.freeze({
   weeklySessions: 14,
   monthlySessions: 40,
 })
+
+/**
+ * The first-month introduction ENDS at the close of Oct 24, 2026, Pacific
+ * (23:59:59 PDT; this is the first instant it no longer applies). Every tier's
+ * intro ends together: offers quote list price and checkout attaches no intro
+ * coupon from this instant on.
+ */
+export const FREEBUFF_SUBSCRIPTION_INTRO_ENDS_AT = '2026-10-25T07:00:00.000Z'
+const INTRO_ENDS_AT_MS = Date.parse(FREEBUFF_SUBSCRIPTION_INTRO_ENDS_AT)
+
+/** Whether the first-month introduction is still offered at `now`. The
+ *  default reads `Date.now()`, so a test's clock spy reaches it. */
+export function freebuffSubscriptionIntroOpen(
+  now: Date = new Date(Date.now()),
+): boolean {
+  return now.getTime() < INTRO_ENDS_AT_MS
+}
 
 export const FREEBUFF_SUBSCRIPTION_TIERS: readonly FreebuffSubscriptionTier[] =
   Object.freeze([
@@ -396,7 +416,8 @@ export const FREEBUFF_SUBSCRIPTION_PRO_MODEL_IDS: readonly string[] =
  * Where a Pro row is enforced BY DEFAULT: Freebuff Web.
  *
  * A row in FREEBUFF_PRO_ONLY_EVERY_SURFACE_MODEL_IDS is enforced on the CLI
- * and Desktop too, which is every current row (Gemini 3.8 Flash, GPT-6.1 Sol). A future Pro row that is Web-only needs nothing
+ * and Desktop too, which is every current row (Gemini 3.8 Flash, GPT-6.1 Sol, Gemini 4
+ * Argon). A future Pro row that is Web-only needs nothing
  * more; one added to the shared CLI/Desktop catalog must join that list, or it
  * is served free on those surfaces.
  *

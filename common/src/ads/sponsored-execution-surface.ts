@@ -36,6 +36,41 @@ export function isSponsoredExecutionSurface(
   return (SPONSORED_EXECUTION_SURFACES as readonly unknown[]).includes(value)
 }
 
+/**
+ * Where a Freebuff Web sponsored run executes: the accepting chat's own
+ * worktree in its project's Freestyle VM (the browser workspace at `/`,
+ * served from `web/src/server/desktop-cloud/`). Contained by the floor in
+ * `web/src/server/desktop-cloud/sponsored-floor.ts`, not an OS sandbox.
+ *
+ * SERVER-ASSIGNED, NEVER CLIENT-CLAIMED, which is why it is not in
+ * {@link SPONSORED_EXECUTION_SURFACES}: that list is the wire enum a local
+ * client's capability and its Accept's `clientExecutionSurface` are parsed
+ * against, and no client may claim it runs in our VM. The workspace server
+ * records it itself. Legacy Convex `/cloud` runs are not this surface and
+ * stay refused (`CLOUD_SPONSORED_EXECUTION_REFUSAL`).
+ */
+export const SPONSORED_CLOUD_EXECUTION_SURFACE = 'cloud_linux' as const
+export type SponsoredCloudExecutionSurface =
+  typeof SPONSORED_CLOUD_EXECUTION_SURFACE
+
+/** The client a browser-workspace run's Accept is recorded under. */
+export const SPONSORED_CLOUD_EXECUTION_CLIENT = 'web' as const
+
+/** Every surface a sponsored run can be recorded as having run on. */
+export type SponsoredRunExecutionSurface =
+  | SponsoredExecutionSurface
+  | SponsoredCloudExecutionSurface
+
+/** Whether a recorded execution surface is one this codebase knows. */
+export function isSponsoredRunExecutionSurface(
+  value: unknown,
+): value is SponsoredRunExecutionSurface {
+  return (
+    value === SPONSORED_CLOUD_EXECUTION_SURFACE ||
+    isSponsoredExecutionSurface(value)
+  )
+}
+
 /** The Desktop execution surfaces, one per OS a Desktop client reports. */
 export const SPONSORED_DESKTOP_EXECUTION_SURFACES = [
   'desktop_macos',

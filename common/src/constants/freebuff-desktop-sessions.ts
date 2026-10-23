@@ -3,30 +3,36 @@ import {
   type FreebuffDesktopConcurrency,
 } from './freebuff-model-entitlements'
 import {
-  FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
   FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-  FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
-  FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
-  FREEBUFF_MIMO_V26_PRO_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   freebuffModelIdMatches,
 } from './freebuff-models'
 
+/**
+ * Claude Haiku 5.5 with full context, a catalog-only model: the server's
+ * sessions name it by model id, Desktop's catalog picker by row key. The
+ * 100k-context row (`fbc/claude-haiku-5.5-100k`) is a different model and
+ * stays multi-tab.
+ */
+export const FREEBUFF_CLAUDE_HAIKU_55_MODEL_ID = 'fbc/claude-haiku-5.5'
+export const FREEBUFF_CLAUDE_HAIKU_55_CATALOG_KEY = 'm-79293c5b7d'
+
 /** Models that always use constrained Desktop concurrency. */
 const FREEBUFF_DESKTOP_SLOT_BOUND_MODEL_IDS = [
-  // Every quota-metered Desktop model must stay slot-bound until admit stamps
-  // identify the tab; same-millisecond parallel admits otherwise pair
-  // ambiguously when usage is finalized.
-  // GPT-6 Luna, 2026-09-22, in 5.6's slot: quota-metered, so slot-bound.
-  FREEBUFF_GPT_6_LUNA_MODEL_ID,
+  // A product choice per model. Metered admits stopped pairing ambiguously on
+  // 2026-08-07, so being quota-metered no longer requires a slot; every other
+  // row runs multi-tab, each tab buying its own session. GPT-6 Luna, MiMo 2.6
+  // Pro and DeepSeek Flash fast mode sat here until 2026-10-14.
   FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-  // GPT-6.1 Sol, the dearest row of all (2026-09-29).
+  // GPT-6.1 Sol, the dearest row of all (2026-09-29), and Gemini 4 Argon on
+  // the same card (2026-10-13).
   FREEBUFF_GPT_61_SOL_MODEL_ID,
-  // MiMo 2.6 Pro, the dearest row after Gemini and paid-only.
-  FREEBUFF_MIMO_V26_PRO_MODEL_ID,
-  // DeepSeek Flash fast mode (2026-09-26): premium and metered like the rows
-  // above, and a fan-out besides — one tab of it is already several requests.
-  FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
+  // Claude Haiku 5.5 with full context, since 2026-10-14. Both names, so
+  // the server and Desktop's catalog picker agree.
+  FREEBUFF_CLAUDE_HAIKU_55_MODEL_ID,
+  FREEBUFF_CLAUDE_HAIKU_55_CATALOG_KEY,
   // Muse Spark sat here from 2026-09-04 to 2026-10-10, held to one tab because
   // Meta rate-limited the Contributor tier per team. That limit is gone, so it
   // runs multi-tab like DeepSeek V4 Flash, each tab buying its own session.

@@ -133,7 +133,6 @@ describe('truncateRunStateAtUserTurn', () => {
   const compacted = () => [
     {
       role: 'user' as const,
-      tags: ['MODEL_COMPACTION'],
       content: [
         {
           type: 'text' as const,

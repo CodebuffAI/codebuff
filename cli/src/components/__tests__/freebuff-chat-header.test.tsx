@@ -59,7 +59,7 @@ test.each([130, 42])(
     const frame = setup.captureCharFrame()
     expect(frame).toContain('Copy invite link')
     expect(frame).toContain('Learn More')
-    expect(frame).toContain('25/25 Freebucks remaining')
+    expect(frame).toContain('5/5 hours remaining')
     expect(frame).not.toContain('/history')
     expect(frame).not.toContain('/dashboard')
     expect(frame.split('\n')[0]!.trim()).toStartWith(
@@ -118,3 +118,53 @@ test.each([130, 42])(
     ).toBeLessThan(2)
   },
 )
+
+test("the panel reports the ended hour's refund, zero included", async () => {
+  // `useFreebuffSession` has published this receipt since #3635 removed the
+  // landing screen's refund lines; no surface rendered it, so a user who
+  // ended early saw their balance change with nothing to explain it.
+  const token = spyOn(auth, 'getAuthToken').mockReturnValue(undefined)
+  const setup = await createTestRenderer({ width: 130, height: 32 })
+  const root = createRoot(setup.renderer)
+  const queries = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  cleanup = () => {
+    flushSync(() => root.unmount())
+    queries.clear()
+    setup.renderer.destroy()
+    token.mockRestore()
+  }
+  const landing = {
+    status: 'none' as const,
+    accessTier: 'full' as const,
+    freebucks: freebucksFixture(25),
+  }
+  const show = async (
+    receipt: { lastRefund?: number | null; refundPending?: boolean } = {},
+  ) => {
+    flushSync(() =>
+      root.render(
+        <QueryClientProvider client={queries}>
+          <FreebuffChatHeader
+            projectRoot="/tmp/project"
+            session={landing}
+            {...receipt}
+          />
+        </QueryClientProvider>,
+      ),
+    )
+    await setup.renderOnce()
+    return setup.captureCharFrame()
+  }
+
+  // Nothing has ended yet: the panel makes no claim either way.
+  expect(await show()).not.toContain('returned')
+
+  // The reported case — an hour that spent its whole price. Silence here is
+  // what users read as "the refund was removed".
+  expect(await show({ lastRefund: 0 })).toContain('No hours returned')
+  expect(await show({ lastRefund: 10 })).toContain('2 hours of balance returned')
+  expect(await show({ refundPending: true })).toContain('Refund settling')
+  expect(await show({ lastRefund: null })).not.toContain('returned')
+})

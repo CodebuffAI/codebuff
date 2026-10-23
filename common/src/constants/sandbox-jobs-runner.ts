@@ -57,12 +57,12 @@ export type SandboxJobName = (typeof SANDBOX_JOB_NAMES)[number]
 export type SandboxJobRunners = Readonly<Record<SandboxJobName, SandboxJobRunner>>
 
 export const SANDBOX_JOB_RUNNERS: SandboxJobRunners = {
-  reconcile_pool: 'convex',
-  provision_pool: 'convex',
-  sweep_errored: 'convex',
-  sweep_storage: 'convex',
-  sweep_run_leases: 'convex',
-  sleep_idle: 'convex',
+  reconcile_pool: 'graphile',
+  provision_pool: 'graphile',
+  sweep_errored: 'graphile',
+  sweep_storage: 'graphile',
+  sweep_run_leases: 'graphile',
+  sleep_idle: 'graphile',
 }
 
 /**

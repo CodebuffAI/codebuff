@@ -8,10 +8,15 @@
  * module see one surface. Read that module's header first.
  */
 
+import {
+  parseSponsoredRunEvidence,
+  type SponsoredRunEvidence,
+} from './sponsored-run-evidence'
 import { z } from 'zod'
 
 import { sponsoredExecutionSurfaceSchema } from './sponsored-capability'
 import { SPONSORED_CLIENT_VERSION_PATTERN } from './sponsored-client-version'
+import { SPONSORED_CLOUD_EXECUTION_SURFACE } from './sponsored-execution-surface'
 import {
   SPONSORED_FUNNEL_DIAGNOSTIC_MAX,
   SPONSORED_RUN_CLIENTS,
@@ -29,9 +34,18 @@ export * from './sponsored-run-funnel-builder'
  */
 export const sponsoredRunFunnelMetadataSchema = z
   .object({
+    run_evidence: z
+      .custom<SponsoredRunEvidence>(
+        (value) => parseSponsoredRunEvidence(value) !== undefined,
+      )
+      .optional(),
     execution_mode: z.enum(SPONSORED_RUN_EXECUTION_MODES),
     execution_surface: z
-      .union([sponsoredExecutionSurfaceSchema, z.literal('cloud')])
+      .union([
+        sponsoredExecutionSurfaceSchema,
+        z.literal(SPONSORED_CLOUD_EXECUTION_SURFACE),
+        z.literal('cloud'),
+      ])
       .optional(),
     client: z.enum(SPONSORED_RUN_CLIENTS).optional(),
     os: z.enum(SPONSORED_RUN_OS).optional(),

@@ -12,4 +12,13 @@ describe('freebuffAdmissionNotice', () => {
     expect(notice).toContain('https://freebuff.com/account?tab=standing')
     expect(notice).toContain('support@freebuff.com')
   })
+
+  test('a Freebucks shortfall is told in hours', () => {
+    const notice = freebuffAdmissionNotice({
+      status: 'rate_limited',
+      freebucksShortfall: { price: 15, balance: 7 },
+    } as FreebuffSessionResponse)
+    expect(notice).toStartWith('Not enough hours: 1 hour available.')
+    expect(notice).not.toContain('Freebucks')
+  })
 })

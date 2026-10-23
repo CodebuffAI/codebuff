@@ -1,8 +1,8 @@
 /**
  * Skills in the Agentic Ads Lab: the skill maker's input, and the versions the
- * Lab keeps. A version is immutable, like a shipped one; an edit is a new
- * version. Shipping a Lab version to campaigns is a reviewed repository change
- * (docs/ads/agentic/sponsored-skills.md), never a Lab action.
+ * Lab keeps. A version is immutable; edits create new versions. The Lab can
+ * submit the exact rendered procedure for campaign review. Accepted runs fetch
+ * stored versions from the server, without a registry edit or Desktop release.
  */
 
 import { z } from 'zod/v4'
@@ -164,7 +164,7 @@ export function labAdFromSkill(skill: SponsoredSkill, id: string): LabAd {
     headline: skill.consent.title,
     body: skill.consent.summary,
     procedure: renderSponsoredSkillProcedure(skill),
-    targeting: '',
+    targeting: skill.fits,
     signupUrl: '',
   }
 }

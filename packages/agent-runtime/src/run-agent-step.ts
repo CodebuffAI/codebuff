@@ -1,5 +1,6 @@
 import { contextPrunerBudgetForModel } from '@codebuff/common/constants/model-config'
 import { compactionThreshold } from '@codebuff/common/constants/compaction-policy'
+import { BYOK_RUN_ID_PREFIX } from '@codebuff/common/constants/byok'
 import {
   supportsAssistantPrefill,
   supportsCacheControl,
@@ -8,6 +9,7 @@ import { PROJECT_PROFILE_TOOL_NAME } from '@codebuff/common/constants/project-pr
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
 import {
+  FILE_EDIT_LOOP_EVENT,
   GRAVITY_REPORT_NUDGE_EVENT,
   TODO_PROGRESS_REMINDER_EVENT,
 } from '@codebuff/common/util/axiom-only-log'
@@ -45,6 +47,8 @@ import {
 import type { CompactionWindow } from './compaction-followup'
 import {
   automaticCompactionIsWorthwhile,
+  automaticCompactionPostCeiling,
+  compactionOverBudgetMessage,
   compactMechanically,
 } from './compaction'
 import { CACHE_DEBUG_FULL_LOGGING } from './constants'
@@ -66,6 +70,7 @@ import {
 } from './util/suggest-prompts-before-answer'
 import {
   decideGravityReportNudge,
+  endsOnGravityReport,
   GRAVITY_REPORT_NUDGE_TAG,
 } from './util/gravity-report-nudge'
 import {
@@ -80,6 +85,7 @@ import {
   FileEditLoopError,
   isFileEditLoopTool,
   trailingIdenticalRejectedEdits,
+  trailingRejectedEditsToSameFiles,
 } from './util/file-edit-loop'
 import {
   hasFileEditTool,
@@ -121,7 +127,10 @@ import {
   recordContextUsage,
   recountContextTokens,
 } from './util/context-token-count'
-import { assertUserContentSize } from './util/context-size-guard'
+import {
+  assertUserContentSize,
+  UserContentTooLargeError,
+} from './util/context-size-guard'
 import {
   countTokens,
   countTokensJson,
@@ -207,6 +216,12 @@ async function additionalToolDefinitions(
 /** Run-id prefix for runs that skip the run-tracking ledger (context-pruner).
  *  These ids exist only in-process and must never be sent to the web API. */
 export const UNTRACKED_RUN_ID_PREFIX = 'untracked-'
+
+/** What a failed turn leaves at the end of the root's history. */
+export const TURN_FAILED_NOTE =
+  "The response failed with an error. The assistant's previous work has been preserved."
+export const USER_PROMPT_REFUSED_NOTE =
+  "The user's last message was too large to send, so it was not delivered."
 
 export const runAgentStep = async (
   params: {
@@ -686,6 +701,55 @@ export const runAgentStep = async (
     }
   }
 
+  // MEASUREMENT ONLY, and deliberately before the guard below so that a turn
+  // the guard stops still leaves this row behind. The loops users photograph
+  // are a model retrying the SAME file, varying the edit a little or reading
+  // the file in between; the guard needs byte-identical arguments and an
+  // unbroken run of edit-only steps, so most of them score below its
+  // threshold and no row is written at all. Over 2026-10-09..14 the only
+  // per-rejection signal Axiom has (write_file's "same as the old content",
+  // which is one `logger.info`) showed ~35% of same-file loops on
+  // guard-capable clients producing no guard row, over just 65 episodes —
+  // and `str_replace` rejections, the common case, log nothing, so that
+  // number is a floor on a sliver. This event makes the real rate a division:
+  // `consecutive` is the loose count, `strictConsecutive` and `guardEligible`
+  // are what the guard saw at the same moment. It changes no behaviour.
+  if (toolCalls.some((call) => isFileEditLoopTool(call.toolName))) {
+    const nearMiss = trailingRejectedEditsToSameFiles(agentState.messageHistory)
+    // Once per episode as it crosses each of the guard's own thresholds, so a
+    // long loop is two rows rather than one per step.
+    if (
+      nearMiss &&
+      (nearMiss.consecutive === FILE_EDIT_LOOP_RECOVERY_THRESHOLD ||
+        nearMiss.consecutive === FILE_EDIT_LOOP_STOP_THRESHOLD)
+    ) {
+      logger.info(
+        {
+          axiomEvent: FILE_EDIT_LOOP_EVENT,
+          metric:
+            nearMiss.consecutive === FILE_EDIT_LOOP_STOP_THRESHOLD
+              ? 'file_edit_loop_same_file_stop_depth'
+              : 'file_edit_loop_same_file',
+          consecutive: nearMiss.consecutive,
+          strictConsecutive: trailingIdenticalRejectedEdits(
+            agentState.messageHistory,
+          ),
+          guardEligible:
+            !hadToolCallError &&
+            toolCalls.every((call) => isFileEditLoopTool(call.toolName)),
+          varied: nearMiss.varied,
+          interleaved: nearMiss.interleaved,
+          mixedStep: nearMiss.mixedStep,
+          toolName: nearMiss.toolName,
+          model: agentTemplate.model,
+          agentId: agentTemplate.id,
+          runId: agentState.runId,
+        },
+        'Trailing steps re-sent a rejected edit to the same file',
+      )
+    }
+  }
+
   // The same shape with file edits: an identical write_file/str_replace is
   // answered with the same rejection every step, each result forces another
   // step, and the model re-sends the edit until the step budget is gone.
@@ -766,6 +830,16 @@ export const runAgentStep = async (
     shouldEndTurn =
       !hadToolCallError &&
       (hasTaskCompleted || (hasNoToolResults && !isThinkOnly))
+  }
+
+  // The answer to a Gravity report nudge ends the turn once its reports run;
+  // see util/gravity-report-nudge.ts.
+  if (
+    !shouldEndTurn &&
+    !hadToolCallError &&
+    endsOnGravityReport(toolCalls, agentState.messageHistory)
+  ) {
+    shouldEndTurn = true
   }
 
   // Cards before the answer; see util/suggest-prompts-before-answer.ts.
@@ -1213,20 +1287,25 @@ export async function loopAgentSteps(
       (content && content.length > 0),
     )
 
-  const initialMessages = buildArray<Message>(
-    ...initialAgentState.messageHistory,
-
-    hasUserMessage && [
-      {
+  // Named so that a size refusal can take it back out of the history.
+  const userPromptMessage: Message | undefined = hasUserMessage
+    ? {
         // Actual user message!
-        role: 'user' as const,
+        role: 'user',
         content: buildUserMessageContent(prompt, spawnParams, content),
         tags: ['USER_PROMPT'],
         sentAt: Date.now(),
 
         // James: Deprecate the below, only use tags, which are not prescriptive.
         keepDuringTruncation: true,
-      },
+      }
+    : undefined
+
+  const initialMessages = buildArray<Message>(
+    ...initialAgentState.messageHistory,
+
+    hasUserMessage && [
+      userPromptMessage,
       prompt &&
         prompt in additionalSystemPrompts &&
         userMessage(
@@ -1319,15 +1398,8 @@ export async function loopAgentSteps(
         throw new AbortError()
       }
 
-      if (totalSteps === 1 && hasUserMessage) {
-        assertUserContentSize(
-          [
-            userMessage({
-              content: buildUserMessageContent(prompt, spawnParams, content),
-            }),
-          ],
-          agentTemplate,
-        )
+      if (totalSteps === 1 && userPromptMessage) {
+        assertUserContentSize([userPromptMessage], agentTemplate)
       }
 
       const startTime = new Date()
@@ -1433,6 +1505,15 @@ export async function loopAgentSteps(
                 trigger === 'manual'
                   ? undefined
                   : Math.floor(thresholdTokens * MECHANICAL_TARGET_SHARE),
+              // The same low-water rule as the check above, applied to what
+              // the pass actually produced rather than to what it was
+              // predicted to produce. Only below the hard budget: at or over
+              // it compaction is no longer optional.
+              maxPostTokens:
+                trigger === 'manual' ||
+                currentAgentState.contextTokenCount > maxContextLength
+                  ? undefined
+                  : automaticCompactionPostCeiling(thresholdTokens),
               trigger,
               logger,
               runId,
@@ -1478,7 +1559,10 @@ export async function loopAgentSteps(
             currentAgentState.contextTokenCount > maxContextLength
           ) {
             throw new Error(
-              `Compaction could not bring this conversation under the model's ${maxContextLength.toLocaleString('en-US')}-token context budget. History has been preserved. Start a new thread, or give a BYOK connection a larger context window if its model supports one.`,
+              compactionOverBudgetMessage({
+                maxContextLength,
+                byok: runId.startsWith(BYOK_RUN_ID_PREFIX),
+              }),
             )
           }
           totalSteps++
@@ -1891,8 +1975,8 @@ export async function loopAgentSteps(
         totalSteps,
         directCreditsUsed: currentAgentState.directCreditsUsed,
         creditsUsed: currentAgentState.creditsUsed,
-        messageHistory: currentAgentState.messageHistory,
-        systemPrompt: system,
+        messageCount: currentAgentState.messageHistory.length,
+        systemPromptChars: system.length,
       },
       'Agent execution failed',
     )
@@ -1922,6 +2006,23 @@ export async function loopAgentSteps(
     const statusCode = apiErrorDetails.statusCode
 
     const status = signal.aborted ? 'cancelled' : 'failed'
+    // A refused message is not kept: the next turn would send it anyway.
+    const refused =
+      error instanceof UserContentTooLargeError ? error.refused : undefined
+    if (refused)
+      currentAgentState.messageHistory =
+        currentAgentState.messageHistory.filter((m) => !refused.includes(m))
+    // End the failed turn in the root's history, as a cancellation is ended
+    // above: left bare, its prompt joins the next one in the live request
+    // that compaction keeps verbatim. A 402 propagates; the SDK ends it.
+    if (!initialAgentState.parentId && statusCode !== 402) {
+      currentAgentState.messageHistory = [
+        ...currentAgentState.messageHistory,
+        userMessage(
+          withSystemTags(refused ? USER_PROMPT_REFUSED_NOTE : TURN_FAILED_NOTE),
+        ),
+      ]
+    }
     // A failed turn still leaves history behind, and the host still shows the
     // user a context reading before their next message.
     recountContextTokensForTurnEnd()

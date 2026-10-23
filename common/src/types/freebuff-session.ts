@@ -210,6 +210,10 @@ export interface FreebuffFreebucksWallet {
   balance: number
   /** Freebucks the plan credits here once per billing period (0 on free). */
   monthlyBonus: number
+  /** Current credited monthly allowance, separate from earned/bought wallet
+   *  funds. Uses the bonus rollover's spending attribution. Absent when the
+   *  current bonus is not known or from a server without this projection. */
+  monthlyUsage?: { limit: number; spent: number; remaining: number }
   /** Current period end: the next bonus is available then IF the plan renews.
    * Still present when cancellation is scheduled; absent without a live plan. */
   nextBonusAt?: string
@@ -294,6 +298,28 @@ export interface FreebuffFreebucksInfo {
   /** The account's most recent session refund from the last day. Clients
    *  announce an id they have not seen before; the first snapshot is history. */
   lastRefund?: FreebuffFreebucksRefund
+  /**
+   * The server's verdict that this viewer is never asked before an hour is
+   * bought (full access, 2026-10-16: the meter should feel unlimited). Pickers
+   * skip the wallet and model-switch questions, and an hour that ran out
+   * renews on the next send or mid-turn. Absent keeps every question.
+   */
+  spendWithoutAsking?: boolean
+  /**
+   * Freebucks a session started now takes off its price: present at full
+   * access while no session of the account is live. Pickers lock a row on
+   * `price - soloDiscount`; `prices` stay at list.
+   */
+  soloDiscount?: number
+  /**
+   * Rows on which this viewer is not shown the session clock (2026-10-21:
+   * full access in tiers 1 and 2, on a row of five hours or less). Clients
+   * draw no time left, countdown or hour-end notice for a session on one.
+   * Sent only beside `spendWithoutAsking`, so an hour that runs out renews
+   * without a question. Display only: the session is still an hour. Absent
+   * keeps every clock.
+   */
+  untimedModelIds?: readonly string[]
   /** The plan the daily pool and bonus were sized from; null on free. */
   planId: string | null
   /** Session price per model id. Only models on the meter appear here. */
@@ -344,6 +370,13 @@ export interface FreebuffFreebucksInfo {
    * that predates the field.
    */
   upgrade?: FreebuffFreebucksUpgrade
+  /**
+   * The server's verdict that this account is shown no upgrade button, not
+   * even a subscriber's next plan up (2026-10-22: full access in tiers 1 and
+   * 2, whose pools cover most use). Overrides `upgrade`. Absent keeps the
+   * button.
+   */
+  upgradeHidden?: boolean
 }
 
 export interface FreebuffFreebucksUpgrade {
@@ -993,8 +1026,8 @@ export type FreebuffSessionAdmissionResponse = (
        */
       purchasesPaused?: boolean
       /**
-       * The model's daily session limit is spent (FREEBUFF_DAILY_SESSION_LIMITS,
-       * GPT-6.1 Sol's promotion). A STOP, never a fallback: the user asked for
+       * The model's daily session limit is spent (FREEBUFF_DAILY_SESSION_LIMITS:
+       * GPT-6.1 Sol and Gemini 4 Argon, one a day). A STOP, never a fallback: the user asked for
        * this model, was quoted its price, and must be told it is used up rather
        * than be moved onto a different model (2026-09-30, a CLI user quoted
        * Sol's price and silently re-admitted on MiMo). `availableHours` says
@@ -1077,11 +1110,20 @@ export type FreebuffSessionAdmissionResponse = (
       retryAfterMs: number
       /** The way out of this refusal, when there is one to sell. */
       upgrade?: FreebuffUpgradeHint
-      /** Not a budget: the account must verify its identity first (the
-       *  account hub's Country tab, `upgrade.url`). Rides on `spend_limited`
+      /** Not a budget: the account must verify something before it can start
+       *  a session (`upgrade.url` is where). Rides on `spend_limited`
        *  because every shipped client already renders that shape; clients
        *  that know the flag say so instead of "resets at midnight". */
       verificationRequired?: true
+      /**
+       * WHICH verification the refusal asks for, for a client that labels its
+       * own button rather than rendering `message`. Two different gates set
+       * `verificationRequired`: the phone gate asks for an SMS code
+       * (docs/freebuff-phone-gate.md) and the identity gate asks for an ID
+       * and a selfie (docs/freebuff-id-verification.md). Absent on an older
+       * server, so a client must not assume either.
+       */
+      verificationKind?: 'phone' | 'identity'
     }
   | {
       /** Retired single-use Desktop claim; persist a new id before retrying. */
@@ -1182,7 +1224,7 @@ export type FreebuffPlanUpsell = {
     dailyFreebucks: number
     priceUsd: number
   }>
-  /** e.g. "Get up to 350 Freebucks a day with Pro". */
+  /** e.g. "Get up to 70 hours a day with Pro". */
   headline: string
   /** The plans page, tagged `source=country_limited` for attribution. */
   plansUrl: string

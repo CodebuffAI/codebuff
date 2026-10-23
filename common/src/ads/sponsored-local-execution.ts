@@ -62,8 +62,8 @@ import {
  * Why a local sponsored run cannot happen on this machine.
  *
  * Three of these are about CONTAINMENT and one is not. `no-consent-bridge`
- * says the machine can contain the run perfectly well and there is nobody
- * here to ask permission — a different fact, with a different fix, which is
+ * says the machine can contain the run perfectly well but the desktop shell
+ * is absent — a different fact, with a different fix, which is
  * why it does not share `unsupported-platform`'s sentence.
  */
 export type SponsoredLocalUnavailableReason =
@@ -147,7 +147,7 @@ export const SPONSORED_LOCAL_UNAVAILABLE_COPY: Record<
   // because the first is permanent and the second is fixed by opening the
   // app.
   'no-consent-bridge':
-    'Sponsored tasks need the Freebuff desktop app, which is what asks you to approve the task before it runs. Open this project in the app to accept.',
+    'Sponsored tasks need the Freebuff desktop app. Open this project in the app to accept.',
   // About THIS offer, not the machine: another offer can still run here.
   'offered-for-another-os':
     'This sponsored task was offered for a different kind of computer, so it can’t run on this one.',
@@ -697,8 +697,26 @@ export function scrubSponsoredWindowsEnv(
 const INSTALL_COMMAND =
   /(^|[;&|]\s*)(npm|pnpm|yarn|bun|npx|pip|pip3|poetry|uv|cargo|gem|go|brew|apt|apt-get|dnf|yum|pacman|apk)\s+(?:(?:-\S+|--\S+)\s+)*(install|add|i|ci|get|sync|fetch)\b/i
 
+/**
+ * pip wherever it is the program that runs, and only there (never an argument,
+ * as in `echo pip install x`): `python -m pip install`,
+ * `py -m pip install`, `uv pip install`, `uv run pip install`, a venv's own
+ * `.venv/bin/pip install`. {@link INSTALL_COMMAND} only sees a manager at the
+ * start of a command, so before 2026-10-13 these ran unrefused.
+ */
+const PIP_INSTALL_COMMAND =
+  /(^|[;&|(]\s*)(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:(?:env|command|exec|sudo)\s+)*(?:(?:\S*[\\/])?(?:python[0-9.]*|py)(?:\.exe)?\s+(?:-\S+\s+)*?-m\s+|uv(?:\.exe)?\s+(?:run\s+(?:(?:\S*[\\/])?python[0-9.]*(?:\.exe)?\s+-m\s+)?)?)?(?:\S*[\\/])?pip[0-9.]*(?:\.exe)?\s+(?:-\S+\s+)*(install|sync)\b/i
+
+/** uv with an option VALUE before its subcommand (`uv --directory api add`), which {@link INSTALL_COMMAND} reads past. */
+const UV_INSTALL_COMMAND =
+  /(^|[;&|]\s*)uv(?:\.exe)?(?:\s+-\S+(?:\s+[^-\s]\S*)?)*\s+(?:add|sync|pip\s+(?:install|sync))\b/i
+
 export function commandInstallsDependencies(command: string): boolean {
-  return INSTALL_COMMAND.test(command)
+  return (
+    INSTALL_COMMAND.test(command) ||
+    PIP_INSTALL_COMMAND.test(command) ||
+    UV_INSTALL_COMMAND.test(command)
+  )
 }
 
 export const SPONSORED_LOCAL_INSTALL_REFUSAL =

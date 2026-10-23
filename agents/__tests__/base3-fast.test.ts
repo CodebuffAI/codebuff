@@ -66,8 +66,8 @@ describe('the base3-fast root', () => {
     })
     expect(root.toolNames).toEqual([...plain.toolNames!, 'spawn_agents'])
     expect(root.spawnableAgents).toEqual([...BASE3_FAST_SPAWNABLE_AGENTS])
-    // Pickers and searchers for context, in parallel; the worker for slices.
-    expect(root.spawnableAgents).toContain('file-picker')
+    // Searchers for context, in parallel; the worker for slices.
+    expect(root.spawnableAgents).not.toContain('file-picker')
     expect(root.spawnableAgents).toContain('code-searcher')
     expect(root.spawnableAgents).toContain(FREEBUFF_BASE3_FAST_WORKER_AGENT_ID)
     // The base3 levers the runtime reads are untouched.
@@ -99,7 +99,7 @@ describe('the base3-fast root', () => {
     expect(guidance.split(/\s+/).length).toBeLessThan(600)
     // Firm about parallel helpers, and about reconciling what they produce.
     expect(guidance).toContain('really, really helpful')
-    expect(guidance).toContain('file-pickers')
+    expect(guidance).not.toContain('file-picker')
     expect(guidance).toContain('code-searchers')
     expect(guidance).toContain('coherence is your job')
     expect(guidance).toContain('names the files it edited')

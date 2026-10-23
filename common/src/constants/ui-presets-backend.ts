@@ -16,7 +16,7 @@
  */
 export type UiPresetsBackend = 'convex' | 'postgres'
 
-export const UI_PRESETS_BACKEND: UiPresetsBackend = 'convex'
+export const UI_PRESETS_BACKEND: UiPresetsBackend = 'postgres'
 
 /** Whether `backend` serves the UI preset library from Postgres. */
 export function uiPresetsOnPostgres(

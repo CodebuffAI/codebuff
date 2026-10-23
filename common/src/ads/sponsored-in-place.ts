@@ -105,7 +105,15 @@ export function sponsoredInPlaceVerdict(input: {
   ending: SponsoredTurnEnding
   editedFileCount: number
   modelRan?: boolean
+  /** Native CLI work: all driven steps passed, including account and command checks. */
+  verifiedNativeOutcome?: boolean
 }): SponsoredInPlaceVerdict {
+  if (
+    input.verifiedNativeOutcome &&
+    input.modelRan === true &&
+    input.ending === 'completed'
+  )
+    return 'delivered'
   if (input.editedFileCount > 0 && input.modelRan !== false) {
     return input.ending === 'completed' ? 'delivered' : 'partial_edits'
   }
@@ -128,7 +136,7 @@ export function sponsoredPartialEditsDiagnostic(
   how: string,
   fileCount: number,
 ): string {
-  return `${how}; the turn ended early, so its partial changes (${fileCount} file${
+  return `${how}; ${how.startsWith('turn completed') ? 'verification failed' : 'the turn ended early'}, so its partial changes (${fileCount} file${
     fileCount === 1 ? '' : 's'
   }) were left in the workspace and not reported as delivered`
 }

@@ -97,3 +97,31 @@ export function isByokReasoningEffort(
 ): value is ByokReasoningEffort {
   return BYOK_REASONING_EFFORTS.includes(value as ByokReasoningEffort)
 }
+
+/**
+ * The rungs a ChatGPT plan's models take (provider `chatgpt`). Their requests go to the same
+ * Responses backend Codex uses, whose `reasoning.effort` accepts every rung up to `ultra`, so the
+ * Freebuff agent offers what Codex offers rather than the three-rung BYOK ladder.
+ */
+export const CHATGPT_REASONING_EFFORTS = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+] as const satisfies readonly ReasoningEffort[]
+
+/** The rungs a saved provider connection can be asked for. */
+export function byokReasoningEfforts(
+  provider: string,
+): readonly ReasoningEffort[] {
+  return provider === 'chatgpt' ? CHATGPT_REASONING_EFFORTS : BYOK_REASONING_EFFORTS
+}
+
+/** Any rung some saved provider accepts: what a thread bound to one may store. */
+export function isProviderReasoningEffort(
+  value: unknown,
+): value is ReasoningEffort {
+  return (CHATGPT_REASONING_EFFORTS as readonly unknown[]).includes(value)
+}

@@ -35,6 +35,11 @@ export function metaConversionId(
     .digest('hex')
 }
 
+/** A closed, machine-made label, never free text from a request. */
+function isMetaContentName(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-z0-9_]{1,64}$/.test(value)
+}
+
 export type SendMetaConversionParams = {
   pixelId: string
   accessToken: string
@@ -47,6 +52,8 @@ export type SendMetaConversionParams = {
   testEventCode?: string
   eventSourceUrl?: 'https://freebuff.com/advertisers'
   conversionValue?: MetaConversionValue
+  /** Required on `Purchase`: which value milestone this is. */
+  contentName?: string
   fetchImpl?: typeof fetch
   sleepImpl?: (ms: number) => Promise<void>
   /** Rechecked immediately before every network attempt, including retries. */
@@ -59,6 +66,13 @@ export function buildMetaConversionBody(params: SendMetaConversionParams) {
     !isMetaConversionValue(params.conversionValue)
   ) {
     throw new Error('Subscribe requires a positive confirmed USD payment')
+  }
+  if (
+    params.eventName === 'Purchase' &&
+    (!isMetaConversionValue(params.conversionValue) ||
+      !isMetaContentName(params.contentName))
+  ) {
+    throw new Error('Purchase requires a positive USD value and a content name')
   }
   const { attribution } = params
   return {
@@ -94,6 +108,13 @@ export function buildMetaConversionBody(params: SendMetaConversionParams) {
         custom_data: {
           surface: params.surface,
           ...(params.eventName === 'Subscribe' ? params.conversionValue : {}),
+          ...(params.eventName === 'Purchase' && params.conversionValue
+            ? {
+                value: params.conversionValue.value,
+                currency: params.conversionValue.currency,
+                content_name: params.contentName,
+              }
+            : {}),
         },
       },
     ],

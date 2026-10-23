@@ -3,7 +3,11 @@ import { createHash } from 'node:crypto'
 import { byokCompletionUrl } from '../byok'
 
 import type { ResolvedByokConnection } from '../byok'
-import type { ByokReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
+import { isByokReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
+import type {
+  ByokReasoningEffort,
+  ReasoningEffort,
+} from '@codebuff/common/constants/reasoning-effort'
 
 /**
  * Which request field a connection's endpoint reads reasoning effort from.
@@ -40,17 +44,22 @@ export const BYOK_ANTHROPIC_THINKING_BUDGETS: Record<
   number
 > = { low: 2_048, medium: 8_192, high: 16_384 }
 
+/** The budget for a rung; only the three BYOK rungs reach Anthropic (`withByokReasoningEffort`). */
+function anthropicThinkingBudget(effort: ReasoningEffort): number {
+  return BYOK_ANTHROPIC_THINKING_BUDGETS[isByokReasoningEffort(effort) ? effort : 'high']
+}
+
 /** Fallback answer room when a request somehow carries no output cap. */
 const ANTHROPIC_ANSWER_TOKENS = 4_096
 
 function applyReasoningEffort(
   body: Record<string, unknown>,
   dialect: ByokReasoningDialect,
-  effort: ByokReasoningEffort,
+  effort: ReasoningEffort,
 ): Record<string, unknown> {
   if (dialect === 'openrouter') return { ...body, reasoning: { effort } }
   if (dialect === 'anthropic') {
-    const budget = BYOK_ANTHROPIC_THINKING_BUDGETS[effort]
+    const budget = anthropicThinkingBudget(effort)
     const answer =
       typeof body.max_tokens === 'number'
         ? body.max_tokens
@@ -200,7 +209,7 @@ export function byokReasoningReplayRetryBody(
 function stripReasoningEffort(
   body: Record<string, unknown>,
   dialect: ByokReasoningDialect,
-  effort: ByokReasoningEffort,
+  effort: ReasoningEffort,
 ): Record<string, unknown> | undefined {
   if (dialect === 'openrouter') {
     const reasoning = body.reasoning as { effort?: unknown } | undefined
@@ -210,7 +219,7 @@ function stripReasoningEffort(
   }
   if (dialect === 'anthropic') {
     const thinking = body.thinking as { budget_tokens?: unknown } | undefined
-    const budget = BYOK_ANTHROPIC_THINKING_BUDGETS[effort]
+    const budget = anthropicThinkingBudget(effort)
     if (thinking?.budget_tokens !== budget) return undefined
     const { thinking: _thinking, ...rest } = body
     return typeof rest.max_tokens === 'number'
@@ -222,6 +231,23 @@ function stripReasoningEffort(
   return rest
 }
 
+/**
+ * GPT-5 and later, and the o-series, by the model or deployment name a
+ * connection names, with or without a provider prefix (`openai/gpt-5-mini`,
+ * `gpt-6.1-sol`, `o4-mini`). Not `gpt-4o` or `gpt-4.1`, which still take
+ * `max_tokens`.
+ */
+export function isOpenAIReasoningModel(model: string): boolean {
+  const name = model.toLowerCase().split('/').pop() ?? ''
+  return /^(gpt-([5-9]|\d{2,})|o[1-9])(\b|[-._])/.test(name)
+}
+
+const AZURE_OPENAI_HOST = /\.(openai\.azure\.com|cognitiveservices\.azure\.com|services\.ai\.azure\.com)$/i
+
+function isAzureOpenAIHost(hostname: string): boolean {
+  return AZURE_OPENAI_HOST.test(hostname)
+}
+
 /** Select by the actual endpoint, including connections saved as "custom". */
 export function byokRequestTransform(connection: ResolvedByokConnection) {
   const endpoint = byokCompletionUrl(connection)
@@ -231,6 +257,14 @@ export function byokRequestTransform(connection: ResolvedByokConnection) {
   const openRouterOpenAI =
     endpoint === 'https://openrouter.ai/api/v1/chat/completions' &&
     connection.model.startsWith('openai/')
+  // Azure OpenAI serves OpenAI's reasoning models (GPT-5 and later, o-series)
+  // under the same rule as api.openai.com: `max_tokens` and `stop` are an
+  // HTTP 400. A BYOK Azure GPT-5-mini failed every request (support, 10-21).
+  // Other hosts keep the plain body: a local proxy or gateway translates it.
+  const openAIReasoning =
+    !directLuna &&
+    isAzureOpenAIHost(new URL(endpoint).hostname) &&
+    isOpenAIReasoningModel(connection.model)
 
   // Standalone BYOK has no required Freebuff account. Attribute to the provider
   // credential, not a connection UUID/revision that changes on re-creation.
@@ -300,6 +334,14 @@ export function byokRequestTransform(connection: ResolvedByokConnection) {
             ? { reasoning_effort: effort }
             : {}),
       }
+    }
+    if (openAIReasoning) {
+      // The SDK handles its agent stop markers locally, as for direct Luna.
+      const { max_tokens, stop: _stop, ...rest } = body
+      body =
+        max_tokens === undefined
+          ? rest
+          : { ...rest, max_completion_tokens: max_tokens }
     }
     if (effort && reasoningDialect) {
       body = applyReasoningEffort(body, reasoningDialect, effort)

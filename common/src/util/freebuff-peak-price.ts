@@ -10,6 +10,7 @@
  * Everything below reads the wire block a client already has, so nothing
  * private crosses the line.
  */
+import { freebuffMultiplierText } from './freebuff-hours'
 import {
   formatDeepSeekExpensiveWindowLocal,
   resolveWindowTimeZone,
@@ -17,10 +18,6 @@ import {
 
 import type { FreebuffFreebucksPeak } from '../types/freebuff-session'
 
-/** The user-facing name of the currency. Duplicated from the excluded
- *  constants module on purpose — see the note above; `cli/src/utils/freebucks.ts`
- *  carries its own copy for the same reason. */
-const LABEL = 'Freebucks'
 
 /** Whether `modelId` is peak-priced in this session block. */
 export function isFreebucksPeakModel(
@@ -49,16 +46,27 @@ export function freebucksPeakCopy(params: {
 }): { badge: string; tooltip: string } {
   const now = params.now ?? Date.now()
   const zone = resolveWindowTimeZone(params.timeZone)
-  const endsLocal = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: zone,
-  }).format(new Date(params.peak.endsAt))
+  // `Intl.DateTimeFormat.prototype.format` THROWS a RangeError on a
+  // non-finite date, unlike `Date.prototype.toLocaleString`, which answers
+  // "Invalid Date". This runs in a picker row map, so that throw would take
+  // the enclosing error boundary — on Desktop, the whole thread pane — for a
+  // `peak.endsAt` the server sent us. Name the window without the end time
+  // instead; the sentence that quotes it is the only part that needs it.
+  const endsAt = new Date(params.peak.endsAt)
+  const endsLocal = Number.isFinite(endsAt.getTime())
+    ? new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: zone,
+      }).format(endsAt)
+    : undefined
+  const window =
+    `Peak pricing: +${freebuffMultiplierText(params.peak.surcharge)} while DeepSeek charges double, ` +
+    `${formatDeepSeekExpensiveWindowLocal(new Date(now), zone)} on weekdays.`
   return {
     badge: 'Peak pricing',
-    tooltip:
-      `Peak pricing: +${params.peak.surcharge} ${LABEL} a session while DeepSeek charges double, ` +
-      `${formatDeepSeekExpensiveWindowLocal(new Date(now), zone)} on weekdays. ` +
-      `Back to ${params.basePrice} ${LABEL} at ${endsLocal}.`,
+    tooltip: endsLocal
+      ? `${window} Back to ${freebuffMultiplierText(params.basePrice)} at ${endsLocal}.`
+      : window,
   }
 }

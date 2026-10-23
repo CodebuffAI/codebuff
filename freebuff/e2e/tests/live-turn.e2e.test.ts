@@ -17,6 +17,8 @@ import path from 'path'
 
 import { afterEach, describe, expect, test } from 'bun:test'
 
+import { smokeSessionStatus } from '../../../scripts/lib/prod-smoke-session'
+
 import {
   FREEBUFF_CHAT_READY_TEXT,
   FreebuffSession,
@@ -37,8 +39,34 @@ const ADMISSION_TAKEOVER = 'Enter: take over'
 const ADMISSION_OPEN = 'Esc: back to draft'
 // The `/model` picker's key hint, shown while it holds the composer's place.
 const MODEL_PICKER_OPEN = 'Enter select · Esc cancel'
-// The footer under the composer: "<model>[ • <effort>] · <cwd> · /model to change · …".
-const FLASH_FOOTER = new RegExp(`${FLASH_DISPLAY_NAME}( • \\w+)? · `)
+// Catalog labels can include a release date, e.g. "Flash 10/17". Keep the name
+// boundary so "Flash Fast" cannot satisfy the selected-model assertion.
+const FLASH_FOOTER = new RegExp(
+  `${FLASH_DISPLAY_NAME}(?: \\d{1,2}/\\d{1,2})?(?: • \\w+)? · `,
+)
+
+test('Flash footer accepts release dates without accepting Flash Fast', () => {
+  for (const label of [
+    'DeepSeek V4.1 Flash',
+    'DeepSeek V4.1 Flash • high',
+    'DeepSeek V4.1 Flash 10/17',
+    'DeepSeek V4.1 Flash 10/17 • high',
+    'DeepSeek V4.1 Flash 1/7 • low',
+  ]) {
+    expect(`${label} · /tmp/freebuff-smoke · /model to change`).toMatch(
+      FLASH_FOOTER,
+    )
+  }
+  for (const label of [
+    'DeepSeek V4.1 Flash Fast',
+    'DeepSeek V4.1 Flash Fast 10/17 • high',
+    'DeepSeek V4.1 Flash Fastest • high',
+  ]) {
+    expect(`${label} · /tmp/freebuff-smoke · /model to change`).not.toMatch(
+      FLASH_FOOTER,
+    )
+  }
+})
 
 const apiKey =
   process.env.FREEBUFF_SMOKE_API_KEY || process.env.CODEBUFF_API_KEY || null
@@ -46,14 +74,9 @@ const live = apiKey ? test : test.skip
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** The backend's own view of the account's session: `none` once it has been ended. */
-async function backendSessionStatus(): Promise<string> {
-  const res = await fetch('https://www.codebuff.com/api/v1/freebuff/session', {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  })
-  return (
-    ((await res.json()) as { status?: string }).status ?? `http ${res.status}`
-  )
+/** Observe the per-instance slots used by both smoke clients. */
+async function backendSessionStatus(): Promise<'active' | 'none'> {
+  return smokeSessionStatus('https://www.codebuff.com', apiKey!)
 }
 
 /**
@@ -65,9 +88,13 @@ async function focusModelRow(
   session: FreebuffSession,
   name: string,
 ): Promise<void> {
+  // "DeepSeek V4.1 Flash Fast" shares the prefix, and badges may follow the name
+  const focused = new RegExp(
+    `› ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\s*Fast\\b)`,
+  )
   for (let step = 0; step < 30; step++) {
     const output = await session.capture()
-    if (output.includes(`› ${name}`)) return
+    if (focused.test(output)) return
     await session.sendKey('Down')
     await sleep(300)
   }
@@ -194,6 +221,8 @@ describe('Freebuff: live turn against the backend', () => {
       expect(footer).toMatch(FLASH_FOOTER)
 
       await sendAndAwaitAnswer(session, SMOKE_PROMPT, SMOKE_ANSWER, 180_000)
+
+      expect(await backendSessionStatus()).toBe('active')
 
       // End the session the way a user does, then ask the backend directly.
       await session.send('/end-session')

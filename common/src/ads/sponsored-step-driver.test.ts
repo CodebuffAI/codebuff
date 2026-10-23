@@ -1,14 +1,21 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  SPONSORED_PREFLIGHT_OS_CHECK_ID,
   driveSponsoredSkillSteps,
+  runSponsoredSkillPreflight,
+  sponsoredSkillOs,
   sponsoredStepCardStates,
   sponsoredStepDiagnostic,
   sponsoredStepReportPrompt,
 } from './sponsored-step-driver'
 
+import type { SponsoredFrictionInput } from './sponsored-run-friction'
 import type { SponsoredSkill, SponsoredSkillStep } from './sponsored-skill'
-import type { SponsoredSkillCheckContext } from './sponsored-skill-checks'
+import type {
+  SponsoredSkillCheckContext,
+  SponsoredSkillCommandResult,
+} from './sponsored-skill-checks'
 
 function step(
   id: string,
@@ -254,5 +261,184 @@ describe('driveSponsoredSkillSteps', () => {
     })
     expect(result.steps[0]!.status).toBe('blocked')
     expect(result.steps[0]!.checks[0]!.detail).toContain('disk gone')
+  })
+
+  test('onStep reports each step as it is checked, and a throwing one never stops the walk', async () => {
+    const w = world(['src/client.ts', 'src/page.ts', 'dist/ok'])
+    const seen: string[] = []
+    const result = await driveSponsoredSkillSteps({
+      skill: skill(STEPS),
+      ctx: w.ctx,
+      prompt: w.prompt,
+      canContinue: () => true,
+      onStep: (progress) => {
+        seen.push(`${progress.number}/${progress.total} ${progress.title}`)
+        throw new Error('display broke')
+      },
+    })
+    expect(seen).toEqual([
+      '1/4 Do client',
+      '2/4 Do page',
+      '3/4 Do verify',
+      '4/4 Ask the user to login',
+    ])
+    expect(result.delivered).toBe(true)
+  })
+})
+
+describe('runSponsoredSkillPreflight', () => {
+  /** A skill whose preflight checks a path tool, on macOS and Linux only. */
+  function preflighted(): SponsoredSkill {
+    return {
+      ...skill(STEPS),
+      requirements: {
+        os: ['darwin', 'linux'],
+        runtimes: [],
+        packageManagers: [],
+        frameworks: [],
+      },
+      tools: [
+        {
+          name: 'acme',
+          source: 'path',
+          installHint: 'curl -fsSL https://acme.dev/install | bash',
+        },
+      ],
+      preflight: [
+        {
+          id: 'acme-cli',
+          label: 'The acme CLI is installed',
+          kind: 'command_succeeds',
+          argv: ['acme', '--version'],
+        },
+      ],
+    }
+  }
+
+  function commands(result: SponsoredSkillCommandResult) {
+    const ran: string[][] = []
+    const ctx: SponsoredSkillCheckContext = {
+      ...world([]).ctx,
+      runCommand: async (argv) => {
+        ran.push(argv)
+        return result
+      },
+    }
+    return { ran, ctx }
+  }
+
+  test('a passing preflight on a supported OS passes and reports nothing', async () => {
+    const { ran, ctx } = commands({ exitCode: 0, output: 'acme 1.0.0' })
+    const friction: SponsoredFrictionInput[] = []
+    const out = await runSponsoredSkillPreflight({
+      skill: preflighted(),
+      ctx,
+      platform: 'linux',
+      onFriction: (input) => friction.push(input),
+    })
+    expect(out.passed).toBe(true)
+    expect(out.checks.map((check) => [check.id, check.status])).toEqual([
+      [SPONSORED_PREFLIGHT_OS_CHECK_ID, 'pass'],
+      ['acme-cli', 'pass'],
+    ])
+    expect(ran).toEqual([['acme', '--version']])
+    expect(friction).toEqual([])
+  })
+
+  test('a failing command stops the run, naming its label and the tool install hint', async () => {
+    const { ctx } = commands({
+      exitCode: 127,
+      output: 'acme: command not found SECRET',
+      unavailable: true,
+    })
+    const friction: SponsoredFrictionInput[] = []
+    const out = await runSponsoredSkillPreflight({
+      skill: preflighted(),
+      ctx,
+      platform: 'darwin',
+      redact: (text) => text.replace('SECRET', '[redacted]'),
+      onFriction: (input) => friction.push(input),
+    })
+    if (out.passed) throw new Error('expected a failed preflight')
+    expect(out.reason).toContain('"The acme CLI is installed"')
+    expect(out.reason).toContain('command not found [redacted]')
+    expect(out.reason).toContain(
+      'Install `acme`: curl -fsSL https://acme.dev/install | bash',
+    )
+    expect(out.reason).not.toContain('SECRET')
+    expect(friction).toEqual([
+      { blocking: true, category: 'missing_toolchain', detail: out.reason },
+    ])
+    expect(out.result.delivered).toBe(false)
+    expect(out.result.stoppedBecause).toBe('preflight_failed')
+    expect(out.result.fixes).toBe(0)
+    expect(out.result.steps.map((step) => step.status)).toEqual([
+      'not_reached',
+      'not_reached',
+      'not_reached',
+      'not_reached',
+    ])
+    expect(sponsoredStepDiagnostic(out.result)).toContain(
+      'preflight acme-cli failed',
+    )
+    expect(
+      sponsoredStepCardStates(out.result).every(
+        (state) => state.state === 'pending',
+      ),
+    ).toBe(true)
+  })
+
+  test('the wrong OS fails without running any command', async () => {
+    const { ran, ctx } = commands({ exitCode: 0, output: '' })
+    const friction: SponsoredFrictionInput[] = []
+    const out = await runSponsoredSkillPreflight({
+      skill: preflighted(),
+      ctx,
+      platform: 'win32',
+      onFriction: (input) => friction.push(input),
+    })
+    if (out.passed) throw new Error('expected a failed preflight')
+    expect(ran).toEqual([])
+    expect(out.checks).toEqual([
+      {
+        id: SPONSORED_PREFLIGHT_OS_CHECK_ID,
+        label: 'Runs on darwin or linux',
+        status: 'fail',
+        detail: 'this skill supports darwin, linux; this run is on win32',
+      },
+    ])
+    expect(out.reason).toContain('"Runs on darwin or linux"')
+    expect(friction[0]!.category).toBe('project_mismatch')
+  })
+
+  test('an unknown platform skips the OS check; the commands still decide', async () => {
+    for (const platform of [null, undefined, 'freebsd']) {
+      const { ran, ctx } = commands({ exitCode: 0, output: '' })
+      const out = await runSponsoredSkillPreflight({
+        skill: preflighted(),
+        ctx,
+        platform,
+      })
+      expect(out.passed).toBe(true)
+      expect(out.checks.map((check) => check.id)).toEqual(['acme-cli'])
+      expect(ran).toHaveLength(1)
+    }
+  })
+
+  test('a skill with no preflight and no OS list passes', async () => {
+    const out = await runSponsoredSkillPreflight({
+      skill: skill(STEPS),
+      ctx: world([]).ctx,
+      platform: 'win32',
+    })
+    expect(out).toEqual({ passed: true, checks: [] })
+  })
+
+  test('sponsoredSkillOs names only the platforms the skill format knows', () => {
+    expect(sponsoredSkillOs('darwin')).toBe('darwin')
+    expect(sponsoredSkillOs('linux')).toBe('linux')
+    expect(sponsoredSkillOs('win32')).toBe('win32')
+    expect(sponsoredSkillOs('aix')).toBeNull()
+    expect(sponsoredSkillOs(undefined)).toBeNull()
   })
 })

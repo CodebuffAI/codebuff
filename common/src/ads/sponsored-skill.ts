@@ -22,8 +22,26 @@ import {
 } from './sponsored-run-credentials'
 import { parseSponsoredProcedureSteps } from './sponsored-procedure-steps'
 import { sha256Hex } from '../util/hash'
+import {
+  compileSponsoredSkillFit,
+  parseSponsoredSkillFit,
+  sponsoredFitRoutes,
+  type SponsoredSkillFit,
+} from './sponsored-skill-fit-format'
 
-export const SPONSORED_SKILL_FORMAT = 1 as const
+/**
+ * 1: fit is hand-written preflight globs and regexes. 2: adds the structured
+ * `fit` block (`./sponsored-skill-fit-format.ts`), compiled into the
+ * preflight. Shipped format-1 versions stay valid and immutable.
+ */
+export const SPONSORED_SKILL_FORMATS = [1, 2] as const
+export type SponsoredSkillFormat = (typeof SPONSORED_SKILL_FORMATS)[number]
+/**
+ * The format new versions are authored in: the Lab skill maker pins it on a
+ * draft (`pinMakerFields`), and the author skill and the skill-loop proposer
+ * write it (docs/ads/agentic/sponsored-skills.md, "Fit").
+ */
+export const SPONSORED_SKILL_FORMAT = 2 as const
 
 export const SPONSORED_SKILL_STEP_KINDS = ['agent', 'user', 'check'] as const
 /**
@@ -142,20 +160,58 @@ export type SponsoredSkillStep = {
   credential?: SponsoredRunCredential
 }
 
+/**
+ * A package the run may install.
+ * - `npm`: exact semver; installed pinned, with lifecycle scripts off.
+ * - `pypi`: exact PEP 440 release (`2.32.3`); installed wheel-only by pip or
+ *   uv, because building a source distribution runs the package's own code.
+ *   `dev` applies to `uv add` (a dev dependency); pip ignores it.
+ */
 export type SponsoredSkillPackage = {
-  ecosystem: 'npm'
+  ecosystem: SponsoredPackageEcosystem
   name: string
-  /** Exact version. Installed pinned, with lifecycle scripts off. */
+  /** Exact version. */
   version: string
   dev?: boolean
+}
+
+export const SPONSORED_PACKAGE_ECOSYSTEMS = ['npm', 'pypi'] as const
+export type SponsoredPackageEcosystem =
+  (typeof SPONSORED_PACKAGE_ECOSYSTEMS)[number]
+
+/** A PEP 508 project name, as written (any case, `-`, `_` or `.`). */
+export const PYPI_PACKAGE_NAME =
+  /^(?:[A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9._-]{0,98}[A-Za-z0-9])$/
+
+/**
+ * An exact PEP 440 public release: `2.32.3`, `1.0.0rc1`, `2.0.post1`. No
+ * epoch, local label, range, wildcard, extra or URL.
+ */
+export const PYPI_EXACT_VERSION =
+  /^(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))*(?:(?:a|b|rc)(?:0|[1-9]\d*))?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?$/
+
+/** PEP 503 normalized form: `Foo_Bar.baz` and `foo-bar-baz` are one project. */
+export function normalizePypiName(name: string): string {
+  return name.toLowerCase().replace(/[-_.]+/g, '-')
+}
+
+/** How a declared package reads in the procedure and at consent. */
+export function sponsoredPackageSpec(pkg: SponsoredSkillPackage): string {
+  return pkg.ecosystem === 'pypi'
+    ? `${pkg.name}==${pkg.version} (pip)`
+    : `${pkg.name}@${pkg.version}`
 }
 
 /**
  * A CLI the skill calls by `name` (in `command_succeeds` and its instructions).
  * - `npm`: run through the package runner at a pinned version (`npx --yes <package>@<version>`).
  * - `path`: a vendor binary installed outside npm (a curl installer, Homebrew).
- *   It must already be on PATH: today's runs install nothing, so the skill
- *   checks for it and the run stops at that check when it is missing.
+ *   It must already be on PATH, so the skill checks for it and the run stops
+ *   at that check when it is missing. A path tool may also pin a `release`:
+ *   checksummed release archives a harness that knows how (web's Linux VM)
+ *   installs before the run. A client that does not install releases ignores
+ *   the field and treats the tool exactly as it did before, so adding one keeps
+ *   the skill valid, and rendered the same, on every older client.
  */
 export type SponsoredSkillTool =
   | { name: string; source: 'npm'; package: string; version: string }
@@ -164,7 +220,43 @@ export type SponsoredSkillTool =
       source: 'path'
       /** How a person installs it, shown in the report when it is missing. */
       installHint: string
+      release?: SponsoredSkillToolRelease
     }
+
+export const SPONSORED_TOOL_RELEASE_OS = ['linux', 'darwin'] as const
+export const SPONSORED_TOOL_RELEASE_ARCH = ['x64', 'arm64'] as const
+export const SPONSORED_TOOL_RELEASE_ARCHIVES = [
+  'tar.gz',
+  'zip',
+  'none',
+] as const
+export const MAX_SPONSORED_TOOL_RELEASE_ASSETS = 4
+
+/**
+ * One vendor CLI build, pinned by its SHA-256. The installer downloads `url`,
+ * refuses any bytes whose SHA-256 is not `sha256`, and installs the one file
+ * `binary` names inside the archive (the download itself when `archive` is
+ * `none`) as the tool's `name`. Nothing in the archive runs while installing.
+ */
+export type SponsoredSkillToolReleaseAsset = {
+  os: (typeof SPONSORED_TOOL_RELEASE_OS)[number]
+  /** Node's `process.arch` names: `x64`, `arm64`. */
+  arch: (typeof SPONSORED_TOOL_RELEASE_ARCH)[number]
+  /** The vendor's own HTTPS download, no query or fragment. */
+  url: string
+  /** Lowercase hex, from the vendor's published checksums. */
+  sha256: string
+  archive: (typeof SPONSORED_TOOL_RELEASE_ARCHIVES)[number]
+  /** Path of the executable inside the archive, e.g. `infisical` or `bin/cli`. */
+  binary: string
+}
+
+export type SponsoredSkillToolRelease = {
+  /** The vendor's exact release version; part of the install's identity. */
+  version: string
+  /** At most one per os/arch. */
+  assets: SponsoredSkillToolReleaseAsset[]
+}
 
 export type SponsoredSkillRequirements = {
   os: SponsoredSkillOs[]
@@ -174,7 +266,7 @@ export type SponsoredSkillRequirements = {
 }
 
 export type SponsoredSkill = {
-  format: typeof SPONSORED_SKILL_FORMAT
+  format: SponsoredSkillFormat
   /** Stable slug, `<advertiser>-<goal>`. */
   id: string
   /** Exact semver. Any change to a registered skill is a new version; see `sponsored-skills/versions.lock.ts`. */
@@ -192,15 +284,32 @@ export type SponsoredSkill = {
     summary: string
   }
   requirements: SponsoredSkillRequirements
+  /**
+   * Format 2 only, and required there: which projects the skill fits, as
+   * data. Compiled into preflight checks that run ahead of `preflight`
+   * ({@link sponsoredSkillPreflightChecks}); `requirements.os` must equal its
+   * `os`. Format 1 has none.
+   */
+  fit?: SponsoredSkillFit
   packages: SponsoredSkillPackage[]
   tools: SponsoredSkillTool[]
+  /** Native Desktop tools this version needs. Omitted on older skills. */
+  desktop?: {
+    interactiveTerminal?: boolean
+    /** Exact HTTPS origins permitted for opening login links; no browser read/control. */
+    browserOrigins?: string[]
+  }
   /**
    * What the agent should know to adapt the steps to the repo it finds:
    * names, versions, syntax, traps, from the advertiser's docs. Facts, not
    * orders; the steps say what must be true, the agent decides how.
    */
   knowledge: string[]
-  /** Run before the first step. A failure is fixed in the run when it can be (toolchain), else the run stops before any edit. */
+  /**
+   * Run before the first step. A failure is fixed in the run when it can be (toolchain), else the run stops before any edit.
+   * Format 2: only the checks that are not fit (a key not set yet, a CLI
+   * runs); the fit block's compiled checks run first.
+   */
   preflight: SponsoredSkillCheck[]
   steps: SponsoredSkillStep[]
   /** Funnel outcomes the verifier may credit (see `sponsored-run-outcomes.ts`). */
@@ -208,6 +317,8 @@ export type SponsoredSkill = {
 }
 
 export const MAX_SKILL_STEPS = 12
+/** Same cap as `SPONSORED_DECLARED_PACKAGES_MAX`: a skill declaring more should be split. */
+export const MAX_SKILL_PACKAGES = 20
 export const MAX_SKILL_CHECKS_PER_STEP = 12
 export const MAX_SKILL_PREFLIGHT_CHECKS = 8
 export const MAX_SKILL_TITLE_CHARS = 100
@@ -505,16 +616,158 @@ function parseCheck(
  * skill. Every error is reported, not just the first, so a reviewer or the
  * authoring skill can fix them in one pass.
  */
+const SHA256_HEX = /^[0-9a-f]{64}$/
+/** HTTPS, a dotted host and a plain path: nothing a shell or URL parser could read twice. */
+const RELEASE_URL =
+  /^https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[A-Za-z0-9._~%+\/-]+$/
+const RELEASE_BINARY_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._+-]*$/
+
+function validReleaseUrl(url: unknown): url is string {
+  if (typeof url !== 'string' || url.length > 2_048 || !RELEASE_URL.test(url))
+    return false
+  try {
+    const parsed = new URL(url)
+    return (
+      parsed.protocol === 'https:' &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.port &&
+      !parsed.search &&
+      !parsed.hash &&
+      // An IP literal or a local name is never a vendor's release host.
+      !/^[0-9.]+$/.test(parsed.hostname) &&
+      !/(?:^|\.)(?:localhost|local|internal)$/.test(parsed.hostname) &&
+      // The URL parser folds `..` away, so look at the text as written.
+      !url
+        .slice(`https://${parsed.host}`.length)
+        .split('/')
+        .map((part) => part.toLowerCase().replaceAll('%2e', '.'))
+        .some((part) => part === '..' || part === '.')
+    )
+  } catch {
+    return false
+  }
+}
+
+function validReleaseBinary(binary: unknown): binary is string {
+  if (typeof binary !== 'string' || !binary || binary.length > 200) return false
+  const parts = binary.split('/')
+  return parts.every(
+    (part) => RELEASE_BINARY_SEGMENT.test(part) && part !== '..',
+  )
+}
+
+function parseToolRelease(
+  errors: SponsoredSkillParseError[],
+  path: string,
+  release: unknown,
+): void {
+  if (!isRecord(release)) {
+    errors.push({ path, message: 'must be an object' })
+    return
+  }
+  if (
+    typeof release.version !== 'string' ||
+    !EXACT_SEMVER.test(release.version)
+  )
+    errors.push({ path: `${path}.version`, message: 'must be an exact semver' })
+  const assets = release.assets
+  if (
+    !Array.isArray(assets) ||
+    assets.length === 0 ||
+    assets.length > MAX_SPONSORED_TOOL_RELEASE_ASSETS
+  ) {
+    errors.push({
+      path: `${path}.assets`,
+      message: `must list 1-${MAX_SPONSORED_TOOL_RELEASE_ASSETS} assets`,
+    })
+    return
+  }
+  const targets = new Set<string>()
+  assets.forEach((asset, index) => {
+    const at = `${path}.assets[${index}]`
+    if (!isRecord(asset)) {
+      errors.push({ path: at, message: 'must be an object' })
+      return
+    }
+    if (!(SPONSORED_TOOL_RELEASE_OS as readonly unknown[]).includes(asset.os))
+      errors.push({
+        path: `${at}.os`,
+        message: `must be one of ${SPONSORED_TOOL_RELEASE_OS.join(', ')}`,
+      })
+    if (
+      !(SPONSORED_TOOL_RELEASE_ARCH as readonly unknown[]).includes(asset.arch)
+    )
+      errors.push({
+        path: `${at}.arch`,
+        message: `must be one of ${SPONSORED_TOOL_RELEASE_ARCH.join(', ')}`,
+      })
+    if (!validReleaseUrl(asset.url))
+      errors.push({
+        path: `${at}.url`,
+        message:
+          'must be a plain https URL on a public host, with no query, fragment, port or credentials',
+      })
+    if (typeof asset.sha256 !== 'string' || !SHA256_HEX.test(asset.sha256))
+      errors.push({
+        path: `${at}.sha256`,
+        message: 'must be 64 lowercase hex characters',
+      })
+    if (
+      !(SPONSORED_TOOL_RELEASE_ARCHIVES as readonly unknown[]).includes(
+        asset.archive,
+      )
+    )
+      errors.push({
+        path: `${at}.archive`,
+        message: `must be one of ${SPONSORED_TOOL_RELEASE_ARCHIVES.join(', ')}`,
+      })
+    if (!validReleaseBinary(asset.binary))
+      errors.push({
+        path: `${at}.binary`,
+        message: 'must be a relative path inside the archive, without ..',
+      })
+    const target = `${String(asset.os)}-${String(asset.arch)}`
+    if (targets.has(target))
+      errors.push({ path: at, message: `duplicate asset for ${target}` })
+    targets.add(target)
+  })
+}
+
+/** The release asset a harness on `os`/`arch` installs for `tool`, or null. */
+export function sponsoredToolReleaseAsset(
+  tool: SponsoredSkillTool,
+  os: string,
+  arch: string,
+): SponsoredSkillToolReleaseAsset | null {
+  if (tool.source !== 'path' || !tool.release) return null
+  return (
+    tool.release.assets.find(
+      (asset) => asset.os === os && asset.arch === arch,
+    ) ?? null
+  )
+}
+
 export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
   const errors: SponsoredSkillParseError[] = []
   if (!isRecord(value))
     return { ok: false, errors: [{ path: '', message: 'must be an object' }] }
 
-  if (value.format !== SPONSORED_SKILL_FORMAT) {
+  if (!(SPONSORED_SKILL_FORMATS as readonly unknown[]).includes(value.format)) {
     errors.push({
       path: 'format',
-      message: `must be ${SPONSORED_SKILL_FORMAT}`,
+      message: `must be one of ${SPONSORED_SKILL_FORMATS.join(', ')}`,
     })
+  }
+  const format2 = value.format === 2
+  if (format2) {
+    const os =
+      isRecord(value.requirements) && Array.isArray(value.requirements.os)
+        ? (value.requirements.os as string[])
+        : null
+    parseSponsoredSkillFit(errors, value.fit, os)
+  } else if (value.fit !== undefined) {
+    errors.push({ path: 'fit', message: 'a fit block needs format 2' })
   }
   if (typeof value.id !== 'string' || !SLUG.test(value.id)) {
     errors.push({ path: 'id', message: 'must be a lowercase slug' })
@@ -540,6 +793,54 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
     )
   }
 
+  if (value.desktop !== undefined) {
+    const desktop = value.desktop
+    if (
+      !isRecord(desktop) ||
+      Object.keys(desktop).some(
+        (key) => !['interactiveTerminal', 'browserOrigins'].includes(key),
+      )
+    ) {
+      errors.push({
+        path: 'desktop',
+        message: 'must declare only interactiveTerminal and browserOrigins',
+      })
+    } else {
+      if (
+        desktop.interactiveTerminal !== undefined &&
+        typeof desktop.interactiveTerminal !== 'boolean'
+      )
+        errors.push({
+          path: 'desktop.interactiveTerminal',
+          message: 'must be a boolean',
+        })
+      if (
+        desktop.browserOrigins !== undefined &&
+        (!Array.isArray(desktop.browserOrigins) ||
+          desktop.browserOrigins.length > 10 ||
+          desktop.browserOrigins.some((origin) => {
+            if (typeof origin !== 'string' || origin.length > 2048) return true
+            try {
+              const u = new URL(origin)
+              return (
+                u.protocol !== 'https:' ||
+                u.origin !== origin ||
+                !!u.username ||
+                !!u.password
+              )
+            } catch {
+              return true
+            }
+          }))
+      )
+        errors.push({
+          path: 'desktop.browserOrigins',
+          message:
+            'must be at most 10 exact HTTPS origins, without paths or credentials',
+        })
+    }
+  }
+
   const requirements = value.requirements
   if (!isRecord(requirements)) {
     errors.push({ path: 'requirements', message: 'must be an object' })
@@ -559,7 +860,37 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
     }
     list('os', SPONSORED_SKILL_OS)
     list('packageManagers', SPONSORED_SKILL_PACKAGE_MANAGERS)
-    list('frameworks', SPONSORED_SKILL_FRAMEWORKS)
+    const fitRoutes =
+      format2 && isRecord(value.fit) && isRecord(value.fit.routes)
+        ? Object.keys(value.fit.routes)
+        : null
+    // `frameworks` is the JS-only enum: a format-2 skill with no node route
+    // lists none, and one with a node route must list at least one.
+    if (fitRoutes && !fitRoutes.includes('node')) {
+      if (
+        !Array.isArray(requirements.frameworks) ||
+        requirements.frameworks.length !== 0
+      )
+        errors.push({
+          path: 'requirements.frameworks',
+          message: 'must be empty for a skill with no node fit route',
+        })
+    } else list('frameworks', SPONSORED_SKILL_FRAMEWORKS)
+    if (fitRoutes && Array.isArray(requirements.runtimes)) {
+      const names = requirements.runtimes.map((runtime) =>
+        isRecord(runtime) ? runtime.name : null,
+      )
+      for (const [route, runtime] of [
+        ['node', 'node'],
+        ['python', 'python'],
+      ] as const) {
+        if (fitRoutes.includes(route) && !names.includes(runtime))
+          errors.push({
+            path: 'requirements.runtimes',
+            message: `must name ${runtime}: the fit block has a ${route} route`,
+          })
+      }
+    }
     const runtimes = requirements.runtimes
     if (
       !Array.isArray(runtimes) ||
@@ -596,9 +927,45 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
 
   const packages = Array.isArray(value.packages) ? value.packages : null
   if (!packages) errors.push({ path: 'packages', message: 'must be a list' })
+  if (packages && packages.length > MAX_SKILL_PACKAGES) {
+    errors.push({
+      path: 'packages',
+      message: `must declare at most ${MAX_SKILL_PACKAGES} packages`,
+    })
+  }
+  /** npm names only: `package_declared` reads package.json. */
   const packageNames = new Set<string>()
+  const pypiNames = new Set<string>()
   packages?.forEach((pkg, index) => {
     const path = `packages[${index}]`
+    if (isRecord(pkg) && pkg.ecosystem === 'pypi') {
+      if (typeof pkg.name !== 'string' || !PYPI_PACKAGE_NAME.test(pkg.name)) {
+        errors.push({
+          path,
+          message:
+            'must be { ecosystem: "pypi", name, version } with a PyPI project name',
+        })
+        return
+      }
+      if (
+        typeof pkg.version !== 'string' ||
+        !PYPI_EXACT_VERSION.test(pkg.version)
+      ) {
+        errors.push({
+          path: `${path}.version`,
+          message:
+            'must be an exact PEP 440 release such as 2.32.3, not a range, extra or URL',
+        })
+      }
+      if (pkg.dev !== undefined && typeof pkg.dev !== 'boolean') {
+        errors.push({ path: `${path}.dev`, message: 'must be a boolean' })
+      }
+      const normalized = normalizePypiName(pkg.name)
+      if (pypiNames.has(normalized))
+        errors.push({ path, message: `duplicate package ${pkg.name}` })
+      pypiNames.add(normalized)
+      return
+    }
     if (
       !isRecord(pkg) ||
       pkg.ecosystem !== 'npm' ||
@@ -607,7 +974,8 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
     ) {
       errors.push({
         path,
-        message: 'must be { ecosystem: "npm", name, version }',
+        message:
+          'must be { ecosystem: "npm", name, version } or { ecosystem: "pypi", name, version }',
       })
       return
     }
@@ -658,6 +1026,8 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
           errors.push({ path, message: 'a path tool needs an installHint' })
           return
         }
+        if (tool.release !== undefined)
+          parseToolRelease(errors, `${path}.release`, tool.release)
       } else {
         errors.push({ path, message: 'source must be npm or path' })
         return
@@ -669,13 +1039,18 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
   }
 
   const checkIds = new Set<string>()
+  const compiledFit =
+    format2 && !errors.some((error) => error.path.startsWith('fit'))
+      ? compileSponsoredSkillFit(value.fit as SponsoredSkillFit)
+      : []
+  for (const check of compiledFit) checkIds.add(check.id)
   if (
     !Array.isArray(value.preflight) ||
-    value.preflight.length > MAX_SKILL_PREFLIGHT_CHECKS
+    value.preflight.length + compiledFit.length > MAX_SKILL_PREFLIGHT_CHECKS
   ) {
     errors.push({
       path: 'preflight',
-      message: `must be a list of at most ${MAX_SKILL_PREFLIGHT_CHECKS} checks`,
+      message: `must be a list of at most ${MAX_SKILL_PREFLIGHT_CHECKS - compiledFit.length} checks (${MAX_SKILL_PREFLIGHT_CHECKS} with the fit block's)`,
     })
   } else {
     value.preflight.forEach((check, index) =>
@@ -844,7 +1219,9 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
     if (check.kind === 'package_declared' && !packageNames.has(check.name)) {
       errors.push({
         path: check.id,
-        message: `checks package ${check.name}, which the skill does not declare`,
+        message: pypiNames.has(normalizePypiName(check.name))
+          ? `checks package ${check.name}, a pypi package: package_declared reads package.json, so check a Python package with file_contains or command_succeeds`
+          : `checks package ${check.name}, which the skill does not declare`,
       })
     }
   }
@@ -881,7 +1258,32 @@ export function parseSponsoredSkill(value: unknown): SponsoredSkillParseResult {
 }
 
 function allChecks(skill: SponsoredSkill): SponsoredSkillCheck[] {
-  return [...skill.preflight, ...skill.steps.flatMap((step) => step.checks)]
+  return [
+    ...sponsoredSkillPreflightChecks(skill),
+    ...skill.steps.flatMap((step) => step.checks),
+  ]
+}
+
+/**
+ * THE preflight the step driver runs: a format-2 skill's compiled fit
+ * checks, then its own `preflight`. Format 1 is `preflight` unchanged.
+ */
+export function sponsoredSkillPreflightChecks(
+  skill: Pick<SponsoredSkill, 'preflight'> & { fit?: SponsoredSkillFit },
+): SponsoredSkillCheck[] {
+  return [
+    ...(skill.fit ? compileSponsoredSkillFit(skill.fit) : []),
+    ...(skill.preflight ?? []),
+  ]
+}
+
+/** The ecosystems a skill's fit block routes to; null for a format-1 skill. */
+export function sponsoredSkillFitEcosystems(
+  skill: Pick<SponsoredSkill, 'fit'>,
+): string[] | null {
+  return skill.fit
+    ? sponsoredFitRoutes(skill.fit).map((route) => route.ecosystem)
+    : null
 }
 
 /** Semver order (prerelease below its release), for picking the latest version. */
@@ -1001,6 +1403,17 @@ function indent(body: string, spaces: number): string {
  * tracker and the grader (`parseSponsoredProcedureSteps`) count the same
  * steps the step driver runs.
  */
+export const SPONSORED_DESKTOP_TOOLS_DECLARATION =
+  'Desktop capabilities required (use a compatible Desktop build):'
+export function sponsoredProcedureNeedsDesktopTools(
+  procedure: string | null | undefined,
+): boolean {
+  return (
+    procedure?.split('\n').includes(SPONSORED_DESKTOP_TOOLS_DECLARATION) ===
+    true
+  )
+}
+
 export function renderSponsoredSkillProcedure(skill: SponsoredSkill): string {
   const lines: string[] = [
     `${SPONSORED_SKILL_DIRECTIVE} ${sponsoredSkillKey(skill)} ${sponsoredSkillSha256(skill)}`,
@@ -1019,6 +1432,21 @@ export function renderSponsoredSkillProcedure(skill: SponsoredSkill): string {
     'files go and how code is written. Each step is done when its checks pass, however you get there.',
     '',
   ]
+  if (skill.desktop) {
+    lines.push(SPONSORED_DESKTOP_TOOLS_DECLARATION)
+    if (skill.desktop.interactiveTerminal)
+      lines.push(
+        '- Use terminal_start with a declared npm tool name and argv for interactive CLI commands, then terminal_read / terminal_write. The terminal is private to this run and contained like other commands. Install only declared pinned packages with scripts disabled. Never use the user’s other terminals.',
+      )
+    if (skill.desktop.browserOrigins?.length)
+      lines.push(
+        `- Use preview_open to show CLI authentication links to the user on these origins only: ${skill.desktop.browserOrigins.join(', ')}. Preserve the CLI URL exactly, including OAuth state; do not append attribution parameters. The user signs in directly in the browser; call wait_for_cli_login to wait, then verify with the CLI. For this native CLI flow, use these tools instead of the static request_sponsored_signup link. Never request passwords or tokens in chat.`,
+      )
+    lines.push(
+      '- CLI login state lives in this run’s private HOME. Do not claim a global installation or login in the user’s regular shell.',
+      '',
+    )
+  }
   if (skill.knowledge.length) {
     lines.push('What to know:')
     for (const fact of skill.knowledge) lines.push(`- ${fact}`)
@@ -1028,11 +1456,22 @@ export function renderSponsoredSkillProcedure(skill: SponsoredSkill): string {
   if (skill.packages.length || npmTools.length) {
     lines.push('Pinned installs (install exactly these, nothing else):')
     for (const pkg of skill.packages) {
-      lines.push(`- ${pkg.name}@${pkg.version}${pkg.dev ? ' (dev)' : ''}`)
+      // npm lines are unchanged byte for byte: shipped procedure hashes
+      // (`procedure_sha256`) are of this text.
+      lines.push(
+        pkg.ecosystem === 'pypi'
+          ? `- ${pkg.name}==${pkg.version} (pip${pkg.dev ? ', dev' : ''})`
+          : `- ${pkg.name}@${pkg.version}${pkg.dev ? ' (dev)' : ''}`,
+      )
     }
     for (const tool of npmTools) {
       lines.push(
         `- \`${tool.name}\` = npx --yes ${tool.package}@${tool.version}`,
+      )
+    }
+    if (skill.packages.some((pkg) => pkg.ecosystem === 'pypi')) {
+      lines.push(
+        'Python (pip) packages install from wheels only, one plain command: `pip install --only-binary=:all: <name>==<version>`, or `uv add --no-build <name>==<version>` in a uv project.',
       )
     }
     lines.push('')
@@ -1093,7 +1532,7 @@ export function sponsoredSkillConsentView(
       byUser: step.kind === 'user',
     })),
     installs: [
-      ...skill.packages.map((pkg) => `${pkg.name}@${pkg.version}`),
+      ...skill.packages.map(sponsoredPackageSpec),
       ...skill.tools.flatMap((tool) =>
         tool.source === 'npm' ? [`${tool.package}@${tool.version}`] : [],
       ),
@@ -1102,6 +1541,24 @@ export function sponsoredSkillConsentView(
       tool.source === 'path' ? [tool.name] : [],
     ),
   }
+}
+
+/**
+ * Why a browser-workspace (Freebuff Web) run of `skill` could only fail, or
+ * null when it can run there. A web run executes in a bare Linux VM whose
+ * commands may install only the skill's pinned npm packages, so a skill that
+ * does not declare `linux`, or needs a vendor CLI already on PATH (`path`
+ * tool), is never offered on web. A `path` tool's pinned `release` does not
+ * change that until something installs it on web.
+ */
+export type SponsoredSkillWebRefusal = 'skill_os' | 'skill_path_tool'
+export function sponsoredSkillWebRefusal(
+  skill: Pick<SponsoredSkill, 'requirements' | 'tools'>,
+): SponsoredSkillWebRefusal | null {
+  if (!skill.requirements.os.includes('linux')) return 'skill_os'
+  if (skill.tools.some((tool) => tool.source === 'path'))
+    return 'skill_path_tool'
+  return null
 }
 
 /**
@@ -1136,7 +1593,9 @@ export function sponsoredProcedureTrackedLink(
 }
 
 /** {@link sponsoredProcedureTrackedLink} of the skill's rendered procedure. */
-export function sponsoredSkillTrackedLink(skill: SponsoredSkill): string | null {
+export function sponsoredSkillTrackedLink(
+  skill: SponsoredSkill,
+): string | null {
   return sponsoredProcedureTrackedLink(renderSponsoredSkillProcedure(skill))
 }
 

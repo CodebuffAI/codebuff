@@ -200,8 +200,14 @@ export type CodebuffClientOptions = {
    *  `computeProjectIndexFromFiles`). Skips the per-run tree-sitter parse;
    *  ignored when `projectFiles` is absent. */
   projectIndex?: ComputedProjectIndex
+  /** See `InitialSessionStateOptions.skipSymbolIndex`. */
+  skipSymbolIndex?: boolean
   knowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
+  /** See `InitialSessionStateOptions.agentDirs`: the directories a fresh
+   *  session may import agent modules from when `agentDefinitions` is
+   *  omitted. Defaults to `~/.agents`; never the repository. */
+  agentDirs?: string[]
   maxAgentSteps?: number
   env?: Record<string, string>
   /** Optional host process boundary that keeps terminal tools away from an
@@ -569,8 +575,10 @@ async function runOnce({
   includeHomeSkills,
   projectFiles,
   projectIndex,
+  skipSymbolIndex,
   knowledgeFiles,
   agentDefinitions,
+  agentDirs,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
   terminalCommandBroker,
@@ -646,6 +654,7 @@ async function runOnce({
         customToolDefinitions,
         projectFiles,
         projectIndex,
+        skipSymbolIndex,
         maxAgentSteps,
       },
     )
@@ -658,9 +667,11 @@ async function runOnce({
       includeHomeSkills,
       knowledgeFiles,
       agentDefinitions,
+      agentDirs,
       customToolDefinitions,
       projectFiles,
       projectIndex,
+      skipSymbolIndex,
       maxAgentSteps,
       fs,
       spawn,

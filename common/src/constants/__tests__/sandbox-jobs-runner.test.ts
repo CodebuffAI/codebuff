@@ -9,11 +9,14 @@ import {
 import type { SandboxJobRunners } from '../sandbox-jobs-runner'
 
 describe('sandbox job runners (COD-742 E1)', () => {
-  test('ships dark: every job is still run by Convex', () => {
+  // Flipped one at a time on Owen's go (2026-10-14): storage sweep, run leases, errored sweep, pool reconcile, pool provisioning, idle sleep.
+  const FLIPPED: readonly string[] = ['sweep_storage', 'sweep_run_leases', 'sweep_errored', 'reconcile_pool', 'provision_pool', 'sleep_idle']
+
+  test('only the flipped jobs run on graphile; Convex runs the rest', () => {
     for (const job of SANDBOX_JOB_NAMES) {
       expect({ job, runner: SANDBOX_JOB_RUNNERS[job] }).toEqual({
         job,
-        runner: 'convex',
+        runner: FLIPPED.includes(job) ? 'graphile' : 'convex',
       })
     }
   })
@@ -42,6 +45,7 @@ describe('sandbox job runners (COD-742 E1)', () => {
     const runners: SandboxJobRunners = {
       ...SANDBOX_JOB_RUNNERS,
       sweep_errored: 'graphile',
+      reconcile_pool: 'convex',
     }
     expect(sandboxJobOwnedBy('sweep_errored', 'graphile', runners)).toBe(true)
     expect(sandboxJobOwnedBy('sweep_errored', 'convex', runners)).toBe(false)

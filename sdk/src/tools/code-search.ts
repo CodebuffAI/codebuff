@@ -3,12 +3,17 @@ import { spawn } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { codeSearchExecFlagRefusal } from '../../../common/src/util/code-search-flags'
+import {
+  codeSearchExecFlagRefusal,
+  parseCodeSearchFlags,
+} from '../../../common/src/util/code-search-flags'
+import { isSensitiveEnvFilePath } from '../../../common/src/util/env-file-path'
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 import { Logger } from '@codebuff/common/types/contracts/logger'
+import { missingDirectoryError } from './run-terminal-command'
 import type {
   TerminalCommandBroker,
   TerminalCommandProcess,
@@ -25,43 +30,6 @@ export const INCLUDED_HIDDEN_DIRS: readonly string[] = [
   '.circleci', // CircleCI configuration
   '.husky', // Git hooks
 ]
-
-/**
- * Parse the user-facing flag string once so validation and process spawning see
- * the same argv. Quotes group whitespace but are not passed to ripgrep because
- * spawn() does not invoke a shell.
- */
-export function parseCodeSearchFlags(flags: string | undefined): string[] | null {
-  if (!flags?.trim()) return []
-  const tokens: string[] = []
-  let token = ''
-  let quote: "'" | '"' | null = null
-  let tokenStarted = false
-  for (const character of flags) {
-    if (quote) {
-      if (character === quote) quote = null
-      else token += character
-      tokenStarted = true
-      continue
-    }
-    if (character === "'" || character === '"') {
-      quote = character
-      tokenStarted = true
-    } else if (/\s/.test(character)) {
-      if (tokenStarted) {
-        tokens.push(token)
-        token = ''
-        tokenStarted = false
-      }
-    } else {
-      token += character
-      tokenStarted = true
-    }
-  }
-  if (quote) return null
-  if (tokenStarted) tokens.push(token)
-  return tokens
-}
 
 export function codeSearch({
   projectPath,
@@ -98,6 +66,16 @@ export function codeSearch({
     // directory on the system.
     const projectRoot = path.resolve(projectPath)
     const searchCwd = cwd ? path.resolve(projectRoot, cwd) : projectRoot
+    // A `cwd` naming a file asks for that file's matches, so search it from
+    // its directory instead of failing to start in it. Never through a
+    // broker: a sponsored run's broker admits only the directory search
+    // below, and must not be preceded by a stat of a path the model chose.
+    let searchFile = false
+    if (!processBroker) {
+      try {
+        searchFile = fs.statSync(searchCwd).isFile()
+      } catch {}
+    }
 
     // Do not deduplicate: repeated flag-argument pairs such as `-g *.ts` are
     // meaningful. The shared parser keeps quoted values as one argv entry.
@@ -131,7 +109,11 @@ export function codeSearch({
         return false
       }
     })
-    const searchPaths = ['.', ...existingHiddenDirs]
+    // ripgrep searches a path it is given whatever the ignore rules, `-g` and
+    // `-t` filters say.
+    const searchPaths = searchFile
+      ? [path.basename(searchCwd)]
+      : ['.', ...existingHiddenDirs]
     const args = [
       '--no-config',
       '-n',
@@ -172,7 +154,7 @@ export function codeSearch({
         })
       } else {
         const child = spawn(rgPath, args, {
-          cwd: searchCwd,
+          cwd: searchFile ? path.dirname(searchCwd) : searchCwd,
           stdio: ['ignore', 'pipe', 'pipe'],
         })
         childProcess = {
@@ -194,7 +176,11 @@ export function codeSearch({
       return resolve([
         {
           type: 'json',
-          value: { errorMessage: `Failed to execute ripgrep: ${message}` },
+          value: {
+            errorMessage:
+              missingDirectoryError(error, searchCwd, 'Search directory') ??
+              `Failed to execute ripgrep: ${message}`,
+          },
         },
       ])
     }
@@ -323,6 +309,17 @@ export function codeSearch({
         if (evt.type === 'match' || evt.type === 'context') {
           // Handle both text and bytes for non-UTF8 paths
           const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
+          // `read_files` refuses the env family outright
+          // (`isSensitiveEnvFilePath`), and a code_search match line IS the
+          // file's content -- for a `.env` it is the whole `KEY=secret` pair.
+          // Ripgrep only skips those files because they are hidden and usually
+          // gitignored, and the model writes the flags: `-uu` (or `--hidden
+          // --no-ignore`) brings them back, which the tool neither refuses nor
+          // mentions. Drop them here, before grouping and before any counter,
+          // so the output is identical to a search that matched nothing in
+          // them. Templates (`.env.example` and family) stay searchable, by the
+          // same rule the read policy uses, so the two cannot drift.
+          if (isSensitiveEnvFilePath(filePath)) continue
           const lineNumber = evt.data.line_number ?? 0
           // Strip trailing newlines to prevent blank lines in output
           const rawText = evt.data.lines?.text ?? ''
@@ -425,6 +422,9 @@ export function codeSearch({
                 if (evt?.type === 'match' || evt?.type === 'context') {
                   const filePath =
                     evt.data.path?.text ?? evt.data.path?.bytes ?? ''
+                  // Same env-family refusal as the streaming branch above; the
+                  // tail of ripgrep's output arrives here, so both need it.
+                  if (isSensitiveEnvFilePath(filePath)) continue
                   const lineNumber = evt.data.line_number ?? 0
                   const rawText = evt.data.lines?.text ?? ''
                   const lineText = rawText.replace(/\r?\n$/, '')
@@ -524,7 +524,9 @@ export function codeSearch({
         if (isResolved) return
         const message = error instanceof Error ? error.message : String(error)
         settle({
-          errorMessage: `Failed to execute ripgrep: ${message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
+          errorMessage:
+            missingDirectoryError(error, searchCwd, 'Search directory') ??
+            `Failed to execute ripgrep: ${message}. Vendored ripgrep not found; ensure @codebuff/sdk is up-to-date or set CODEBUFF_RG_PATH.`,
         })
       })
   })

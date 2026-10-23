@@ -90,6 +90,8 @@ export function windowsBashCandidates(env: NodeJS.ProcessEnv): string[] {
   const pathDirs = usablePathDirs(env)
   const candidates = [
     env.CODEBUFF_GIT_BASH_PATH,
+    // The packaged Desktop carries Git for Windows; no system install or global PATH change needed.
+    env.FREEBUFF_GIT_DIR && path.join(env.FREEBUFF_GIT_DIR, 'bin', 'bash.exe'),
     ...gitRoots(env).map((root) => path.join(root, 'bin', 'bash.exe')),
     ...pathDirs.flatMap((dir) => ['bash.exe', 'bash'].map((name) => path.join(dir, name))),
     // A git.exe on PATH with no bash beside it: the installer's default option adds only `…\Git\cmd`,
@@ -225,9 +227,9 @@ function compareAppVersionsDescending(a: string, b: string): number {
  * find it. Same roots as bash, for the same reason: a GUI app launched from the Start menu carries
  * the PATH from when Explorer started, so a Git installed since is on disk but not on our PATH.
  *
- * GitHub Desktop is last. It bundles a complete Git it never puts on PATH, and it is how plenty of
- * people who have never typed `git` came to have a cloned folder at all — the exact user who opens
- * that folder in Freebuff and is told git is missing. Newest bundled version first.
+ * After installed Git, try GitHub Desktop and finally Freebuff's own bundle. GitHub Desktop keeps
+ * its Git off PATH; it is how people who have never typed `git` came to have a cloned folder at
+ * all. Try its newest bundled version first.
  */
 export function windowsGitCandidates(
   env: NodeJS.ProcessEnv,
@@ -248,6 +250,7 @@ export function windowsGitCandidates(
     ...new Set([
       ...gitRoots(env).map((root) => path.join(root, 'cmd', 'git.exe')),
       ...bundled,
+      ...(env.FREEBUFF_GIT_DIR ? [path.join(env.FREEBUFF_GIT_DIR, 'cmd', 'git.exe')] : []),
     ]),
   ]
 }

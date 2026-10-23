@@ -8,9 +8,11 @@
  *
  * That matters twice over. An LLM summarization pass is a full extra request
  * over the whole (already oversized) history, and its output is a lossy prose
- * retelling. The mechanical pass keeps the concrete details — every file that
- * was read or edited, every command that was run, every user message up to the
- * user budget — which is what a coding agent actually needs to resume.
+ * retelling. The mechanical pass keeps the concrete details — files read or
+ * edited, commands run, and the user's messages — up to its budgets, which is
+ * what a coding agent actually needs to resume. The runtime's pass keeps the
+ * user's earlier requests and the newest to-do list out of their own budget
+ * (USER_MEMORY_TOKENS) before older tool history competes for the rest.
  *
  * The runtime's own pass (`compactRequestHistory`, not the shared summary)
  * adds a working set on top: the newest unedited file reads, re-provided after
@@ -111,6 +113,27 @@ export const MECHANICAL_TARGET_SHARE = 0.5
 export const MECHANICAL_HISTORY_TOKENS = 12_000
 
 const MIN_HISTORY_TOKENS = 2_000
+
+/**
+ * What a mechanical pass may add, beyond MECHANICAL_HISTORY_TOKENS and only
+ * out of room the window really has, to keep the user's earlier requests and
+ * the newest to-do list.
+ *
+ * Why (2026-10-22): every pass rewrote history into one 12k walk, newest
+ * entry first, that SKIPPED any entry larger than what was left. 14,061 of
+ * 15,538 context-limit passes over 10-19 to 10-22 dropped entries (median
+ * 115); a long spec from an earlier prompt went whole, the summary kept a
+ * median 3.9k tokens, and the to-do list survived only if its line won the
+ * walk. "It forgot what I asked" and "compacted and lost my plan" were the
+ * second-largest group of context complaints in that week's feedback. The
+ * context-pruner already gives user entries their own budget; this does the
+ * same for the runtime's pass. An earlier request too large for what is left
+ * is shortened (head and tail), not dropped.
+ */
+export const USER_MEMORY_TOKENS = 24_000
+
+/** Below this, a shortened earlier request says too little to be worth keeping. */
+const MIN_SHORTENED_REQUEST_TOKENS = 400
 
 /** Separator between entries inside the rendered historical memory. */
 const ENTRY_SEPARATOR = '\n\n---\n\n'
@@ -311,6 +334,7 @@ function summarizeToolCall(
       }
       return 'Updated todos'
     }
+    case 'ask_questions':
     case 'ask_user': {
       const questions = input.questions as
         | Array<{ question: string }>
@@ -460,7 +484,7 @@ function parseSummaryIntoEntries(summaryText: string): SummaryEntry[] {
 
 /**
  * Condenses each message into a role-tagged entry. Tool calls become one-line
- * descriptions, tool results are dropped except for errors and edit outcomes,
+ * descriptions, tool results retain user answers, errors and edit outcomes,
  * and long text is truncated head-and-tail.
  */
 function summarizeMessagesIntoEntries(messages: Message[]): SummaryEntry[] {
@@ -563,6 +587,24 @@ function summarizeToolResult(toolMessage: ToolMessage): string[] {
           const exitCode = value.exitCode as number
           if (exitCode !== 0) {
             entryParts.push(`Command failed with exit code: ${exitCode}`)
+          }
+        }
+
+        // Desktop's question tool returns question/answer pairs, unlike the
+        // older ask_user selectedOption/otherText shape. Keep the pairing so
+        // answers such as "Yes" still have meaning after compaction.
+        if (toolMessage.toolName === 'ask_questions') {
+          if (value.skipped) {
+            entryParts.push('User skipped question')
+          } else if (Array.isArray(value.answers)) {
+            for (const answer of value.answers as Array<{
+              question: string
+              answers: string[]
+            }>) {
+              entryParts.push(
+                `User answered:\nQuestion: ${answer.question}\nAnswer: ${answer.answers.join('; ') || '(no answer)'}`,
+              )
+            }
           }
         }
 
@@ -1046,29 +1088,92 @@ function compactRequestHistory(
     ]) > remainingTokens
   )
     images = []
+  const entryTokens = (entry: SummaryEntry) =>
+    countTokens(entry.parts.join(ENTRY_SEPARATOR) + ENTRY_SEPARATOR)
+  // The user's earlier requests and the newest to-do list first, out of their
+  // own allowance (USER_MEMORY_TOKENS), newest first; a request too large for
+  // what is left is shortened rather than skipped.
+  const reserved = new Set<SummaryEntry>(selected)
+  const shortened = new Map<SummaryEntry, SummaryEntry>()
+  // Only out of room under the pass's own target as well as the window, so a
+  // pass still lands well below its trigger and does not compact again at once.
+  const userAllowance = Math.max(
+    0,
+    Math.min(
+      USER_MEMORY_TOKENS,
+      Math.min(hardRemaining, targetBudget - prefixTokens - fittedTokens) -
+        workingSetTokens -
+        remainingTokens,
+    ),
+  )
+  let userAvailable = userAllowance
+  const newestTodos = entries.findLast(
+    (entry) =>
+      entry.role !== 'user' &&
+      entry.parts.some((part) => part.includes('Todos: ')),
+  )
+  const reserveFirst = [
+    ...(newestTodos ? [newestTodos] : []),
+    ...entries.filter((entry) => entry.role === 'user').reverse(),
+  ]
+  for (const entry of reserveFirst) {
+    if (selected.has(entry)) continue
+    const tokens = entryTokens(entry)
+    if (tokens <= userAvailable) {
+      selected.add(entry)
+      reserved.add(entry)
+      userAvailable -= tokens
+      continue
+    }
+    if (entry.role !== 'user' || userAvailable < MIN_SHORTENED_REQUEST_TOKENS)
+      continue
+    const text = entry.parts.join(ENTRY_SEPARATOR)
+    const short: SummaryEntry = {
+      role: entry.role,
+      parts: [truncateLongText(text, Math.floor(text.length * (userAvailable / tokens) * 0.9))],
+    }
+    const shortTokens = entryTokens(short)
+    if (shortTokens > userAvailable) continue
+    shortened.set(entry, short)
+    selected.add(entry)
+    reserved.add(entry)
+    userAvailable -= shortTokens
+  }
+  const summaryLimit = remainingTokens + (userAllowance - userAvailable)
   let available =
     remainingTokens -
     countTokensMessages([
-      buildSummaryMessage(renderSummaryText([...selected]), images, now),
+      buildSummaryMessage(
+        renderSummaryText(
+          [...selected].filter((entry) => !reserved.has(entry) || entry === historicalRequest),
+        ),
+        images,
+        now,
+      ),
     ])
   for (let i = entries.length - 1; i >= 0; i--) {
     if (selected.has(entries[i])) continue
-    const tokens = countTokens(
-      entries[i].parts.join(ENTRY_SEPARATOR) + ENTRY_SEPARATOR,
-    )
+    const tokens = entryTokens(entries[i])
     if (tokens > available) continue
     selected.add(entries[i])
     available -= tokens
   }
-  const kept = entries.filter((entry) => selected.has(entry))
+  const kept = entries
+    .filter((entry) => selected.has(entry))
+    .map((entry) => shortened.get(entry) ?? entry)
+  const isReserved = (entry: SummaryEntry) =>
+    reserved.has(entry) || [...shortened.values()].includes(entry)
   let summary = buildSummaryMessage(renderSummaryText(kept), images, now)
-  while (kept.length && countTokensMessages([summary]) > remainingTokens) {
-    const removable = kept.findIndex((entry) => entry !== historicalRequest)
+  while (kept.length && countTokensMessages([summary]) > summaryLimit) {
+    // Older tool history goes first; the reserved requests only if that is not enough.
+    let removable = kept.findIndex((entry) => !isReserved(entry))
+    if (removable < 0)
+      removable = kept.findIndex((entry) => entry !== historicalRequest)
     if (removable < 0) break
     kept.splice(removable, 1)
     summary = buildSummaryMessage(renderSummaryText(kept), images, now)
   }
-  const summaryInstalled = countTokensMessages([summary]) <= remainingTokens
+  const summaryInstalled = countTokensMessages([summary]) <= summaryLimit
   const output = [
     ...(summaryInstalled ? [summary] : []),
     ...prefix.map((message) => ({ ...message, sentAt: now })),
@@ -1224,6 +1329,15 @@ export function compactHistoryNow(params: {
   historyTokens?: number
   /** Why the caller compacted; a forced pass is `manual`. */
   trigger?: CompactionTrigger | 'manual'
+  /** Abandon a pass that would still leave `maxPostTokens` tokens behind
+   * (`fixedTokenCount` included). What a pass cannot shrink — the fixed
+   * prefix, the live request and the fresh tool exchange it keeps whole — can
+   * be most of an automatic trigger's threshold, and then the pass lands back
+   * at that threshold and the next tool result compacts its own summary. The
+   * caller hears about it through `onAbandoned` and nothing is logged as a
+   * compaction, because none happened. */
+  maxPostTokens?: number
+  onAbandoned?: (postTokens: number) => void
   logger?: Logger
   runId?: string
 }): {
@@ -1245,6 +1359,13 @@ export function compactHistoryNow(params: {
   const previousTokens = countTokensMessages(messages)
   const nextTokens = countTokensMessages(result.messages)
   if (nextTokens >= previousTokens) return null
+  if (
+    params.maxPostTokens !== undefined &&
+    nextTokens + fixedTokenCount > params.maxPostTokens
+  ) {
+    params.onAbandoned?.(nextTokens + fixedTokenCount)
+    return null
+  }
 
   // Telemetry is best-effort and must never block the compaction itself.
   try {

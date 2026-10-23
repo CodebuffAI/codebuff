@@ -12,6 +12,8 @@ test('finds controls on unopened pages using their names and everyday terms', ()
     ['startup script', 'projects', 'Startup script'],
     ['byok', 'providers', 'Provider API key'],
     ['auto topup', 'billing', 'Auto top-up'],
+    ['buy hours', 'billing', 'Buy hours'],
+    ['buy freebucks', 'billing', 'Buy hours'],
     ['unarchive', 'archived', 'Archived chats'],
     ['claude.md', 'general', 'Include AGENTS.md'],
     ['invite friends', 'earn', 'Referrals'],
@@ -58,4 +60,12 @@ test('only searches available pages and controls on the current surface', () => 
   expect(searchSettings('dark mode', guest, 'web')[0]?.page.id).toBe(
     'appearance',
   )
+})
+
+test('skips controls the caller hides', () => {
+  const label = 'Automatically start the next session'
+  expect(search('auto start', 'desktop')[0]?.detail).toBe(label)
+  expect(
+    searchSettings('auto start', SHARED_SETTINGS_PAGES, 'desktop', [label]),
+  ).toEqual([])
 })

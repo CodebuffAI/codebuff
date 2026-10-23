@@ -547,7 +547,6 @@ export type SponsoredProposalViewModel = {
    * (`committed` onwards), and null whenever the row carries no settled CTA.
    */
   advertiserCtaHref: string | null
-  setupExpectation: string
   setupGuide: SponsoredSetupGuide | null
   verification: SponsoredVerificationPanel | null
   actions: SponsoredProposalAction[]
@@ -726,7 +725,6 @@ export function sponsoredProposalViewModel(
     logoSrc: sponsoredLogoSrc(row.advertiser_logo_token),
     pullRequestHref,
     advertiserCtaHref,
-    setupExpectation: 'You may need to sign in or connect your account.',
     setupGuide: ctaStates.includes(row.state)
       ? {
           title: 'Finish setup and verify',

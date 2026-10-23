@@ -109,6 +109,15 @@ describe('withByokReasoningEffort', () => {
     },
   )
 
+  test.each(['xhigh', 'max', 'ultra'] as const)(
+    "a ChatGPT plan's connection takes Codex's ladder: %p is sent",
+    (effort) => {
+      const plan = connection({ provider: 'chatgpt', model: 'gpt-6.1-sol' })
+      // any other provider stops at high (the provider-default cases above)
+      expect(withByokReasoningEffort(plan, effort).reasoningEffort).toBe(effort)
+    },
+  )
+
   test('clearing an attached effort removes it', () => {
     const cleared = withByokReasoningEffort(
       withByokReasoningEffort(connection(), 'low'),

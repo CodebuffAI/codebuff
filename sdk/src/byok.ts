@@ -3,8 +3,8 @@ import { promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { z } from 'zod/v4'
-import { isByokReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
-import type { ByokReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
+import { byokReasoningEfforts } from '@codebuff/common/constants/reasoning-effort'
+import type { ReasoningEffort } from '@codebuff/common/constants/reasoning-effort'
 import {
   CHATGPT_BYOK_PROVIDER,
   CHATGPT_CODEX_BASE_URL,
@@ -67,9 +67,10 @@ export type ResolvedByokConnection = ByokConnection & {
   /**
    * The run's reasoning effort, a per-task choice rather than connection
    * metadata (so never stored). Absent sends no reasoning field at all, which
-   * is the provider's own default. See `withByokReasoningEffort`.
+   * is the provider's own default. One of the provider's own rungs (`byokReasoningEfforts`): a
+   * ChatGPT plan's reach `ultra`, any other provider's stop at `high`. See `withByokReasoningEffort`.
    */
-  reasoningEffort?: ByokReasoningEffort
+  reasoningEffort?: ReasoningEffort
 }
 export type ByokSecretStore = {
   get(reference: string): Promise<string | undefined>
@@ -476,7 +477,7 @@ export async function discoverByokContextWindow(
 
 /**
  * The connection with a run's reasoning effort attached, or the connection
- * itself when there is none to attach (anything that is not a BYOK rung means
+ * itself when there is none to attach (anything that is not one of this provider's rungs means
  * "the provider's default"). A copy, never a mutation: the resolved connection
  * is frozen and shared. The credential and revocation check stay
  * non-enumerable on the copy, exactly as the resolver made them.
@@ -485,14 +486,14 @@ export function withByokReasoningEffort(
   connection: ResolvedByokConnection,
   effort: unknown,
 ): ResolvedByokConnection {
-  if (!isByokReasoningEffort(effort)) {
+  if (!byokReasoningEfforts(connection.provider).includes(effort as ReasoningEffort)) {
     if (connection.reasoningEffort === undefined) return connection
     const { reasoningEffort: _dropped, ...rest } = connection
     return copyRuntimeFields(rest as ResolvedByokConnection, connection)
   }
   if (connection.reasoningEffort === effort) return connection
   return copyRuntimeFields(
-    { ...connection, reasoningEffort: effort } as ResolvedByokConnection,
+    { ...connection, reasoningEffort: effort as ReasoningEffort } as ResolvedByokConnection,
     connection,
   )
 }

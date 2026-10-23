@@ -17,6 +17,7 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   FREEBUFF_DEEPSEEK_V41_FLASH_MODEL_ID,
   FREEBUFF_GLM_V53_MODEL_ID,
   FREEBUFF_GPT_6_SOL_MODEL_ID,
@@ -175,7 +176,7 @@ export const FREEBUFF_DESKTOP_THREAD_AGENT_IDS = [
 /**
  * The base3-fast root and its worker subagent (agents/base3-fast.ts), one pair
  * for the one model that runs fast mode today. The root is a base3 root with
- * a fan-out: it spawns file-pickers in parallel, then
+ * a fan-out: it spawns code-searchers in parallel, then
  * splits the implementation across parallel workers that inherit its system
  * prompt and history (so their requests are prompt-cache hits), and verifies
  * the combined result itself. The worker is pinned to the same model as the
@@ -227,7 +228,7 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_DEEPSEEK_V4_PRO_MODEL_ID]: 'base3-free-deepseek',
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 'base3-free-deepseek-flash',
   // Fast mode runs the base3-FAST harness (agents/base3-fast.ts): base3's
-  // loop plus parallel file-pickers and prompt-cached worker
+  // loop plus parallel code-searchers and prompt-cached worker
   // subagents. Registered in the base3 maps because it is the base3 family's
   // rollout shape (windowed reads, mechanical compaction, no instructions
   // prompt) with a fan-out on top; the no-subagents assertions on this map
@@ -239,6 +240,7 @@ export const FREEBUFF_WEB_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
   [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 'base3-free-luna-6',
   [FREEBUFF_GPT_61_SOL_MODEL_ID]: 'base3-free-gpt-6-1-sol',
+  [FREEBUFF_GEMINI_4_ARGON_MODEL_ID]: 'base3-free-gemini-4-argon',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
   [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'base3-free-glm-5-3-flash',
   [FREEBUFF_KIMI_K3_ECO_MODEL_ID]: 'base3-free-kimi-k3-eco',
@@ -284,6 +286,7 @@ export const FREEBUFF_CLI_BASE3_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base3-free-luna',
   [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 'base3-free-luna-6',
   [FREEBUFF_GPT_61_SOL_MODEL_ID]: 'base3-free-gpt-6-1-sol',
+  [FREEBUFF_GEMINI_4_ARGON_MODEL_ID]: 'base3-free-gemini-4-argon',
   [FREEBUFF_GLM_V52_MODEL_ID]: 'base3-free-glm',
   [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 'base3-free-glm-5-3-flash',
   // Ox Alpha reached CLI and Desktop on 2026-08-24. The WEB map above has
@@ -474,6 +477,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   // sessions drain.
   'base2-free-luna-6',
   'base2-free-gpt-6-1-sol',
+  'base2-free-gemini-4-argon',
   'base2-free-solar-pro4',
   'base2-free-solar-mini4',
   'base2-free-space-bunny-alpha',
@@ -574,6 +578,7 @@ export const FREEBUFF_ROOT_AGENT_IDS = [
   'base3-free-luna',
   'base3-free-luna-6',
   'base3-free-gpt-6-1-sol',
+  'base3-free-gemini-4-argon',
   'base3-free-solar-pro4',
   'base3-free-solar-mini4',
   'base3-free-space-bunny-alpha',
@@ -608,6 +613,7 @@ export const FREEBUFF_ROOT_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'base2-free-luna',
   [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 'base2-free-luna-6',
   [FREEBUFF_GPT_61_SOL_MODEL_ID]: 'base2-free-gpt-6-1-sol',
+  [FREEBUFF_GEMINI_4_ARGON_MODEL_ID]: 'base2-free-gemini-4-argon',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'base2-free-solar-pro4',
   [FREEBUFF_SOLAR_MINI_4_MODEL_ID]: 'base2-free-solar-mini4',
   [FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID]: 'base2-free-space-bunny-alpha',
@@ -694,6 +700,7 @@ export const FREEBUFF_REVIEWER_AGENT_ID_BY_MODEL: Record<string, string> = {
   [FREEBUFF_GPT_5_6_LUNA_MODEL_ID]: 'code-reviewer-luna',
   [FREEBUFF_GPT_6_LUNA_MODEL_ID]: 'code-reviewer-luna-6',
   [FREEBUFF_GPT_61_SOL_MODEL_ID]: 'code-reviewer-gpt-6-1-sol',
+  [FREEBUFF_GEMINI_4_ARGON_MODEL_ID]: 'code-reviewer-gemini-4-argon',
   [FREEBUFF_SOLAR_PRO_4_MODEL_ID]: 'code-reviewer-solar-pro4',
   [FREEBUFF_SOLAR_MINI_4_MODEL_ID]: 'code-reviewer-solar-mini4',
   [FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID]: 'code-reviewer-space-bunny-alpha',
@@ -727,6 +734,7 @@ const FREEBUFF_DESKTOP_MODELS = new Set([
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   FREEBUFF_SOLAR_PRO_4_MODEL_ID,
   FREEBUFF_SOLAR_MINI_4_MODEL_ID,
   FREEBUFF_SPACE_BUNNY_ALPHA_MODEL_ID,
@@ -890,6 +898,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'base2-free-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'base2-free-luna-6': new Set([FREEBUFF_GPT_6_LUNA_MODEL_ID]),
   'base2-free-gpt-6-1-sol': new Set([FREEBUFF_GPT_61_SOL_MODEL_ID]),
+  'base2-free-gemini-4-argon': new Set([FREEBUFF_GEMINI_4_ARGON_MODEL_ID]),
   'base2-free-solar-pro4': new Set([FREEBUFF_SOLAR_PRO_4_MODEL_ID]),
   'base2-free-solar-mini4': new Set([FREEBUFF_SOLAR_MINI_4_MODEL_ID]),
   'base2-free-space-bunny-alpha': new Set([
@@ -1083,6 +1092,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'code-reviewer-luna': new Set([FREEBUFF_GPT_5_6_LUNA_MODEL_ID]),
   'code-reviewer-luna-6': new Set([FREEBUFF_GPT_6_LUNA_MODEL_ID]),
   'code-reviewer-gpt-6-1-sol': new Set([FREEBUFF_GPT_61_SOL_MODEL_ID]),
+  'code-reviewer-gemini-4-argon': new Set([FREEBUFF_GEMINI_4_ARGON_MODEL_ID]),
   'code-reviewer-solar-pro4': new Set([FREEBUFF_SOLAR_PRO_4_MODEL_ID]),
   'code-reviewer-solar-mini4': new Set([FREEBUFF_SOLAR_MINI_4_MODEL_ID]),
   'code-reviewer-space-bunny-alpha': new Set([

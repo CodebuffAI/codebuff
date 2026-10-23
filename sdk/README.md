@@ -188,6 +188,10 @@ bridges already do this.
 
 Loads agent definitions from `.agents` directories on disk.
 
+Agent files are executable modules: importing one runs its top-level code in
+this process, so load only directories you trust. `run()` never imports a
+repository's `.agents` on its own (see `agentDirs` below).
+
 ```typescript
 import { loadLocalAgents, CodebuffClient } from '@codebuff/sdk'
 
@@ -256,6 +260,8 @@ Runs a Codebuff agent with the specified options.
 - **`knowledgeFiles`** (object, optional): Knowledge files to inject into every `run()` call. Uses the same schema as `projectFiles` - keys are file paths and values are file contents. These files are added directly to the agent's context.
 
 - **`agentDefinitions`** (array, optional): Array of custom agent definitions. Each object should satisfy the AgentDefinition type.
+
+- **`agentDirs`** (string[], optional): Directories a new session imports agent modules from when `agentDefinitions` is omitted. Defaults to `~/.agents`; the working directory's `.agents` is never imported implicitly. Ignored when `agentDefinitions` is given, even as `[]`.
 
 - **`customToolDefinitions`** (array, optional): Array of custom tool definitions that extend the agent's capabilities. Each tool definition includes a name, Zod schema for input validation, and a handler function. These tools can be called by the agent during execution.
 

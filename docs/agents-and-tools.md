@@ -87,6 +87,26 @@ base-lite "fix this bug"
 
 - Tool definitions live in `common/src/tools` and are executed via the SDK helpers + agent-runtime.
 
+### Skill resource paths
+
+Both the runtime `skill` tool and CLI `/skill:<name>` prompts use
+`common/src/util/skills.ts` → `formatSkillContent` to include the loaded skill's
+base directory. Bundled `scripts/`, `references/`, and `assets/` paths resolve
+against that directory, not the project cwd. Windows separators are normalized
+to forward slashes for file tools and Git Bash. Keep this context on both entry
+paths: the loader knows `filePath`, but raw SKILL.md content alone loses it and
+leaves the agent searching for resources it already loaded instructions for.
+
+### Explicit file reads versus discovery
+
+The SDK's `read_files` reads explicitly named text and images even when
+`.gitignore` or built-in discovery exclusions hide them (for example,
+`sandbox/` renders or dependency source). File-tree discovery and background
+project-understanding reads still apply those exclusions. Explicit reads honor
+`.codebuffignore` / `.manicodeignore` and caller-provided file filters; sensitive
+`.env` files remain blocked, and env templates still obey all project ignore
+rules. `.freebuffignore` controls workspace transfers, not this read policy.
+
 ### Cut-off file edits are refused, never repaired
 
 `packages/agent-runtime/src/util/truncated-write-guard.ts` stops two shapes of

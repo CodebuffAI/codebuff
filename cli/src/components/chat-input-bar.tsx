@@ -13,11 +13,13 @@ import { InputModeBanner } from './input-mode-banner'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { OutOfCreditsBanner } from './out-of-credits-banner'
 import { PublishContainer } from './publish-container'
+import { SponsoredAccountPrompt } from './sponsored-account-prompt'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
 import { useEvent } from '../hooks/use-event'
-import { tryGetProjectRoot } from '../project-files'
+import { getProjectRoot, tryGetProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
+import { useSponsoredRunStore } from '../state/sponsored-run-store'
 import { shouldInterceptChatInputKey } from '../utils/chat-input-key-intercept'
 import {
   dispatchProfileSurveyInput,
@@ -25,7 +27,9 @@ import {
 } from '../state/profile-survey-store'
 import { readClipboardText } from '../utils/clipboard-image'
 import { getInputModeConfig } from '../utils/input-modes'
+import { captureCliFunnel, cliFunnelKey } from '../utils/cli-product-funnel'
 import { recordTypedInput } from '../utils/input-profile'
+import { sponsoredRunFor } from '../utils/sponsored-run'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
@@ -128,6 +132,7 @@ export const ChatInputBar = ({
   onInterruptStream,
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
+  const chatSessionId = useChatStore((state) => state.chatSessionId)
   const pendingSkillName = useChatStore((state) => state.pendingSkillName)
 
   const baseModeConfig = getInputModeConfig(inputMode)
@@ -148,7 +153,35 @@ export const ChatInputBar = ({
       }
     : baseModeConfig
   const askUserState = useChatStore((state) => state.askUserState)
+  const sponsoredAccountAsk = useSponsoredRunStore(
+    (state) => state.snapshot?.account ?? null,
+  )
   const hasAnyPreview = hasSuggestionMenu
+  const composerVisible =
+    !sponsoredAccountAsk &&
+    !feedbackMode &&
+    !publishMode &&
+    !askUserState &&
+    !['outOfCredits', 'subscriptionLimit'].includes(inputMode)
+  React.useEffect(() => {
+    if (composerVisible)
+      captureCliFunnel(
+        'composer',
+        'shown',
+        { thread_id: cliFunnelKey(chatSessionId) },
+        chatSessionId,
+      )
+  }, [composerVisible, chatSessionId])
+  const recordComposerTyped = useEvent((text: string) => {
+    recordTypedInput(text)
+    if (text.trim() && (inputMode === 'default' || inputMode === 'skill'))
+      captureCliFunnel(
+        'draft',
+        'started',
+        { thread_id: cliFunnelKey(chatSessionId) },
+        chatSessionId,
+      )
+  })
 
   // In the home directory (or an ancestor) the file tree is only scanned a few
   // levels deep, so tell the user why deeper files don't show up.
@@ -202,6 +235,22 @@ export const ChatInputBar = ({
     }
     onPaste(fallbackText)
   })
+
+  // A sponsored run waiting on the user's sign-in or key takes the composer's
+  // place, as ask_user does; the run continues once it is answered. Ahead of
+  // every other mode: the chat keyboard is off while it waits, so a banner
+  // drawn instead would leave nothing that can answer it.
+  if (sponsoredAccountAsk) {
+    return (
+      <SponsoredAccountPrompt
+        ask={sponsoredAccountAsk}
+        onAnswer={(answer) =>
+          sponsoredRunFor(getProjectRoot()).answerAccountStep(answer)
+        }
+        onInterrupt={onInterruptStream}
+      />
+    )
+  }
 
   if (feedbackMode) {
     return (
@@ -417,7 +466,7 @@ export const ChatInputBar = ({
             onChange={setInputValue}
             onSubmit={handleSubmit}
             onPaste={handleSurveyPaste}
-            onTypedText={recordTypedInput}
+            onTypedText={recordComposerTyped}
             onKeyIntercept={handleKeyIntercept}
             placeholder={effectivePlaceholder}
             focused={inputFocused && !feedbackMode}
@@ -514,7 +563,7 @@ export const ChatInputBar = ({
                 onChange={setInputValue}
                 onSubmit={handleSubmit}
                 onPaste={handleSurveyPaste}
-                onTypedText={recordTypedInput}
+                onTypedText={recordComposerTyped}
                 onKeyIntercept={handleKeyIntercept}
                 placeholder={effectivePlaceholder}
                 focused={inputFocused && !feedbackMode}

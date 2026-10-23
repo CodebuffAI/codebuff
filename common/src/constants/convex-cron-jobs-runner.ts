@@ -70,6 +70,14 @@ export const CONVEX_CRON_JOB_NAMES = [
    *  Convex. Moving its trigger deletes nothing new; it must keep running
    *  while any batch lives in Convex. */
   'sweep_request_intent_eval_cohorts',
+  /** The automations' schedules (the @convex-dev/crons registrations
+   *  `automations.ts` makes, each firing `fireAutomation`). NOT a Convex-data
+   *  job: under `graphile` freebuff-web fires due automations from Postgres
+   *  `cloud_automation` once a minute (freebuff/web
+   *  src/server/agent-core-writes/automations.ts), and `fireAutomation`
+   *  no-ops. Moves only with the agent core writer, like
+   *  `sweep_freebuff_runs`; a test holds the two together. */
+  'fire_automations',
 ] as const
 
 export type ConvexCronJobName = (typeof CONVEX_CRON_JOB_NAMES)[number]
@@ -85,9 +93,10 @@ export const CONVEX_CRON_JOB_RUNNERS: ConvexCronJobRunners = {
   enforce_legacy_usage_limits: 'graphile',
   audit_fleet_usage: 'graphile',
   sweep_freebuff_runs: 'convex',
-  sweep_cli_agent_runs: 'convex',
-  rotate_github_tokens: 'convex',
-  sweep_request_intent_eval_cohorts: 'convex',
+  sweep_cli_agent_runs: 'graphile',
+  rotate_github_tokens: 'graphile',
+  sweep_request_intent_eval_cohorts: 'graphile',
+  fire_automations: 'convex',
 }
 
 /**

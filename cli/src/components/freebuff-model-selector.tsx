@@ -1,6 +1,10 @@
 import { freebucksOffPeakCopy } from '@codebuff/common/util/freebuff-off-peak-price'
 import { isFreebucksPeakModel } from '@codebuff/common/util/freebuff-peak-price'
 import { watchFreebucksPriceChanges } from '@codebuff/common/util/freebuff-price-changes'
+import {
+  formatHoursWithUnit,
+  freebuffModelMultiplierLabel,
+} from '@codebuff/common/util/freebuff-hours'
 import { freebucksListPriceFor } from '@codebuff/common/util/freebuff-price-order'
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
@@ -15,12 +19,10 @@ import React, {
 
 import { Button } from './button'
 import {
-  FREEBUCKS_LABEL,
-  formatFreebucks,
   freebucksHeaderLine,
   freebucksOf,
   freebucksPriceFor,
-  freebucksPriceLabel,
+  freebucksPriceText,
   freebucksRowIntent,
   sortModelsByPrice,
 } from '../utils/freebucks'
@@ -477,8 +479,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
    */
   const rowDetails = useCallback(
     (model: FreebuffModelOption): RowDetail[] => {
-      // A locked row says only why it is locked. No price: a Freebucks figure
-      // beside a row Freebucks cannot open reads as the way in.
+      // A locked row says only why it is locked. No price: a multiplier
+      // beside a row the balance cannot open reads as the way in.
       if (planRequired(model.id)) {
         return [
           {
@@ -499,27 +501,30 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // price findable instead — it is the first thing on the row's second
       // line, in the same place on every row.
       //
-      // `N/hr`, never a bare number: a bare "5" reads as a per-message rate,
-      // the most expensive misunderstanding this menu can create. Warned when
-      // the balance cannot cover it — the same signal the dimmed price carries
-      // on the other two surfaces.
+      // The price is the row's multiplier of the 1x hour ("2x": an hour on it
+      // uses two hours of balance). A free row carries no label; a 1x row reads "1x".
+      // Warned when the balance cannot cover it — the same signal the dimmed
+      // price carries on the other two surfaces.
       const rowPrice = freebucksPriceFor(freebucks, model.id)
       if (rowPrice !== undefined) {
         // Only the price that will be charged. The regular price is NOT
         // shown beside it: many terminals ignore the strikethrough attribute,
-        // and "10 0 Freebucks/hr" then reads as two prices. A row a catalog
-        // discount moved is drawn in the accent colour instead.
-        details.push({
-          text: freebucksPriceLabel(rowPrice),
-          warn: (freebucks?.balance ?? 0) < rowPrice,
-          highlight: freebucksListPriceFor(freebucks, model.id) !== undefined,
-        })
+        // and "3x 2x" then reads as two prices. A row a catalog discount
+        // moved is drawn in the accent colour instead.
+        const label = freebuffModelMultiplierLabel(rowPrice)
+        if (label) {
+          details.push({
+            text: label,
+            warn: (freebucks?.balance ?? 0) < rowPrice,
+            highlight: freebucksListPriceFor(freebucks, model.id) !== undefined,
+          })
+        }
         // At peak, when the off-peak price is back, so a user can wait for it.
         // On the clock `freebucks` was resolved with, not `now`, which can lag.
         const resumes = freebucksOffPeakCopy(freebucks, model.id)?.resumes
         if (resumes) {
           details.push({
-            text: `${freebucksPriceLabel(resumes.price)} from ${resumes.at}`,
+            text: `${freebucksPriceText(resumes.price)} from ${resumes.at}`,
             warn: false,
           })
         }
@@ -554,7 +559,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
       // their one Luna session otherwise reads "1 of 4 used" beside a greyed
       // row and is told nothing about why it is greyed. Server-labelled, so a
       // pool added later needs no CLI release.
-      // A priced row already carries its price (`15/hr`, above) and the
+      // A priced row already carries its price (`3x`, above) and the
       // balance lives in the header line under the list, so the older
       // "15 Freebucks · 100 available" detail is not added a second time; a
       // priced row also skips the pool count below, which nothing charges.
@@ -748,25 +753,25 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
         if (offer) {
           return `${offer.tooltip.replace(/\.$/, '')}. Enter opens plans.`
         }
-        return `Not enough ${FREEBUCKS_LABEL} — ${freebucksPriceLabel(
+        return `Not enough hours — needs ${formatHoursWithUnit(
           intent.price,
-        )} against ${formatFreebucks(freebucks?.balance ?? 0)} left. Enter opens plans.`
+        )}, ${formatHoursWithUnit(freebucks?.balance ?? 0)} left. Enter opens plans.`
       }
       if (intent.kind === 'confirm') {
         if (intent.price === undefined) {
-          return `Balance unavailable. Enter may spend wallet Freebucks${activeSessionModel ? ' and end this session' : ''}.`
+          return `Balance unavailable. Enter may spend wallet hours${activeSessionModel ? ' and end this session' : ''}.`
         }
         // ONE question. When a switch would also dip into the wallet the
         // wallet is the fact that matters — the daily pool refills, the wallet
         // does not — so the overage wording wins outright and the session
         // ending is a clause inside it, never a second prompt.
         if (intent.claimEarned)
-          return `Claim earned Freebucks on admission, then spend ${intent.price} for this session. Enter to confirm.`
+          return `Claim earned hours on admission, then spend ${formatHoursWithUnit(intent.price)} on this session. Enter to confirm.`
         return intent.walletSpend > 0
-          ? `Today's ${FREEBUCKS_LABEL} are spent. Enter uses ${formatFreebucks(
+          ? `Today's hours are spent. Enter uses ${formatHoursWithUnit(
               intent.walletSpend,
             )} from your wallet${activeSessionModel ? ' and ends this session' : ''}.`
-          : `Ends this session and starts a new one for ${freebucksPriceLabel(
+          : `Ends this session; a new one takes ${formatHoursWithUnit(
               intent.price,
             )}. Enter to confirm.`
       }
@@ -1256,7 +1261,8 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
   // Keep the keyboard-focused element inside the viewport as the user
   // Tabs/arrows through a list taller than the available rows. Child ids let
   // OpenTUI use the real post-wrap geometry instead of a second hand-maintained
-  // row model. Reset a stale offset when a resize makes everything fit.
+  // row model. Reset a stale offset when a resize makes everything fit. Reruns
+  // on the first measurement: before it no row has geometry to scroll to.
   useLayoutEffect(() => {
     const sb = scrollRef.current
     if (!sb) return
@@ -1271,7 +1277,14 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
     if (focusedId === extraTargetIds.at(-1)) {
       sb.scrollTop = Math.max(0, sb.scrollHeight - sb.viewport.height)
     }
-  }, [focusedId, contentHeight, needsScroll, extraTargetIds, reasoningModel])
+  }, [
+    focusedId,
+    contentHeight,
+    measuredContentHeight,
+    needsScroll,
+    extraTargetIds,
+    reasoningModel,
+  ])
 
   const pick = useCallback(
     (modelId: string) => {
@@ -1491,7 +1504,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
 
     // The ask line gets its OWN centring, from its OWN length. Reusing
     // `detailsPad` centred a 60-character sentence as if it were the 5
-    // characters of "20/hr", which started it two-thirds of the way across the
+    // characters of "2x", which started it two-thirds of the way across the
     // card and ran it off the right edge — and `wrapMode: 'none'` clips
     // silently, so the question the row was waiting on simply vanished.
     const askPad = Math.max(
@@ -1819,7 +1832,7 @@ export const FreebuffModelSelector: React.FC<FreebuffModelSelectorProps> = ({
             balance quietly drains beside them. */}
         {balanceUnavailable && (
           <text style={{ fg: theme.muted, marginTop: SECTION_GAP }}>
-            Freebucks balance temporarily unavailable.
+            Balance temporarily unavailable.
           </text>
         )}
         {freebucks && (

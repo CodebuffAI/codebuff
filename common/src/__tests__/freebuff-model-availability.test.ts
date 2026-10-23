@@ -38,7 +38,7 @@ describe('the availability notice', () => {
         ipPrivacySignals: ['vpn'],
       }),
     ).toBe(
-      'Using a VPN? We lose money on every VPN user, so more models and Freebucks are available on a direct connection. Not on one? Confirm your country at freebuff.com/account?tab=country',
+      'Using a VPN? We lose money on every VPN user, so more models and hours are available on a direct connection. Not on one? Confirm your country at freebuff.com/account?tab=country',
     )
     // A limited country has nothing to confirm.
     expect(
@@ -48,7 +48,7 @@ describe('the availability notice', () => {
         ipPrivacySignals: ['vpn'],
       }),
     ).toBe(
-      'Using a VPN? We lose money on every VPN user, so more models and Freebucks are available on a direct connection',
+      'Using a VPN? We lose money on every VPN user, so more models and hours are available on a direct connection',
     )
   })
 

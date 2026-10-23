@@ -123,3 +123,31 @@ describe('the partial-edits diagnostic and copy', () => {
     )
   })
 })
+
+test('native outcomes need passed checks, model work and a completed turn, without artificial file edits', () => {
+  expect(
+    sponsoredInPlaceVerdict({
+      ending: 'completed',
+      editedFileCount: 0,
+      modelRan: true,
+      verifiedNativeOutcome: true,
+    }),
+  ).toBe('delivered')
+  for (const ending of ['stopped', 'error'] as const)
+    expect(
+      sponsoredInPlaceVerdict({
+        ending,
+        editedFileCount: 0,
+        modelRan: true,
+        verifiedNativeOutcome: true,
+      }),
+    ).toBe('no_edits')
+  expect(
+    sponsoredInPlaceVerdict({
+      ending: 'completed',
+      editedFileCount: 0,
+      modelRan: false,
+      verifiedNativeOutcome: true,
+    }),
+  ).toBe('model_never_ran')
+})

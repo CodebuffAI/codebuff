@@ -312,7 +312,7 @@ if (process.env.CLI_MULTI_SESSION_TEST !== '1') {
     )
     expect(purchases).toBe(0)
     expect(useFreebuffChatStore.getState().admission?.message).toContain(
-      '5 from your wallet',
+      '1 hour from your wallet',
     )
     await beginFreebuffChatAdmission(useFreebuffChatStore.getState().admission!)
     await until(() => useFreebuffChatStore.getState().admission === null)

@@ -9,6 +9,9 @@ import {
   createRgJsonContext,
 } from '@codebuff/common/testing/mocks'
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { PassThrough } from 'node:stream'
 
 import { codeSearch } from '../tools/code-search'
@@ -935,6 +938,78 @@ describe('codeSearch', () => {
       expect(spawnOptions.cwd).toBe('/test/project/subdir')
     })
 
+    it('names a missing search directory instead of ripgrep', async () => {
+      // ripgrep spawned in a missing cwd fails with an ENOENT naming ripgrep
+      mockSpawn.mockImplementation(() => {
+        throw Object.assign(
+          new Error("ENOENT: no such file or directory, posix_spawn 'rg'"),
+          { code: 'ENOENT' },
+        )
+      })
+
+      const result = await codeSearch({
+        projectPath: '/test/project',
+        pattern: 'test',
+        cwd: 'not-created-yet',
+      })
+
+      expect(asCodeSearchResult(result[0]).errorMessage).toBe(
+        'Search directory "/test/project/not-created-yet" does not exist.',
+      )
+    })
+
+    describe('a file named as cwd', () => {
+      let root: string
+      beforeEach(() => {
+        root = mkdtempSync(path.join(tmpdir(), 'code-search-file-cwd-'))
+        mkdirSync(path.join(root, 'src'))
+        writeFileSync(path.join(root, 'src', 'app.ts'), 'test content\n')
+      })
+      afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+      it('searches that file from its directory', async () => {
+        const searchPromise = codeSearch({
+          projectPath: root,
+          pattern: 'test',
+          cwd: 'src/app.ts',
+        })
+        mockProcess.emit('close', 0)
+        await searchPromise
+
+        const [, args, options] = mockSpawn.mock.calls[0]! as [
+          string,
+          string[],
+          { cwd: string },
+        ]
+        expect(options.cwd).toBe(path.join(root, 'src'))
+        expect(args.slice(-3)).toEqual(['--', 'test', 'app.ts'])
+      })
+
+      it('leaves a broker the cwd as named', async () => {
+        const requests: Parameters<TerminalCommandBroker['start']>[0][] = []
+        await codeSearch({
+          projectPath: root,
+          pattern: 'test',
+          cwd: 'src/app.ts',
+          processBroker: {
+            start: (request) => {
+              requests.push(request)
+              return {
+                stdout: new PassThrough(),
+                stderr: new PassThrough(),
+                completion: Promise.resolve(1),
+                kill: () => {},
+                isAlive: () => false,
+              }
+            },
+          },
+        })
+
+        expect(requests[0]!.cwd).toBe(path.join(root, 'src', 'app.ts'))
+        expect(requests[0]!.args.at(-1)).toBe('.')
+      })
+    })
+
     it('should search cwd outside the project directory', async () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
@@ -1006,6 +1081,85 @@ describe('codeSearch', () => {
       expect(args).toEqual(
         expect.arrayContaining(['-i', '-g', '*.zip', '-C', '2']),
       )
+    })
+  })
+
+  describe('environment files', () => {
+    // `-uu` is `--hidden --no-ignore`: the two defaults that were the only
+    // reason ripgrep skipped a `.env`. The model writes the flags, so the
+    // refusal has to be ours.
+    it.each([
+      ['.env', 1],
+      ['./.env', 1],
+      ['app/.env.local', 4],
+      ['.env.production', 2],
+    ])('drops matches in %s', async (envPath, lineNumber) => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'KEY',
+        flags: '-uu',
+      })
+
+      const output = [
+        createRgJsonMatch(envPath, lineNumber, 'API_KEY=placeholder-not-real'),
+        createRgJsonContext(envPath, lineNumber + 1, 'OTHER=placeholder'),
+        createRgJsonMatch('src/config.ts', 3, 'const KEY = readApiKey()'),
+      ].join('\n')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const value = asCodeSearchResult((await searchPromise)[0])
+      expect(value.stdout).not.toContain('placeholder')
+      expect(value.stdout).not.toContain(envPath)
+      // The refused file leaves no trace at all: the count is what a search
+      // that matched nothing in it would report, so the output cannot be used
+      // to probe the file's contents one pattern at a time.
+      expect(value.stdout).toContain('Found 1 matches')
+      expect(value.stdout).toContain('const KEY = readApiKey()')
+    })
+
+    it('drops matches in an env file arriving in the output tail', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'KEY',
+        flags: '--hidden --no-ignore',
+      })
+
+      // No trailing newline: this line is parsed by the flush branch after the
+      // process closes, not by the streaming branch.
+      mockProcess.stdout.emit(
+        'data',
+        Buffer.from(createRgJsonMatch('.env', 1, 'API_KEY=placeholder-not-real')),
+      )
+      mockProcess.emit('close', 0)
+
+      const value = asCodeSearchResult((await searchPromise)[0])
+      expect(value.stdout).not.toContain('placeholder-not-real')
+      expect(value.stdout).not.toContain('.env')
+    })
+
+    it('still searches env templates', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'KEY',
+        flags: '-uu',
+      })
+
+      const output = [
+        createRgJsonMatch('.env.example', 1, 'API_KEY='),
+        createRgJsonMatch('.env.sample', 1, 'API_KEY='),
+        createRgJsonMatch('.env.template', 1, 'API_KEY='),
+      ].join('\n')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const value = asCodeSearchResult((await searchPromise)[0])
+      expect(value.stdout).toContain('.env.example')
+      expect(value.stdout).toContain('.env.sample')
+      expect(value.stdout).toContain('.env.template')
+      expect(value.stdout).toContain('Found 3 matches')
     })
   })
 })

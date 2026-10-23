@@ -1,4 +1,41 @@
 /**
+ * Parse the user-facing flag string once so validation and process spawning see
+ * the same argv. Quotes group whitespace but are not passed to ripgrep because
+ * spawn() does not invoke a shell.
+ */
+export function parseCodeSearchFlags(flags: string | undefined): string[] | null {
+  if (!flags?.trim()) return []
+  const tokens: string[] = []
+  let token = ''
+  let quote: "'" | '"' | null = null
+  let tokenStarted = false
+  for (const character of flags) {
+    if (quote) {
+      if (character === quote) quote = null
+      else token += character
+      tokenStarted = true
+      continue
+    }
+    if (character === "'" || character === '"') {
+      quote = character
+      tokenStarted = true
+    } else if (/\s/.test(character)) {
+      if (tokenStarted) {
+        tokens.push(token)
+        token = ''
+        tokenStarted = false
+      }
+    } else {
+      token += character
+      tokenStarted = true
+    }
+  }
+  if (quote) return null
+  if (tokenStarted) tokens.push(token)
+  return tokens
+}
+
+/**
  * Ripgrep flags that make it start another program. `--pre` runs a command per
  * searched file, `--hostname-bin` runs one to learn the hostname, and
  * `-z`/`--search-zip` spawns decompressors (gzip, xz, ...) found on PATH.

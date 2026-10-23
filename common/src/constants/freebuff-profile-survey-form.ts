@@ -4,6 +4,7 @@ import {
   type ProfileSurveyAnswer,
   type ProfileSurveyQuestion,
 } from './freebuff-profile-survey'
+import { formatHoursWithUnit } from '../util/freebuff-hours'
 
 /**
  * The profile survey's pure half (COD-779): what a tap does, what the card
@@ -128,7 +129,7 @@ export function profileSurveyRewardCopy(
   total: number,
 ): string | null {
   return rewardFreebucks > 0
-    ? `Answer all ${total} to get ${rewardFreebucks} Freebucks`
+    ? `Answer all ${total} to get ${formatHoursWithUnit(rewardFreebucks)}`
     : null
 }
 
@@ -163,14 +164,14 @@ export function profileSurveyCompletionCopy(input: {
   if (input.rewardedFreebucks > 0)
     return {
       kind: 'paid',
-      title: `+${input.rewardedFreebucks} Freebucks`,
+      title: `+${formatHoursWithUnit(input.rewardedFreebucks)}`,
       detail: 'Added to your wallet. Thanks!',
     }
   if (input.rewardFreebucks > 0 && input.allNotApplicable)
     return {
       kind: 'unpaid',
       title: 'Thanks!',
-      detail: `Every answer was “Doesn't apply”, so this one didn't earn the ${input.rewardFreebucks} Freebucks.`,
+      detail: `Every answer was “Doesn't apply”, so this one didn't earn the ${formatHoursWithUnit(input.rewardFreebucks)}.`,
     }
   return { kind: 'unpaid', title: "Thanks, that's everything.", detail: null }
 }

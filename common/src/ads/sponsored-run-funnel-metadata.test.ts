@@ -5,6 +5,8 @@ import { describe, expect, test } from 'bun:test'
 
 import { sponsoredExecutionSurfaceSchema } from './sponsored-capability'
 import {
+  SPONSORED_CLOUD_EXECUTION_CLIENT,
+  SPONSORED_CLOUD_EXECUTION_SURFACE,
   SPONSORED_EXECUTION_SURFACES,
   isSponsoredExecutionSurface,
   type SponsoredExecutionSurface,
@@ -116,6 +118,64 @@ describe('buildSponsoredRunFunnelMetadata', () => {
     })
     expect(local.failure_code).toBe('timed_out')
     expect('llm_called' in local).toBe(false)
+  })
+
+  test('a Freebuff Web run is `cloud` on Linux, client `web`, with no Convex project id', () => {
+    const delivered = buildSponsoredRunFunnelMetadata({
+      eventType: 'run_delivered',
+      row: {
+        in_place_execution: true,
+        surface: 'web',
+        acceptance: { surface: 'web', containment: 'floor' },
+      },
+      fromState: 'running',
+    })
+    expect(delivered).toEqual({
+      execution_mode: 'cloud',
+      execution_surface: 'cloud',
+      client: 'web',
+      os: 'linux',
+      containment: 'floor',
+      from_state: 'running',
+      llm_called: true,
+    })
+    expect(sponsoredRunFunnelMetadataSchema.safeParse(delivered).success).toBe(
+      true,
+    )
+    // Swept out of `accepted`: the worker starts a turn only after its
+    // `running` report landed, so no model ran.
+    const swept = buildSponsoredRunFunnelMetadata({
+      eventType: 'run_failed',
+      row: {
+        surface: 'web',
+        acceptance: { surface: 'web' },
+        diagnostic_reason: 'stale-sweep: …',
+      },
+      fromState: 'accepted',
+      refusal: 'timed_out',
+    })
+    expect(swept).toMatchObject({
+      execution_mode: 'cloud',
+      os: 'linux',
+      failure_code: 'timed_out',
+      llm_called: false,
+    })
+  })
+
+  test('a legacy Cloud web row keeps its project-keyed shape', () => {
+    expect(
+      buildSponsoredRunFunnelMetadata({
+        eventType: 'run_committed',
+        row: { project_id: 'p', surface: 'web' },
+        fromState: 'running',
+      }),
+    ).toEqual({
+      execution_mode: 'cloud',
+      execution_surface: 'cloud',
+      client: 'web',
+      from_state: 'running',
+      llm_called: true,
+    })
   })
 
   test('an unrecognised surface, client or from-state is omitted, never passed through', () => {
@@ -393,19 +453,28 @@ test('telemetry only: the modules import nothing that can bill', () => {
   const importsOf = (file: string) =>
     readFileSync(join(import.meta.dir, file), 'utf8').match(/from '[^']+'/g)
   expect(importsOf('sponsored-run-funnel-metadata.ts')).toEqual([
+    "from './sponsored-run-evidence'",
     "from 'zod'",
     "from './sponsored-capability'",
     "from './sponsored-client-version'",
+    "from './sponsored-execution-surface'",
     "from './sponsored-run-funnel-builder'",
     "from './sponsored-run-funnel-builder'",
   ])
   // The builder reads the metadata TYPE back from the schema module (erased).
   expect(importsOf('sponsored-run-funnel-builder.ts')).toEqual([
+    "from './sponsored-run-evidence'",
     "from './sponsored-execution-surface'",
     "from './sponsored-client-version'",
     "from './sponsored-in-place'",
     "from './sponsored-run-funnel-metadata'",
   ])
+  // Evidence imports only erased types; it cannot load the driver or billing.
+  const evidence = readFileSync(
+    join(import.meta.dir, 'sponsored-run-evidence.ts'),
+    'utf8',
+  )
+  expect(evidence.match(/^import (?!type )/gm)).toBeNull()
   // The surface list, the in-place verdict contract and the client-version
   // string handling import nothing, so admitting them widens nothing this
   // test guards.
@@ -444,6 +513,31 @@ describe('the execution surface the builder records', () => {
     ['desktop_macos'],
     { surface: 'desktop_macos' },
   ]
+
+  test('a Freebuff Web run in its Freestyle VM is recorded as cloud_linux on Linux', () => {
+    const metadata = buildSponsoredRunFunnelMetadata({
+      eventType: 'run_delivered',
+      row: {
+        project_id: 'project_1',
+        execution_surface: SPONSORED_CLOUD_EXECUTION_SURFACE,
+        acceptance: { surface: SPONSORED_CLOUD_EXECUTION_CLIENT },
+      },
+    })
+    expect(metadata).toMatchObject({
+      execution_mode: 'cloud',
+      execution_surface: 'cloud_linux',
+      client: 'web',
+      os: 'linux',
+    })
+    expect(sponsoredRunFunnelMetadataSchema.safeParse(metadata).success).toBe(
+      true,
+    )
+    // Server-assigned only: no client may claim it on the wire.
+    expect(isSponsoredExecutionSurface('cloud_linux')).toBe(false)
+    expect(
+      sponsoredExecutionSurfaceSchema.safeParse('cloud_linux').success,
+    ).toBe(false)
+  })
 
   test('the list is exactly the schema', () => {
     expect([...SPONSORED_EXECUTION_SURFACES].sort()).toEqual(

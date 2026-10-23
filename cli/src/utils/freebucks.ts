@@ -17,10 +17,17 @@
  * hardcodes no number — repricing a model reaches an installed CLI on its next
  * poll, exactly as it does on the other two surfaces.
  *
- * The one thing that cannot come off the wire is the WORD, so it is duplicated
- * below. If the currency is ever renamed, this is the second place to change.
+ * The wire still carries Freebucks; users see hours (2026-10-14: one hour is 5
+ * Freebucks). Every figure the CLI draws converts through
+ * `@codebuff/common/util/freebuff-hours`, which IS exported, and a model's
+ * price reads as its multiplier ("2x").
  */
 
+import {
+  formatHours,
+  formatHoursWithUnit,
+  freebuffModelMultiplierLabel,
+} from '@codebuff/common/util/freebuff-hours'
 import { compareByFreebucksPrice } from '@codebuff/common/util/freebuff-price-order'
 import { getFreebucksInfo } from '@codebuff/common/types/freebuff-session'
 import {
@@ -32,15 +39,6 @@ import type {
   FreebuffFreebucksInfo,
   FreebuffSessionServerResponse,
 } from '@codebuff/common/types/freebuff-session'
-
-/** Duplicated from `FREEBUCKS_LABEL`; see the header for why it cannot be
- *  imported. Kept as one constant so a rename is one edit here. */
-export const FREEBUCKS_LABEL = 'Freebucks'
-
-/** Matches `formatFreebucks` in common: whole units, never negative. */
-export function formatFreebucks(amount: number): string {
-  return Math.max(0, Math.round(amount)).toLocaleString()
-}
 
 /** The caller's meter: null when unavailable, undefined when absent. Presence
  *  of the block IS the gate on every surface — there is deliberately no
@@ -98,19 +96,15 @@ export function sortModelsByPrice<
 
 /**
  * The one-line header for a metered account:
- * `100/100 Freebucks daily · resets in 4h 12m · 20 in wallet · $25 monthly usage left`
+ * `20/20 hours daily · resets in 4h 12m · 4 hours in wallet`
  * (the countdown only when a clock is given, the wallet only when there is
  * something in it).
  *
- * The same four figures, in the same order, as the Web and Desktop pickers.
+ * The same figures, in the same order, as the Web and Desktop pickers.
  * Built as a string rather than as components because the CLI's selector
  * measures its own height in ROWS before it renders — a line that can wrap
  * unpredictably breaks the layout budget, so it is composed here where its
  * width can be reasoned about, and truncated by the caller if it must be.
- *
- * The dollar allowance is omitted when the server did not send one (an older
- * server, or a spend read that failed), rather than shown as `$0` — which
- * would tell a user with a full allowance that they had none.
  */
 export function freebucksHeaderLine(
   freebucks: FreebuffFreebucksInfo,
@@ -118,9 +112,9 @@ export function freebucksHeaderLine(
   nowMs?: number,
 ): string {
   const parts = [
-    `${formatFreebucks(freebucks.daily.remaining)}/${formatFreebucks(
+    `${formatHours(freebucks.daily.remaining)}/${formatHours(
       freebucks.daily.limit,
-    )} ${FREEBUCKS_LABEL} daily`,
+    )} hours daily`,
   ]
   if (nowMs !== undefined) {
     parts.push(
@@ -130,9 +124,10 @@ export function freebucksHeaderLine(
     )
   }
   // An empty wallet is the ordinary case for a free account, and "0 wallet"
-  // reads as something to worry about. Web and Desktop hide it too.
-  if (freebucks.wallet.balance > 0) {
-    parts.push(`${formatFreebucks(freebucks.wallet.balance)} in wallet`)
+  // reads as something to worry about. Web and Desktop hide it too; so is a
+  // wallet too small to show as a whole hour.
+  if (formatHours(freebucks.wallet.balance) !== '0') {
+    parts.push(`${formatHoursWithUnit(freebucks.wallet.balance)} in wallet`)
   }
   return parts.join(' · ')
 }
@@ -151,30 +146,14 @@ export function formatAllowanceUsd(usd: number): string {
   return `$${safe.toFixed(2)}`
 }
 
-/** `15/hr` — what a Freebuck buys is an HOUR, and a bare number reads as a
- *  per-message rate, which is the most expensive misreading this menu can
- *  create. */
-export function freebucksPriceLabel(price: number): string {
-  // Named, not just numbered: a bare `20/hr` reads as dollars to anyone who
-  // has not met the currency yet (reported from the first prod screenshot).
-  return `${formatFreebucks(price)} ${FREEBUCKS_LABEL}/hr`
-}
-
 /**
- * The one-time introduction, in the CLI's own words. The same three points
- * Web and Desktop show (their copy lives in the private constants file the
- * CLI cannot import — see the header of this module); kept in step by hand.
+ * A price that must say SOMETHING, such as the off-peak price a row returns
+ * to: its multiplier, or "Free" / "1x" where a row's own label stays blank
+ * (`freebuffModelMultiplierLabel`, never "0x").
  */
-export const FREEBUCKS_INTRO = {
-  title: 'Meet Freebucks',
-  lead: 'Sessions are now bought with Freebucks instead of counted against weekly and monthly limits.',
-  points: [
-    'A fresh pool every day — spend it on any model.',
-    'No more weekly or monthly session caps.',
-    'Each model shows its price per hour; the list runs cheapest first.',
-  ],
-  dismiss: 'Shown once. Press any key to continue.',
-} as const
+export function freebucksPriceText(price: number): string {
+  return freebuffModelMultiplierLabel(price) ?? (price <= 0 ? 'Free' : '1x')
+}
 
 /**
  * "4h 12m", "38m", "2d 5h" — until the daily pool refills. Same shape as the
@@ -193,4 +172,32 @@ export function freebucksResetCountdown(
   if (days > 0) return `${days}d ${hours}h`
   if (hours > 0) return `${hours}h ${minutes}m`
   return `${minutes}m`
+}
+
+/**
+ * The end-of-session refund receipt, or null when there is nothing to report.
+ *
+ * Users read the refund as pro-rated by TIME — "I ended 20 minutes early and
+ * still lost all 100" — because nothing told them otherwise. It is not: the
+ * server returns `charge - final provider cost`, so ending early returns the
+ * charge the hour did not spend and never minutes. Every line below therefore
+ * names the quantity, and the zero case says so out loud instead of leaving
+ * the user to infer that the feature was removed.
+ *
+ * `0` is a settled receipt: the hour's usage cost as much as its price, which
+ * is the ordinary outcome on a cheap row and the one that gets reported as a
+ * bug. An unsettled or dropped receipt is `null` and says nothing.
+ */
+export function freebucksRefundLine(
+  lastRefund: number | null,
+  refundPending: boolean,
+): string | null {
+  if (refundPending) {
+    return 'Refund settling: the whole hours of balance this session did not spend come back.'
+  }
+  if (lastRefund === null) return null
+  if (lastRefund <= 0) {
+    return 'No hours returned: this session used up its full price. A refund returns whole hours of balance it did not spend, never unused time.'
+  }
+  return `${formatHoursWithUnit(lastRefund)} of balance returned: what the session's price did not spend, not the time left on it.`
 }

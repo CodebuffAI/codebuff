@@ -36,6 +36,13 @@ export const handbackRequestSchema = z
   .strict()
 export type HandbackRequest = z.infer<typeof handbackRequestSchema>
 
+/** Sent only after Desktop has committed the local landing. The timestamp identifies this move,
+ * so a delayed acknowledgement cannot reclaim a later Cloud workspace. */
+export const handbackCompleteSchema = handbackRequestSchema.extend({
+  handedBackAt: z.iso.datetime({ offset: true }),
+})
+export type HandbackCompleteRequest = z.infer<typeof handbackCompleteSchema>
+
 export interface HandbackResponse {
   workspaceId: string
   /** ISO time the chat left Cloud. Repeating the same handback returns the original time. */
@@ -49,3 +56,59 @@ export const HANDED_BACK_RUN_ERROR =
 /** The 409 a handback gets when Cloud moved on after the export; export again. */
 export const STALE_EXPORT_ERROR =
   'This chat changed in Cloud after its files were copied. Retry Continue locally.'
+
+/**
+ * Export v2 (`GET …/export?v=2`). The tar is the same working-tree copy, plus two entries under
+ * this directory, which a worktree never exports itself:
+ *
+ * - `meta.json` (`CloudExportMeta`): the commit the chat's worktree started from, its HEAD, and the
+ *   files tracked at HEAD that the working tree no longer has.
+ * - `commits.bundle`: `git bundle` of HEAD excluding `base` (absent when HEAD is the base; with
+ *   `history=full`, HEAD's whole history, for a Cloud project's first landing on a computer), under
+ *   the ref `CLOUD_EXPORT_BUNDLE_REF`. Its prerequisites are reachable from `base`, which the
+ *   computer that uploaded the chat has. Without a known base it holds HEAD's whole history.
+ *
+ * With them, Continue locally lands Cloud's commits as commits and merges Cloud's work with the
+ * computer's own, instead of flattening it over the current branch tip. An older server ignores
+ * `v` and sends v1 (no `meta.json`); Desktop then lands the files as before.
+ */
+export const CLOUD_EXPORT_V2_DIR = '.freebuff-export'
+/** The ref name inside `commits.bundle`. */
+export const CLOUD_EXPORT_BUNDLE_REF = 'HEAD'
+
+const commitSchema = z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/)
+
+const cloudExportV2Schema = z
+  .object({
+    version: z.literal(2),
+    /** The commit the worktree started from (its marker), or null for a chat initialized before it was recorded. */
+    base: commitSchema.nullable(),
+    /** The worktree's HEAD, or null for an empty repository. */
+    head: commitSchema.nullable(),
+    /** The worktree's branch. */
+    branch: z.string().max(400).nullable(),
+    /** Whether `commits.bundle` is in the tar. */
+    bundle: z.boolean(),
+    /** Tracked at HEAD, absent from the working tree. */
+    deleted: z.array(z.string().max(4096)).max(200_000),
+  })
+  .strict()
+/** V3 sends Git objects once plus only working files whose bytes differ from HEAD.
+ * `have` is a complete commit graph verified by the receiver; unknown bases send a full pack.
+ * `files` is the complete eligible working-file inventory, for plain-folder reconstruction.
+ * `shallow` preserves any history boundary already present in Cloud (never invents one).
+ */
+export const cloudExportV3Schema = cloudExportV2Schema.extend({
+  version: z.literal(3),
+  bundle: z.literal(false),
+  pack: z.boolean(),
+  have: commitSchema.nullable(),
+  shallow: z.array(commitSchema).max(200_000),
+  files: z.array(z.string().max(4096)).max(200_000),
+}).strict()
+export const cloudExportMetaSchema = z.union([cloudExportV2Schema, cloudExportV3Schema])
+export type CloudExportMeta = z.infer<typeof cloudExportMetaSchema>
+
+/** Archived chats resume through Desktop's existing local landing and Cloud upload. */
+export const ARCHIVED_CHAT_RESTORE_ERROR =
+  'This chat’s Cloud workspace was archived. Restore it in Freebuff Desktop to continue.'

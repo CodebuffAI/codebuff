@@ -452,6 +452,7 @@ export function markFreebuffSessionEnded(): void {
 interface UseFreebuffSessionResult {
   session: FreebuffSessionResponse | null
   failure: ReturnType<typeof useFreebuffSessionStore.getState>['failure']
+  /** The last ended hour's refund: a settled amount, or null when unknown. */
   lastRefund: number | null
   refundPending: boolean
 }

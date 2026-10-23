@@ -2,6 +2,10 @@
  * Enum of analytics event types used throughout the application
  */
 export enum AnalyticsEvent {
+  // Authenticated mapped-project consent funnel. Views require 50% visible
+  // for one foreground second; choices are logged after the gateway saves.
+  PROJECT_CONTRIBUTION_VIEWED = 'project_contribution_viewed',
+  PROJECT_CONTRIBUTION_CHOICE_SAVED = 'project_contribution_choice_saved',
   // Cross-surface — DAU
   // Emitted exactly once per user-submitted message/prompt, on each surface,
   // and never sampled. `distinct_id` is the canonical codebuff Postgres user
@@ -9,12 +13,13 @@ export enum AnalyticsEvent {
   // per-surface DAU (filter on the `surface` property) and a combined DAU (no
   // filter). The `surface` property is one of: cli, web, chat, desktop, cloud
   // (web = the freebuff.com builder, cloud = connected-repo builder projects).
-  // Native sends additionally carry `client_platform: 'ios' | 'android'`;
-  // surface still describes the mode, and missing platform means unknown.
+  // A native app's send reports its platform instead, ios or android, from
+  // any screen (messageSentSurface).
   // Emission points: cli client analytics; chat's stream route (server-side);
   // desktop's analytics module; web/cloud via the Convex send mutation
   // (PostHog + Axiom, both direct from Convex — see convex/analytics.ts).
   MESSAGE_SENT = 'message_sent',
+  PRODUCT_FUNNEL_STEP = 'freebuff.product_funnel_step',
 
   // Cross-surface — engaged time
   // Emitted once per minute of *active engagement* on each surface (cli / web /
@@ -319,6 +324,8 @@ export enum AnalyticsEvent {
   FREEBUFF_GET_STARTED_VIEWED = 'freebuff.get_started_viewed',
   FREEBUFF_GET_STARTED_SIGN_IN_CLICKED = 'freebuff.get_started_sign_in_clicked',
   FREEBUFF_GET_STARTED_SIGNED_IN = 'freebuff.get_started_signed_in',
+  FREEBUFF_EMAIL_AUTH = 'freebuff.email_auth',
+  FREEBUFF_AUTH_STEP = 'freebuff.auth_step',
   FREEBUFF_GET_STARTED_ELIGIBILITY_RESOLVED = 'freebuff.get_started_eligibility_resolved',
   FREEBUFF_GET_STARTED_CONNECT_GITHUB_CLICKED = 'freebuff.get_started_connect_github_clicked',
   FREEBUFF_GET_STARTED_INSTALL_COMMAND_COPIED = 'freebuff.get_started_install_command_copied',
@@ -326,6 +333,12 @@ export enum AnalyticsEvent {
   // Deprecated (previous get-started design — no longer fired):
   FREEBUFF_GET_STARTED_HELP_EXPANDED = 'freebuff.get_started_help_expanded',
   FREEBUFF_GET_STARTED_EDITOR_CLICKED = 'freebuff.get_started_editor_clicked',
+
+  // Paid signup destinations. A handoff arrival is not a signup; compare the
+  // signed-out entry with canonical web.signup and message_sent conversions.
+  FREEBUFF_START_VIEWED = 'freebuff.start_viewed',
+  FREEBUFF_START_SIGN_IN_CLICKED = 'freebuff.start_sign_in_clicked',
+  FREEBUFF_START_SIGNED_IN = 'freebuff.start_signed_in',
 
   // Freebuff - Chat
   // Emitted once per new-thread title generation attempt (server-side). The
@@ -460,8 +473,12 @@ export enum AnalyticsEvent {
   DESKTOP_THREAD_CREATED = 'desktop.thread_created',
   DESKTOP_THREAD_TITLED = 'desktop.thread_titled',
   DESKTOP_PROJECT_OPENED = 'desktop.project_opened',
+  // Actual first successful creation; intent distinguishes automatic launch drafts from explicit actions.
+  DESKTOP_PROJECT_CREATED = 'desktop.project_created',
   DESKTOP_PROJECT_REMOVED = 'desktop.project_removed',
   DESKTOP_TURN_COMPLETED = 'desktop.turn_completed',
+  DESKTOP_FUNNEL_STEP = 'desktop.funnel_step',
+  DESKTOP_ACQUISITION_STEP = 'desktop.acquisition_step',
   DESKTOP_FAILED_TURN_RECOVERY = 'desktop.failed_turn_recovery',
   DESKTOP_HARNESS_CHANGED = 'desktop.harness_changed',
   DESKTOP_MODEL_CHANGED = 'desktop.model_changed',
@@ -500,6 +517,15 @@ export enum AnalyticsEvent {
   ADS_SHOWCASE_PRESENTED = 'ads.showcase_presented',
   DESKTOP_AD_CLICKED = 'desktop.ad_clicked',
   DESKTOP_INLINE_AD_SLOT_ELIGIBLE = 'desktop.inline_ad_slot_eligible',
+  // Mock display-ad placements (common/src/ads/display-ads/telemetry.ts):
+  // analytics ONLY. Every row carries mock_creative: true and billable: false;
+  // nothing is served behind them, so no ad_impression / ledger row, view ack
+  // or ads.impression_recorded / desktop.ad_shown is ever written for one.
+  DISPLAY_AD_IMPRESSION = 'display_ads.impression',
+  DISPLAY_AD_CLICK = 'display_ads.click',
+  DISPLAY_AD_DISMISS = 'display_ads.dismiss',
+  DISPLAY_AD_RESTORE = 'display_ads.restore',
+  DISPLAY_AD_ACTION = 'display_ads.action',
   // Shutdown/crash lifecycle of harness CLI children: turns aborted at quit so
   // their CLIs terminate, orphans from a dead orchestrator reaped at launch,
   // and interrupted turns auto-resumed by recovery. Together these answer "how

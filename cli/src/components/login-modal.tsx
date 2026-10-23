@@ -18,6 +18,7 @@ import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTheme } from '../hooks/use-theme'
 import { formatUrl, calculateResponsiveLayout } from '../login/utils'
 import { useLoginStore } from '../state/login-store'
+import { captureCliFunnel } from '../utils/cli-product-funnel'
 import { IS_FREEBUFF } from '../utils/constants'
 import { copyTextToClipboard, isRemoteSession } from '../utils/clipboard'
 import { getFingerprintId } from '../utils/fingerprint'
@@ -36,6 +37,7 @@ export const LoginModal = ({
   hasInvalidCredentials = false,
 }: LoginModalProps) => {
   const renderer = useRenderer()
+  useEffect(() => captureCliFunnel('login', 'shown'), [])
   const theme = useTheme()
 
   // Use zustand store for all state
@@ -88,16 +90,23 @@ export const LoginModal = ({
       setHasClickedLink(true)
 
       try {
-        await copyTextToClipboard(text, {
+        const result = await copyTextToClipboard(text, {
           suppressGlobalMessage: true,
         })
 
-        setJustCopied(true)
-        setCopyMessage('✓ URL copied to clipboard!')
-        setTimeout(() => {
-          setCopyMessage(null)
-          setJustCopied(false)
-        }, 3000)
+        setJustCopied(result !== 'unverified')
+        setCopyMessage(
+          result === 'unverified'
+            ? 'Copy sent to terminal — paste to check.'
+            : '✓ URL copied to clipboard!',
+        )
+        setTimeout(
+          () => {
+            setCopyMessage(null)
+            setJustCopied(false)
+          },
+          result === 'unverified' ? 6000 : 3000,
+        )
       } catch (err) {
         // Silently fail - the URL is visible for manual copying
         logger.error(err, 'Failed to copy to clipboard')

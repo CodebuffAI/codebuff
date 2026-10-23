@@ -11,12 +11,17 @@ import {
   formatPlanWindows,
 } from '@codebuff/common/util/freebuff-plan-summary'
 
+import {
+  DisplayAdSplash,
+  displayAdSplashVariant,
+} from './display-ad-splash'
 import { FreebuffPausedPlanNotice } from './freebuff-paused-plan-notice'
 import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {
   FREEBUFF_WORDMARK,
   FREEBUFF_WORDMARK_COMPACT,
 } from '../utils/freebuff-wordmark'
+import { CLI_DISPLAY_AD_PLACEMENT_IDS } from '../ads/display-ads'
 import { useTheme } from '../hooks/use-theme'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useFreebuffStreakQuery } from '../hooks/use-freebuff-streak-query'
@@ -26,11 +31,9 @@ import {
   useFreebuffChatStore,
   selectFreebuffChatModel,
 } from '../state/freebuff-chat-store'
-import { freebucksOf, formatFreebucks } from '../utils/freebucks'
-import {
-  getFreebuffStreakBonusNoteForLayout,
-  getFreebuffStreakBonusStatusForLayout,
-} from '../utils/freebuff-streak-line'
+import { formatHours } from '@codebuff/common/util/freebuff-hours'
+import { freebucksOf, freebucksRefundLine } from '../utils/freebucks'
+import { getFreebuffStreakBonusNoteForLayout } from '../utils/freebuff-streak-line'
 import { getFreebuffModelAvailabilityNotice } from '@codebuff/common/util/freebuff-model-availability'
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 
@@ -45,9 +48,14 @@ const wordmarkVariants = [FREEBUFF_WORDMARK, FREEBUFF_WORDMARK_COMPACT].map(
 
 export function FreebuffChatHeader({
   session,
+  lastRefund = null,
+  refundPending = false,
 }: {
   projectRoot: string
   session: FreebuffSessionResponse | null
+  /** The ended hour's receipt, from `useFreebuffSession`. */
+  lastRefund?: number | null
+  refundPending?: boolean
 }) {
   const theme = useTheme()
   const { terminalWidth, terminalHeight } = useTerminalDimensions()
@@ -56,6 +64,9 @@ export function FreebuffChatHeader({
   const directory = useFreebuffModelDirectory()
   const model = directory.get(nextModel ?? selected)
   const freebucks = freebucksOf(session)
+  // The session store clears the receipt the moment a new session goes
+  // active, so this only ever describes the hour just finished.
+  const refund = freebucksRefundLine(lastRefund, refundPending)
   const plan = freebuffPlanSummary(getSubscriptionInfo(session))
   const windows = freebuffFreeWindowsSummary(getFreeWindowsInfo(session))
   const streak = useFreebuffStreakQuery({
@@ -79,11 +90,6 @@ export function FreebuffChatHeader({
     accessTier: tier,
     freebucksDailyBonus: streak.data?.freebucksDailyBonus,
     terminalHeight,
-    availableWidth: width - 4,
-  })
-  const streakBonusStatus = getFreebuffStreakBonusStatusForLayout({
-    note: streakBonus,
-    streak: streak.data,
     availableWidth: width - 4,
   })
   return (
@@ -123,11 +129,16 @@ export function FreebuffChatHeader({
         </text>
         {freebucks && (
           <text style={{ fg: theme.foreground, wrapMode: 'word' }}>
-            {`${formatFreebucks(freebucks.daily.remaining)}/${formatFreebucks(freebucks.daily.limit)} Freebucks remaining`}
+            {`${formatHours(freebucks.daily.remaining)}/${formatHours(freebucks.daily.limit)} hours remaining`}
           </text>
         )}
         {freebucks === null && (
           <text style={{ fg: theme.secondary }}>Balance unavailable</text>
+        )}
+        {refund && (
+          <text style={{ fg: theme.secondary, wrapMode: 'word' }}>
+            {refund}
+          </text>
         )}
         {plan && (
           <text style={{ fg: theme.muted, wrapMode: 'word' }}>
@@ -158,11 +169,6 @@ export function FreebuffChatHeader({
             {streakBonus}
           </text>
         )}
-        {streakBonusStatus && (
-          <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-            {streakBonusStatus}
-          </text>
-        )}
         {referral && (
           <FreebuffReferralBanner
             width={width - 4}
@@ -176,6 +182,11 @@ export function FreebuffChatHeader({
           />
         )}
       </box>
+      <DisplayAdSplash
+        width={width}
+        variant={displayAdSplashVariant(terminalHeight)}
+        placementId={CLI_DISPLAY_AD_PLACEMENT_IDS.cliSplash}
+      />
     </box>
   )
 }

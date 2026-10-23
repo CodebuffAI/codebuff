@@ -62,9 +62,9 @@ export const BYOK_USAGE = [
 ].join('\n')
 
 /**
- * Entry from a Freebuff wall (Freebucks spent, daily cap reached). Those
+ * Entry from a Freebuff wall (hours spent, daily cap reached). Those
  * screens have no input, so without this a user who ran out could never type
- * `/byok` — the one route that does not need Freebucks at all.
+ * `/byok` — the one route that does not need hours at all.
  */
 export function enterByokSetup(): void {
   useChatStore
@@ -73,7 +73,7 @@ export function enterByokSetup(): void {
       ...messages,
       getSystemMessage(
         [
-          'Set up your own provider key (BYOK). BYOK runs never spend Freebucks.',
+          'Set up your own provider key (BYOK). BYOK runs never spend your hours.',
           '',
           BYOK_USAGE,
           '',

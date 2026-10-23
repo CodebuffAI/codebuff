@@ -8,6 +8,7 @@ import { createRoot, flushSync } from '@opentui/react'
 import React, { useEffect, useRef } from 'react'
 
 import { useSendMessage } from '../use-send-message'
+import { useAgentValidation } from '../use-agent-validation'
 import { setProjectRoot, tryGetProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
 import { stopActiveRun } from '../../utils/active-run'
@@ -27,6 +28,12 @@ let sendMessageFromHost: SendMessageFn | null = null
 let runCalls: RunCall[] = []
 let testRoot: string
 let originalProjectRoot: string
+let useHostedValidation = false
+let validateBeforeSend = async () => ({
+  success: true,
+  errors: [] as Array<{ id: string; message: string }>,
+})
+const originalFetch = globalThis.fetch
 
 const fakeClient = {
   run: (runConfig: any) =>
@@ -46,6 +53,7 @@ const makeTimer = (): ElapsedTimeTracker => ({
 })
 
 const Host = () => {
+  const validation = useAgentValidation()
   const inputRef = useRef<any>(null)
   const activeSubagentsRef = useRef(new Set<string>())
   const isChainInProgressRef = useRef(false)
@@ -59,7 +67,9 @@ const Host = () => {
     isChainInProgressRef,
     setStreamStatus: () => {},
     setCanProcessQueue: () => {},
-    onBeforeMessageSend: async () => ({ success: true, errors: [] }),
+    onBeforeMessageSend: useHostedValidation
+      ? validation.validate
+      : validateBeforeSend,
     mainAgentTimer,
     scrollToLatest: () => {},
     isQueuePausedRef,
@@ -108,6 +118,8 @@ const settlePendingRuns = () => {
 beforeEach(() => {
   sendMessageFromHost = null
   runCalls = []
+  useHostedValidation = false
+  validateBeforeSend = async () => ({ success: true, errors: [] })
   testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'use-send-message-'))
   originalProjectRoot = tryGetProjectRoot() ?? process.cwd()
   setProjectRoot(process.cwd())
@@ -116,6 +128,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  globalThis.fetch = originalFetch
   stopActiveRun('process-exit')
   setChatDirOverrideForTesting(undefined)
   setProjectRoot(originalProjectRoot)
@@ -132,6 +145,94 @@ const mountHost = async () => {
 }
 
 describe('useSendMessage continuation state', () => {
+  test.each([
+    {
+      name: 'JSON HTTP rejection',
+      respond: async () =>
+        new Response(JSON.stringify({ error: 'Too many agent definitions' }), {
+          status: 400,
+        }),
+      detail: 'HTTP 400',
+      reason: 'Too many agent definitions',
+    },
+    {
+      name: 'HTML HTTP rejection',
+      respond: async () =>
+        new Response('<html>Blocked</html>', {
+          status: 403,
+          statusText: 'Forbidden',
+        }),
+      detail: 'HTTP 403',
+      reason: 'Forbidden',
+    },
+    {
+      name: 'connection failure',
+      respond: async (): Promise<Response> => {
+        throw new Error('Connection reset')
+      },
+      detail: 'Connection reset',
+      reason: 'Connection reset',
+    },
+  ])(
+    'shows a $name before running the model and allows retry',
+    async ({ respond, detail, reason }) => {
+      useHostedValidation = true
+      globalThis.fetch = Object.assign(respond, {
+        preconnect: originalFetch.preconnect,
+      }) as typeof fetch
+      const { setup, root } = await mountHost()
+      let retry: Promise<void> | undefined
+      try {
+        await sendMessageFromHost!({ content: 'hi', agentMode: 'DEFAULT' })
+        expect(runCalls).toHaveLength(0)
+        const messages = useChatStore.getState().messages
+        expect(
+          messages.find((message) => message.variant === 'user')
+            ?.validationErrors,
+        ).toEqual([
+          { id: 'network_error', message: expect.stringContaining(detail) },
+        ])
+        expect(messages.at(-1)?.variant).toBe('error')
+        expect(messages.at(-1)?.content).toContain('Message not sent')
+        expect(messages.at(-1)?.content).toContain(detail)
+        expect(messages.at(-1)?.content).toContain(reason)
+
+        globalThis.fetch = Object.assign(
+          async () => new Response(JSON.stringify({ validationErrors: [] })),
+          {
+            preconnect: originalFetch.preconnect,
+          },
+        ) as typeof fetch
+        retry = sendMessageFromHost!({
+          content: 'hi again',
+          agentMode: 'DEFAULT',
+        })
+        await waitFor('retry SDK run', () => runCalls.length === 1)
+      } finally {
+        settlePendingRuns()
+        await retry
+        flushSync(() => root.unmount())
+        setup.renderer.destroy()
+      }
+    },
+  )
+
+  test('shows a fallback when validation refuses without error details', async () => {
+    validateBeforeSend = async () => ({ success: false, errors: [] })
+    const { setup, root } = await mountHost()
+    try {
+      await sendMessageFromHost!({ content: 'hi', agentMode: 'DEFAULT' })
+      expect(runCalls).toHaveLength(0)
+      const messages = useChatStore.getState().messages
+      expect(messages.at(-1)?.variant).toBe('error')
+      expect(messages.at(-1)?.content).toContain('Message not sent')
+      expect(messages.at(-1)?.content).toContain('without an explanation')
+    } finally {
+      flushSync(() => root.unmount())
+      setup.renderer.destroy()
+    }
+  })
+
   test('persists the final streamed text and completion state before returning', async () => {
     const { setup, root } = await mountHost()
     const run = sendMessageFromHost!({

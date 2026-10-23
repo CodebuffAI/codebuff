@@ -38,7 +38,7 @@ export const SOLAR_PRICE_CHANGES = [
     at: '2026-09-05T00:00:00-07:00',
     modelId: FREEBUFF_SOLAR_PRO_4_MODEL_ID,
     price: 0,
-    tagline: '0 Freebucks · Labor Day weekend (through Sep 7 PT)',
+    tagline: 'Free · Labor Day weekend (through Sep 7 PT)',
   },
   {
     at: '2026-09-08T00:00:00-07:00',
@@ -49,7 +49,7 @@ export const SOLAR_PRICE_CHANGES = [
     at: '2026-09-09T15:49:00Z',
     modelId: FREEBUFF_SOLAR_PRO_4_MODEL_ID,
     price: 0,
-    tagline: '0 Freebucks',
+    tagline: 'Free',
   },
   {
     // Metered again. Takes effect as each server deploys it.

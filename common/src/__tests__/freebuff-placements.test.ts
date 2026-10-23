@@ -224,10 +224,14 @@ describe('copy and configuration', () => {
     // that they are not: one advertiser is in each by agreement, and an
     // `available` partner slot would appear in the self-serve picker. The
     // billboards are operator-placed until the console can upload their art.
+    // The branded (display-ad) units are sellable exactly when live, and none
+    // is live yet (`DISPLAY_AD_SERVING_LIVE`).
     for (const slot of PLACEMENT_SLOTS) {
       expect([slot.id, slot.available]).toEqual([
         slot.id,
-        slot.format !== 'partner' && slot.format !== 'billboard',
+        slot.format !== 'partner' &&
+          slot.format !== 'billboard' &&
+          slot.format !== 'branded',
       ])
     }
     expect(new Set(PLACEMENT_SLOTS.map((slot) => slot.id)).size).toBe(
@@ -247,10 +251,11 @@ describe('copy and configuration', () => {
     // Plus the three sponsor breaks, the six partner slots and the two
     // billboards, which are deliberately the same surface: each is a different
     // RENDERER on the same chat surface, not a new surface, and adding a
-    // surface costs a house creative and a pinned rollup row.
-    expect(bySurface('cli_chat')).toBe(15)
+    // surface costs a house creative and a pinned rollup row. So are the six
+    // branded (display-ad) units, three of them mirrored to web.
+    expect(bySurface('cli_chat')).toBe(21)
     expect(bySurface('waiting_room')).toBe(4)
-    expect(bySurface('freebuff_web_chat')).toBe(12)
+    expect(bySurface('freebuff_web_chat')).toBe(15)
     expect(bySurface('chat_assistant')).toBe(1)
   })
 
@@ -493,8 +498,9 @@ describe('placement daily cap', () => {
   it('offers a self-serve ceiling of 500_000 cents a day', () => {
     // The bound the campaigns API validates. If this moves, the API moves with
     // it -- both read this constant, which is the whole reason it is here.
-    expect(PLACEMENT_DAILY_CAP_MIN_CENTS).toBe(2_500)
+    expect(PLACEMENT_DAILY_CAP_MIN_CENTS).toBe(5_000)
     expect(PLACEMENT_DAILY_CAP_MAX_CENTS).toBe(500_000)
+    expect(PLACEMENT_DAILY_CAP_DEFAULT_CENTS).toBe(10_000)
   })
 
   it('clamps into the bounds and answers with whole cents', () => {
@@ -503,7 +509,7 @@ describe('placement daily cap', () => {
     expect(clampPlacementDailyCapCents(9_999_999)).toBe(
       PLACEMENT_DAILY_CAP_MAX_CENTS,
     )
-    expect(clampPlacementDailyCapCents(3_234.6)).toBe(3_235)
+    expect(clampPlacementDailyCapCents(6_234.6)).toBe(6_235)
     // A cap off the slider's ladder is a legal cap: the input takes any
     // amount, and nothing on the way to the database snaps it.
     expect(clampPlacementDailyCapCents(13_700)).toBe(13_700)
@@ -519,21 +525,23 @@ describe('placement daily cap', () => {
     expect(
       rungs.every((cents, index) => index === 0 || cents > rungs[index - 1]!),
     ).toBe(true)
-    // Small enough to drag through, and fine enough at the low end that the
-    // $25-$50/day campaigns the product actually runs are all reachable.
+    // Small enough to drag through, with the minimum as its first position.
     expect(rungs.length).toBeLessThan(80)
-    expect(rungs).toContain(2_500)
+    expect(rungs).not.toContain(2_500)
     expect(rungs).toContain(5_000)
     expect(rungs).toContain(PLACEMENT_DAILY_CAP_DEFAULT_CENTS)
   })
 
   it('puts an off-ladder cap on the nearest rung without leaving the range', () => {
     expect(
-      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(2_500)],
-    ).toBe(2_500)
+      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(5_500)],
+    ).toBe(5_500)
     expect(
-      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(2_600)],
-    ).toBe(2_500)
+      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(5_600)],
+    ).toBe(5_500)
+    expect(
+      PLACEMENT_DAILY_CAP_LADDER[placementDailyCapLadderIndex(2_500)],
+    ).toBe(PLACEMENT_DAILY_CAP_MIN_CENTS)
     expect(
       PLACEMENT_DAILY_CAP_LADDER[
         placementDailyCapLadderIndex(PLACEMENT_DAILY_CAP_MAX_CENTS)
@@ -548,7 +556,7 @@ describe('placement daily cap', () => {
 
 it('web copies retain format labels and name the web surface', () => {
   const aliases = PLACEMENT_SLOTS.filter((slot) => slot.id.endsWith(':web'))
-  expect(aliases).toHaveLength(10)
+  expect(aliases).toHaveLength(13)
   for (const slot of aliases) {
     expect(placementSlotLabel(slot.id)).toStartWith('Web — ')
     expect(placementSlotLabel(slot.id)).not.toContain(':web')
@@ -557,5 +565,7 @@ it('web copies retain format labels and name the web surface', () => {
   expect(placementSlotLabel('Desktop-Partner-Composer-PR:web')).toBe('Web — Composer (PR intent)')
   expect(placementSlotLabel('Desktop-Billboard-Sidebar:web')).toBe('Web — Sidebar billboard')
   expect(placementSlotLabel('Desktop-Intermission:web')).toBe('Web — Intermission')
+  expect(placementSlotLabel('Desktop-Top-Banner:web')).toBe('Web — Top banner')
+  expect(placementSlotLabel('CLI-Deals')).toBe('CLI — /deals')
   expect(placementSlotLabel('Desktop-Future:web')).toBe('Desktop Future:web')
 })

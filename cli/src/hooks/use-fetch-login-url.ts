@@ -1,10 +1,13 @@
 import { useMutation } from '@tanstack/react-query'
+import { randomUUID } from 'node:crypto'
 import { safeOpen } from '../utils/open-url'
 
 import { LOGIN_WEBSITE_URL } from '../login/constants'
 import { generateLoginUrl } from '../login/login-flow'
+import { captureCliFunnel } from '../utils/cli-product-funnel'
 import { trackEvent } from '../utils/analytics'
 import { logger } from '../utils/logger'
+import { IS_FREEBUFF } from '../utils/constants'
 
 interface UseFetchLoginUrlParams {
   setLoginUrl: (url: string | null) => void
@@ -28,6 +31,7 @@ export function useFetchLoginUrl({
 }: UseFetchLoginUrlParams) {
   const fetchLoginUrlMutation = useMutation({
     mutationFn: async (fingerprintId: string) => {
+      captureCliFunnel('login', 'started')
       return generateLoginUrl(
         {
           logger,
@@ -37,20 +41,24 @@ export function useFetchLoginUrl({
           baseUrl: LOGIN_WEBSITE_URL,
           fingerprintId,
           via: 'modal',
+          cliFlowId: IS_FREEBUFF ? randomUUID() : undefined,
         },
       )
     },
     onSuccess: async (data) => {
+      captureCliFunnel('login', 'ready')
       setLoginUrl(data.loginUrl)
       setFingerprintHash(data.fingerprintHash)
       setExpiresAt(data.expiresAt)
       setIsWaitingForEnter(true)
       setHasOpenedBrowser(true)
 
-      // Open browser after fetching URL
-      await safeOpen(data.loginUrl)
+      // OS handoff cannot confirm the browser loaded the auth page.
+      const opened = await safeOpen(data.loginUrl)
+      captureCliFunnel('browser', opened ? 'opened' : 'failed')
     },
     onError: (err) => {
+      captureCliFunnel('login', 'failed', { reason: 'error' })
       setError(err instanceof Error ? err.message : 'Failed to get login URL')
       logger.error(
         {

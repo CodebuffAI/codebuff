@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'child_process'
-import { closeSync, mkdtempSync, openSync, writeFileSync } from 'fs'
+import { closeSync, mkdtempSync, openSync, statSync, writeFileSync } from 'fs'
 import { Readable as NodeReadable } from 'stream'
 import * as os from 'os'
 import * as path from 'path'
@@ -253,6 +253,43 @@ export function rewriteWindowsNulRedirects(command: string): string {
   return command.replace(/([<>]\s*)nul(?![\w.])/gi, '$1/dev/null')
 }
 
+/**
+ * The error to report for a spawn that failed because `directory` is missing
+ * or not a directory, or null for any other failure.
+ *
+ * Such a spawn fails with an ENOENT that names the executable (`uv_spawn
+ * 'C:\Program Files\Git\bin\bash.exe'`, `posix_spawn 'bash'`, ripgrep's path).
+ * That reads as the program being missing, and models retried the same call
+ * hundreds of times instead of fixing the directory. Checked only after a
+ * failure, so a broker's own refusals (a sponsored run's containment) pass
+ * through unchanged.
+ */
+export function missingDirectoryError(
+  error: unknown,
+  directory: string,
+  label: string,
+): string | null {
+  const code = (error as NodeJS.ErrnoException | null)?.code
+  const message = error instanceof Error ? error.message : String(error)
+  if (
+    code !== 'ENOENT' &&
+    code !== 'ENOTDIR' &&
+    !/\b(ENOENT|ENOTDIR)\b/.test(message)
+  ) {
+    return null
+  }
+  try {
+    return statSync(directory).isDirectory()
+      ? null
+      : `${label} "${directory}" is not a directory.`
+  } catch (statError) {
+    const statCode = (statError as NodeJS.ErrnoException).code
+    return statCode === 'ENOENT' || statCode === 'ENOTDIR'
+      ? `${label} "${directory}" does not exist.`
+      : null
+  }
+}
+
 function spawnDirectTerminalCommand(
   request: TerminalCommandSpawnRequest,
 ): TerminalCommandProcess {
@@ -396,6 +433,13 @@ export function runTerminalCommand({
 
     // Resolve cwd to absolute path
     const resolvedCwd = path.resolve(cwd)
+    const missingCwd = (error: unknown) =>
+      missingDirectoryError(error, resolvedCwd, 'Working directory')
+    const spawnFailure = (error: unknown, prefix: string) =>
+      new Error(
+        missingCwd(error) ??
+          `${prefix}: ${error instanceof Error ? error.message : String(error)}`,
+      )
 
     let childProcess: TerminalCommandProcess
     try {
@@ -419,7 +463,10 @@ export function runTerminalCommand({
           command,
           signal,
           terminalCommandBroker,
-        ).then(resolve, reject)
+        ).then(resolve, (error) => {
+          const missing = missingCwd(error)
+          reject(missing ? new Error(missing) : error)
+        })
         return
       }
       childProcess = terminalCommandBroker
@@ -427,8 +474,11 @@ export function runTerminalCommand({
         : spawnDirectTerminalCommand(request)
     } catch (error) {
       reject(
-        new Error(
-          `${terminalCommandBroker ? 'Failed to start terminal command broker' : 'Failed to spawn command'}: ${error instanceof Error ? error.message : String(error)}`,
+        spawnFailure(
+          error,
+          terminalCommandBroker
+            ? 'Failed to start terminal command broker'
+            : 'Failed to spawn command',
         ),
       )
       return
@@ -583,8 +633,13 @@ export function runTerminalCommand({
         if (wasFinished) return
 
         reject(
-          new Error(
-            `${terminalCommandBroker ? 'Terminal command broker failed' : childProcess.pid ? 'Terminal command process failed' : 'Failed to spawn command'}: ${error instanceof Error ? error.message : String(error)}`,
+          spawnFailure(
+            error,
+            terminalCommandBroker
+              ? 'Terminal command broker failed'
+              : childProcess.pid
+                ? 'Terminal command process failed'
+                : 'Failed to spawn command',
           ),
         )
       })

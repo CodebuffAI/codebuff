@@ -1,3 +1,4 @@
+import { FREEBUFF_BOUNTIES_ENABLED } from '../constants/freebuff-bounties'
 import { SHARED_SETTINGS_PAGES } from '../constants/settings-pages'
 
 type Surface = 'desktop' | 'web'
@@ -37,6 +38,11 @@ const topics: Record<PageLabel, Topic[]> = {
     {
       label: 'Full access',
       keywords: 'permissions approval administrator commands',
+      surface: 'desktop',
+    },
+    {
+      label: 'Pre-sync projects to Cloud',
+      keywords: 'cloud upload sync background faster move',
       surface: 'desktop',
     },
     {
@@ -81,7 +87,7 @@ const topics: Record<PageLabel, Topic[]> = {
   Usage: [
     {
       label: 'Allowance',
-      keywords: 'daily limit quota wallet balance freebucks',
+      keywords: 'daily limit quota wallet balance hours freebucks',
     },
     {
       label: 'Sessions by model',
@@ -99,8 +105,8 @@ const topics: Record<PageLabel, Topic[]> = {
         'subscription upgrade downgrade cancel renewal monthly yearly pricing',
     },
     {
-      label: 'Buy Freebucks',
-      keywords: 'balance wallet purchase credits payment card',
+      label: 'Buy hours',
+      keywords: 'balance wallet purchase credits payment card freebucks',
     },
     {
       label: 'Auto top-up',
@@ -114,8 +120,10 @@ const topics: Record<PageLabel, Topic[]> = {
       label: 'Referrals',
       keywords: 'invite friends referral link rewards leaderboard',
     },
-    { label: 'Bounties', keywords: 'submissions tasks rewards freebucks' },
-    { label: 'Offers', keywords: 'earn rewards freebucks' },
+    ...(FREEBUFF_BOUNTIES_ENABLED
+      ? [{ label: 'Bounties', keywords: 'submissions tasks rewards hours freebucks' }]
+      : []),
+    { label: 'Offers', keywords: 'earn rewards hours freebucks' },
   ],
   Integrations: [
     {
@@ -259,6 +267,7 @@ export function searchSettings<T extends SettingsSearchPage>(
   query: string,
   pages: readonly T[],
   surface: Surface,
+  hidden: readonly string[] = [],
 ): { page: T; detail?: string }[] {
   const normalized = normalize(query)
   if (!normalized) return query.trim() ? [] : pages.map((page) => ({ page }))
@@ -268,6 +277,7 @@ export function searchSettings<T extends SettingsSearchPage>(
       let detail: string | undefined
       for (const topic of topics[page.label]) {
         if (topic.surface && topic.surface !== surface) continue
+        if (hidden.includes(topic.label)) continue
         const value = score(
           normalized,
           topic.label,

@@ -3,12 +3,57 @@ import {
   resolveWindowTimeZone,
 } from '../constants/freebuff-peak-hours'
 import type { FreebuffFreebucksInfo } from '../types/freebuff-session'
+import { freebuffMultiplierText } from './freebuff-hours'
 import { offPeakPriceAt, offPeakRuns } from './freebuff-price-changes'
 import { getZonedYmd } from './zoned-time'
 
-/** Presentation only: prices and schedules come from the server, never the
- *  private rate card. */
+/**
+ * Presentation only: prices and schedules come from the server, never the
+ * private rate card.
+ *
+ * A FORMATTING FAILURE HERE MUST NOT REACH THE CALLER. Every call site renders
+ * this inside a row map — Desktop's `HostedModelRows`, the CLI's model
+ * selector, the Freebuff Web picker — so a throw does not lose a price pill,
+ * it takes down whatever error boundary encloses the picker. On Desktop that
+ * is the whole thread pane (transcript and composer, replaced by
+ * "Something went wrong"); 11 such crashes in 24 h on 2026-10-15/16 came
+ * through `getZonedParts` below, on one account, every time the user opened
+ * the model picker.
+ *
+ * This file has already learned the lesson once a layer up: `Etc/Unknown` from
+ * a device that cannot name its own zone threw out of
+ * `new Intl.DateTimeFormat`, "took the whole Cloud page down to its error
+ * boundary: 25 crashes in the week to 2026-09-26", and was fixed by
+ * `isSupportedTimeZone`/`resolveWindowTimeZone`
+ * (`constants/freebuff-peak-hours.ts:133-142`). That guard covers the zone
+ * NAME; it cannot cover a runtime whose `formatToParts` does not return the
+ * parts it asked for, which is what `getZonedParts` throws on.
+ *
+ * So the strict implementation is kept whole, below, and the export is a
+ * boundary: anything it throws becomes `undefined`, which is a documented
+ * answer every call site already renders (no pill, no tooltip). Deliberately
+ * NOT pushed down into `getZonedParts`: its other callers are day-key and
+ * accounting paths — ad rollups, the sponsored-survey one-per-day gate, the
+ * free tier's monthly window, the CLI's premium reset — where a silently
+ * wrong day is far worse than a throw.
+ */
 export function freebucksOffPeakCopy(
+  info:
+    | Pick<FreebuffFreebucksInfo, 'prices' | 'offPeak'>
+    | null
+    | undefined,
+  modelId: string,
+  options: { now?: number; timeZone?: string } = {},
+) {
+  try {
+    return offPeakCopy(info, modelId, options)
+  } catch {
+    // A price pill is never worth a blank pane.
+    return undefined
+  }
+}
+
+function offPeakCopy(
   info:
     | Pick<FreebuffFreebucksInfo, 'prices' | 'offPeak'>
     | null
@@ -40,10 +85,10 @@ export function freebucksOffPeakCopy(
 
 /**
  * One sentence: the EXCEPTION window — whichever price holds for fewer hours
- * a week — named, with its price, its hours on the reader's clock and the
- * server's reason, then the other price. Flash reads "Off-peak: 10
- * Freebucks/hr 3 PM–11 PM PDT, when Freebuff is quiet. 15 otherwise."; fast
- * mode reads "Peak: 50 Freebucks/hr Sun–Thu, …".
+ * a week — named, with its price as a usage multiplier (freebuff-hours.ts),
+ * its hours on the reader's clock and the server's reason, then the other
+ * price. Flash reads "Off-peak: 2x 3 PM–11 PM PDT, when Freebuff is quiet. 3x
+ * otherwise."; fast mode reads "Peak: 10x Sun–Thu, …".
  */
 function scheduleSentence(
   offer: NonNullable<FreebuffFreebucksInfo['offPeak']>[string],
@@ -61,7 +106,7 @@ function scheduleSentence(
   const [rare, usual] = offPeak
     ? [offer.price, offer.regularPrice]
     : [offer.regularPrice, offer.price]
-  if (!first) return `${offer.price} Freebucks/hr.`
+  if (!first) return `${freebuffMultiplierText(offer.price)}.`
   const start = new Date(first.start)
   const end = new Date(first.end)
   const startZone = formatWindowTimeZoneLabel(start, zone)
@@ -72,7 +117,7 @@ function scheduleSentence(
     zone,
   )
   const reason = offer.reason ? `, ${offer.reason}` : ''
-  return `${offPeak ? 'Off-peak' : 'Peak'}: ${rare} Freebucks/hr ${days ? `${days}, ` : ''}${hours}${reason}. ${usual} otherwise.`
+  return `${offPeak ? 'Off-peak' : 'Peak'}: ${freebuffMultiplierText(rare)} ${days ? `${days}, ` : ''}${hours}${reason}. ${freebuffMultiplierText(usual)} otherwise.`
 }
 
 /** "3 PM", or "3:30 PM" in a zone off the hour. */

@@ -235,6 +235,40 @@ export function acknowledgeFirstPartyView(
   return run
 }
 
+/**
+ * The longest a click report waits behind its own view ack: one full first
+ * attempt plus margin. Past it the click goes anyway, and a view that lands
+ * later is still inside the refund sweep's grace window.
+ */
+export const FIRST_PARTY_VIEW_BEFORE_CLICK_WAIT_MS = 2_500
+
+/**
+ * Resolve once this token's in-flight view ack has settled, or after
+ * `maxWaitMs`, whichever comes first; at once when none is in flight.
+ *
+ * A click report awaits this before it is sent, so the server sees the view
+ * first and does not score a real click `view_pending` or `view_after_click`
+ * (ad click IVT). Only the REPORT waits: callers open the click URL without
+ * waiting on it, so a slow network never delays the user's click.
+ */
+export function firstPartyViewAckSettled(
+  token: string,
+  maxWaitMs: number = FIRST_PARTY_VIEW_BEFORE_CLICK_WAIT_MS,
+): Promise<void> {
+  const inFlight = token ? inFlightTokens.get(token) : undefined
+  if (!inFlight || maxWaitMs <= 0) return Promise.resolve()
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, maxWaitMs)
+    // A pending wait must never keep a CLI or server process alive.
+    ;(timer as { unref?: () => void }).unref?.()
+    const settle = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+    void inFlight.then(settle, settle)
+  })
+}
+
 /** Focused unit-test seam for the module-lifetime registry. */
 export function resetFirstPartyViewAckRegistryForTests(): void {
   completedTokens.clear()

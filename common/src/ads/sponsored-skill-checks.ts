@@ -18,6 +18,8 @@ import {
 export type SponsoredSkillCheckStatus = 'pass' | 'fail' | 'skipped'
 
 export type SponsoredSkillCheckResult = {
+  /** Retained for structured failure telemetry; absent on older results. */
+  kind?: SponsoredSkillCheck['kind']
   id: string
   label: string
   status: SponsoredSkillCheckStatus
@@ -72,12 +74,29 @@ const PRIVILEGED_SECRET_PATTERNS: readonly RegExp[] = [
   /(?:service[_ -]?role|secret[_ -]?key)\s*[:=]\s*["'][^"']{12,}["']/i,
 ]
 
+/**
+ * Files a run rewrites without the agent choosing to: Freebuff's dev-server
+ * log and state directory, and the incremental cache any `tsc` check writes.
+ * `changes_within` does not count them as out-of-scope changes (every
+ * advertiser's scope check failed on them). `no_privileged_secrets` still
+ * scans them: a key printed into the dev log is still exposed.
+ */
+const RUN_ARTIFACT_PATTERNS: readonly RegExp[] = [
+  '.freebuff-dev.log',
+  '.freebuff/**',
+  '**/*.tsbuildinfo',
+].map(sponsoredSkillGlob)
+
+function isRunArtifact(path: string): boolean {
+  return RUN_ARTIFACT_PATTERNS.some((re) => re.test(path))
+}
+
 function result(
   check: SponsoredSkillCheck,
   status: SponsoredSkillCheckStatus,
   detail: string,
 ): SponsoredSkillCheckResult {
-  return { id: check.id, label: check.label, status, detail }
+  return { id: check.id, kind: check.kind, label: check.label, status, detail }
 }
 
 function tail(text: string): string {
@@ -266,7 +285,7 @@ export async function evaluateSponsoredSkillCheck(
     case 'changes_within': {
       const patterns = check.paths.map(sponsoredSkillGlob)
       const outside = (await ctx.changedFiles()).filter(
-        (path) => !patterns.some((re) => re.test(path)),
+        (path) => !isRunArtifact(path) && !patterns.some((re) => re.test(path)),
       )
       return outside.length
         ? result(

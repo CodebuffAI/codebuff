@@ -21,6 +21,7 @@ import {
   SPONSORED_SURVEY_LIMITS,
   type SponsoredSurveyQuestionKind,
 } from '@codebuff/common/constants/freebuff-sponsored-survey'
+import { formatHoursWithUnit } from '@codebuff/common/util/freebuff-hours'
 import { sanitizeTerminalStrings } from '@codebuff/common/util/terminal-safe-text'
 
 import { isPlainEnterKey } from './terminal-enter-detection'
@@ -536,7 +537,7 @@ export function profileSurveyCompletionLines(
 ): string {
   const head =
     rewardedFreebucks > 0
-      ? `✓ +${rewardedFreebucks} Freebucks added to your wallet`
+      ? `✓ +${formatHoursWithUnit(rewardedFreebucks)} added to your wallet`
       : `✓ Thanks, that's all ${total}`
   return `${head}\nedit answers: ${accountUrl}`
 }

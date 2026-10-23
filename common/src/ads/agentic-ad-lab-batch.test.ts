@@ -248,4 +248,22 @@ describe('environment scripts', () => {
     const result = bash(LAB_ENVIRONMENTS['concurrent-package-json'].setup, home)
     expect(result.exitCode).toBe(3)
   })
+
+  test('no-node hides every Node binary and installs nothing', () => {
+    const home = mkdtempSync(join(tmpdir(), 'lab-home-'))
+    expect(bash(LAB_ENVIRONMENTS['no-node'].setup, home).exitCode).toBe(0)
+    for (const tool of ['node', 'npm', 'npx', 'corepack'])
+      expect(bash(`${tool} --version`, home).exitCode).toBe(127)
+  })
+
+  test('python-pep668 refuses a system pip install with the PEP 668 message', () => {
+    const home = mkdtempSync(join(tmpdir(), 'lab-home-'))
+    expect(bash(LAB_ENVIRONMENTS['python-pep668'].setup, home).exitCode).toBe(0)
+    const pip = bash('pip install requests', home)
+    expect(pip.exitCode).toBe(1)
+    expect(pip.stderr.toString()).toContain('externally-managed-environment')
+    expect(readFileSync(join(home, '.config/pip/pip.conf'), 'utf8')).toContain(
+      'require-virtualenv = true',
+    )
+  })
 })

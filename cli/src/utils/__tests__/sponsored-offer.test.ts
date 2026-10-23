@@ -62,6 +62,7 @@ describe('the request body', () => {
     expect(body).not.toBeNull()
     expect(agenticOfferRequestSchema.safeParse(body).success).toBe(true)
     expect(body!.inPlaceExecutionVersion).toBe(1)
+    expect(body!.runSpecVersion).toBe(1)
     expect(body!.conversationId).toBe('chat-1')
   })
 

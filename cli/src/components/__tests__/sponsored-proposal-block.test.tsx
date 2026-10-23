@@ -39,6 +39,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import React from 'react'
+import { AdReportRegistryContext } from '../ad-report-button'
+import { createAdReportRegistry } from '../../ads/ad-reports'
 
 import {
   SponsoredProposalBlock,
@@ -85,7 +87,13 @@ const render = async (
   const setup = await createTestRenderer({ width, height: 24 })
   const root = createRoot(setup.renderer)
   flushSync(() => {
-    root.render(<SponsoredProposalBlock block={block} availableWidth={width} />)
+    root.render(
+      <AdReportRegistryContext.Provider
+        value={createAdReportRegistry(async () => {})}
+      >
+        <SponsoredProposalBlock block={block} availableWidth={width} />
+      </AdReportRegistryContext.Provider>,
+    )
   })
   try {
     await setup.renderOnce()
@@ -300,6 +308,40 @@ describe('every state, at every width', () => {
       flushSync(() => root.unmount())
       setup.renderer.destroy()
     }
+  })
+
+  test('a driven run shows the step its checks are on, and only while running', async () => {
+    const draw = async (phase: 'running' | 'delivered') => {
+      const setup = await createTestRenderer({ width: 60, height: 24 })
+      const root = createRoot(setup.renderer)
+      flushSync(() => {
+        root.render(
+          <SponsoredProposalBlock
+            block={blockFor(SPONSORED_ROW_FIXTURES.offered, {
+              runStarted: true,
+            })}
+            availableWidth={60}
+            run={{
+              phase,
+              changedFiles: [],
+              undone: false,
+              checkingStep: { number: 2, total: 4, title: 'Wire the client' },
+            }}
+          />,
+        )
+      })
+      try {
+        await setup.renderOnce()
+        return setup.captureCharFrame()
+      } finally {
+        flushSync(() => root.unmount())
+        setup.renderer.destroy()
+      }
+    }
+    expect(await draw('running')).toContain(
+      'Checking step 2/4: Wire the client',
+    )
+    expect(await draw('delivered')).not.toContain('Checking step')
   })
 })
 
@@ -915,3 +957,71 @@ async function renderWithRun(
     setup.renderer.destroy()
   }
 }
+
+describe('the run, live and finished (Desktop parity)', () => {
+  const draw = async (
+    run: React.ComponentProps<typeof SponsoredProposalBlock>['run'],
+  ): Promise<string> => {
+    const setup = await createTestRenderer({ width: 60, height: 30 })
+    const root = createRoot(setup.renderer)
+    flushSync(() => {
+      root.render(
+        <SponsoredProposalBlock
+          block={blockFor(SPONSORED_ROW_FIXTURES.offered, { runStarted: true })}
+          availableWidth={60}
+          run={run}
+        />,
+      )
+    })
+    try {
+      await setup.renderOnce()
+      return setup.captureCharFrame()
+    } finally {
+      flushSync(() => root.unmount())
+      setup.renderer.destroy()
+    }
+  }
+
+  test('a running pill counts the time since the turn started', async () => {
+    const frame = await draw({
+      phase: 'running',
+      changedFiles: [],
+      undone: false,
+      runningSince: Date.now() - 125_000,
+    })
+    expect(frame).toMatch(/2m/)
+    expect(frame).toContain('Esc stops it')
+  })
+
+  test('a run waiting on the user says Needs you and points below', async () => {
+    const frame = await draw({
+      phase: 'running',
+      changedFiles: [],
+      undone: false,
+      runningSince: Date.now(),
+      needsYou: true,
+    })
+    expect(frame).toContain('Needs you')
+    expect(frame).toContain('Waiting for you below')
+    expect(frame).not.toContain('Esc stops it')
+  })
+
+  test('a finished driven run keeps its step results and names its files', async () => {
+    const frame = await draw({
+      phase: 'delivered',
+      changedFiles: ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts', 'g.ts'],
+      undone: false,
+      steps: [
+        { text: 'Install the SDK', state: 'done' },
+        { text: 'Add your API key', state: 'needs_you' },
+      ],
+    })
+    expect(frame).toContain('Done  Install the SDK')
+    expect(frame).toContain('Needs you  Add your API key')
+    expect(frame).toContain('Changed 7 files. Nothing was committed.')
+    expect(frame).toContain('  e.ts')
+    expect(frame).not.toContain('f.ts')
+    expect(frame).toContain('and 2 more')
+    expect(frame).toContain('Review them with git diff')
+  })
+})

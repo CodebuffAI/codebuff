@@ -32,6 +32,10 @@ export const FREE_MODE_TIER_TWO_COUNTRIES = new Set([
   'AT',
   'LU',
   'IS',
+  // From tier 3 on 2026-10-16: 14 days of ad revenue per ad-shown account put
+  // DE at 0.35x and CH at 0.33x the US, above tier 2's middle (NL 0.31x).
+  'DE',
+  'CH',
 ])
 
 // SG and IL left full access on 2026-09-15 on advertiser value per account.
@@ -40,13 +44,11 @@ export const FREE_MODE_TIER_TWO_COUNTRIES = new Set([
 // retired on 2026-09-18 and they are now limited access uniformly, plan or no
 // plan — see `freebucksPlan`.
 export const FREE_MODE_TIER_THREE_COUNTRIES = new Set([
-  'DE',
   'FR',
   'ES',
   'IT',
   'PT',
   'BE',
-  'CH',
   'LI',
   'MT',
   'KR',

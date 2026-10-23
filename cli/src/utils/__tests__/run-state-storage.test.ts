@@ -570,3 +570,141 @@ describe('poisoned payload persistence', () => {
     expect(block.outputRaw.self).toBe('[Circular]')
   })
 })
+
+/**
+ * Support ticket #180: a user's session files were present but held the four
+ * bytes `null` — the whole transcript gone. Two independent paths produced
+ * that, and both of them are one-way doors unless the bytes are kept.
+ */
+describe('a transcript is never destroyed', () => {
+  const chatDir = path.join(TEST_ROOT, 'codebuff-test-nulled-chatdir')
+
+  const runState = { output: { type: 'error', message: 'x' } } as RunState
+  const messages: ChatMessage[] = [
+    {
+      id: 'msg-1',
+      variant: 'user',
+      content: 'the prompt',
+      timestamp: new Date().toISOString(),
+    },
+  ]
+
+  const messagesPath = () => path.join(chatDir, 'chat-messages.json')
+  const runStatePath = () => path.join(chatDir, 'run-state.json')
+  const quarantined = (file: string) =>
+    fs
+      .readdirSync(chatDir)
+      .filter((name) => name.startsWith(`${file}.corrupt-`))
+
+  beforeEach(() => {
+    fs.rmSync(chatDir, { recursive: true, force: true })
+    setChatDirOverrideForTesting(chatDir)
+  })
+
+  afterEach(() => {
+    setChatDirOverrideForTesting(undefined)
+    fs.rmSync(chatDir, { recursive: true, force: true })
+  })
+
+  test('saveChatState never writes the literal text null over a transcript', () => {
+    saveChatState(runState, messages)
+
+    // `JSON.stringify(null)` is the string 'null', which is truthy — so this
+    // used to sail through the save's own guard and replace the transcript
+    // with four bytes, no crash required.
+    saveChatState(runState, null as unknown as ChatMessage[], chatDir)
+
+    expect(fs.readFileSync(messagesPath(), 'utf8')).not.toBe('null')
+    expect(JSON.parse(fs.readFileSync(messagesPath(), 'utf8'))).toHaveLength(1)
+  })
+
+  test('saveChatState never writes the literal text null over a run state', () => {
+    saveChatState(runState, messages)
+
+    saveChatState(null as unknown as RunState, messages, chatDir)
+
+    expect(fs.readFileSync(runStatePath(), 'utf8')).not.toBe('null')
+    expect(
+      JSON.parse(fs.readFileSync(runStatePath(), 'utf8')).output.type,
+    ).toBe('error')
+  })
+
+  test('a null-content transcript survives the load instead of being replaced', () => {
+    saveChatState(runState, messages)
+    // Exactly what the user's machine was left holding.
+    fs.writeFileSync(messagesPath(), 'null')
+
+    const loaded = loadMostRecentChatState()
+
+    // Four bytes are not much, but they are the user's bytes: the load must
+    // not nod `null` through as "no messages" and let the next turn's save
+    // write an empty array over whatever is there.
+    expect(quarantined('chat-messages.json')).toHaveLength(1)
+    expect(
+      fs.readFileSync(
+        path.join(chatDir, quarantined('chat-messages.json')[0]),
+        'utf8',
+      ),
+    ).toBe('null')
+    expect(loaded!.messages).toHaveLength(0)
+  })
+
+  test('an unparseable transcript is kept, not replaced with an empty array', () => {
+    saveChatState(runState, messages)
+    // A half-flushed multi-MB write: the tail is missing, the head is the
+    // user's conversation and a human can still read it out.
+    const partial = '[{"id":"msg-1","variant":"user","content":"the prompt"'
+    fs.writeFileSync(messagesPath(), partial)
+
+    const loaded = loadMostRecentChatState()
+    // The next turn's save, which is what used to destroy it.
+    saveChatState(loaded!.runState, loaded!.messages, chatDir)
+
+    const aside = quarantined('chat-messages.json')
+    expect(aside).toHaveLength(1)
+    expect(fs.readFileSync(path.join(chatDir, aside[0]), 'utf8')).toBe(partial)
+  })
+
+  test('an unparseable run state is kept too', () => {
+    saveChatState(runState, messages)
+    fs.writeFileSync(runStatePath(), '{"sessionState": {"trunc')
+
+    const loaded = loadMostRecentChatState()
+
+    expect(quarantined('run-state.json')).toHaveLength(1)
+    expect(loaded!.messages[0].content).toBe('the prompt')
+  })
+
+  test('a transcript that is readable is never moved aside', () => {
+    saveChatState(runState, messages)
+
+    expect(loadMostRecentChatState()!.messages).toHaveLength(1)
+    expect(quarantined('chat-messages.json')).toHaveLength(0)
+    expect(quarantined('run-state.json')).toHaveLength(0)
+  })
+
+  test('a first load with no files on disk quarantines nothing', () => {
+    fs.mkdirSync(chatDir, { recursive: true })
+
+    expect(loadMostRecentChatState()).toBeNull()
+    expect(
+      fs.readdirSync(chatDir).filter((name) => name.includes('.corrupt-')),
+    ).toHaveLength(0)
+  })
+
+  test('refuses to resume rather than hand back a state that would overwrite unreadable bytes', () => {
+    saveChatState(runState, messages)
+    // A file we can neither parse nor move aside (its directory is read-only,
+    // so the quarantine rename fails). A rename would still have *replaced*
+    // it, so resuming here is what destroys the transcript.
+    fs.writeFileSync(messagesPath(), '[{"id":')
+    fs.chmodSync(chatDir, 0o500)
+    try {
+      expect(loadMostRecentChatState()).toBeNull()
+    } finally {
+      fs.chmodSync(chatDir, 0o700)
+    }
+
+    expect(fs.readFileSync(messagesPath(), 'utf8')).toBe('[{"id":')
+  })
+})

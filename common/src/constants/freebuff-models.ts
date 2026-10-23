@@ -14,7 +14,7 @@ import {
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
 import { SOLAR_PRO_4_OFFER, SOLAR_PROMOTIONAL } from './freebuff-solar-promo'
-import { GPT_61_SOL_PROMOTIONAL } from './freebuff-sol-promo'
+import { GEMINI_4_ARGON_ENDING_SOON } from './freebuff-sol-promo'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -147,6 +147,10 @@ export interface FreebuffModelOption {
    *  deal actually ends (or update the copy if it is extended). `short` is
    *  the CLI's form, which has no tooltip and little width. */
   dealEndingSoon?: { tooltip: string; short: string }
+  /** A price change we have decided on but not yet made: rendered as a
+   *  "Price change" badge (kind `ending`, which every picker draws beside the
+   *  name) whose tooltip is `tooltip`. Clear it once the new price is live. */
+  priceChange?: { tooltip: string }
   /** A TEMPORARY promotional price with no announced end: rendered as a
    *  "Promotional" badge whose tooltip is `tooltip` (the CLI, which has no
    *  tooltips, prints `short`). Distinct from `dealEndingSoon`, which names a
@@ -203,10 +207,10 @@ export const FREEBUFF_DEEPSEEK_V4_FLASH_FIREWORKS_MODEL_ID =
  *  and a new id would strand all of them on a row that no longer exists. The
  *  upstream name is chosen in web/src/llm-api/mimo-request-body.ts. */
 export const FREEBUFF_MIMO_V25_MODEL_ID = mimoModels.mimoV25
-/** MiMo 2.6 Pro (2026-09-21), paid-only on every surface, 30 Freebucks. Unlike the MiMo
+/** MiMo 2.6 Pro (2026-09-21), paid-only on every surface, 25 Freebucks. Unlike the MiMo
  *  row above it has its own id: it is a different, dearer model, and one wire
  *  id per entitlement is the rule (a Pro served under the Flash id would be a
- *  30-Freebuck model sold at 10). */
+ *  25-Freebuck model sold at 10). */
 export const FREEBUFF_MIMO_V26_PRO_MODEL_ID = mimoModels.mimoV26Pro
 /** GLM 5.2, served by CrofAI's direct OpenAI-compatible API (moved off
  *  Fireworks serverless 2026-07-29, at ~4x less than Fireworks' list price).
@@ -440,9 +444,9 @@ export const FREEBUFF_GPT_6_LUNA_REASONING_EFFORT = 'high' as const
 /**
  * GPT-6.1 Sol (OpenAI), served through OpenRouter, on every surface from
  * 2026-09-29: FREE TO US VIEWERS and paywalled for everyone else
- * (FREEBUFF_US_OR_PAID_MODEL_IDS over the paid-only lists), at a PROMOTIONAL
- * 100 Freebucks — the most expensive row we have offered outside the Fable
- * campaign.
+ * (FREEBUFF_US_OR_PAID_MODEL_IDS over the paid-only lists), at 250 Freebucks
+ * since 2026-10-13 (a PROMOTIONAL 100 until then) — the most expensive row we
+ * have offered outside the Fable campaign.
  *
  * Its own wire id. The `gpt-6-sol` ids elsewhere in this file are separate
  * provisioned tiers; nothing here aliases them.
@@ -450,7 +454,7 @@ export const FREEBUFF_GPT_6_LUNA_REASONING_EFFORT = 'high' as const
  * PRICE: OpenRouter's flex endpoint lists $1.00 in / $0.05 cached / $5.00 out
  * per M — 20x GPT-6 Luna flex on fresh input and output, 10x on cached input.
  * It reasons far less than Luna on the same tasks, which offsets some of
- * that. The 100 Freebucks price is a promotional product decision.
+ * that. The 250 Freebucks price is a product decision.
  * (measured figures: freebuff-models.knowledge.md)
  */
 export const FREEBUFF_GPT_61_SOL_MODEL_ID = 'openai/gpt-6.1-sol'
@@ -478,6 +482,50 @@ export const FREEBUFF_GPT_61_SOL_MAX_PRICE = {
  *  `medium`, not Luna's `high`: reasoning bills as output at $5/M here, and
  *  the row's cost measurement was taken at the model's default. */
 export const FREEBUFF_GPT_61_SOL_REASONING_EFFORT = 'medium' as const
+/**
+ * Gemini 4 Argon (Google), served through OpenRouter, on every surface from
+ * 2026-10-13 on GPT-6.1 Sol's launch terms: FREE TO US VIEWERS and paywalled
+ * for everyone else (FREEBUFF_US_OR_PAID_MODEL_IDS over the paid-only lists),
+ * at a PROMOTIONAL 100 Freebucks, one session a day.
+ *
+ * PRICE: OpenRouter lists three bands, read off the live API 2026-10-13 —
+ *
+ *   | tier     | in     | cache read | out    | endpoints                  |
+ *   | flex     | $1.00  | $0.05      | $5.00  | AI Studio only             |
+ *   | standard | $2.00  | $0.10      | $10.00 | AI Studio, Vertex global   |
+ *   | priority | $3.60  | $0.18      | $18.00 | AI Studio, Vertex          |
+ *
+ * Flex is Sol's flex card exactly, and like Gemini 3.8 Flash's it is a 50%
+ * `discount` on the standard list price, so it can end without notice.
+ * Vertex is reached through our own Google credentials (BYOK) and invoices at
+ * full list whatever OpenRouter lists — the Gemini 3.8 Flash lesson — so
+ * routing names AI Studio only (FREEBUFF_GEMINI_4_ARGON_UPSTREAM_ORDER).
+ */
+export const FREEBUFF_GEMINI_4_ARGON_MODEL_ID = 'google/gemini-4-argon'
+/**
+ * Endpoint order for Gemini 4 Argon: AI Studio flex first, AI Studio standard
+ * (2x) behind it so a flex capacity refusal or delisting is not a dead turn —
+ * Gemini 3.8 Flash's order (GEMINI_38_FLASH_OPENROUTER_UPSTREAM_ORDER), sent
+ * with `allow_fallbacks: false` so the BYOK Vertex endpoints never serve. A
+ * sustained rise in standard's share doubles this row's bill.
+ */
+export const FREEBUFF_GEMINI_4_ARGON_UPSTREAM_ORDER = [
+  'google-ai-studio/flex',
+  'google-ai-studio',
+] as const
+/**
+ * Price ceiling for Gemini 4 Argon, USD per million: above standard
+ * ($2/$10), which stays reachable, and below priority ($3.60/$18), which is
+ * the band this fences out. Strictly above list: a ceiling equal to list
+ * 404s (FREEBUFF_GEMINI_38_FLASH_MAX_PRICE).
+ */
+export const FREEBUFF_GEMINI_4_ARGON_MAX_PRICE = {
+  prompt: 2.5,
+  completion: 12.5,
+} as const
+/** Reasoning effort a Gemini 4 Argon turn runs at unless the user picks one:
+ *  `medium`, as on Sol, because reasoning bills as output at $5/M. */
+export const FREEBUFF_GEMINI_4_ARGON_REASONING_EFFORT = 'medium' as const
 /** Solar Pro 4 (Upstage), served through OpenRouter and constrained to Upstage
  *  by `applyOpenRouterProviderRouting`. Context 524,288, text in / text out,
  *  using Upstage's non-ZDR endpoint for provider-side debugging.
@@ -1466,6 +1514,9 @@ export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   [FREEBUFF_GPT_61_SOL_MODEL_ID]: 1_000_000,
   [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID]: 1_000_000,
   [FREEBUFF_GEMINI_38_FLASH_MODEL_ID]: 1_000_000,
+  // Gemini 4 Argon publishes 1,048,576 on every OpenRouter endpoint
+  // (2026-10-13); entered low like its peers.
+  [FREEBUFF_GEMINI_4_ARGON_MODEL_ID]: 1_000_000,
 }
 
 /** Window assumed for any model missing from FREEBUFF_MODEL_CONTEXT_WINDOWS.
@@ -1572,7 +1623,9 @@ const MIMO_V25_MODEL = {
   // FREEBUFF_MIMO_V25_MODEL_ID). Same Xiaomi rate card as 2.5 to the cent
   // ($0.14 in / $0.28 out / $0.0028 cache read per M), so nothing about this
   // row's economics or its unmetered/fallback role moved with the name.
-  displayName: 'MiMo 2.6 Flash',
+  // Shown as "MiMo v2.6 Flash Fast" since 2026-10-14 (product): the full-speed half of
+  // the pair with MiMo v2.6 Flash Slow, the same model with a paced hour.
+  displayName: 'MiMo v2.6 Flash Fast',
   tagline: 'Balanced',
   availability: 'always',
   dataUse: 'service',
@@ -1639,11 +1692,13 @@ const DEEPSEEK_V4_FLASH_MODEL = {
   // build date was standing in for, in the vocabulary the vendor and the user
   // both already use.
   //
-  // Note what this costs: `compactChatModelName` and `shortModelName` both
-  // strip a trailing ` MM/DD`, so they are now no-ops on this row and the full
-  // name reaches the compact surfaces. That is intended — 'DeepSeek V4.1 Flash'
-  // is shorter than the dated name it replaces, so nothing got wider.
-  displayName: 'DeepSeek V4.1 Flash',
+  // DATED AGAIN 2026-10-19: DeepSeek moved the id onto V4.1 Flash's 1017 build
+  // on 2026-10-17 with no new version number, so a build date says which V4.1
+  // this is. Every lane serves 1017 (web/src/llm-api/deepseek-router.ts).
+  // `compactChatModelName` and `shortModelName` strip a trailing ` MM/DD`, so
+  // the collapsed triggers still read 'DeepSeek V4.1 Flash'; open menus show
+  // the date.
+  displayName: 'DeepSeek V4.1 Flash 10/17',
   // "Smart & Fast" survived Flash becoming premium on 2026-08-18: it describes
   // the model, and the one word in it that described the TIER ("unlimited") had
   // already gone when Pro took the recommendation on 2026-08-12. The picker
@@ -1777,7 +1832,9 @@ const DEEPSEEK_V4_FLASH_MODEL = {
  */
 const DEEPSEEK_V4_FLASH_FAST_MODEL = {
   id: FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
-  displayName: 'DeepSeek V4.1 Flash Fast',
+  // The build date trails 'Fast' so the collapsed triggers strip it, as on the
+  // Flash row.
+  displayName: 'DeepSeek V4.1 Flash Fast 10/17',
   tagline: 'Parallel agents',
   taglineTooltip:
     'Gathers context with parallel subagents. Runs on DeepSeek’s own API.',
@@ -1792,10 +1849,6 @@ const DEEPSEEK_V4_FLASH_FAST_MODEL = {
   efforts: DEEPSEEK_V4_REASONING_EFFORTS,
   defaultEffort: 'high',
   isNew: true,
-  // A New pill in place of Recommended (product, 2026-10-07).
-  newBadge: {
-    tooltip: 'Gathers context with parallel subagents on DeepSeek’s own API.',
-  },
 } as const satisfies FreebuffModelOption
 
 /**
@@ -2468,6 +2521,10 @@ const GPT_5_6_LUNA_MODEL = {
   // difference in either direction would not be.
 } as const satisfies FreebuffModelOption
 
+/** The tooltip on every "Price change" badge (2026-10-21, product). */
+export const FREEBUFF_PRICE_CHANGE_TOOLTIP =
+  'This model’s price will change soon to reflect what our provider charges (out of our control).'
+
 const GPT_6_LUNA_MODEL = {
   id: FREEBUFF_GPT_6_LUNA_MODEL_ID,
   displayName: 'GPT-6 Luna',
@@ -2505,7 +2562,9 @@ const GPT_6_LUNA_MODEL = {
 const GPT_61_SOL_MODEL = {
   id: FREEBUFF_GPT_61_SOL_MODEL_ID,
   displayName: 'GPT-6.1 Sol',
-  tagline: 'OpenAI flagship',
+  // The one-session-a-day limit is in the tagline since the Promotional pill
+  // came off (product, 2026-10-15), so nobody meets it first as a refusal.
+  tagline: 'OpenAI flagship · 1 session a day',
   availability: 'always',
   // OpenAI's API does not train on request data: no AI-training notice and
   // no trace storage, as on GPT-6 Luna.
@@ -2519,12 +2578,35 @@ const GPT_61_SOL_MODEL = {
   efforts: EFFORTS_THROUGH_HIGH,
   defaultEffort: FREEBUFF_GPT_61_SOL_REASONING_EFFORT,
   isNew: true,
-  // PROMOTIONAL, by product decision (2026-09-29): 100 Freebucks is a
-  // temporary price (FREEBUFF_GPT_61_SOL_MODEL_ID), and the label says so
-  // rather than letting a user build a habit on it.
-  promotional: GPT_61_SOL_PROMOTIONAL,
   taglineTooltip:
     'On OpenAI flex capacity, with a standard-tier backup when it’s busy.',
+} as const satisfies FreebuffModelOption
+
+const GEMINI_4_ARGON_MODEL = {
+  id: FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
+  displayName: 'Gemini 4 Argon',
+  tagline: 'Google flagship',
+  availability: 'always',
+  // Google's paid APIs do not train on request data, and every endpoint this
+  // row can reach bills (no AI Studio free tier): no AI-training notice and
+  // no trace storage, as on Gemini 3.8 Flash.
+  dataUse: 'service',
+  premium: true,
+  // OpenRouter reports text, image, file, audio and video input.
+  multimodal: true,
+  reasoningEffort: FREEBUFF_GEMINI_4_ARGON_REASONING_EFFORT,
+  // Capped at `high` like Sol: reasoning bills as output at $5/M.
+  efforts: EFFORTS_THROUGH_HIGH,
+  defaultEffort: FREEBUFF_GEMINI_4_ARGON_REASONING_EFFORT,
+  isNew: true,
+  // PROMOTIONAL, by product decision (2026-10-13): 100 Freebucks is a
+  // temporary price (FREEBUFF_GEMINI_4_ARGON_MODEL_ID), and the label says so
+  // rather than letting a user build a habit on it.
+  // ENDING SOON, by product decision (2026-10-22): the one pill, replacing
+  // Promotional and Price change (GEMINI_4_ARGON_ENDING_SOON).
+  dealEndingSoon: GEMINI_4_ARGON_ENDING_SOON,
+  taglineTooltip:
+    'On Google flex capacity, with a standard-tier backup when it’s busy.',
 } as const satisfies FreebuffModelOption
 
 /**
@@ -2604,6 +2686,7 @@ const SOLAR_MINI_4_MODEL = {
 const GEMINI_38_FLASH_MODEL = {
   id: FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   displayName: 'Gemini 3.8 Flash',
+  priceChange: { tooltip: FREEBUFF_PRICE_CHANGE_TOOLTIP },
   // The 1M context is the thing a user picks this row FOR, and it is the
   // largest in the catalog by a wide margin.
   tagline: '1M context',
@@ -2880,14 +2963,6 @@ const MUSE_SPARK_13_CONTRIBUTOR_MODEL = {
   // and no queue — a request Meta will not take is answered on the fallback at
   // once — so "Queues" would describe a lane the row no longer runs on.
   tagline: 'Falls back when busy',
-  // The row a release is announcing again (2026-10-09), now that it opens
-  // without a plan. The copy states the entitlement, since that is what
-  // changed. Only the CLI draws this pill; Desktop and Web show promotional
-  // and ending pills beside names (HostedModelRows.promotionalModelBadges).
-  newBadge: {
-    tooltip:
-      'Muse Spark 1.3 is free to open for full-access accounts. A paid plan unlocks it where access is limited.',
-  },
   taglineTooltip: MUSE_SPARK_FALLBACK_NOTICE,
   availability: 'always',
   // Load-bearing pair (a catalog invariant test enforces it): the Contributor
@@ -3018,6 +3093,7 @@ export const SUPPORTED_FREEBUFF_MODELS = [
   GPT_5_6_LUNA_MODEL,
   GPT_6_LUNA_MODEL,
   GPT_61_SOL_MODEL,
+  GEMINI_4_ARGON_MODEL,
   // Solar Pro 4 stays SUPPORTED after its 2026-09-23 retirement for the same
   // reason 5.6 does.
   SOLAR_PRO_4_MODEL,
@@ -3177,9 +3253,11 @@ export const FREEBUFF_MODELS = [
   // completions route. Last in the list on purpose: it may answer as another
   // model when Meta's team-wide ceiling is full.
   MUSE_SPARK_13_CONTRIBUTOR_MODEL,
-  // GPT-6.1 Sol (2026-09-29): free in the US, paid-only elsewhere, at a
-  // promotional 100 Freebucks — the dearest row, so last in a cheapest-first
-  // list.
+  // Gemini 4 Argon (2026-10-13): free in the US, paid-only elsewhere, at a
+  // promotional 100 Freebucks.
+  GEMINI_4_ARGON_MODEL,
+  // GPT-6.1 Sol (2026-09-29): free in the US, paid-only elsewhere, at 250
+  // Freebucks — the dearest row, so last in a cheapest-first list.
   GPT_61_SOL_MODEL,
 ] as const satisfies readonly FreebuffModelOption[]
 
@@ -3782,9 +3860,13 @@ export const FREEBUFF_SESSION_GRACE_MS = 30 * 60 * 1000
  *  change model here".
  *
  *  Ending early is not a forfeit: the server re-stamps `session_units` to the
- *  fraction actually elapsed (`buildAdmitStampStatement`), so this REFUNDS the
- *  unused window and the next send re-admits on the same instance id. Getting it
- *  wrong costs one extra admission, not a session.
+ *  fraction actually elapsed (`buildAdmitStampStatement`), so the unused window
+ *  returns to the DAILY POOL and the next send re-admits on the same instance
+ *  id. Getting it wrong costs one extra admission, not a session.
+ *
+ *  That is the pool only. The Freebucks charged for the hour settle on provider
+ *  cost instead (`FREEBUCKS_SESSION_REFUND_REASON`), so the two refunds do not
+ *  agree and must not be described as one.
  *
  *  Ten minutes is measured against reading a long answer and typing the next
  *  prompt. Only a turn keeps the clock alive — scrolling and typing are
@@ -4194,9 +4276,11 @@ export const FREEBUFF_CLOUD_PLANNER_TURN_LIMIT = 12
 export const FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS: readonly string[] =
   Object.freeze([
     FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-    // GPT-6.1 Sol (2026-09-29): paid-only on every surface OUTSIDE THE US —
-    // FREEBUFF_US_OR_PAID_MODEL_IDS is the exemption.
+    // GPT-6.1 Sol (2026-09-29) and Gemini 4 Argon (2026-10-13): paid-only on
+    // every surface OUTSIDE THE US — FREEBUFF_US_OR_PAID_MODEL_IDS is the
+    // exemption.
     FREEBUFF_GPT_61_SOL_MODEL_ID,
+    FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
     // Muse Spark 1.3 (and 1.2 with it) was paid-only on every surface from
     // 2026-09-28 and LEFT this list on 2026-10-09, by product decision, on
     // MiMo 2.6 Pro's and Luna's terms below: open to every full-access
@@ -4230,8 +4314,10 @@ export const FREEBUFF_PRO_ONLY_CATALOG_MODEL_IDS: readonly string[] =
 export const FREEBUFF_PRO_ONLY_EVERY_SURFACE_MODEL_IDS: readonly string[] =
   Object.freeze([
     FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-    // GPT-6.1 Sol is in FREEBUFF_MODELS, so the CLI and Desktop list it.
+    // GPT-6.1 Sol and Gemini 4 Argon are in FREEBUFF_MODELS, so the CLI and
+    // Desktop list them.
     FREEBUFF_GPT_61_SOL_MODEL_ID,
+    FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   ])
 
 /**
@@ -4255,10 +4341,12 @@ export const FREEBUFF_PRO_ONLY_EVERY_SURFACE_MODEL_IDS: readonly string[] =
  *
  * GPT-6 Luna and MiMo 2.6 Pro held this exemption 2026-09-22 → 09-25, when
  * they opened to every full-access account and the list was removed; GPT-6.1
- * Sol brings it back (2026-09-29, by product decision).
+ * Sol brings it back (2026-09-29, by product decision); Gemini 4 Argon joins
+ * it on the same terms (2026-10-13).
  */
 export const FREEBUFF_US_OR_PAID_MODEL_IDS: readonly string[] = Object.freeze([
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
 ])
 
 export function isFreebuffUsOrPaidModelId(
@@ -4643,9 +4731,10 @@ export const FREEBUFF_PLAN_METERED_CATALOG_MODEL_IDS: readonly string[] =
     // (1.2 is deliberately absent: it survives only for released binaries at
     // full access, and is not offered at limited access at all.)
     FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
-    // GPT-6.1 Sol (2026-09-29): available to EVERY paid account, limited
-    // region included.
+    // GPT-6.1 Sol (2026-09-29) and Gemini 4 Argon (2026-10-13): available to
+    // EVERY paid account, limited region included.
     FREEBUFF_GPT_61_SOL_MODEL_ID,
+    FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   ])
 
 /**
@@ -4922,6 +5011,15 @@ export function isFreebuffGemini38FlashModelId(
   id: string | null | undefined,
 ): boolean {
   return freebuffModelIdMatches(id, FREEBUFF_GEMINI_38_FLASH_MODEL_ID)
+}
+
+/** Whether the requested model is Gemini 4 Argon, tolerating a dated
+ *  snapshot. Never prefix-matched on `google/gemini` (see
+ *  isFreebuffGemini38FlashModelId). */
+export function isFreebuffGemini4ArgonModelId(
+  id: string | null | undefined,
+): boolean {
+  return freebuffModelIdMatches(id, FREEBUFF_GEMINI_4_ARGON_MODEL_ID)
 }
 
 /** Whether the requested model is GPT-5.6 Luna, tolerating the dated snapshot

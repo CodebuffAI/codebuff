@@ -10,14 +10,24 @@ import type {
   SponsoredExecutionContainment,
 } from './sponsored-windows'
 import type { SPONSORED_IN_PLACE_VERSION } from './sponsored-in-place'
+import type { SPONSORED_RUN_SPEC_VERSION } from './sponsored-run-spec'
+
+/** The clients a funded Accept can come from. */
+export const SPONSORED_ACCEPT_SURFACES = ['desktop', 'cli', 'web'] as const
+
+export type SponsoredAcceptSurface = (typeof SPONSORED_ACCEPT_SURFACES)[number]
 
 /**
  * The funded Accept request, `POST /api/v1/ads/proposal/{id}/accept`, as the
  * accepting surface sends it and the route reads it.
  */
 export type SponsoredAcceptRequest = {
-  /** Which kind of client accepts: `desktop` or `cli`. */
-  surface: 'desktop' | 'cli'
+  /**
+   * Which kind of client accepts: `desktop` or `cli` over the bearer route,
+   * `web` (the browser workspace) from the browser workspace's server.
+   */
+  surface: SponsoredAcceptSurface
+  nativeDesktopTools?: boolean
   /** The run id the surface minted before consent. */
   runId: string
   /** The hash of the exact procedure the user consented to. */
@@ -42,6 +52,15 @@ export type SponsoredAcceptRequest = {
    * it from then on.
    */
   inPlaceExecutionVersion?: typeof SPONSORED_IN_PLACE_VERSION
+  /**
+   * `1`: this client runs the run spec (`./sponsored-run-spec.ts`). The 200
+   * then carries `runSpec`, built from the server's own skill, on a fresh
+   * Accept and on every replay of it. A procedure that names a skill the
+   * server cannot resolve is refused `409 run_spec_unavailable` before
+   * anything is charged (`503 run_spec_unavailable` on a replay, which
+   * charges nothing again and is safe to retry).
+   */
+  runSpecVersion?: typeof SPONSORED_RUN_SPEC_VERSION
 }
 
 /**
@@ -144,6 +163,20 @@ export function sponsoredComputeRunDeadlineMs(
  * covers both without leaving a dead run on the card for a day.
  */
 export const SPONSORED_RUNNING_SWEEP_GRACE_MS = 30 * 60_000
+
+/**
+ * How long a Freebuff Web Accept may wait for its run to START before the
+ * stale sweep fails it (`web_start` in `sponsoredExecution.ts`), and before
+ * the web worker refuses to start it.
+ *
+ * Web runs on OUR worker, which reports `running` before the turn's first
+ * call, so the 24-hour run-token clock the off-Cloud rows wait on would only
+ * leave a spinner on the card when the queued run was lost. The run waits
+ * behind at most the chat's current turn; two hours covers a long one. The
+ * worker applies the same deadline, so a run the sweep could fail is never
+ * started.
+ */
+export const SPONSORED_WEB_START_WINDOW_MS = 2 * 60 * 60_000
 
 /**
  * When the stale sweep may fail an off-Cloud row that reported `running` at

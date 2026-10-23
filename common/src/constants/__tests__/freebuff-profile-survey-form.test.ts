@@ -68,7 +68,8 @@ describe('copy and view helpers', () => {
     expect(profileSurveyHeader(0, 10)).toBe('Quick question · 1 of 10')
     expect(profileSurveyHint(whoPays)).toBe('Tap one to continue')
     expect(profileSurveyHint(shopping)).toBe('Pick all that apply')
-    expect(profileSurveyRewardCopy(25, 10)).toBe('Answer all 10 to get 25 Freebucks')
+    expect(profileSurveyRewardCopy(25, 10)).toBe('Answer all 10 to get 5 hours')
+    expect(profileSurveyRewardCopy(5, 10)).toBe('Answer all 10 to get 1 hour')
     expect(profileSurveyRewardCopy(0, 10)).toBeNull()
   })
   it('dismiss copy counts answers and names the stop', () => {
@@ -88,10 +89,10 @@ describe('copy and view helpers', () => {
   it('completion copy follows what the server credited', () => {
     expect(
       profileSurveyCompletionCopy({ rewardFreebucks: 25, rewardedFreebucks: 25, allNotApplicable: false }),
-    ).toEqual({ kind: 'paid', title: '+25 Freebucks', detail: 'Added to your wallet. Thanks!' })
+    ).toEqual({ kind: 'paid', title: '+5 hours', detail: 'Added to your wallet. Thanks!' })
     expect(
       profileSurveyCompletionCopy({ rewardFreebucks: 5, rewardedFreebucks: 0, allNotApplicable: true }).detail,
-    ).toContain("didn't earn the 5 Freebucks")
+    ).toContain("didn't earn the 1 hour")
     expect(
       profileSurveyCompletionCopy({ rewardFreebucks: 0, rewardedFreebucks: 0, allNotApplicable: true }),
     ).toEqual({ kind: 'unpaid', title: "Thanks, that's everything.", detail: null })

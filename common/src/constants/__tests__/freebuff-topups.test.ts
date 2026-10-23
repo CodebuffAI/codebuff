@@ -113,13 +113,20 @@ describe('ledger reasons and what the advertiser is shown', () => {
     // opposite event and must not borrow the word.
     expect(statementKindForReason('chargeback')).toBe('adjustment')
     expect(statementKindForReason('refund')).toBe('refund')
+    expect(statementKindForReason('invalid_traffic_credit')).toBe('refund')
   })
 
   it('knows which direction each reason moves money', () => {
     expect(isCreditReason('topup')).toBe(true)
     expect(isCreditReason('refund')).toBe(true)
+    expect(isCreditReason('invalid_traffic_credit')).toBe(true)
     expect(isCreditReason('spend')).toBe(false)
     expect(isCreditReason('chargeback')).toBe(false)
+  })
+
+  it('shows a sweep credit for invalid traffic as a refund that adds money', () => {
+    expect(statementKindForReason('invalid_traffic_credit')).toBe('refund')
+    expect(isCreditReason('invalid_traffic_credit')).toBe(true)
   })
 
   it('has a distinct database reason for chargeback even though the UI does not', () => {

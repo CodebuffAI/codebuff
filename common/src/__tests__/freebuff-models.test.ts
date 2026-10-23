@@ -25,6 +25,7 @@ import {
   FREEBUFF_GPT_5_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   isFreebuffGpt6LunaModelId,
   FREEBUFF_GPT_5_6_LUNA_PROVIDER_ROUTE,
   FREEBUFF_GPT_5_6_LUNA_REASONING_EFFORT,
@@ -601,7 +602,8 @@ describe('freebuff model availability', () => {
       (model) => model.id === FREEBUFF_MIMO_V25_MODEL_ID,
     )!
     expect(FREEBUFF_MIMO_V25_MODEL_ID).toBe('mimo/mimo-v2.5')
-    expect(row.displayName).toBe('MiMo 2.6 Flash')
+    // Shown as MiMo v2.6 Flash Fast since 2026-10-14, beside MiMo v2.6 Flash Slow.
+    expect(row.displayName).toBe('MiMo v2.6 Flash Fast')
     // Still the unmetered fallback every surface steps down to.
     expect(FALLBACK_FREEBUFF_MODEL_ID).toBe(FREEBUFF_MIMO_V25_MODEL_ID)
   })
@@ -1247,7 +1249,7 @@ describe('freebuff model availability', () => {
     // model is still named TO a user: the pick is gone, so pointing somewhere
     // is the alternative to a dead end.
     expect(freebuffWithdrawnModelMessage(MINIMAX_M3_MODEL_ID)).toContain(
-      'MiMo 2.6 Flash',
+      'MiMo v2.6 Flash Fast',
     )
 
     // The AGENT door stays open, and that is not an oversight. Withdrawal is
@@ -1451,7 +1453,7 @@ describe('freebuff model availability', () => {
       ),
     ).toBe(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     expect(LIMITED_FREEBUFF_MODEL_MISMATCH_MESSAGE).toBe(
-      'Limited free access is only available with MiMo 2.6 Flash or GLM 5.3 Flash or DeepSeek V4.1 Flash or Solar Mini 4 or Solar Pro 4.',
+      'Limited free access is only available with MiMo v2.6 Flash Fast or GLM 5.3 Flash or DeepSeek V4.1 Flash 10/17 or Solar Mini 4 or Solar Pro 4.',
     )
     // No row in the tier supersedes another, so no picker may offer a switch
     // that admission would coerce straight back.
@@ -1725,12 +1727,13 @@ describe('freebuff model availability', () => {
     // Flash carries a VERSION rather than a build date as of 2026-09-10:
     // DeepSeek moved the id onto V4.1 Flash, and a version number is what the
     // date was always standing in for. The invariant is unchanged — the name
-    // must still say which build this is — only its spelling moved.
+    // must still say which build this is — only its spelling moved. The 1017
+    // build (2026-10-17) kept the version, so both names carry the date again.
     const dated = [
-      [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'V4.1'],
+      [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'V4.1 Flash 10/17'],
       // Fast mode (2026-09-26) is the same V4.1 build on its own row; the
-      // version travels with the name.
-      [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID, 'V4.1'],
+      // version and date travel with the name.
+      [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID, 'V4.1 Flash Fast 10/17'],
     ] as const
     // Widened to the interface: the const-asserted tuple's union type only
     // exposes optional fields set on EVERY member, so `isNew` is unreachable
@@ -1770,6 +1773,8 @@ describe('freebuff model availability', () => {
       FREEBUFF_GPT_6_LUNA_MODEL_ID,
       // GPT-6.1 Sol arrived 2026-09-29; its wire id names the version.
       FREEBUFF_GPT_61_SOL_MODEL_ID,
+      // Gemini 4 Argon arrived 2026-10-13; its wire id names the version.
+      FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
       // Solar Mini 4 and Space Bunny Alpha arrived 2026-09-23; neither has a
       // build date to disambiguate.
       FREEBUFF_SOLAR_MINI_4_MODEL_ID,
@@ -2079,11 +2084,12 @@ describe('Meta Muse Spark 1.3 Contributor', () => {
     expect(isSupportedFreebuffModelId(ID)).toBe(true)
   })
 
-  test('carries the announcement badge, naming the entitlement', () => {
+  test('carries no New pill: only Claude Haiku 5.5 is badged New (2026-10-13)', () => {
     // The 15 Freebucks price is asserted where the meter lives: the admission
     // test in web/.../public-api.test.ts (freebuff-freebucks is not exported).
     const row = FREEBUFF_MODELS.find((model) => model.id === ID)
-    expect(row?.newBadge?.tooltip).toContain('full-access')
+    expect(row).toBeDefined()
+    expect('newBadge' in row!).toBe(false)
   })
 })
 

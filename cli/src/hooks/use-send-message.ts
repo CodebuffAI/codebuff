@@ -11,7 +11,10 @@ import { setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
 import { getFreebuffInstanceId } from './use-freebuff-session'
-import { getSelectedFreebuffReasoningEffort } from '../state/freebuff-model-store'
+import {
+  getSelectedFreebuffReasoningEffort,
+  getSelectedFreebuffModel,
+} from '../state/freebuff-model-store'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import {
   byokLoadFailureMessage,
@@ -21,6 +24,8 @@ import {
 } from '../utils/byok'
 import { AGENT_MODE_TO_COST_MODE, IS_FREEBUFF } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
+import { captureCliFunnel, cliFunnelKey } from '../utils/cli-product-funnel'
+import { createCliRunFunnel } from '../utils/cli-run-funnel'
 import { createRunConfig } from '../utils/create-run-config'
 import { getAgentIdForMode } from '../utils/freebuff-agent-selection'
 import {
@@ -68,7 +73,10 @@ import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
 import type { PendingAttachment } from '../types/store'
 import type { ChatMessage } from '../types/chat'
-import type { SendMessageFn } from '../types/contracts/send-message'
+import type {
+  SendMessageFn,
+  SponsoredSend,
+} from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 import type { SendMessageTimerEvent } from '../utils/send-message-timer'
 import { STATE_SNAPSHOT_INTERRUPTION_MESSAGE } from '@codebuff/sdk'
@@ -361,7 +369,34 @@ export const useSendMessage = ({
       // context switch during attachment processing, validation, or client
       // creation had no controller to stop.
       const runOwnerId = randomUUID()
+      const funnelDetails = {
+        run_id: runOwnerId,
+        thread_id: cliFunnelKey(useChatStore.getState().chatSessionId),
+        model: shouldUseByok ? 'byok' : getSelectedFreebuffModel(),
+        harness: 'codebuff' as const,
+        has_attachments:
+          (attachments?.length ??
+            useChatStore.getState().pendingAttachments.length) > 0,
+        character_count: Math.min(content.length, 10_000_000),
+      }
+      const runFunnel = createCliRunFunnel({
+        capture: (stage, state, details) => {
+          // Sponsored work and its generated followups never count as conversion.
+          if (!sponsored) {
+            if (stage === 'send' && state === 'accepted')
+              captureCliFunnel('model_selection', 'applied', funnelDetails)
+            captureCliFunnel(stage, state, { ...funnelDetails, ...details })
+          }
+        },
+      })
       const abortController = new AbortController()
+      abortController.signal.addEventListener(
+        'abort',
+        () => runFunnel.cancel(),
+        {
+          once: true,
+        },
+      )
       const runChatDir = resolveCurrentChatDir()
       const runChatIsCurrent = () => resolveCurrentChatDir() === runChatDir
       let latestRunStateSnapshot: RunState = previousRunStateRef.current ?? {
@@ -492,24 +527,24 @@ export const useSendMessage = ({
           if (releaseIfStopped()) return
 
           if (!validationResult.success) {
-            logger.warn(
-              { errors: validationResult.errors },
-              '[send-message] Validation failed',
-            )
             const errorsToAttach =
               validationResult.errors.length === 0
                 ? [
-                    // Hide this for now, as validate endpoint may be flaky and we don't want to bother users.
-                    // {
-                    //   id: NETWORK_ERROR_ID,
-                    //   message:
-                    //     'Agent validation failed. This may be due to a network issue or temporary server problem. Please try again.',
-                    // },
+                    {
+                      id: 'validation_error',
+                      message:
+                        'The validation check failed without an explanation.',
+                    },
                   ]
                 : validationResult.errors
 
-            setMessages((prev) =>
-              prev.map((msg) => {
+            // Error-level telemetry retains details; warnings are summarized.
+            logger.error(
+              { errors: errorsToAttach },
+              '[send-message] Validation failed',
+            )
+            setMessages((prev) => [
+              ...prev.map((msg) => {
                 if (msg.id !== userMessageId) {
                   return msg
                 }
@@ -518,7 +553,13 @@ export const useSendMessage = ({
                   validationErrors: errorsToAttach,
                 }
               }),
-            )
+              createErrorChatMessage(
+                `Message not sent: agent validation failed. ${errorsToAttach[0].message} Check the error and try again.`,
+              ),
+            ])
+            await yieldToEventLoop()
+            if (releaseIfStopped()) return
+            setTimeout(() => scrollToLatest(), 0)
             finishPreflight()
             return
           }
@@ -719,34 +760,43 @@ export const useSendMessage = ({
         const previousRunStateForTurn = canResumePreviousRun
           ? previousRunStateRef.current
           : null
+        // A sponsored segment: the first one (`previous` null), or a step
+        // driver fix of the SAME run, resumed from its own last state.
+        const sponsoredRunConfig = (
+          plan: SponsoredSend['plan'],
+          prompt: string,
+          previous: RunState | null,
+        ) => ({
+          // The turn's first model event reports `running` (COD-665 V5).
+          ...withSponsoredModelEventTap(
+            createRunConfig({
+              logger,
+              agent: resolvedAgent,
+              prompt,
+              content: undefined,
+              // FRESH MEMORY. The sponsored run never sees the user's
+              // conversation beyond the task context in its prompt, and its
+              // own history is never written back (see below). A fix
+              // segment resumes the sponsored run's own state, never the
+              // conversation's.
+              previousRunState: previous,
+              agentDefinitions,
+              eventHandlerState,
+              signal: abortController.signal,
+              extraCodebuffMetadata: plan.extraCodebuffMetadata,
+            }),
+            plan.onModelEvent,
+          ),
+          cwd: plan.cwd,
+          // ONLY the run's own `report_friction`, never the user's
+          // custom tools: stripping a custom tool from `toolNames` only
+          // stops it being OFFERED -- the SDK dispatches a registered
+          // custom tool by name ahead of every builtin branch.
+          customToolDefinitions: plan.customToolDefinitions,
+          overrideTools: plan.overrideTools,
+        })
         const buildRunConfig = () => sponsored
-          ? {
-              // The turn's first model event reports `running` (COD-665 V5).
-              ...withSponsoredModelEventTap(
-                createRunConfig({
-                  logger,
-                  agent: resolvedAgent,
-                  prompt: effectivePrompt,
-                  content: undefined,
-                  // FRESH MEMORY. The sponsored run never sees the user's
-                  // conversation beyond the task context in its prompt, and its
-                  // own history is never written back (see below).
-                  previousRunState: null,
-                  agentDefinitions,
-                  eventHandlerState,
-                  signal: abortController.signal,
-                  extraCodebuffMetadata: sponsored.plan.extraCodebuffMetadata,
-                }),
-                sponsored.plan.onModelEvent,
-              ),
-              cwd: sponsored.plan.cwd,
-              // ONLY the run's own `report_friction`, never the user's
-              // custom tools: stripping a custom tool from `toolNames` only
-              // stops it being OFFERED -- the SDK dispatches a registered
-              // custom tool by name ahead of every builtin branch.
-              customToolDefinitions: sponsored.plan.customToolDefinitions,
-              overrideTools: sponsored.plan.overrideTools,
-            }
+          ? sponsoredRunConfig(sponsored.plan, effectivePrompt, null)
           : createRunConfig({
               logger,
               agent: resolvedAgent,
@@ -757,6 +807,8 @@ export const useSendMessage = ({
               previousRunState: previousRunStateForTurn,
               agentDefinitions,
               eventHandlerState,
+              observeEvent: (event) => runFunnel.event(event),
+              observeChunk: (chunk) => runFunnel.chunk(chunk),
               signal: abortController.signal,
               // BYOK never enters the Freebuff free-mode admission or budget path.
               costMode: byok ? 'normal' : AGENT_MODE_TO_COST_MODE[agentMode],
@@ -808,6 +860,9 @@ export const useSendMessage = ({
               },
             })
 
+        funnelDetails.model = shouldUseByok
+          ? 'byok'
+          : getSelectedFreebuffModel()
         let runConfig = buildRunConfig()
 
         // Log a summary only: the full run config contains the entire
@@ -839,7 +894,7 @@ export const useSendMessage = ({
         // NEVER for a sponsored turn: nothing the user types may steer the
         // sponsor's run, so with no mailbox open it waits in the queue.
         if (!sponsored) activateSteering(runOwnerId)
-        const runState = pinByokConnection(
+        let runState = pinByokConnection(
           await runWithFreebuffCatalogStaleRetry({
             run: (attempt) => {
               if (attempt > 0) {
@@ -851,8 +906,12 @@ export const useSendMessage = ({
                   agentId,
                   agentDefinitions,
                 )
+                funnelDetails.model = shouldUseByok
+                  ? 'byok'
+                  : getSelectedFreebuffModel()
                 runConfig = buildRunConfig()
               }
+              runFunnel.accept()
               return client.run(runConfig as Parameters<typeof client.run>[0])
             },
             canRetry: () =>
@@ -865,6 +924,48 @@ export const useSendMessage = ({
           }),
           selectedByok,
         )
+        runFunnel.finish(
+          Boolean(runState.output && runState.output.type !== 'error'),
+        )
+        // THE CHECKS DECIDE WHEN A SPONSORED SKILL IS DONE (Desktop parity,
+        // `docs/ads/agentic/step-checks.md`): a driven run's steps are
+        // checked here, still inside this turn, and a failing step goes back
+        // to the agent as another segment of the same run. A fix that fails
+        // ends the walk on the last completed state; it never fails the turn.
+        const driveSteps = sponsored?.plan.driveSteps
+        if (
+          sponsored &&
+          driveSteps &&
+          runState.output?.type !== 'error' &&
+          !abortController.signal.aborted
+        ) {
+          runState = await driveSteps<RunState>(
+            runState,
+            async (prompt, previous) => {
+              if (abortController.signal.aborted) return null
+              try {
+                const next = await client.run(
+                  sponsoredRunConfig(
+                    sponsored.plan,
+                    prompt,
+                    previous,
+                  ) as Parameters<typeof client.run>[0],
+                )
+                return next.output?.type === 'error' ? null : next
+              } catch (error) {
+                logger.info(
+                  {
+                    error:
+                      error instanceof Error ? error.message : String(error),
+                  },
+                  '[send-message] sponsored step fix did not complete',
+                )
+                return null
+              }
+            },
+            abortController.signal,
+          )
+        }
         if (sponsored && runState.output?.type === 'error') {
           sponsoredErrorText =
             runState.output.message ??
@@ -931,6 +1032,7 @@ export const useSendMessage = ({
           )
         }
       } catch (error) {
+        runFunnel.finish(false)
         if (sponsored) {
           sponsoredErrorText =
             error instanceof Error ? error.message : String(error)

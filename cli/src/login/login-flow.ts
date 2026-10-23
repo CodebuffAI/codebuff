@@ -32,6 +32,24 @@ export interface GenerateLoginUrlOptions {
   baseUrl: string
   fingerprintId: string
   via?: LoginVia
+  /** Explicit Freebuff CLI origin. Never use a fingerprint or auth token here. */
+  cliFlowId?: string
+}
+
+const CLI_FLOW_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+/** Attribution is optional and cannot make a usable sign-in URL fail. */
+function withCliLoginFlow(loginUrl: string, flowId?: string): string {
+  if (!flowId || !CLI_FLOW_ID.test(flowId)) return loginUrl
+  try {
+    const url = new URL(loginUrl)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return loginUrl
+    url.searchParams.set('cli_flow', flowId)
+    return url.toString()
+  } catch {
+    return loginUrl
+  }
 }
 
 export async function generateLoginUrl(
@@ -82,7 +100,10 @@ export async function generateLoginUrl(
     throw new Error('Failed to get login URL')
   }
 
-  return response.data
+  const loginUrl = withCliLoginFlow(response.data.loginUrl, options.cliFlowId)
+  return loginUrl === response.data.loginUrl
+    ? response.data
+    : { ...response.data, loginUrl }
 }
 
 interface PollLoginStatusDeps {

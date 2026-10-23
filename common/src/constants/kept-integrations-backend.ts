@@ -35,11 +35,11 @@
 export type KeptIntegrationsBackendMode = 'convex' | 'shadow' | 'postgres'
 
 export const INTEGRATION_BEARER_KEY_BACKEND: KeptIntegrationsBackendMode =
-  'convex'
+  'shadow'
 
-export const GRAVITY_INTEGRATION_BACKEND: KeptIntegrationsBackendMode = 'convex'
+export const GRAVITY_INTEGRATION_BACKEND: KeptIntegrationsBackendMode = 'shadow'
 
-export const APP_CONVEX_BACKEND: KeptIntegrationsBackendMode = 'convex'
+export const APP_CONVEX_BACKEND: KeptIntegrationsBackendMode = 'shadow'
 
 export type KeptIntegrationsDomain = 'bearer_keys' | 'gravity' | 'app_convex'
 

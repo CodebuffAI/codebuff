@@ -1,11 +1,17 @@
 import { expect, test } from 'bun:test'
-import { clientPlatformProperties } from '../client-platform'
+import { messageSentSurface, mobileClientPlatform } from '../client-platform'
 
-test('mobile attribution is per request and missing/invalid origins stay unknown', () => {
-  expect(clientPlatformProperties('ios')).toEqual({ client_platform: 'ios' })
-  expect(clientPlatformProperties('android')).toEqual({ client_platform: 'android' })
-  for (const value of [undefined, null, '', 'browser', 'ios, android', {}, 1]) {
-    expect(clientPlatformProperties(value)).toEqual({})
+test('only ios and android are native platforms; anything else stays unknown', () => {
+  expect(mobileClientPlatform('ios')).toBe('ios')
+  expect(mobileClientPlatform('android')).toBe('android')
+  for (const value of [undefined, null, '', 'browser', 'desktop', 'ios, android', {}, 1]) {
+    expect(mobileClientPlatform(value)).toBeUndefined()
   }
-  expect(clientPlatformProperties('ios')).toEqual({ client_platform: 'ios' })
+})
+
+test('a native send reports its platform as the surface; any other keeps its own', () => {
+  expect(messageSentSurface('chat', 'ios')).toBe('ios')
+  expect(messageSentSurface('desktop', 'android')).toBe('android')
+  expect(messageSentSurface('cloud', 'desktop')).toBe('cloud')
+  expect(messageSentSurface('web', undefined)).toBe('web')
 })

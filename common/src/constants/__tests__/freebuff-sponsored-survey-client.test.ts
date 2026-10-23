@@ -40,7 +40,8 @@ describe('sponsored survey client helpers', () => {
   })
 
   test('reward line only when there is a reward', () => {
-    expect(sponsoredRewardLine(25)).toBe('Earn 25 Freebucks')
+    expect(sponsoredRewardLine(25)).toBe('Earn 5 hours')
+    expect(sponsoredRewardLine(5)).toBe('Earn 1 hour')
     expect(sponsoredRewardLine(0)).toBeNull()
   })
 

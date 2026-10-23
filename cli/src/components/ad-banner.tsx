@@ -25,6 +25,7 @@ import { layoutTruncated } from '../ads/ad-engagement'
 import { useAdEngagement } from '../ads/use-ad-engagement'
 
 import { Button } from './button'
+import { AdReportButton, AD_REPORT_CONTROL_COLUMNS } from './ad-report-button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS, INVERTED_CTA_FG } from '../utils/ui-constants'
@@ -146,7 +147,19 @@ export const AdCard: React.FC<{
   // truncation from exactly what is drawn.
   const inlineLayout =
     variant === 'inline' ? getInlineAdLayout(ad, width) : null
+  if (inlineLayout) {
+    inlineLayout.title = truncateToWidth(
+      inlineLayout.title,
+      Math.max(0, width - 8 - AD_REPORT_CONTROL_COLUMNS),
+    )
+  }
   const card = variant === 'inline' ? null : getCardAdLayout(ad, width)
+  if (card?.headline) {
+    card.headline = truncateToWidth(
+      card.headline,
+      Math.max(0, width - 8 - AD_REPORT_CONTROL_COLUMNS),
+    )
+  }
   // An inline card scrolls with the transcript and is measured; the dock and
   // the landing screen's columns sit outside any scrollbox.
   const engagement = useAdEngagement(ad.impUrl, {
@@ -223,9 +236,12 @@ export const AdCard: React.FC<{
           >
             {inlineLayout.title}
           </text>
-          <text style={{ fg: theme.muted, flexShrink: 0, wrapMode: 'none' }}>
-            {INLINE_AD_DISCLOSURE}
-          </text>
+          <box style={{ flexDirection: 'row', flexShrink: 0 }}>
+            <text style={{ fg: theme.muted, wrapMode: 'none' }}>
+              {INLINE_AD_DISCLOSURE}
+            </text>
+            <AdReportButton ad={{ ...ad, surface: 'cli' }} color={theme.muted} />
+          </box>
         </box>
         <box
           style={{
@@ -296,7 +312,10 @@ export const AdCard: React.FC<{
           >
             {card.headline}
           </text>
-          <text style={{ fg: theme.muted, flexShrink: 0 }}>{'  Ad'}</text>
+          <box style={{ flexDirection: 'row', flexShrink: 0 }}>
+            <text style={{ fg: theme.muted }}>{' Ad'}</text>
+            <AdReportButton ad={{ ...ad, surface: 'cli' }} color={theme.muted} />
+          </box>
         </box>
       ) : null}
       <box
@@ -312,7 +331,10 @@ export const AdCard: React.FC<{
           {card.description}
         </text>
         {card.headline ? null : (
-          <text style={{ fg: theme.muted, flexShrink: 0 }}>{'  Ad'}</text>
+          <box style={{ flexDirection: 'row', flexShrink: 0 }}>
+            <text style={{ fg: theme.muted }}>{' Ad'}</text>
+            <AdReportButton ad={{ ...ad, surface: 'cli' }} color={theme.muted} />
+          </box>
         )}
       </box>
       <box style={{ flexGrow: 1 }} />
@@ -507,6 +529,7 @@ export const DockAdCard: React.FC<{
               {layout.chordHint}
             </text>
           ) : null}
+          <AdReportButton ad={{ ...ad, surface: 'cli' }} color={theme.muted} />
         </box>
         {layout.headline ? (
           <text
@@ -632,9 +655,12 @@ export const DockDetailPanel: React.FC<{
         >
           {panel.brand}
         </text>
-        <text style={{ fg: theme.primary, flexShrink: 0, wrapMode: 'none' }}>
-          {DOCK_SPONSORED_LABEL}
-        </text>
+        <box style={{ flexDirection: 'row', flexShrink: 0 }}>
+          <text style={{ fg: theme.primary, wrapMode: 'none' }}>
+            {DOCK_SPONSORED_LABEL}
+          </text>
+          <AdReportButton ad={{ ...ad, surface: 'cli' }} color={theme.muted} />
+        </box>
       </box>
       <box style={{ height: 1 }} />
       <text

@@ -426,6 +426,8 @@ export function recordPartnerImpression(ad: AdResponse): void {
 
 /** Report a click on a partner row, through the one CLI click path. */
 export function recordPartnerClick(ad: AdResponse): void {
+  // The view first (a no-op once acked), so the click never outruns it.
+  recordPartnerImpression(ad)
   recordAdClick(ad, { surface: 'cli_chat' })
 }
 

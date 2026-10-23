@@ -133,7 +133,7 @@ describe('sponsored survey in the CLI box', () => {
       },
     ])
     expect(useProfileSurveyStore.getState().survey?.status).toBe('completed')
-    expect(printed).toEqual(['✓ +25 Freebucks added to your wallet'])
+    expect(printed).toEqual(['✓ +5 hours added to your wallet'])
   })
 
   test('esc dismisses through the sponsored endpoint', async () => {

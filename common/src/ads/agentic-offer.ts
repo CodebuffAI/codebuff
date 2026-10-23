@@ -39,11 +39,19 @@ import { z } from 'zod'
 
 import {
   capabilityInspectionSchema,
+  cloudWorktreeCapabilitySchema,
   sponsoredCapabilitySchema,
 } from './sponsored-capability'
 import { genericSetupInvitationSchema } from './generic-setup-invitation'
 import { sponsoredEnvironmentWarningSchema } from './sponsored-environment-warning'
 import { SPONSORED_IN_PLACE_VERSION } from './sponsored-in-place'
+import { SPONSORED_RUN_SPEC_VERSION } from './sponsored-run-spec'
+import {
+  MAX_REPO_FACT_DEPENDENCY_NAMES,
+  MAX_REPO_FACT_MANIFESTS,
+  MAX_REPO_FACT_PATHS,
+  type SponsoredRepoFacts,
+} from './sponsored-skill-fit'
 
 /** `agenticOfferRoute` on an `/api/ads` request, and `v` on this route's wire. */
 export const AGENTIC_OFFER_ROUTE_VERSION = 1
@@ -105,6 +113,56 @@ export const agenticOfferDeviceSchema = z
   })
   .strict()
 
+const repoFactPath = z
+  .string()
+  .min(1)
+  .max(400)
+  .refine((path) => !path.startsWith('/') && !path.split('/').includes('..'))
+
+/**
+ * The repository's fit facts (`sponsoredRepoFacts`, `sponsored-skill-fit.ts`):
+ * fit-file paths and the manifests' dependency names, capped. The names are
+ * used in memory to decide fit and NEVER logged, persisted or put in the
+ * training log (Owen, 2026-10-14). Sent top-level, beside the strict
+ * capabilities, so a server that predates it ignores it rather than 400ing.
+ */
+export const sponsoredRepoFactsSchema: z.ZodType<SponsoredRepoFacts> = z
+  .object({
+    v: z.literal(1),
+    paths: z.array(repoFactPath).max(MAX_REPO_FACT_PATHS),
+    complete: z.boolean(),
+    absent: z.array(repoFactPath).max(16).optional(),
+    manifests: z
+      .array(
+        z
+          .object({
+            path: repoFactPath,
+            ecosystem: z.enum(['npm', 'pypi']),
+            names: z
+              .array(z.string().min(1).max(214))
+              .max(MAX_REPO_FACT_DEPENDENCY_NAMES),
+            complete: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(MAX_REPO_FACT_MANIFESTS)
+      .refine(
+        (manifests) =>
+          manifests.reduce((n, manifest) => n + manifest.names.length, 0) <=
+          MAX_REPO_FACT_DEPENDENCY_NAMES,
+      ),
+    empty: z.array(repoFactPath).max(MAX_REPO_FACT_PATHS).optional(),
+  })
+  .strict()
+
+/** A request's `repoFacts`, or null when absent or malformed (never a 400). */
+export function parseAgenticOfferRepoFacts(
+  value: unknown,
+): SponsoredRepoFacts | null {
+  const parsed = sponsoredRepoFactsSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
+}
+
 export const agenticOfferRequestSchema = z.object({
   v: z.literal(AGENTIC_OFFER_ROUTE_VERSION),
   /** The Desktop thread id -- the same value `/api/ads` receives as `sessionId`. */
@@ -115,6 +173,12 @@ export const agenticOfferRequestSchema = z.object({
     .max(20),
   localCapability: agenticOfferLocalCapabilitySchema.optional(),
   sponsoredCapability: sponsoredCapabilitySchema.optional(),
+  /**
+   * The browser workspace's worktree facts (`web` client only). The route
+   * reads it only from the workspace server, adds the server-assigned
+   * `cloud_linux` execution itself, and ignores it from any other client.
+   */
+  cloudCapability: cloudWorktreeCapabilitySchema.optional(),
   capabilityInspection: capabilityInspectionSchema.optional(),
   /** Setup-only capability; parsed server-side exactly as `/api/ads` does. */
   invitationCapability: z.unknown().optional(),
@@ -147,11 +211,31 @@ export const agenticOfferRequestSchema = z.object({
    */
   inPlaceExecutionVersion: z.literal(SPONSORED_IN_PLACE_VERSION).optional(),
   /**
+   * `1`: this client runs the run spec the Accept delivers
+   * (`sponsored-run-spec.ts`): the server's prompt, skill and declared
+   * packages, never its own. Such a client is not refused a skill for being
+   * too old to resolve it (`sponsoredSkillClientRefusal`).
+   */
+  runSpecVersion: z.literal(SPONSORED_RUN_SPEC_VERSION).optional(),
+  /**
    * Pointer ids to the conversation's trace, never its text
    * (`trace-context.ts`). Unknown here and read with `parseAdTraceContext`, so
    * a malformed value is dropped instead of failing the request.
    */
   traceContext: z.unknown().optional(),
+  /**
+   * The conversation's project (`local:<sha256 prefix>`), or null for a chat
+   * with no folder: agentic relevance reads that project's understanding
+   * profile. Unknown here and read with `parseAdRequestProjectKey`, so a
+   * malformed value is dropped instead of failing the request.
+   */
+  projectKey: z.unknown().optional(),
+  /**
+   * The repository's fit facts (`sponsoredRepoFactsSchema`). Unknown here and
+   * read with `parseAgenticOfferRepoFacts`, so a malformed value is dropped
+   * instead of failing the request.
+   */
+  repoFacts: z.unknown().optional(),
 })
 
 export type AgenticOfferRequest = z.infer<typeof agenticOfferRequestSchema>

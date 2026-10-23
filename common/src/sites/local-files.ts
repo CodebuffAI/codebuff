@@ -5,6 +5,8 @@ import { SitesClientError } from './errors'
 
 const manifestSchema = z
   .object({
+    runtime: z.literal('opennext').optional(),
+    realtime: z.literal(true).optional(),
     entrypoint: z.string(),
     compatibilityDate: z.string(),
     compatibilityFlags: z.array(z.string()).optional(),
@@ -19,9 +21,31 @@ const manifestSchema = z
       .min(1)
       .max(100),
     assetsDirectory: z.string().optional(),
+    cache: z
+      .array(
+        z
+          .object({
+            key: z
+              .string()
+              .regex(
+                /^incremental-cache\/[A-Za-z0-9_-]{1,200}\/[a-f0-9]{64}\.(?:cache|fetch)$/,
+              ),
+            path: z.string(),
+          })
+          .strict(),
+      )
+      .max(1000)
+      .optional(),
     spa: z.boolean().optional(),
   })
   .strict()
+  .refine(
+    (manifest) =>
+      manifest.cache === undefined || manifest.runtime === 'opennext',
+    {
+      message: 'Only OpenNext deployments contain private build cache entries.',
+    },
+  )
   .refine(
     (manifest) =>
       manifest.modules.some(
@@ -76,14 +100,14 @@ export async function bundleSite(cwd: string, manifestPath: string) {
   const root = await realpath(cwd)
   const path = await localPath(root, manifestPath)
   const parsed = manifestSchema.safeParse(
-    JSON.parse((await readBounded(path, 64 * 1024)).toString('utf8')),
+    JSON.parse((await readBounded(path, 512 * 1024)).toString('utf8')),
   )
   if (!parsed.success)
     throw invalid(
       'Invalid deploy manifest. entrypoint must match an ESM module name (not its local path). Supply compatibilityDate and modules with name/type/path; optional assetsDirectory and spa.',
     )
   const manifest = parsed.data
-  let remaining = 10 * 1024 * 1024
+  let remaining = (manifest.runtime === 'opennext' ? 32 : 10) * 1024 * 1024
   const read = async (file: string) => {
     const data = await readBounded(file, remaining)
     remaining -= data.length
@@ -94,7 +118,9 @@ export async function bundleSite(cwd: string, manifestPath: string) {
     const file = await localPath(root, resolve(dirname(path), module.path))
     if (
       relative(root, file).split(/[\\/]/).some(unsafeAsset) ||
-      !['.js', '.mjs', '.txt', '.json', '.wasm'].includes(extname(file))
+      !['.js', '.mjs', '.txt', '.json', '.html', '.wasm'].includes(
+        extname(file),
+      )
     )
       throw invalid(
         'Only built JS, text, JSON and WASM modules may be uploaded.',
@@ -145,12 +171,29 @@ export async function bundleSite(cwd: string, manifestPath: string) {
     }
     await walk(directory, '')
   }
+  const cache = manifest.cache
+    ? ([] as { key: string; contentBase64: string }[])
+    : undefined
+  for (const entry of manifest.cache ?? []) {
+    const file = await localPath(root, resolve(dirname(path), entry.path))
+    if (
+      relative(root, file).split(/[\\/]/).some(unsafeAsset) ||
+      extname(file) !== '.json'
+    )
+      throw invalid(
+        'OpenNext cache entries must be dedicated private build JSON files.',
+      )
+    cache!.push({ key: entry.key, contentBase64: await read(file) })
+  }
   return {
+    ...(manifest.runtime ? { runtime: manifest.runtime } : {}),
+    ...(manifest.realtime ? { realtime: true as const } : {}),
     entrypoint: manifest.entrypoint,
     compatibilityDate: manifest.compatibilityDate,
     compatibilityFlags: manifest.compatibilityFlags ?? [],
     modules,
     ...(assets !== undefined ? { assets } : {}),
+    ...(cache !== undefined ? { cache } : {}),
     spa: manifest.spa ?? false,
   }
 }

@@ -13,6 +13,8 @@ import {
 } from '@codebuff/common/constants/turn-ending-rule'
 import {
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  FREEBUFF_SOLAR_MINI_4_MODEL_ID,
+  FREEBUFF_SOLAR_PRO_4_MODEL_ID,
   SUPPORTED_FREEBUFF_MODELS,
 } from '@codebuff/common/constants/freebuff-models'
 import { describe, test, expect } from 'bun:test'
@@ -35,6 +37,7 @@ import base3FreeMuseSpark from '../base3-free-muse-spark'
 import base3FreeMuseSpark13 from '../base3-free-muse-spark-1-3'
 import base3FreeOxAlpha from '../base3-free-ox-alpha'
 import base3FreeGemini38Flash from '../base3-free-gemini-3-8-flash'
+import base3FreeGemini4Argon from '../base3-free-gemini-4-argon'
 import base3FreeSolarPro4 from '../base3-free-solar-pro4'
 import base3FreeSolarMini4 from '../base3-free-solar-mini4'
 import base3FreeSpaceBunnyAlpha from '../base3-free-space-bunny-alpha'
@@ -77,6 +80,7 @@ const CLI_ROOTS = [
   base3FreeSolarMini4,
   base3FreeSpaceBunnyAlpha,
   base3FreeGemini38Flash,
+  base3FreeGemini4Argon,
   base3FreeMuseSpark,
   base3FreeMuseSpark13,
 ]
@@ -94,7 +98,7 @@ describe('base3 CLI roots', () => {
     // Fable 5.1 deliberately runs base2 for the trace campaign. The
     // count is asserted so a root added without the flags below cannot slip in
     // unnoticed.
-    expect(CLI_ROOTS.length).toBe(21)
+    expect(CLI_ROOTS.length).toBe(22)
     for (const agent of CLI_ROOTS) {
       // Windowed reads + the 100-entry glob cap + search-first tool wording.
       expect(agent.windowedFileReads).toBe(true)
@@ -108,13 +112,36 @@ describe('base3 CLI roots', () => {
       // Single loop: no subagents at all, which is what the harness IS.
       expect(agent.spawnableAgents ?? []).toEqual([])
       expect(agent.toolNames ?? []).not.toContain('spawn_agents')
-      // No per-turn instructions but Muse Spark 1.3's turn-ending note.
+      // No per-turn instructions but the turn-ending note, and only for the
+      // models that end turns on a status line. Written as a literal set, so a
+      // refactor of base3's own list cannot move both sides at once.
       expect(agent.instructionsPrompt).toBe(
-        agent.model === FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID
+        [
+          FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+          FREEBUFF_SOLAR_PRO_4_MODEL_ID,
+          FREEBUFF_SOLAR_MINI_4_MODEL_ID,
+        ].includes(agent.model as string)
           ? TURN_ENDING_NOTE
           : undefined,
       )
     }
+  })
+
+  // Solar Pro 4 and Solar Mini 4 ended 24.0% and 18.8% of their completed
+  // Desktop turns in prose with no tool call over the 24h to 2026-10-14,
+  // against DeepSeek V4 Flash's 1.7% — and 41.7% vs 17.1% zero-tool among the
+  // 402 users who used both. Named here as well as in the loop above: a root
+  // that disappears from CLI_ROOTS must fail, not pass silently.
+  test('the Solar roots and Muse Spark 1.3 carry the turn-ending note', () => {
+    for (const agent of [
+      base3FreeSolarPro4,
+      base3FreeSolarMini4,
+      base3FreeMuseSpark13,
+    ]) {
+      expect(agent.instructionsPrompt).toBe(TURN_ENDING_NOTE)
+    }
+    // And the comparison that made it measurable stays off it.
+    expect(base3FreeDeepseekFlash.instructionsPrompt).toBeUndefined()
   })
 
   test('DeepSeek Flash roots get 15 minutes / 40k, the rest the hour / 140k', () => {
@@ -254,6 +281,29 @@ describe('base3 CLI roots', () => {
       ...ALL_CLI_ROOTS.map((root) => root.systemPrompt!),
     ]) {
       expect(prompt).toContain(TURN_ENDING_RULE)
+    }
+  })
+
+  // Flash on this prompt read every verification and planning rule as a
+  // standing order and built far past small asks, and built a large version of
+  // open-ended asks instead of settling scope (docs/freebuff-base3-harness.md,
+  // "Scope discipline"). The completeness half stays: base3 once lost to base2
+  // on Flash for leaving requested work undone.
+  test('sizes the work to the request, without dropping completeness', () => {
+    for (const prompt of [
+      createBase3().systemPrompt!,
+      ...ALL_CLI_ROOTS.map((root) => root.systemPrompt!),
+    ]) {
+      expect(prompt).toContain('Size the work to the request')
+      expect(prompt).toContain('Do everything the user asked for, completely')
+      expect(prompt).toContain('settle the scope before building')
+      expect(prompt).toContain('Verify in proportion to the change')
+      // Unasked screenshots cost minutes a turn: a local loop of 19 captures
+      // on a "make it full screen" ask, and Cloud turns rebuilding Chromium.
+      expect(prompt).toContain(
+        'Take screenshots or drive a browser for visual inspection only when the user explicitly asks',
+      )
+      expect(prompt).not.toContain('through the interface the user will use')
     }
   })
 

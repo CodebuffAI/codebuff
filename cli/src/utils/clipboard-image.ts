@@ -555,13 +555,38 @@ export function readClipboardImageFilePath(): string | null {
 }
 
 /**
+ * The Linux text readers, in the order the write path in `clipboard.ts` tries
+ * their counterparts. xclip alone was not enough: a Wayland-only box ships
+ * wl-clipboard and often no xclip at all, so Ctrl+V pasted nothing there,
+ * even though the image readers above already fall through to wl-paste.
+ * wl-paste is asked for `text/plain` so an image-only clipboard cannot dump
+ * binary into the composer.
+ */
+const LINUX_TEXT_READERS: [string, string[]][] = [
+  ['xclip', ['-selection', 'clipboard', '-o']],
+  ['xsel', ['--clipboard', '--output']],
+  ['wl-paste', ['--no-newline', '--type', 'text/plain']],
+]
+
+function clipboardToolOutput(
+  result: ReturnType<typeof spawnSync>,
+): string | null {
+  if (result.status !== 0 || !result.stdout) return null
+  const output =
+    typeof result.stdout === 'string'
+      ? result.stdout
+      : result.stdout.toString('utf-8')
+  return output.replace(/\n+$/, '')
+}
+
+/**
  * Read text from clipboard. Returns null if reading fails.
  */
 export function readClipboardText(): string | null {
   try {
     const platform = process.platform
     let result: ReturnType<typeof spawnSync>
-    
+
     switch (platform) {
       case 'darwin':
         result = spawnSync('pbpaste', [], { encoding: 'utf-8', timeout: 1000 })
@@ -569,18 +594,20 @@ export function readClipboardText(): string | null {
       case 'win32':
         result = spawnSync('powershell', ['-Command', 'Get-Clipboard'], { encoding: 'utf-8', timeout: 1000 })
         break
-      case 'linux':
-        result = spawnSync('xclip', ['-selection', 'clipboard', '-o'], { encoding: 'utf-8', timeout: 1000 })
-        break
+      case 'linux': {
+        for (const [command, args] of LINUX_TEXT_READERS) {
+          const output = clipboardToolOutput(
+            spawnSync(command, args, { encoding: 'utf-8', timeout: 1000 }),
+          )
+          if (output) return output
+        }
+        return null
+      }
       default:
         return null
     }
-    
-    if (result.status === 0 && result.stdout) {
-      const output = typeof result.stdout === 'string' ? result.stdout : result.stdout.toString('utf-8')
-      return output.replace(/\n+$/, '')
-    }
-    return null
+
+    return clipboardToolOutput(result)
   } catch {
     return null
   }

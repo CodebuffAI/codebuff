@@ -198,9 +198,40 @@ export async function getAgentPrompt<T extends StringField>(
 
   let addendum = ''
 
+  // For non-inherited tools, agents are already defined as tools with full schemas,
+  // so we add the spawnerPrompt for each agent the model can spawn
+  const spawnableAgentsList = async (heading: string) => {
+    const agents = modelSpawnableAgents(agentTemplate)
+    if (agents.length === 0) return ''
+    const agentDescriptions = await Promise.all(
+      agents.map(async (agentType) => {
+        const template = await getAgentTemplate({
+          ...params,
+          agentId: agentType,
+          localAgentTemplates: agentTemplates,
+        })
+        if (template?.spawnerPrompt) {
+          return `- ${agentType}: ${template.spawnerPrompt}`
+        }
+        return `- ${agentType}`
+      }),
+    )
+    return `\n\n${heading}\n\n${agentDescriptions.join('\n')}`
+  }
+  // The list goes once at the end of the system prompt of an agent that asks
+  // for it, and otherwise into the instructions sent after every user prompt.
+  // An agent that inherits its parent's system prompt cannot carry it there.
+  const listInSystemPrompt =
+    agentTemplate.spawnableAgentsInSystemPrompt &&
+    !agentTemplate.inheritParentSystemPrompt
+
   if (promptType.type === 'stepPrompt' && agentState.agentType && prompt) {
     // Put step prompt within a system_reminder tag so agent doesn't think the user just spoke again.
     prompt = `<system_reminder>${prompt}</system_reminder>`
+  }
+
+  if (promptType.type === 'systemPrompt' && listInSystemPrompt) {
+    addendum += await spawnableAgentsList('# Agents you can spawn')
   }
 
   // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
@@ -219,23 +250,10 @@ export async function getAgentPrompt<T extends StringField>(
         })
         addendum += `\n\n${spawnableAgentsSpec}`
       }
-    } else if (modelSpawnableAgents(agentTemplate).length > 0) {
-      // For non-inherited tools, agents are already defined as tools with full schemas,
-      // so we add the spawnerPrompt for each agent
-      const agentDescriptions = await Promise.all(
-        spawnableAgents.map(async (agentType) => {
-          const template = await getAgentTemplate({
-            ...params,
-            agentId: agentType,
-            localAgentTemplates: agentTemplates,
-          })
-          if (template?.spawnerPrompt) {
-            return `- ${agentType}: ${template.spawnerPrompt}`
-          }
-          return `- ${agentType}`
-        }),
+    } else if (!listInSystemPrompt) {
+      addendum += await spawnableAgentsList(
+        'You can spawn the following agents:',
       )
-      addendum += `\n\nYou can spawn the following agents:\n\n${agentDescriptions.join('\n')}`
     }
 
     // Add output schema information if defined

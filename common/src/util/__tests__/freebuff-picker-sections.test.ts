@@ -6,6 +6,7 @@ import {
 } from '../../constants/freebuff-model-ids'
 import {
   FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
+  FREEBUFF_GEMINI_4_ARGON_MODEL_ID,
   FREEBUFF_GLM_V53_FLASH_MODEL_ID,
   FREEBUFF_GPT_61_SOL_MODEL_ID,
   FREEBUFF_GPT_6_LUNA_MODEL_ID,
@@ -22,6 +23,7 @@ import {
   FREEBUFF_PICKER_SECTIONS,
   freebuffPickerPlacement,
   freebuffPickerSections,
+  freebuffPickerSectionsFor,
   freebuffRowPlacement,
 } from '../freebuff-picker-sections'
 
@@ -32,20 +34,35 @@ describe('freebuffPickerPlacement', () => {
     const at = (id: string) => freebuffPickerPlacement([id], none)
     expect(at(FREEBUFF_SOLAR_PRO_4_MODEL_ID)).toEqual({ section: 'unlimited', order: expect.any(Number) })
     expect(at(FREEBUFF_SOLAR_MINI_4_MODEL_ID).section).toBe('unlimited')
-    expect(at(FREEBUFF_MIMO_V25_MODEL_ID)).toMatchObject({ section: 'optimized', recommended: true })
-    expect(at(FREEBUFF_GLM_V53_FLASH_MODEL_ID).section).toBe('optimized')
-    expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID).section).toBe('optimized')
-    for (const id of [
+    // DeepSeek V4.1 Flash leads Optimized as its pick since 2026-10-14.
+    expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)).toEqual({ section: 'optimized', order: 5, recommended: true })
+    // Then cheapest to dearest (2026-10-15): MiMo v2.6 Flash Slow (5), MiMo v2.6 Flash Fast (10),
+    // Muse Spark 1.3 (15), GLM 5.3 Flash and GPT-6 Luna (20).
+    const optimized = [
+      'm-61c26317cc', // MiMo v2.6 Flash Slow
+      FREEBUFF_MIMO_V25_MODEL_ID,
       FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+      FREEBUFF_GLM_V53_FLASH_MODEL_ID,
       FREEBUFF_GPT_6_LUNA_MODEL_ID,
-      FREEBUFF_MIMO_V26_PRO_MODEL_ID,
-      FREEBUFF_GPT_61_SOL_MODEL_ID,
-    ]) {
-      expect(at(id)).toEqual({ section: 'powerful', order: expect.any(Number) })
+    ].map((id) => at(id).order)
+    expect(optimized).toEqual([...optimized].sort((a, b) => a - b))
+    expect(optimized[0]).toBeGreaterThan(at(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID).order)
+    expect(at(FREEBUFF_MIMO_V25_MODEL_ID)).toEqual({ section: 'optimized', order: 12 })
+    expect(at(FREEBUFF_GLM_V53_FLASH_MODEL_ID).section).toBe('optimized')
+    // Muse Spark 1.3 and GPT-6 Luna moved to Optimized on 2026-10-13.
+    for (const id of [FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID, FREEBUFF_GPT_6_LUNA_MODEL_ID]) {
+      expect(at(id)).toEqual({ section: 'optimized', order: expect.any(Number) })
     }
+    // Gemini 4 Argon waits under Powerful's More since 2026-10-22, between
+    // Gemini 3.8 Flash and GPT-6.1 Sol by price.
+    expect(at(FREEBUFF_GEMINI_4_ARGON_MODEL_ID)).toEqual({ section: 'powerful', order: 45, more: true })
+    expect(at(FREEBUFF_MIMO_V26_PRO_MODEL_ID)).toEqual({ section: 'powerful', order: expect.any(Number) })
+    // Gemini 3.8 Flash, then GPT-6.1 Sol, under Powerful's More.
     expect(at(FREEBUFF_GEMINI_38_FLASH_MODEL_ID)).toMatchObject({ section: 'powerful', more: true })
-    // Not badged Recommended since 2026-10-07: Optimized's MiMo is the one pick.
-    expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID)).toEqual({ section: 'powerful', order: 5 })
+    expect(at(FREEBUFF_GPT_61_SOL_MODEL_ID)).toMatchObject({ section: 'powerful', more: true })
+    expect(at(FREEBUFF_GEMINI_38_FLASH_MODEL_ID).order).toBeLessThan(at(FREEBUFF_GPT_61_SOL_MODEL_ID).order)
+    // Not badged Recommended since 2026-10-07: Optimized's own pick is the one.
+    expect(at(FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID)).toEqual({ section: 'powerful', order: 20 })
   })
 
   test('every listed compiled model has an explicit place', () => {
@@ -56,7 +73,7 @@ describe('freebuffPickerPlacement', () => {
   test('the first placed name wins', () => {
     expect(
       freebuffPickerPlacement(['m-unknown', FREEBUFF_GPT_6_LUNA_MODEL_ID], none).section,
-    ).toBe('powerful')
+    ).toBe('optimized')
   })
 
   test('an unplaced row is inferred and tucked under More', () => {
@@ -83,17 +100,27 @@ describe('freebuffPickerSections', () => {
     expect(sections.map(({ section, models }) => [section.id, models])).toEqual([
       [
         'optimized',
-        [FREEBUFF_MIMO_V25_MODEL_ID, FREEBUFF_GLM_V53_FLASH_MODEL_ID, 'unplaced-cheap'],
+        [
+          FREEBUFF_MIMO_V25_MODEL_ID,
+          FREEBUFF_GLM_V53_FLASH_MODEL_ID,
+          FREEBUFF_GPT_6_LUNA_MODEL_ID,
+          'unplaced-cheap',
+        ],
       ],
       [
         'powerful',
-        [
-          FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
-          FREEBUFF_GPT_6_LUNA_MODEL_ID,
-          FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
-        ],
+        [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID, FREEBUFF_GEMINI_38_FLASH_MODEL_ID],
       ],
     ])
+  })
+})
+
+describe('freebuffPickerSectionsFor', () => {
+  test('Unlimited is last, except at the limited tier, where it leads', () => {
+    const ids = (tier: 'full' | 'limited') =>
+      freebuffPickerSectionsFor(tier).map(({ id }) => id)
+    expect(ids('full')).toEqual(['optimized', 'powerful', 'unlimited'])
+    expect(ids('limited')).toEqual(['unlimited', 'optimized', 'powerful'])
   })
 })
 

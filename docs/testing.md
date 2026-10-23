@@ -2,7 +2,7 @@
 
 - Prefer dependency injection over module mocking; define contracts in `common/src/types/contracts/`.
 - Use `spyOn()` only for globals / legacy seams.
-- Avoid `mock.module()` for functions; use `@codebuff/common/testing/mock-modules.ts` helpers for constants only.
+- Avoid `mock.module()` for functions; use `@codebuff/common/testing/mock-modules.ts` helpers for constants only. A module mock lasts for the rest of the `bun test` process, and `mock.restore()` does not undo it (see "the FILE ORDER").
 
 CLI hook testing note: React 19 + Bun + RTL `renderHook()` is unreliable; prefer integration tests via components for hook behavior.
 
@@ -12,7 +12,7 @@ CLI hook testing note: React 19 + Bun + RTL `renderHook()` is unreliable; prefer
 
 Every package must therefore have a `bunfig.toml` preloading `sdk/test/setup-env.ts` — the one shared fixture, which supplies placeholder values for every var the schemas require. This is not just a local-dev nicety: CI runs `cd <package> && bun test`, i.e. exactly the package-local mode. Placeholders only — tests must never need real credentials, so `bun test` means the same thing in a fresh worktree and in a provisioned checkout.
 
-The unit-test matrix therefore never loads Infisical. This is a correctness boundary, not merely a secrets optimization: production rollout switches are mutable operational state, so importing them makes unrelated commits fail as soon as an operator changes a flag. Tests for non-default modes must set the specific variable in the test or inject the mode explicitly. Secret-bearing integration jobs remain separate.
+The unit-test matrix therefore never loads Infisical, and neither does `flake-hunt.yml`, which runs the same suites in the same job environment. This is a correctness boundary, not merely a secrets optimization: production rollout switches are mutable operational state, so importing them makes unrelated commits fail as soon as an operator changes a flag. Tests for non-default modes must set the specific variable in the test or inject the mode explicitly. Secret-bearing integration jobs remain separate.
 
 The shared preload deletes `FREEBUFF_ADS_SLACK_WEBHOOK_URL`, including when
 integration CI or a local shell supplies it. Campaign fixtures otherwise send
@@ -24,6 +24,8 @@ or `postMessage`; the production webhook stays configured for real submissions.
 The same rule covers generated inputs. `cli/src/agents/bundled-agents.generated.ts` is gitignored, and importing it at module scope wiped 17 files (~371 tests) in a fresh worktree; `cli/test/setup-agents-artifact.ts` now builds it on demand instead of relying on everyone knowing to run `bun run prebuild:agents`.
 
 Tests that need a **service** rather than a variable should skip cleanly and say why, but never in CI. `@codebuff/internal/testing/test-db` probes Postgres once, skips the DB suites locally with the docker command to fix it, and throws when `CODEBUFF_GITHUB_ACTIONS=true` — otherwise a broken CI service container would read as a pass. Gate on **reachability**, never on `!process.env.DATABASE_URL`: the fixtures supply a placeholder URL, so presence stopped meaning availability.
+
+A unit test that leaks a database call gets the same answer locally as in CI. `test/setup-db-leak-guard.ts`, the first preload in the bunfig of every package whose tests can reach Postgres (the root, `web`, `freebuff/web`, `packages/{internal,billing,auth,jobs}`, and `scripts`, which preloads nothing else), answers CI's `must-not-reach-a-database` URLs with an instant Postgres error that names the leak. When none of `DATABASE_URL`, `DIRECT_DATABASE_URL` and `SCRIPTS_DATABASE_URL` is set, it supplies that URL itself. Without it, a local run fell through to `setup-env.ts`'s localhost placeholder, where postgres-js's reconnect backoff let a swallowed leak time out some later test (2026-10-13). It must stay ahead of `setup-env.ts` in those lists, and `scripts/__tests__/db-leak-guard.test.ts` fails if it does not. Set any of the three, as an integration run does, and it leaves them all alone. `probeTestDb` reports the sentinel as unreachable without connecting, so integration files skip without tripping the guard.
 
 Tests that spawn a server child should race readiness against `proc.exited` and report the child's captured output (see `freebuff-desktop/test/launch-bootstrap.smoke.test.ts`). Polling a dead port surfaces only as "a hook timed out", which names neither the cause nor the process that failed.
 
@@ -777,6 +779,44 @@ cd freebuff-desktop && bun test \
   --preload ../test/setup-scm-loader.ts --preload ../sdk/test/setup-env.ts --preload /tmp/leak.ts \
   src/ui/shell/Tab.rename.test.tsx src/ui/agent/AgentPicker.menu.test.tsx
 ```
+
+Our own components do it too. Freebuff Web's survey cards show once per page load
+and keep that in module state behind a reset seam (`resetWorkspaceProfileSurveySession`,
+`resetWorkspaceOnboardingSurveySession`). Any file that renders `WorkspaceApp` can
+spend it. So a test that needs the card resets it in `beforeEach`, not only
+`afterEach`. Otherwise its first test renders nothing whenever bun loads it after
+`workspace-app.dom` or `workspace-queue.dom` (2026-10-13, `sponsored-survey.dom`).
+
+**`mock.module()` is the same hazard, and nothing in bun undoes it.** Measured on
+Bun 1.3.14 (2026-10-13):
+
+- **`mock.restore()` does not restore a module mock.** It restores spies. A file
+  that ends `afterAll(() => mock.restore())` leaves its module fakes in place for
+  every file after it. Only `clearMockedModules()` from
+  `@codebuff/common/testing/mock-modules.ts` puts a module back.
+- **The fake behaves two ways, depending on whether anything loaded the module
+  first.** If nothing did, later importers get only the factory's exports, and
+  any file that imports another one fails to load:
+  `SyntaxError: Export named 'db' not found in module '.../db/index.ts'`. If an
+  earlier file did, bun patches the factory's exports into the loaded module in
+  place and keeps the rest. Later files, and earlier importers through their live
+  bindings, then run silently against the fake. A two-file run usually shows the
+  first; the full suite usually the second.
+- **Bun walks directories breadth-first.** Shallower directories come first;
+  within a directory, files and subdirectories come in readdir order, which is
+  fixed per tree on APFS and ext4 but differs between them. So
+  `bun test leaker.test.ts victim.test.ts` runs the pair in that tree order, whatever
+  the command line says (`--reporter=junit` lists it). A file can leak only into
+  files bun loads after it: at the same depth, later in that order, or deeper.
+
+So inject the dependency instead: a handler that takes its collaborators (the
+`_post.ts` + `route.ts` split), or an optional `deps` argument. To reproduce a
+suspected module-mock leak, run the leaking file with the victim. If bun orders
+the victim first, put the leaking file's `mock.module` calls in a preload beside
+it, so relative paths and `@/` resolve the same way. Then run the victim with
+web's own preloads, since `--preload` on the command line replaces bunfig's list.
+For the in-place case, `await import()` each module in that preload before
+mocking it.
 
 **An eighth shape, and one where the wait is fast and the CHECK is slow: a
 failing matcher handed a mounted DOM node.** `expect(node).toBe(other)` and

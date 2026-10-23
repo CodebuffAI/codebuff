@@ -429,10 +429,10 @@ export interface WriteFileParams {
 }
 
 /**
- * Write a todo list to track tasks for multi-step implementations. Use this frequently to maintain an updated step-by-step plan.
+ * Write a todo list to track tasks for multi-step implementations. Keep it updated as you complete each step.
  */
 export interface WriteTodosParams {
-  /** List of todos with their completion status. Add ALL of the applicable tasks to the list, so you don't forget to do anything. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet! */
+  /** List of todos with their completion status. List every step the user's request requires, so you don't forget any, and nothing it does not: no extra features, refactors or polish. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet! */
   todos: {
     /** Description of the task */
     task: string

@@ -35,6 +35,7 @@ import { runPlainLogin } from './login/plain-login'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { trackEvent } from './utils/analytics'
+import { captureCliFunnel } from './utils/cli-product-funnel'
 import { installAiSdkWarningLogger } from './utils/ai-sdk-warnings'
 import {
   getTrustStorePath,
@@ -271,6 +272,15 @@ async function main(): Promise<void> {
   // Set the auth token for the API client
   setApiClientAuthToken(getAuthToken())
 
+  captureCliFunnel(
+    'launch',
+    'started',
+    {
+      entry_account_state: getAuthToken() ? 'stored_credentials' : 'signed_out',
+    },
+    'launch',
+  )
+
   // Handle login command before rendering the app
   if (isLoginCommand) {
     await runPlainLogin()
@@ -282,6 +292,13 @@ async function main(): Promise<void> {
   const homeDir = os.homedir()
   const startCwd = process.cwd()
   const showProjectPicker = shouldShowProjectPicker(startCwd, homeDir)
+  if (!showProjectPicker)
+    captureCliFunnel(
+      'context',
+      'succeeded',
+      { project_kind: 'local' },
+      'initial',
+    )
 
   // Requires analytics to be initialized, which is done in initializeApp
   trackEvent(AnalyticsEvent.APP_LAUNCHED, {
@@ -430,6 +447,7 @@ async function main(): Promise<void> {
       async (newProjectPath: string) => {
         // Change process working directory
         process.chdir(newProjectPath)
+        captureCliFunnel('context', 'succeeded', { project_kind: 'folder' })
 
         // Track directory change (avoid logging full paths for privacy)
         const isGitRepo = fs.existsSync(path.join(newProjectPath, '.git'))

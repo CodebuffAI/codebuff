@@ -5,6 +5,8 @@ import {
   supabaseFoundationMode,
 } from './sponsored-execution-surface'
 
+import type { SponsoredRunExecutionSurface } from './sponsored-execution-surface'
+
 /** Client evidence only: the execution host rechecks these facts before Accept. */
 export const sponsoredCapabilityReasonSchema = z.enum([
   'no_git_repository',
@@ -104,12 +106,37 @@ export const sponsoredCapabilitySchema = z
         reason: sponsoredCapabilityReasonSchema.optional(),
         // Older Linux clients isolate networking; only updated clients report true.
         outboundNetwork: z.boolean().optional(),
+        nativeDesktopTools: z.boolean().optional(),
       })
       .strict(),
   })
   .strict()
 
 export type SponsoredCapability = z.infer<typeof sponsoredCapabilitySchema>
+
+/**
+ * The browser workspace's worktree facts on the offer route: a v2 capability
+ * with NO `execution`. A Freebuff Web run's surface (`cloud_linux`) is
+ * server-assigned, never claimed on the wire (`SPONSORED_CLOUD_EXECUTION_SURFACE`),
+ * so the route adds it itself, and only for a request it proved came from the
+ * workspace server (`cloudSponsoredCapability` in `./web-agentic-offer`).
+ */
+export const cloudWorktreeCapabilitySchema = sponsoredCapabilitySchema.omit({
+  execution: true,
+})
+export type CloudWorktreeCapability = z.infer<
+  typeof cloudWorktreeCapabilitySchema
+>
+
+/**
+ * A capability as the server reads it: the wire's, or the browser workspace's
+ * with the server-assigned `cloud_linux` execution.
+ */
+export type SponsoredRunCapability = Omit<SponsoredCapability, 'execution'> & {
+  execution: Omit<SponsoredCapability['execution'], 'surface'> & {
+    surface: SponsoredRunExecutionSurface
+  }
+}
 export type SponsoredLocalTarget = z.infer<typeof sponsoredLocalTargetSchema>
 export type CapabilityInspection = z.infer<typeof capabilityInspectionSchema>
 export type SponsoredCapabilityReason = z.infer<

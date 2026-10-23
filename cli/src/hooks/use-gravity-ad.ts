@@ -1,9 +1,11 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
+import type { PartnerBrand } from '@codebuff/common/ads/partner-brand'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getAdUserAgent } from '@codebuff/common/util/ad-user-agent'
 import { FREEBUFF_EVENT_ID_HEADER } from '@codebuff/common/ads/ad-event-hygiene'
 import {
   acknowledgeFirstPartyView,
+  firstPartyViewAckSettled,
   type FirstPartyViewAckRequest,
 } from '@codebuff/common/ads/first-party-view-ack'
 import { createFirstPartyViewAckTelemetry } from '@codebuff/common/util/axiom-only-log'
@@ -83,7 +85,7 @@ export type AdResponse = {
   bullets?: string[]
   diagram?: string
   /** Explicit server-owned partner designation. */
-  partnerBrand?: 'greptile'
+  partnerBrand?: PartnerBrand
   /**
    * Reviewed fill and ink, `#rrggbb`, for custom partner rows. Ordinary ads
    * use them only with Greptile's explicit partner designation.
@@ -181,8 +183,10 @@ type GravityController = {
   eligibleSlotCounts: Map<string, number>
 }
 
+type ChoiceCache = Pick<GravityController, 'choiceCache' | 'choiceCacheIndex'>
+
 // Pure helper: add an ad set to the cache
-function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
+function addToChoiceCache(ctrl: ChoiceCache, ads: AdResponse[]): void {
   // Deduplicate by checking if any set has the same first impUrl
   const key = ads[0]?.impUrl
   if (key && ctrl.choiceCache.some((set) => set[0]?.impUrl === key)) return
@@ -191,11 +195,52 @@ function addToChoiceCache(ctrl: GravityController, ads: AdResponse[]): void {
 }
 
 // Pure helper: get the next cached ad set
-function nextFromChoiceCache(ctrl: GravityController): AdResponse[] | null {
+function nextFromChoiceCache(ctrl: ChoiceCache): AdResponse[] | null {
   if (ctrl.choiceCache.length === 0) return null
   const set = ctrl.choiceCache[ctrl.choiceCacheIndex % ctrl.choiceCache.length]!
   ctrl.choiceCacheIndex = (ctrl.choiceCacheIndex + 1) % ctrl.choiceCache.length
   return set
+}
+
+/**
+ * COD-906: the server CHOSE no ad for this request (the new-user ad ramp,
+ * docs/experiments.md) -- not a no-fill. Only `{ ads: [], withheld: true }`
+ * counts; any other body is read as before.
+ */
+export function isWithheldAdResponse(data: unknown): boolean {
+  if (typeof data !== 'object' || data === null) return false
+  const body = data as { ads?: unknown; withheld?: unknown }
+  return (
+    body.withheld === true && Array.isArray(body.ads) && body.ads.length === 0
+  )
+}
+
+/** A fetch: served ads, a withheld request, or nothing usable. */
+export type AdFetchResult =
+  | { ads: AdResponse[] }
+  | { withheld: true }
+  | null
+
+/**
+ * What one rotation tick does with its fetch. Served ads are cached and
+ * shown; a withheld request clears the slot (COD-906: re-showing a cached
+ * ad would undo the server's decision); a failed or empty fetch falls back
+ * to the cache as before, and leaves the slot alone when the cache is empty.
+ * `undefined` means "leave the slot as it is".
+ */
+export function rotationStep(
+  ctrl: ChoiceCache,
+  result: AdFetchResult,
+): { show: AdResponse[] | null | undefined; countsAsShown: boolean } {
+  if (result && 'withheld' in result) return { show: null, countsAsShown: false }
+  if (result) {
+    addToChoiceCache(ctrl, result.ads)
+    return { show: result.ads, countsAsShown: true }
+  }
+  const cachedSet = nextFromChoiceCache(ctrl)
+  return cachedSet
+    ? { show: cachedSet, countsAsShown: true }
+    : { show: undefined, countsAsShown: false }
 }
 
 /**
@@ -239,6 +284,19 @@ export function dispatchFirstPartyViewAcknowledgement(
 }
 
 /**
+ * Send a click report once this ad's view ack has settled, or after
+ * `FIRST_PARTY_VIEW_BEFORE_CLICK_WAIT_MS`. Only first-party views are tracked
+ * in flight; any other ad, or one whose view already landed, sends at once.
+ */
+export function sendClickAfterView<T>(
+  impUrl: string,
+  send: () => Promise<T>,
+  viewSettled: (token: string) => Promise<void> = firstPartyViewAckSettled,
+): Promise<T> {
+  return viewSettled(impUrl).then(send)
+}
+
+/**
  * Report a click on any CLI ad.
  *
  * Module-level rather than a closure inside the hook because the PARTNER rows
@@ -246,6 +304,10 @@ export function dispatchFirstPartyViewAcknowledgement(
  * click path means an advertiser's click is counted the same way wherever it
  * was drawn. Never awaited by a caller — a click that waited on our own
  * telemetry before opening the link would be slower than the ad is worth.
+ *
+ * The report itself waits, bounded, behind this ad's view ack
+ * ({@link sendClickAfterView}): callers fire the view first, open the link,
+ * and the server still sees the view before the click (ad click IVT).
  */
 export function recordAdClick(
   ad: Pick<AdResponse, 'impUrl'> & { url?: string },
@@ -267,32 +329,34 @@ export function recordAdClick(
   // new gesture and a new id, and the server answers `alreadyRecorded`.
   const clientEventId = crypto.randomUUID()
   const dock = options?.dock
-  const ack = timedApiCall(() =>
-    fetch(`${WEBSITE_URL}/api/v1/ads/click`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-        'User-Agent': getCliAdRequestUserAgent(),
-        ...clientEnvironmentHeaders(),
-        [FREEBUFF_EVENT_ID_HEADER]: clientEventId,
-      },
-      body: JSON.stringify({
-        impUrl: ad.impUrl,
-        clientEventId,
-        ...(options?.surface ? { surface: options.surface } : {}),
-        // The dock's own fields ride the ACK (COD-457), so the canonical
-        // server-side `ads.clicked` carries them and one click stays one
-        // event. Emitting a second client-side click here double-counted.
-        ...(dock
-          ? {
-              dockFrom: dock.from,
-              dockDwellMs: dock.dwellMs,
-              dockAccidentalClick: dock.accidental,
-            }
-          : {}),
+  const ack = sendClickAfterView(ad.impUrl, () =>
+    timedApiCall(() =>
+      fetch(`${WEBSITE_URL}/api/v1/ads/click`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+          'User-Agent': getCliAdRequestUserAgent(),
+          ...clientEnvironmentHeaders(),
+          [FREEBUFF_EVENT_ID_HEADER]: clientEventId,
+        },
+        body: JSON.stringify({
+          impUrl: ad.impUrl,
+          clientEventId,
+          ...(options?.surface ? { surface: options.surface } : {}),
+          // The dock's own fields ride the ACK (COD-457), so the canonical
+          // server-side `ads.clicked` carries them and one click stays one
+          // event. Emitting a second client-side click here double-counted.
+          ...(dock
+            ? {
+                dockFrom: dock.from,
+                dockDwellMs: dock.dwellMs,
+                dockAccidentalClick: dock.accidental,
+              }
+            : {}),
+        }),
       }),
-    }),
+    ),
   )
     .then((res) => {
       if (!res.ok) {
@@ -569,13 +633,17 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
   }
 
   const recordClick = (ad: AdResponse, dock?: DockClickContext): void => {
+    // A click is proof the ad was on screen. Its view normally went out at
+    // mount; this sends it now if it never did (deduped otherwise), so the
+    // click report below has a view to wait behind.
+    recordImpressionOnce(ad)
     recordAdClick(ad, {
       ...(surface ? { surface } : {}),
       ...(dock ? { dock } : {}),
     })
   }
 
-  type FetchAdResult = { ads: AdResponse[] } | null
+  type FetchAdResult = AdFetchResult
 
   // Fetch an ad via web API
   const fetchAd = async (params?: {
@@ -621,6 +689,8 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
 
       const data = await response.json()
 
+      if (isWithheldAdResponse(data)) return { withheld: true }
+
       if (Array.isArray(data.ads) && data.ads.length > 0) {
         // Receipt stamp for `renderDelayMs` (COD-365): the response is in
         // hand, the card is not yet on screen.
@@ -638,7 +708,15 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         }
       }
     } catch (err) {
-      logger.error({ err, provider }, '[ads] Failed to fetch ad')
+      // `url` names which of the two ad routes threw. Only Bun's own network
+      // errors carry the request as `path`, so without it a parse failure or
+      // any other throw is unattributable to a host -- and the two routes do
+      // not fail alike (2026-10-14: every connection failure in six hours was
+      // against freebuff.com's `/api/ads`, none against `/api/v1/ads`).
+      logger.error(
+        { err, provider, url: request.url },
+        '[ads] Failed to fetch ad',
+      )
     }
 
     return null
@@ -663,18 +741,9 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
           ? await fetchAd({ placementId: slotPlacementId, placementIds })
           : null
 
-        if (result) {
-          addToChoiceCache(ctrl, result.ads)
-          ctrl.adsShownSinceActivity += 1
-          setAds(result.ads)
-        } else {
-          // Fall back to cached ads
-          const cachedSet = nextFromChoiceCache(ctrl)
-          if (cachedSet) {
-            ctrl.adsShownSinceActivity += 1
-            setAds(cachedSet)
-          }
-        }
+        const step = rotationStep(ctrl, result)
+        if (step.countsAsShown) ctrl.adsShownSinceActivity += 1
+        if (step.show !== undefined) setAds(step.show)
       } finally {
         ctrl.tickInFlight = false
       }
@@ -705,7 +774,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
         placementId: slotPlacementId,
         placementIds,
       })
-      if (result) {
+      if (result && 'ads' in result) {
         const ctrl = ctrlRef.current
         addToChoiceCache(ctrl, result.ads)
         setAds(result.ads)
@@ -783,7 +852,7 @@ export const useGravityAd = (options?: GravityAdOptions): GravityAdState => {
       count,
       fetchOne: async () => {
         const result = await fetchAd({ placementId: inlinePlacementId })
-        return result?.ads[0] ?? null
+        return result && 'ads' in result ? (result.ads[0] ?? null) : null
       },
       onAd: (ad) => {
         setResponseAds((prev) => ({

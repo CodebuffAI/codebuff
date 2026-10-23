@@ -1,5 +1,6 @@
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+  FREEBUFF_GPT_6_LUNA_MODEL_ID,
   FREEBUFF_MIMO_V25_MODEL_ID,
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
   FREEBUFF_MUSE_SPARK_REASONING_EFFORT,
@@ -27,29 +28,48 @@ export interface FreebuffPresetModel {
   defaultEffort?: ReasoningEffort
 }
 
+/**
+ * MiMo v2.6 Flash Slow's catalog key (`defaultCatalogKey('fbc/mimo-slow')`):
+ * a catalog-only row, so it has no public id and is found by its opaque key,
+ * as in freebuff-picker-sections.ts. Pinned to its id by the web catalog tests.
+ */
+export const FREEBUFF_MIMO_SLOW_CATALOG_KEY = 'm-61c26317cc'
+
 /** Recommendations only. Catalog visibility, purchase consent and admission
  * remain owned by the existing model-selection path.
  *
- * Every account with premium access gets the same three stops, whatever its
- * country: MiMo, DeepSeek V4 Flash at high effort (the Luminal lane), and Muse
- * Spark 1.3. Muse Spark is a paid-only row, so for a free account that stop is
- * the ordinary paywall, never an entitlement. A limited-region account that is
- * neither a subscriber nor holds 100 Freebucks gets the free ladder below. */
+ * Full access (product, 2026-10-16): GPT-6 Luna at low effort, DeepSeek V4.1
+ * Flash at high effort (the Luminal lane), and Flash at max effort (since
+ * 2026-10-17; MiMo 2.6 Pro before).
+ * The first stop is no longer a cheap model, so it reads Fast rather than
+ * Efficient; limited ladders keep Efficient.
+ *
+ * A limited-access subscriber, or one holding 100 Freebucks, gets MiMo v2.6 Flash Slow
+ * (MiMo where it is not listed, as on Web), Flash at high effort and Muse Spark
+ * 1.3. Muse Spark is a paid-only row, so without a plan that stop is the
+ * ordinary paywall, never an entitlement. Any other limited account gets the
+ * free ladder below, built on the server's recommendation for it
+ * (`recommendedModelId`, MiMo v2.6 Flash Slow since 2026-10-14) where the catalog sends
+ * one, else MiMo. */
 export function getFreebuffModelPresets({
   accessTier,
   isSubscriber = false,
   balance = 0,
   pricing,
   models,
+  recommendedModelId,
 }: {
   accessTier?: FreebuffAccessTier | null
   isSubscriber?: boolean
   balance?: number
   pricing?: Pick<FreebuffFreebucksInfo, 'prices'> | null
   models?: readonly FreebuffPresetModel[]
+  /** The catalog's recommended row for this viewer (a catalog key). With
+   *  `models`, used only while it is listed and available. */
+  recommendedModelId?: string | null
 } = {}): readonly FreebuffModelPreset[] {
   const limited = accessTier === 'limited'
-  const premium = !limited || isSubscriber || balance >= 100
+  const premium = isSubscriber || balance >= 100
   const rowFor = (id: string) =>
     models?.find((row) => freebuffModelIdMatches(row.compiledId ?? row.id, id))
   const preset = (
@@ -80,9 +100,28 @@ export function getFreebuffModelPresets({
     }
   }
 
-  if (premium) {
+  if (!limited)
     return [
-      preset('efficient', 'Efficient', FREEBUFF_MIMO_V25_MODEL_ID, null),
+      preset('efficient', 'Fast', FREEBUFF_GPT_6_LUNA_MODEL_ID, 'low'),
+      preset('balanced', 'Balanced', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'high'),
+      preset('powerful', 'Powerful', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'max'),
+    ]
+
+  if (premium) {
+    // MiMo v2.6 Flash Slow leads where it is listed and open (product, 2026-10-14).
+    const slow = models?.find(
+      (row) =>
+        row.id === FREEBUFF_MIMO_SLOW_CATALOG_KEY && row.available !== false,
+    )
+    return [
+      slow
+        ? {
+            id: 'efficient' as const,
+            label: 'Efficient',
+            modelId: FREEBUFF_MIMO_SLOW_CATALOG_KEY,
+            reasoningEffort: null,
+          }
+        : preset('efficient', 'Efficient', FREEBUFF_MIMO_V25_MODEL_ID, null),
       preset('balanced', 'Balanced', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'high'),
       preset(
         'powerful',
@@ -105,6 +144,27 @@ export function getFreebuffModelPresets({
       ),
     )
     .find((row) => row !== undefined)
+  // The base of this ladder: the server's pick for the viewer when it is one
+  // they can start, else MiMo.
+  const recommended: Pick<FreebuffPresetModel, 'id' | 'defaultEffort'> | undefined = !recommendedModelId
+    ? undefined
+    : models
+      ? models.find(
+          (row) => row.id === recommendedModelId && row.available !== false,
+        )
+      : { id: recommendedModelId }
+  const base = (
+    id: FreebuffModelPreset['id'],
+    label: string,
+  ): FreebuffModelPreset =>
+    recommended
+      ? {
+          id,
+          label,
+          modelId: recommended.id,
+          reasoningEffort: recommended.defaultEffort ?? null,
+        }
+      : preset(id, label, FREEBUFF_MIMO_V25_MODEL_ID, null)
   return [
     free
       ? {
@@ -113,8 +173,8 @@ export function getFreebuffModelPresets({
           modelId: free.id,
           reasoningEffort: free.defaultEffort ?? free.efforts?.[0] ?? null,
         }
-      : preset('efficient', 'Efficient', FREEBUFF_MIMO_V25_MODEL_ID, null),
-    preset('balanced', 'Balanced', FREEBUFF_MIMO_V25_MODEL_ID, null),
+      : base('efficient', 'Efficient'),
+    base('balanced', 'Balanced'),
     preset('powerful', 'Powerful', FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID, 'high'),
   ]
 }
@@ -125,7 +185,7 @@ export function matchingFreebuffModelPreset(
   modelId: string | null | undefined,
   effort: ReasoningEffort | null | undefined,
 ): FreebuffModelPreset | undefined {
-  // If no free promotion is available, MiMo fills both lower stops. Prefer
+  // If no free promotion is available, the base row fills both lower stops. Prefer
   // Balanced, the default, instead of making a new chat appear downgraded.
   const matches = (preset: FreebuffModelPreset) =>
     !!modelId &&

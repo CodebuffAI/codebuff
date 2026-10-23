@@ -79,7 +79,7 @@ describe('a policy with weekends off-peak', () => {
       { now: Date.UTC(2026, 8, 17, 12), timeZone: 'America/Los_Angeles' },
     )!
     expect(copy.tooltip).toBe(
-      'Peak: 45 Freebucks/hr Sun–Thu, 5 PM–3 AM PDT. 25 otherwise.',
+      'Peak: 9x Sun–Thu, 5 PM–3 AM PDT. 5x otherwise.',
     )
     expect(copy.active).toBe(true)
   })

@@ -114,12 +114,33 @@ export function freebuffDefaultModelForSession(
   const directory = getFreebuffModelDirectory()
   const accessTier = getFreebuffServerAccessTier(session)
   const freebucks = getFreebucksInfo(session)
+  const isSubscriber = Boolean(
+    getSubscriptionInfo(session)?.tierId ?? freebucks?.planId,
+  )
   const balanced = getFreebuffModelPresets({
     accessTier,
-    isSubscriber: Boolean(
-      getSubscriptionInfo(session)?.tierId ?? freebucks?.planId,
-    ),
+    isSubscriber,
     balance: freebucks?.balance,
+    // The catalog's rows, so a catalog-only stop (MiMo v2.6 Flash Slow) is offered only
+    // while it is listed and open, and the server's pick for this viewer (MiMo
+    // Slow for a planless limited account). Without a catalog the compiled
+    // ladder stands.
+    ...(directory.catalog
+      ? {
+          models: directory
+            .pickerModels(accessTier, isSubscriber)
+            .map((model) => ({
+              id: model.id,
+              displayName: model.displayName,
+              available: !directory.planRequired(
+                model.id,
+                isSubscriber,
+                freebucks,
+              ),
+            })),
+          recommendedModelId: directory.recommendedModelId(accessTier),
+        }
+      : {}),
   }).find((preset) => preset.id === 'balanced')!
   const model = directory.resolveSelection(balanced.modelId)
   return getFreebuffModelMeter({ model, freebucks }).canStart

@@ -50,11 +50,13 @@ export function requiredSkillBump(
     !same(shape(current), shape(next)) ||
     !same(userSteps(current), userSteps(next)) ||
     !same(current.consent, next.consent) ||
-    !same(current.requirements, next.requirements)
+    !same(current.requirements, next.requirements) ||
+    !same(current.desktop, next.desktop)
   )
     return 'major'
   const logic = (s: SponsoredSkill) => ({
     preflight: s.preflight.map(checkLogic),
+    fit: s.fit,
     steps: s.steps.map((step) => [
       step.checks.map(checkLogic),
       step.maxAttempts,

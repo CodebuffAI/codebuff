@@ -8,6 +8,7 @@ import {
 
 import type {
   FreebuffRecentUsage,
+  FreebuffSessionLedgerEntry,
   FreebuffUsageSessionsByModel,
   FreebuffUsageSummary,
 } from '../types/freebuff-usage'
@@ -50,6 +51,9 @@ export function buildFreebuffUsageSummary(params: {
   todayDateKey: string
   recent?: FreebuffRecentUsage | null
   sessionsByModel?: readonly FreebuffUsageSessionsByModel[]
+  /** Newest first; omitted entirely when the ledger was not read. */
+  sessionCharges?: readonly FreebuffSessionLedgerEntry[]
+  sessionChargesDays?: number
   windowDays?: number
   timeZone?: string
 }): FreebuffUsageSummary {
@@ -80,6 +84,17 @@ export function buildFreebuffUsageSummary(params: {
     allTimeActiveDays: allDates.length,
     recent: params.recent ?? null,
     sessionsByModel: [...(params.sessionsByModel ?? [])],
+    // Omitted rather than empty when the caller passed nothing: an absent
+    // field means "this server does not report charges", an empty array means
+    // "it does, and there are none".
+    ...(params.sessionCharges
+      ? {
+          sessionCharges: [...params.sessionCharges],
+          ...(params.sessionChargesDays
+            ? { sessionChargesDays: params.sessionChargesDays }
+            : {}),
+        }
+      : {}),
   }
 }
 

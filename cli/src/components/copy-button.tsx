@@ -32,8 +32,11 @@ export function useCopyToClipboard(text: string): {
   const copy = useCallback(() => {
     void (async () => {
       try {
-        await copyTextToClipboard(text, { suppressGlobalMessage: true })
-        setIsCopied(true)
+        const result = await copyTextToClipboard(text, {
+          suppressGlobalMessage: true,
+        })
+        setIsCopied(result !== 'unverified')
+        if (result === 'unverified') return
         setTimeout(
           'reset-copied',
           () => setIsCopied(false),

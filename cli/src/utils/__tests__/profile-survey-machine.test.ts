@@ -461,7 +461,7 @@ describe('profileSurveyInputForKey', () => {
 describe('copy', () => {
   test('completion with and without a reward', () => {
     expect(profileSurveyCompletionLines(25, 10, 'https://x/account')).toBe(
-      '✓ +25 Freebucks added to your wallet\nedit answers: https://x/account',
+      '✓ +5 hours added to your wallet\nedit answers: https://x/account',
     )
     expect(profileSurveyCompletionLines(0, 10, 'https://x/account')).toBe(
       "✓ Thanks, that's all 10\nedit answers: https://x/account",

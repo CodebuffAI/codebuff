@@ -13,6 +13,7 @@ import {
   ADS_CAMPAIGN_INGRESS_EVIDENCE_EVENT,
   ADS_ADVERTISER_REPORTING_READ_EVENT,
   ADS_MCP_TOOL_CALL_EVENT,
+  AD_CLICK_IVT_SCORED_EVENT,
   PAID_API_REQUEST_EVENT,
   ADS_SHOWCASE_PRESENTED_EVENT,
   CONTEXT_PRUNING_COMPLETED_EVENT,
@@ -21,13 +22,148 @@ import {
   MECHANICAL_COMPACTION_SKIPPED_EVENT,
   CONTEXT_COMPACTION_COMPLETED_EVENT,
   COMPACTION_FOLLOWUP_EVENT,
+  FILE_EDIT_LOOP_EVENT,
   TODO_PROGRESS_REMINDER_EVENT,
   ADS_CLIENT_EVENT_HYGIENE_FIELDS,
   ADS_FIRST_PARTY_TRACKING_FIELD_NAMES,
   FIRST_PARTY_VIEW_ACK_FIELD_NAMES,
 } from '../axiom-only-log'
 
+test('ships measured ad prediction latency and keeps absent timing absent', () => {
+  expect(
+    getAxiomOnlyLogEvent({
+      axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+      ad_score_prediction_ms: 19.457,
+    })?.data.ad_score_prediction_ms,
+  ).toBe(19.457)
+  expect(
+    getAxiomOnlyLogEvent({
+      axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+      outcome: 'fill',
+    })?.data,
+  ).not.toHaveProperty('ad_score_prediction_ms')
+})
+
 describe('getAxiomOnlyLogEvent', () => {
+  test('ships click quality facts with explicit unknowns and bounded reasons', () => {
+    const features = {
+      impressionId: 'impression-a',
+      advertiserId: 'advertiser-a',
+      verdict: 'suspect',
+      ivtVersion: 'v1',
+      reasons: ['view_pending', 'traffic_class_unknown'],
+      settlementStatus: 'charged',
+      settlementReason: null,
+      chargedCents: 150,
+      servedToClickMs: 1200,
+      viewToClickMs: null,
+      viewState: 'missing',
+      prefetchAvailable: true,
+      accountBanned: false,
+      bannedIdentityMatch: null,
+      thirdPartyClient: false,
+      hourOfDayPacific: 15,
+      accountAgeDays: 30,
+      trustLevel: 'trusted',
+      hasPaid: false,
+      emailVerified: true,
+      privacyFlagged: false,
+      privacyCorroborated: null,
+      emailDomainClass: 'ordinary',
+      asn: 123,
+      hosting: false,
+      anonymizing: null,
+      clickCountry: 'US',
+      signupCountry: 'US',
+      countryMatchesSignup: true,
+      deviceKind: 'cli',
+      deviceAccountsClickingCampaignToday: 1,
+      userPaidClicksToday: 2,
+      campaignId: 'campaign-a',
+      placementId: null,
+      surface: 'cli',
+      clientSurface: 'cli_api',
+      trafficClass: 'unknown',
+    }
+    const event = getAxiomOnlyLogEvent({
+      axiomEvent: AD_CLICK_IVT_SCORED_EVENT,
+      ...features,
+      userId: 'private-user',
+      user_id: 'private-user',
+      clientIp: '192.0.2.1',
+      deviceKey: 'cli:private-device',
+      ipPrefixHash: 'private-hash',
+      request: { token: 'secret' },
+    })
+    expect(event).toEqual({ event: AD_CLICK_IVT_SCORED_EVENT, data: features })
+    // Rechecking the wire row at the sink must retain the same feature shape.
+    expect(getAxiomOnlyLogEvent(event?.data, event?.event)).toEqual(event)
+  })
+
+  test('drops malformed click quality fields and unbounded reason payloads', () => {
+    for (const reasons of [
+      ['view_pending', { private: 'content' }],
+      ['private content with spaces'],
+      ['a'.repeat(65)],
+      Array(33).fill('view_pending'),
+      'view_pending',
+    ]) {
+      expect(
+        getAxiomOnlyLogEvent({
+          axiomEvent: AD_CLICK_IVT_SCORED_EVENT,
+          reasons,
+          servedToClickMs: Number.POSITIVE_INFINITY,
+          hasPaid: 'false',
+          trustLevel: 1,
+          campaignId: { secret: 'private' },
+          unknown: null,
+        }),
+      ).toEqual({ event: AD_CLICK_IVT_SCORED_EVENT, data: {} })
+    }
+  })
+
+  test('preserves the optional validated browser inline cadence on completion', () => {
+    const cadence = 'one_per_reply_90s_v1'
+    expect(ADS_FETCH_COMPLETED_FIELD_NAMES).toContain('client_inline_cadence')
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+        client_inline_cadence: cadence,
+        private_input: 'never shipped',
+      }),
+    ).toEqual({
+      event: ADS_FETCH_COMPLETED_EVENT,
+      data: { client_inline_cadence: cadence },
+    })
+  })
+
+  test('ships the new-user ad ramp fields with their types (COD-904)', () => {
+    const fields = {
+      new_user_ramp_outcome: 'decided',
+      new_user_ramp_arm: 'ramp',
+      session_index: 2,
+      new_user_ramp_suppressed: true,
+      new_user_ramp_keep_bps: 3333,
+      new_user_signup_day: '2026-10-21',
+      no_fill_reason: 'new_user_ramp',
+    }
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+        ...fields,
+        user_created_at: '2026-10-21T00:00:00Z',
+      }),
+    ).toEqual({ event: ADS_FETCH_COMPLETED_EVENT, data: fields })
+    // A wrong type is dropped, not coerced.
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: ADS_FETCH_COMPLETED_EVENT,
+        session_index: '2',
+        new_user_ramp_suppressed: 'yes',
+      })?.data,
+    ).toEqual({})
+  })
+
   test('strictly bounds client-reported Showcase presentation telemetry', () => {
     const valid = {
       axiomEvent: ADS_SHOWCASE_PRESENTED_EVENT,
@@ -368,6 +504,44 @@ describe('getAxiomOnlyLogEvent', () => {
         elided_read_paths: 12,
         reread_paths: 4,
         read_tokens_after: 90_000,
+      },
+    })
+  })
+
+  test('file-edit loop ships counts and flags, never a path or an edit', () => {
+    expect(
+      getAxiomOnlyLogEvent({
+        axiomEvent: FILE_EDIT_LOOP_EVENT,
+        metric: 'file_edit_loop_same_file',
+        consecutive: 3,
+        strictConsecutive: 1,
+        guardEligible: true,
+        varied: true,
+        interleaved: false,
+        mixedStep: false,
+        toolName: 'str_replace',
+        model: 'upstage/solar-pro-4',
+        agentId: 'base3',
+        runId: 'run-1',
+        // Not in the allowlist.
+        path: 'src/engine.js',
+        oldString: 'const secret = 1',
+        userId: 'user-1',
+      }),
+    ).toEqual({
+      event: FILE_EDIT_LOOP_EVENT,
+      data: {
+        metric: 'file_edit_loop_same_file',
+        consecutive: 3,
+        strictConsecutive: 1,
+        guardEligible: true,
+        varied: true,
+        interleaved: false,
+        mixedStep: false,
+        toolName: 'str_replace',
+        model: 'upstage/solar-pro-4',
+        agentId: 'base3',
+        runId: 'run-1',
       },
     })
   })
@@ -1029,4 +1203,65 @@ describe('getAxiomOnlyLogEvent', () => {
       },
     })
   })
+})
+
+test('web showcase telemetry is separately validated and never manufactures Desktop experiment fields', () => {
+  const result = getAxiomOnlyLogEvent({
+    axiomEvent: ADS_SHOWCASE_PRESENTED_EVENT,
+    placement_id: 'Desktop-Showcase:web',
+    surface: 'freebuff_web_chat',
+    format: 'showcase',
+    client_family: 'web',
+    client_event_id: '12345678-1234-4234-8234-123456789abc',
+    sponsor_break_arm: 'unknown',
+    policy_provenance: 'unavailable',
+    showcase_variant: 'legacy',
+    impUrl: 'secret',
+    userId: 'secret',
+    gravity_showcase_version: 'forged',
+  })
+  expect(result?.data).toMatchObject({
+    placement_id: 'Desktop-Showcase:web',
+    showcase_variant: 'legacy',
+    policy_provenance: 'unavailable',
+  })
+  expect(result?.data).not.toHaveProperty('gravity_showcase_version')
+  expect(result?.data).not.toHaveProperty('impUrl')
+  expect(result?.data).not.toHaveProperty('userId')
+  expect(
+    getAxiomOnlyLogEvent({
+      axiomEvent: ADS_SHOWCASE_PRESENTED_EVENT,
+      placement_id: 'Desktop-Showcase:web',
+      format: 'showcase',
+      client_family: 'desktop',
+    })?.data,
+  ).toEqual({})
+})
+
+test('sponsor lifecycle retains dismissal lock semantics in the restricted sink', () => {
+  for (const event of [
+    'ads.break_shown',
+    'ads.break_clicked',
+    'ads.break_closed',
+    ADS_SHOWCASE_PRESENTED_EVENT,
+  ]) {
+    const result = getAxiomOnlyLogEvent({
+      axiomEvent: event,
+      placement_id: 'Desktop-Showcase:web',
+      surface: 'freebuff_web_chat',
+      format: 'showcase',
+      client_family: 'web',
+      client_event_id: '12345678-1234-4234-8234-123456789abc',
+      dismiss_lock_ms: 5000,
+      lock_completed: false,
+      userId: 'private',
+      impUrl: 'private',
+    })
+    expect(result?.data).toMatchObject({
+      dismiss_lock_ms: 5000,
+      lock_completed: false,
+    })
+    expect(result?.data).not.toHaveProperty('userId')
+    expect(result?.data).not.toHaveProperty('impUrl')
+  }
 })

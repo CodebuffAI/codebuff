@@ -1,13 +1,11 @@
-const POLICY_EFFECTIVE_DATE = 'September 2, 2026'
-// Codebase Evaluation narrowed to connected GitHub repositories only.
-const CODEBASE_EVALUATION_NARROWED_DATE = 'September 25, 2026'
+// Project profiles and local agent access added to both documents.
+const POLICY_EFFECTIVE_DATE = 'November 12, 2026'
 
 export const FREEBUFF_POLICY_METADATA = {
-  version: '2026-09-02',
+  version: '2026-11-12',
   effectiveDate: POLICY_EFFECTIVE_DATE,
-  codebaseEvaluationNarrowedDate: CODEBASE_EVALUATION_NARROWED_DATE,
-  lastUpdated: '10/01/2026',
-  privacyPolicyLastUpdated: '10/08/2026',
+  lastUpdated: 'October 13, 2026',
+  privacyPolicyLastUpdated: 'October 18, 2026',
 } as const
 
 export const FREEBUFF_PRIVACY_POLICY_URL = 'https://freebuff.com/privacy-policy'
@@ -17,7 +15,7 @@ export const FREEBUFF_AI_TRAINING_NOTICE = 'May use data for AI training'
 export type FreebuffModelDataUse = 'service' | 'training'
 
 /**
- * Canonical short-form public copy derived from the September 2 Privacy Policy.
+ * Canonical short-form public copy derived from the Privacy Policy.
  * Product surfaces should import these answers instead of restating data-use
  * promises. Static Markdown/MDX copies are protected by the drift test in
  * `freebuff-public-data-use-copy.test.ts`.
@@ -28,11 +26,14 @@ export const FREEBUFF_PUBLIC_DATA_USE_COPY = {
     'Freebuff collects prompts, messages, code, files, repository data, and agent traces when you use features that need them. Depending on the model or feature, AI model providers may also process that data. See the Privacy Policy for the uses and limits that apply.',
   trainingQuestion: 'Is my data used to train AI?',
   trainingAnswer:
-    'Only when a model or feature says data may be used for AI training. Freebuff or the provider may then keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products.',
+    'Only when a model or feature says data may be used for AI training. Freebuff or the provider may then keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products, and Freebuff may share or sell them to third parties. Separately, Freebuff may use your data to train the models that choose and measure ads.',
   storageQuestion: 'How is my data used and stored?',
-  storageAnswer: `We use prompts, messages, agent traces, code, files, and repository data to provide Freebuff. We may analyze prompts and messages to personalize ads. We do not give separately uploaded files or connected repositories to advertising providers. Restricted partners may evaluate connected Cloud repositories, but cannot otherwise use, broadly share, or train on them. See the Privacy Policy for retention, eligibility, and advertising choices.`,
-  compactTrainingSummary: `Models or features labeled “${FREEBUFF_AI_TRAINING_NOTICE}” may keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products.`,
-  compactPrivacySummary: `Prompts and messages may be analyzed to personalize ads. Separate uploads and connected repositories are not provided to advertising providers. Restricted partners may evaluate connected Cloud repositories, but cannot otherwise use, broadly share, or train on them. Models or features labeled “${FREEBUFF_AI_TRAINING_NOTICE}” may separately use submissions for AI training.`,
+  storageAnswer: `Freebuff uses your messages, agent traces, and files to run the service and respond to your requests. We may analyze this data, and how you use the app, to personalize ads and train ad models. We do not give separately uploaded files, project files, or connected repositories to advertising providers. Restricted partners may evaluate repositories you connect to Freebuff Cloud, but cannot otherwise use, broadly share, or train on them. See the Privacy Policy for details.`,
+  localFilesQuestion: 'Does Freebuff read files outside my project?',
+  localFilesAnswer:
+    'No, with a few exceptions, such as files an agent reads in the conversation, files you share, and settings like your agent instructions and skills. See the Privacy Policy for details.',
+  compactTrainingSummary: `Models or features labeled “${FREEBUFF_AI_TRAINING_NOTICE}” may keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products, and Freebuff may share or sell them.`,
+  compactPrivacySummary: `Messages, agent traces, files, and app usage may be analyzed to personalize ads and train ad models. Separately uploaded files, project files, and connected repositories are not provided to advertising providers. Restricted partners may evaluate connected Cloud repositories, but cannot otherwise use, broadly share, or train on them. Models or features labeled “${FREEBUFF_AI_TRAINING_NOTICE}” may separately use submissions for AI training.`,
   localExecutionSummary:
     'Freebuff edits files locally but sends relevant prompts, code, files, and repository context to its servers and model providers. See the Privacy Policy for details.',
   compactLocalExecutionSummary:
@@ -56,6 +57,8 @@ export function renderFreebuffDataUseFaqMarkdown(): string {
 
 **${FREEBUFF_PUBLIC_DATA_USE_COPY.storageQuestion}** ${FREEBUFF_PUBLIC_DATA_USE_COPY.storageAnswer}
 
+**${FREEBUFF_PUBLIC_DATA_USE_COPY.localFilesQuestion}** ${FREEBUFF_PUBLIC_DATA_USE_COPY.localFilesAnswer}
+
 See the [Privacy Policy](${FREEBUFF_PRIVACY_POLICY_URL}) for complete details.
 
 ${FREEBUFF_DATA_USE_GENERATED_MARKDOWN_BLOCK.end}`
@@ -71,6 +74,10 @@ ${FREEBUFF_PUBLIC_DATA_USE_COPY.storageAnswer}
 ## ${FREEBUFF_PUBLIC_DATA_USE_COPY.trainingQuestion}
 
 ${FREEBUFF_PUBLIC_DATA_USE_COPY.trainingAnswer}
+
+## ${FREEBUFF_PUBLIC_DATA_USE_COPY.localFilesQuestion}
+
+${FREEBUFF_PUBLIC_DATA_USE_COPY.localFilesAnswer}
 
 See the [Privacy Policy](${FREEBUFF_PRIVACY_POLICY_URL}) for complete details.
 

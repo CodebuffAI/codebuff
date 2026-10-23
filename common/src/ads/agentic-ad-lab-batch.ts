@@ -72,6 +72,84 @@ ${profile(`export VOLTA_HOME="$HOME/.cache/freebuff-lab/volta"
 export PATH="$VOLTA_HOME/bin:$PATH"`)}
 ${HIDE_SYSTEM_NODE}`
 
+/** No Node anywhere a shell finds it: the case a managed toolchain (E1) heals. */
+const NO_NODE = `set -eu
+${HIDE_SYSTEM_NODE}`
+
+const FNM = `set -eu
+export FNM_DIR="${LAB}/fnm"
+if [ ! -x "$FNM_DIR/fnm" ]; then
+  curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_DIR" --skip-shell >/dev/null 2>&1
+fi
+"$FNM_DIR/fnm" install 22 >/dev/null 2>&1
+"$FNM_DIR/fnm" default 22 >/dev/null 2>&1
+${profile(`export FNM_DIR="$HOME/.cache/freebuff-lab/fnm"
+export PATH="$FNM_DIR:$PATH"
+eval "$(fnm env --shell bash)"`)}
+${HIDE_SYSTEM_NODE}`
+
+/** asdf 0.16+ (one Go binary): Node reached only through its shims directory (COD-825's shape). */
+const ASDF = `set -eu
+export ASDF_DATA_DIR="${LAB}/asdf"
+mkdir -p "$ASDF_DATA_DIR/bin"
+if [ ! -x "$ASDF_DATA_DIR/bin/asdf" ]; then
+  case "$(uname -m)" in aarch64|arm64) arch=arm64 ;; *) arch=amd64 ;; esac
+  curl -fsSL "https://github.com/asdf-vm/asdf/releases/download/v0.18.0/asdf-v0.18.0-linux-$arch.tar.gz" | tar -xz -C "$ASDF_DATA_DIR/bin"
+fi
+export PATH="$ASDF_DATA_DIR/bin:$ASDF_DATA_DIR/shims:$PATH"
+asdf plugin add nodejs >/dev/null 2>&1 || true
+asdf install nodejs 22.12.0 >/dev/null 2>&1
+(cd "$HOME" && asdf set --home nodejs 22.12.0)
+${profile(`export ASDF_DATA_DIR="$HOME/.cache/freebuff-lab/asdf"
+export PATH="$ASDF_DATA_DIR/bin:$ASDF_DATA_DIR/shims:$PATH"`)}
+${HIDE_SYSTEM_NODE}`
+
+/**
+ * Debian/Ubuntu's PEP 668 marker, simulated for this chat: the system pip
+ * refuses to install outside a virtual environment, with the message the
+ * real one prints. `python3 -m pip` refuses too (pip's own
+ * require-virtualenv). Inside a venv both work, as on a real machine.
+ */
+const PEP668 = `set -eu
+mkdir -p "$HOME/.local/bin" "$HOME/.config/pip"
+printf '[global]\\nrequire-virtualenv = true\\n' > "$HOME/.config/pip/pip.conf"
+for tool in pip pip3; do
+  cat > "$HOME/.local/bin/$tool" <<'SH'
+#!/bin/sh
+cat >&2 <<'MSG'
+error: externally-managed-environment
+
+x This environment is externally managed
+\`-> To install Python packages system-wide, try apt install
+    python3-xyz, where xyz is the package you are trying to
+    install.
+
+    If you wish to install a non-Debian-packaged Python package,
+    create a virtual environment using python3 -m venv path/to/venv.
+
+note: If you believe this is a mistake, please contact your Python installation or OS distribution provider.
+hint: See PEP 668 for the detailed specification.
+MSG
+exit 1
+SH
+  chmod 755 "$HOME/.local/bin/$tool"
+done`
+
+/** uv is the only Python: python, python3 and pip are not on PATH; uv and its managed 3.12 are. */
+const UV_ONLY = `set -eu
+export UV_INSTALL_DIR="${LAB}/uv"
+if [ ! -x "$UV_INSTALL_DIR/uv" ]; then
+  curl -LsSf https://astral.sh/uv/0.9.5/install.sh | env UV_INSTALL_DIR="$UV_INSTALL_DIR" UV_NO_MODIFY_PATH=1 sh >/dev/null 2>&1
+fi
+UV_PYTHON_INSTALL_DIR="${LAB}/uv-python" UV_PYTHON_BIN_DIR="${LAB}/uv-python/bin" "$UV_INSTALL_DIR/uv" python install 3.12 >/dev/null 2>&1
+${profile(`export PATH="$HOME/.cache/freebuff-lab/uv:$PATH"
+export UV_PYTHON_INSTALL_DIR="$HOME/.cache/freebuff-lab/uv-python"`)}
+mkdir -p "$HOME/.local/bin"
+for tool in python python3 pip pip3; do
+  printf '#!/bin/sh\\necho "sh: 1: %s: not found" >&2\\nexit 127\\n' "$tool" > "$HOME/.local/bin/$tool"
+  chmod 755 "$HOME/.local/bin/$tool"
+done`
+
 /**
  * A second thread editing package.json while the sponsored run works in the
  * same checkout. Every 20 seconds, for at most 40 minutes, a detached writer
@@ -155,6 +233,41 @@ export const LAB_ENVIRONMENTS = {
     description:
       'Node 22 installed with Volta, whose bin directory is added in ~/.bashrc. The system node is not on PATH.',
     setup: VOLTA,
+    probe: null,
+  },
+  'node-fnm': {
+    label: 'Node through fnm only',
+    description:
+      'Node 22 installed with fnm and activated from ~/.bashrc. The system node is not on PATH.',
+    setup: FNM,
+    probe: null,
+  },
+  'node-asdf': {
+    label: 'Node through asdf shims only',
+    description:
+      'Node 22 installed with asdf 0.18; its shims directory is added in ~/.bashrc. The system node is not on PATH.',
+    setup: ASDF,
+    probe: null,
+  },
+  'no-node': {
+    label: 'No Node at all',
+    description:
+      'node, npm, npx and corepack print not found, and no manager is installed. A Node skill should stop cleanly (or, once managed toolchains ship, install its own).',
+    setup: NO_NODE,
+    probe: null,
+  },
+  'python-pep668': {
+    label: 'Python is externally managed (PEP 668)',
+    description:
+      'The system pip refuses to install outside a virtual environment, as on Debian and Ubuntu. Installing into a venv works.',
+    setup: PEP668,
+    probe: null,
+  },
+  'uv-only': {
+    label: 'Python through uv only',
+    description:
+      'uv and its managed Python 3.12 are on PATH from ~/.bashrc; python, python3 and pip print not found.',
+    setup: UV_ONLY,
     probe: null,
   },
   'concurrent-package-json': {

@@ -8,8 +8,10 @@ import {
   clearClipboardMessage,
   copyTextToClipboard,
   LINUX_CLIPBOARD_ERROR_MESSAGE,
-  LINUX_OSC52_ONLY_HINT,
+  LINUX_OSC52_ONLY_MESSAGE,
+  OSC52_UNVERIFIED_MESSAGE,
   registerClipboardRenderer,
+  REMOTE_CLIPBOARD_ERROR_MESSAGE,
   subscribeClipboardMessages,
   unregisterClipboardRenderer,
 } from '../clipboard'
@@ -17,6 +19,10 @@ import { logger } from '../logger'
 
 import type { ChildProcess } from 'node:child_process'
 import type { MockTimers } from '@codebuff/common/testing/mocks/timers'
+
+type SpawnSyncResult = ReturnType<
+  typeof import('node:child_process').spawnSync
+>
 
 interface FakeClipboardProcess {
   child: ChildProcess
@@ -219,9 +225,58 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     const messages: (string | null)[] = []
     const unsubscribe = subscribeClipboardMessages((m) => messages.push(m))
 
-    await copyTextToClipboard('hello')
+    const result = await copyTextToClipboard('hello', {
+      suppressGlobalMessage: true,
+      successMessage: 'Copied!',
+      durationMs: 3000,
+    })
 
-    expect(messages.at(-1)).toBe(`Copied: "hello" ${LINUX_OSC52_ONLY_HINT}`)
+    expect(result).toBe('unverified')
+    expect(messages.at(-1)).toBe(LINUX_OSC52_ONLY_MESSAGE)
+    mockTimers.advanceBy(5999)
+    expect(messages.at(-1)).toBe(LINUX_OSC52_ONLY_MESSAGE)
+    mockTimers.advanceBy(1)
+    expect(messages.at(-1)).toBeNull()
+    unsubscribe()
+  })
+
+  // Over SSH the clipboard to reach belongs to the machine running the
+  // terminal, so OSC 52 is the only route and a package on this host cannot
+  // help — neither as guidance after a copy nor as advice after a failure.
+  test('an SSH copy is unconfirmed without naming a local clipboard tool', async () => {
+    process.env.SSH_TTY = '/dev/pts/0'
+    process.env.WAYLAND_DISPLAY = 'wayland-0'
+    mockBackends(() => 1)
+    registerClipboardRenderer({ copyToClipboardOSC52: () => true })
+    const messages: (string | null)[] = []
+    const unsubscribe = subscribeClipboardMessages((m) => messages.push(m))
+
+    const result = await copyTextToClipboard('hello', {
+      suppressGlobalMessage: true,
+      successMessage: 'Copied!',
+    })
+
+    expect(result).toBe('unverified')
+    expect(messages.at(-1)).toBe(OSC52_UNVERIFIED_MESSAGE)
+    expect(messages.at(-1)).not.toBe(LINUX_OSC52_ONLY_MESSAGE)
+    // A native tool is never even reached: OSC 52 runs first over SSH.
+    expect(attempts).toEqual([])
+    unsubscribe()
+  })
+
+  test('an SSH failure is not told to install a local clipboard tool', async () => {
+    process.env.SSH_TTY = '/dev/pts/0'
+    process.env.WAYLAND_DISPLAY = 'wayland-0'
+    mockBackends(() => 1) // no native tool works, and TERM=dumb blocks OSC 52
+    const messages: (string | null)[] = []
+    const unsubscribe = subscribeClipboardMessages((m) => messages.push(m))
+
+    await expect(copyTextToClipboard('hello')).rejects.toThrow(
+      'No clipboard method available',
+    )
+
+    expect(messages).toContain(REMOTE_CLIPBOARD_ERROR_MESSAGE)
+    expect(messages).not.toContain(LINUX_CLIPBOARD_ERROR_MESSAGE)
     unsubscribe()
   })
 
@@ -326,6 +381,46 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     expect(attempts.map(({ command }) => command)).toEqual(['xclip'])
   })
 
+  // Discord #⚠️-help, 2026-10-13: "I selected text, got 'copied to clipboard'
+  // and could paste it into an editor. This has stopped working." A Wayland
+  // session does not always carry WAYLAND_DISPLAY into its processes (tmux's
+  // default `update-environment` omits it), and a Wayland-only box ships
+  // wl-clipboard and no xclip. Gating wl-copy on the variable made the only
+  // working tool unreachable, so the copy fell through to fire-and-forget
+  // OSC 52 and claimed a success the clipboard never received.
+  test('still reaches wl-copy when WAYLAND_DISPLAY is not inherited', async () => {
+    delete process.env.WAYLAND_DISPLAY
+    process.env.TERM = 'xterm-256color'
+    mockBackends((command) => (command === 'wl-copy' ? 0 : 1))
+    registerClipboardRenderer({ copyToClipboardOSC52: () => true })
+    const messages: (string | null)[] = []
+    const unsubscribe = subscribeClipboardMessages((m) => messages.push(m))
+
+    const result = await copyTextToClipboard('hello')
+
+    expect(attempts.map(({ command }) => command)).toEqual([
+      'xclip',
+      'xsel',
+      'wl-copy',
+    ])
+    expect(attempts.at(-1)?.process.input()).toBe('hello')
+    // A native tool confirmed the write, so this is a real copy: no OSC 52
+    // guidance, and the caller is not told the result is unverified.
+    expect(result).toBeUndefined()
+    expect(messages.at(-1)).toBe('Copied: "hello"')
+    expect(messages).not.toContain(LINUX_OSC52_ONLY_MESSAGE)
+    unsubscribe()
+  })
+
+  test('an X11 session only pays for wl-copy once nothing else worked', async () => {
+    delete process.env.WAYLAND_DISPLAY
+    mockBackends((command) => (command === 'xsel' ? 0 : 1))
+
+    await copyTextToClipboard('hello', { suppressGlobalMessage: true })
+
+    expect(attempts.map(({ command }) => command)).toEqual(['xclip', 'xsel'])
+  })
+
   test('shows an actionable error when no Linux backend is available', async () => {
     process.env.WAYLAND_DISPLAY = 'wayland-0'
     mockBackends(() => 1)
@@ -366,8 +461,9 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     })
 
     expect(rendererCalls).toEqual(['bounded text'])
-    // Only OSC 52 ran, so the Linux hint rides along (it cannot be verified).
-    expect(messages).toContain(`Copied bounded text ${LINUX_OSC52_ONLY_HINT}`)
+    expect(messages).toContain(
+      `Text shortened to fit the terminal. ${LINUX_OSC52_ONLY_MESSAGE}`,
+    )
     expect(messages.some((m) => m?.startsWith('Copied full text'))).toBe(false)
     unsubscribe()
   })
@@ -386,5 +482,90 @@ describe('copyTextToClipboard - Linux platform tools', () => {
     await copyTextToClipboard(text, { suppressGlobalMessage: true })
 
     expect(rendererCalls).toEqual([text])
+  })
+})
+
+// The paste side of the same report. `readClipboardText` is what Ctrl+V reads
+// (use-chat-keyboard.ts) and what the text-only composers fall back to when a
+// terminal sends no bracketed paste.
+describe('readClipboardText - Linux readers', () => {
+  let childProcess: typeof import('node:child_process')
+  let spawnSyncSpy: ReturnType<typeof spyOn>
+  let originalPlatform: PropertyDescriptor | undefined
+  let reads: { command: string; args: string[] }[]
+
+  beforeEach(async () => {
+    childProcess = await import('node:child_process')
+    spawnSyncSpy = spyOn(childProcess, 'spawnSync')
+    reads = []
+    originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
+    Object.defineProperty(process, 'platform', {
+      value: 'linux',
+      configurable: true,
+    })
+  })
+
+  afterEach(() => {
+    spawnSyncSpy.mockRestore()
+    if (originalPlatform) {
+      Object.defineProperty(process, 'platform', originalPlatform)
+    }
+  })
+
+  function fakeSpawnSyncResult(
+    status: number,
+    stdout: string,
+  ): SpawnSyncResult {
+    return {
+      pid: 1,
+      output: [null, stdout, ''],
+      stdout,
+      stderr: '',
+      status,
+      signal: null,
+    }
+  }
+
+  function mockReaders(outputFor: (command: string) => string | null) {
+    spawnSyncSpy.mockImplementation(
+      (command: string, args: readonly string[]) => {
+        reads.push({ command, args: [...args] })
+        const stdout = outputFor(command)
+        return stdout === null
+          ? fakeSpawnSyncResult(1, '')
+          : fakeSpawnSyncResult(0, stdout)
+      },
+    )
+  }
+
+  test('falls through xclip and xsel to wl-paste', async () => {
+    const { readClipboardText } = await import('../clipboard-image')
+    mockReaders((command) => (command === 'wl-paste' ? 'pasted text\n' : null))
+
+    expect(readClipboardText()).toBe('pasted text')
+    expect(reads.map(({ command }) => command)).toEqual([
+      'xclip',
+      'xsel',
+      'wl-paste',
+    ])
+    // Asking for text/plain keeps an image-only clipboard from dumping binary
+    // bytes into the composer.
+    expect(reads.at(-1)?.args).toContain('text/plain')
+  })
+
+  test('stops at the first reader that returns text', async () => {
+    const { readClipboardText } = await import('../clipboard-image')
+    mockReaders(() => 'from xclip')
+
+    expect(readClipboardText()).toBe('from xclip')
+    expect(reads.map(({ command }) => command)).toEqual(['xclip'])
+  })
+
+  test('returns null when no reader works', async () => {
+    const { readClipboardText } = await import('../clipboard-image')
+    mockReaders(() => null)
+
+    expect(readClipboardText()).toBeNull()
+    expect(reads).toHaveLength(3)
   })
 })

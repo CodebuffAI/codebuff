@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { formatHoursWithUnit } from '@codebuff/common/util/freebuff-hours'
 import { formatFreebuffHardBlockedPrivacySignals } from '@codebuff/common/util/freebuff-privacy'
 
 import {
@@ -13,12 +14,7 @@ import {
 import { getFreebuffModelDirectory } from '../state/freebuff-catalog-store'
 import { useFreebuffModelStore } from '../state/freebuff-model-store'
 import { useFreebuffSessionStore } from '../state/freebuff-session-store'
-import {
-  freebucksOf,
-  freebucksRowIntent,
-  freebucksPriceLabel,
-  formatFreebucks,
-} from '../utils/freebucks'
+import { freebucksOf, freebucksRowIntent } from '../utils/freebucks'
 import type { FreebuffSessionResponse } from '../types/freebuff-session'
 import type { StreamStatus } from './use-message-queue'
 
@@ -37,7 +33,7 @@ export function freebuffAdmissionNotice(
           : `Freebuff is unavailable in ${session.countryCode}. Use /byok to use your own API key.`
     case 'rate_limited':
       return session.freebucksShortfall
-        ? `Not enough Freebucks: ${formatFreebucks(session.freebucksShortfall.balance)} available. See https://freebuff.com/plans or use /model.`
+        ? `Not enough hours: ${formatHoursWithUnit(session.freebucksShortfall.balance)} available. See https://freebuff.com/plans or use /model.`
         : 'Session limit reached. See https://freebuff.com/plans or choose another model with /model.'
     case 'spend_limited':
       return session.message
@@ -202,8 +198,9 @@ export function useFreebuffChatAdmission(enabled: boolean) {
       hasExplicitPick ? admission.model : selectedModel,
       session,
     )
+    const freebucks = freebucksOf(session)
     const intent = freebucksRowIntent(
-      freebucksOf(session),
+      freebucks,
       model,
       session.status === 'active' ? session.model : undefined,
     )
@@ -213,29 +210,32 @@ export function useFreebuffChatAdmission(enabled: boolean) {
         admission: {
           ...resolved,
           phase: 'failed',
-          message: `Not enough Freebucks for ${getFreebuffModelDirectory().get(model).displayName} (${freebucksPriceLabel(intent.price)}). Choose another model with /model or visit https://freebuff.com/plans.`,
+          message: `Not enough hours for ${getFreebuffModelDirectory().get(model).displayName}: an hour on it takes ${formatHoursWithUnit(intent.price)}. Choose another model with /model or visit https://freebuff.com/plans.`,
         },
       })
     } else if (
       intent.kind === 'confirm' ||
-      (session.status === 'active' && session.model !== model)
+      // Full access is never asked, not even to end the live session.
+      (!freebucks?.spendWithoutAsking &&
+        session.status === 'active' &&
+        session.model !== model)
     ) {
       const cost =
         intent.price === undefined
           ? freebucksOf(session) === null
-            ? 'may spend wallet Freebucks'
+            ? 'may spend wallet hours'
             : 'starts a new session'
-          : `costs ${freebucksPriceLabel(intent.price)}`
+          : `takes ${formatHoursWithUnit(intent.price)} from your balance`
       const wallet =
         intent.kind === 'confirm' && intent.walletSpend
-          ? ` Uses ${formatFreebucks(intent.walletSpend)} from your wallet.`
+          ? ` Uses ${formatHoursWithUnit(intent.walletSpend)} from your wallet.`
           : ''
       useFreebuffChatStore.setState({
         admission: {
           ...resolved,
           phase: 'confirm',
           previousSession: session,
-          message: `${getFreebuffModelDirectory().get(model).displayName} ${cost}.${wallet}${session.status === 'active' ? ' This ends your current model session; your conversation is kept.' : ''}${intent.kind === 'confirm' && 'claimEarned' in intent && intent.claimEarned ? ' Earned Freebucks will be claimed on admission.' : ''}`,
+          message: `${getFreebuffModelDirectory().get(model).displayName} ${cost}.${wallet}${session.status === 'active' ? ' This ends your current model session; your conversation is kept.' : ''}${intent.kind === 'confirm' && 'claimEarned' in intent && intent.claimEarned ? ' Earned hours will be claimed on admission.' : ''}`,
         },
       })
     } else {

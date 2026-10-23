@@ -7,11 +7,11 @@
  * source of truth and re-pushes every open thread on connect, so the
  * Postgres copy rebuilds itself after a flip and a flip back loses nothing.
  *
- * - `convex`   (default): Desktop is told to use Convex, every
+ * - `convex`   Desktop is told to use Convex, every
  *              `/api/fn/*` mirror entry answers `unknown_function`, the
  *              `mirror.*` jobs no-op and the mobile config keeps phones on
  *              Convex.
- * - `postgres` freebuff-web advertises `mirror_backend: 'postgres'` to
+ * - `postgres` (since 2026-10-17): freebuff-web advertises `mirror_backend: 'postgres'` to
  *              Desktop and `mirrorBackend: 'postgres'` to the phones, the
  *              registry entries serve, and the APNs push and retention sweep
  *              run as graphile jobs.
@@ -22,7 +22,7 @@
  */
 export type MirrorBackend = 'convex' | 'postgres'
 
-export const MIRROR_BACKEND: MirrorBackend = 'convex'
+export const MIRROR_BACKEND: MirrorBackend = 'postgres'
 
 /** Whether the Postgres mirror is in charge in `mode`. */
 export function mirrorPostgresEnabled(

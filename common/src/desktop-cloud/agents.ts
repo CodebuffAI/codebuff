@@ -48,6 +48,11 @@ export const CLOUD_CODEX_MODELS: readonly CloudCliModel[] = [
     tagline: 'Reliable agentic workhorse for everyday tasks',
   },
   {
+    id: 'gpt-6.1-sol',
+    label: 'GPT-6.1-Sol',
+    tagline: 'Latest agentic workhorse for everyday tasks',
+  },
+  {
     id: 'gpt-6-astra',
     label: 'GPT-6-Astra',
     tagline: 'Most capable model for complex, demanding work',

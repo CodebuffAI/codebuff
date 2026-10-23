@@ -82,3 +82,58 @@ test('a send before the first session response runs the default it resolved', as
   flushSync(() => root.unmount())
   setup.renderer.destroy()
 })
+
+// Full access is never asked (2026-10-16), not even to end the live session.
+test.each([true, false])(
+  'a model switch asks only an account the server asks (spendWithoutAsking=%s)',
+  async (spendWithoutAsking) => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      Response.json({ status: 'none' })) as unknown as typeof fetch
+    useFreebuffModelStore.setState({ hasExplicitPick: true })
+    useFreebuffSessionStore.getState().setSession({
+      status: 'active',
+      accessTier: 'full',
+      model: FREEBUFF_MIMO_V25_MODEL_ID,
+      instanceId: 'cli',
+      admittedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      freebucks: {
+        balance: 100,
+        daily: { limit: 150, spent: 50, remaining: 100, resetAt: '' },
+        wallet: { balance: 0, monthlyBonus: 0 },
+        planId: null,
+        prices: {
+          [FREEBUFF_MIMO_V25_MODEL_ID]: 10,
+          [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 15,
+        },
+        ...(spendWithoutAsking ? { spendWithoutAsking: true } : {}),
+      },
+    } as never)
+    useFreebuffChatStore.setState({
+      admission: {
+        phase: 'requested',
+        model: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
+        metadataChecked: true,
+      },
+    })
+    const setup = await createTestRenderer({ width: 20, height: 2 })
+    const root = createRoot(setup.renderer)
+    const Harness = () => {
+      useFreebuffChatAdmission(true)
+      return React.createElement('text', null, 'x')
+    }
+    try {
+      flushSync(() => root.render(React.createElement(Harness)))
+      await setup.renderOnce()
+      const phase = useFreebuffChatStore.getState().admission?.phase
+      if (spendWithoutAsking) expect(phase).not.toBe('confirm')
+      else expect(phase).toBe('confirm')
+    } finally {
+      useFreebuffChatStore.setState({ admission: undefined } as never)
+      flushSync(() => root.unmount())
+      setup.renderer.destroy()
+      globalThis.fetch = realFetch
+    }
+  },
+)

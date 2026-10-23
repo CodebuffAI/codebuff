@@ -1,4 +1,17 @@
 import { z } from 'zod/v4'
+import {
+  PLACEMENT_DAILY_CAP_MIN_CENTS,
+  PLACEMENT_DAILY_CAP_MIN_ERROR,
+  PLACEMENT_DAILY_CAP_MAX_CENTS,
+} from '../constants/freebuff-placements'
+
+/**
+ * Repositories one tester's lab holds. bench-v1 is 25 and the bench-v2 pool
+ * has 57 public repositories, 20 of them v1's at the same pins: 62 in all for
+ * the pinned bench tester. A batch still runs at most
+ * `LAB_BATCH_MAX_REPOSITORIES` (30) of them.
+ */
+export const LAB_MAX_REPOSITORIES = 100
 
 export const labAdSchema = z
   .object({
@@ -48,8 +61,11 @@ export const labPublishSchema = z
     sourceCampaignId: z.string().min(1).max(120).nullable(),
     name: z.string().trim().min(1).max(120),
     landingUrl: z.string().trim().min(1).max(2048),
-    dailyCapCents: z.number().int().positive(),
-    totalBudgetCents: z.number().int().positive().nullable(),
+    dailyCapCents: z
+      .number()
+      .int()
+      .min(PLACEMENT_DAILY_CAP_MIN_CENTS, PLACEMENT_DAILY_CAP_MIN_ERROR)
+      .max(PLACEMENT_DAILY_CAP_MAX_CENTS),
     flightStart: flightDay,
     flightEnd: flightDay.nullable(),
     countryTargeting: z

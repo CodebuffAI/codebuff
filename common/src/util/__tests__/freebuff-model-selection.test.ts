@@ -8,7 +8,12 @@ import {
   getFreebuffModelsForAccessTier,
   LIMITED_FREEBUFF_MODEL_IDS,
 } from '../../constants/freebuff-models'
-import { freebuffPlanRequired } from '../freebuff-model-selection'
+import type { FreebuffFreebucksInfo } from '../../types/freebuff-session'
+import {
+  freebuffPlanRequired,
+  freebuffSessionUntimed,
+  freebucksRowIntent,
+} from '../freebuff-model-selection'
 
 /**
  * The tier fallback of `freebuffPlanRequired`: what a picker draws locked when
@@ -60,5 +65,46 @@ describe('the plan lock without a server verdict', () => {
         'limited',
       ),
     ).toBe(false)
+  })
+})
+
+/** Full access (2026-10-16): never asked before an hour, and a row locks on
+ *  its price less `soloDiscount`, which the server sends while nothing is live. */
+describe('the full-access session policy', () => {
+  const freebucks = (over: Partial<FreebuffFreebucksInfo> = {}) =>
+    ({
+      balance: 10,
+      daily: { limit: 150, spent: 150, remaining: 0, resetAt: '' },
+      wallet: { balance: 10, monthlyBonus: 0 },
+      planId: null,
+      prices: { flash: 15, pro: 30 },
+      ...over,
+    }) as FreebuffFreebucksInfo
+  const intent = (info: FreebuffFreebucksInfo, model: string, active?: string) =>
+    freebucksRowIntent(info, model, active).kind
+
+  it('asks nothing, not even before ending the live session', () => {
+    const info = freebucks({ balance: 30, wallet: { balance: 30, monthlyBonus: 0 } })
+    expect(intent({ ...info, spendWithoutAsking: true }, 'pro', 'flash')).toBe('allow')
+    expect(intent(info, 'pro', 'flash')).toBe('confirm')
+  })
+
+  it('locks on the price less the solo discount, and on list price without it', () => {
+    const never = { spendWithoutAsking: true }
+    expect(intent(freebucks({ ...never, soloDiscount: 15 }), 'flash')).toBe('allow')
+    expect(intent(freebucks(never), 'flash')).toBe('paywall')
+    // 30 less 15 is still more than 10.
+    expect(intent(freebucks({ ...never, soloDiscount: 15 }), 'pro')).toBe('paywall')
+  })
+
+  it('hides the clock only on the rows the server names', () => {
+    const info = freebucks({ spendWithoutAsking: true, untimedModelIds: ['flash'] })
+    expect(freebuffSessionUntimed('flash', info)).toBe(true)
+    expect(freebuffSessionUntimed('pro', info)).toBe(false)
+    expect(freebuffSessionUntimed(undefined, info)).toBe(false)
+    // No verdict (an older server, another tier, an unreadable balance) keeps it.
+    expect(freebuffSessionUntimed('flash', freebucks())).toBe(false)
+    expect(freebuffSessionUntimed('flash', null)).toBe(false)
+    expect(freebuffSessionUntimed('flash', undefined)).toBe(false)
   })
 })

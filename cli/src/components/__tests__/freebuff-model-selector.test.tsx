@@ -11,7 +11,6 @@ import { createTestRenderer } from '@opentui/core/testing'
 import { createRoot, flushSync } from '@opentui/react'
 import React from 'react'
 
-import { FREEBUCKS_LABEL } from '../../utils/freebucks'
 import * as openUrl from '../../utils/open-url'
 import { FreebuffModelSelector } from '../freebuff-model-selector'
 import {
@@ -137,9 +136,9 @@ test.each([
     })
     useFreebuffModelStore.getState().setSelectedModel(id)
     const setup = await renderSelector(40, undefined, 100, now)
-    expect(setup.captureCharFrame()).toMatch(new RegExp(`│ +${before} Freebucks/hr`))
+    expect(setup.captureCharFrame()).toMatch(new RegExp(`│ +${before / 5}x`))
     // At peak, line 2 says when the off-peak price is back.
-    expect(setup.captureCharFrame().includes('10 Freebucks/hr from')).toBe(before === 15)
+    expect(setup.captureCharFrame().includes('2x from')).toBe(before === 15)
     expect(setup.captureCharFrame()).not.toContain('Off-peak')
     expect(setup.captureCharFrame()).not.toContain('normally 15/hr')
     expect(setup.captureCharFrame()).not.toContain('Server fallback price notice')
@@ -149,8 +148,8 @@ test.each([
       wake!()
     })
     await setup.renderOnce()
-    expect(setup.captureCharFrame()).toMatch(new RegExp(`│ +${after} Freebucks/hr`))
-    expect(setup.captureCharFrame().includes('10 Freebucks/hr from')).toBe(after === 15)
+    expect(setup.captureCharFrame()).toMatch(new RegExp(`│ +${after / 5}x`))
+    expect(setup.captureCharFrame().includes('2x from')).toBe(after === 15)
     expect(setup.captureCharFrame()).not.toContain('Off-peak')
     expect(setup.captureCharFrame()).not.toContain('normally 15/hr')
   } finally {
@@ -190,11 +189,38 @@ test.each([
   const frame = setup.captureCharFrame()
   expect(frame).toContain('› DeepSeek V4.1 Flash')
   expect(frame).toContain('Smart &')
-  expect(frame).toMatch(new RegExp(`│ +${price} Freebucks/hr`))
+  expect(frame).toMatch(new RegExp(`│ +${price / 5}x`))
   expect(frame).not.toMatch(/Off-peak|Peak pricing|charges double|Freebucks\/hour at peak/)
   flushSync(() => setup.mockInput.pressEnter())
   await setup.renderOnce()
   expect(requested).toEqual([id])
+})
+
+test('a row reads its price as a multiplier, 1x included; a free row carries none', async () => {
+  useFreebuffSessionStore.getState().setSession({
+    status: 'none',
+    accessTier: 'full',
+    freebucks: {
+      ...freebucksFixture(25, {
+        [FREEBUFF_GLM_V53_FLASH_MODEL_ID]: 0,
+        [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 5,
+        [FREEBUFF_MIMO_V25_MODEL_ID]: 15,
+      }),
+      planRequiredModelIds: [],
+    },
+  })
+  // A non-hero pick, so the picker opens expanded.
+  useFreebuffModelStore.getState().setSelectedModel(FREEBUFF_GLM_V53_FLASH_MODEL_ID)
+  const frame = (await renderSelector(60)).captureCharFrame()
+  const lines = frame.split('\n')
+  const detailsOf = (name: string) =>
+    lines[lines.findIndex((line) => line.includes(name)) + 1] ?? ''
+  expect(detailsOf(getFreebuffModel(FREEBUFF_MIMO_V25_MODEL_ID).displayName)).toContain('3x')
+  expect(detailsOf('GLM 5.3 Flash')).not.toMatch(/\dx\b/)
+  expect(detailsOf('DeepSeek V4.1 Flash')).toContain('1x')
+  expect(frame).not.toContain('0x')
+  expect(frame).not.toContain('Freebucks')
+  expect(frame).toContain('FREE · 5/5 hours daily')
 })
 
 /**
@@ -241,16 +267,16 @@ test('the Freebucks picker waits after an expired reset and displays a confirmed
   }
   publish(0, FIXED_NOW_MS + 60_000)
   const setup = await renderSelector(48)
-  expect(setup.captureCharFrame()).toContain('0/100 Freebucks daily · resets in 1m')
+  expect(setup.captureCharFrame()).toContain('0/20 hours daily · resets in 1m')
   for (const resetAt of [FIXED_NOW_MS, FIXED_NOW_MS - 60_000]) {
     publish(0, resetAt)
     await setup.renderOnce()
-    expect(setup.captureCharFrame()).toContain('0/100 Freebucks daily · Updating balance…')
+    expect(setup.captureCharFrame()).toContain('0/20 hours daily · Updating balance…')
     expect(setup.captureCharFrame()).not.toContain('resets in now')
   }
   publish(100, FIXED_NOW_MS + 86_400_000)
   await setup.renderOnce()
-  expect(setup.captureCharFrame()).toContain('100/100 Freebucks daily · resets in 1d 0h')
+  expect(setup.captureCharFrame()).toContain('20/20 hours daily · resets in 1d 0h')
   expect(setup.captureCharFrame()).not.toContain('Updating balance')
 })
 
@@ -321,9 +347,14 @@ describe('FreebuffModelSelector tier layout', () => {
       .getState()
       .setSelectedModel(FREEBUFF_SOLAR_MINI_4_MODEL_ID)
 
-    const frame = (await renderSelector()).captureCharFrame()
+    const setup = await renderSelector()
+    // Unlimited is last since 2026-10-14, so the saved pick sits below the
+    // fold: the frame after the first measurement scrolls it into view.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await setup.renderOnce()
+    const frame = setup.captureCharFrame()
     expect(frame).toContain('› Solar Mini 4')
-    expect(frame).not.toContain('› MiMo 2.6 Flash')
+    expect(frame).not.toContain('› MiMo v2.6 Flash Fast')
   })
 
   /**
@@ -378,9 +409,9 @@ describe('FreebuffModelSelector tier layout', () => {
     },
   )
 
-  test('badges the new builds so a returning user notices they changed', async () => {
-    // Independent of the supersedes machinery above, which is why it is its own
-    // test now: `isNew` is a property of the row, and Flash still carries it.
+  test('draws no NEW pill on a compiled row: only Claude Haiku 5.5 is New', async () => {
+    // Product, 2026-10-13: the one New pill is the catalog's, on the two
+    // Claude Haiku 5.5 rows; no compiled row carries `newBadge`.
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
       accessTier: 'full',
@@ -393,10 +424,10 @@ describe('FreebuffModelSelector tier layout', () => {
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
     const frame = (await renderSelector()).captureCharFrame()
     expect(frame).toContain('DeepSeek V4.1 Flash')
-    expect(frame).toContain('NEW')
+    expect(frame).not.toContain('NEW')
   })
 
-  test('places the exhausted-quota recommendation beneath UNLIMITED', async () => {
+  test('places the exhausted-quota recommendation beneath its section', async () => {
     const resetAt = new Date(FIXED_NOW_MS + 60_000).toISOString()
     useFreebuffSessionStore.getState().setSession({
       status: 'none',
@@ -420,19 +451,19 @@ describe('FreebuffModelSelector tier layout', () => {
     const setup = await renderSelector()
     const frame = setup.captureCharFrame()
     const premiumHeaderIndex = frame.indexOf('PREMIUM')
-    const unlimitedHeaderIndex = frame.indexOf('UNLIMITED')
+    const sectionHeaderIndex = frame.indexOf('OPTIMIZED')
     // Located by the ROW rather than by a ' RECOMMENDED ' border title, which
     // was removed on 2026-08-21 — nothing in the picker is badged as a
     // recommendation any more. The property under test is unchanged: when the
-    // premium pool is spent, the row the user is steered onto sits in the
-    // UNLIMITED group rather than above the list.
+    // premium pool is spent, the row the user is steered onto sits in its
+    // section (Optimized, the first since 2026-10-14) rather than above the list.
     //
     // MiMo 2.5 is that row since 2026-08-18 — Flash moved into the premium
     // group and can no longer be what a spent user lands on.
-    const heroModelIndex = frame.indexOf('MiMo 2.6 Flash', unlimitedHeaderIndex)
+    const heroModelIndex = frame.indexOf('MiMo v2.6 Flash Fast', sectionHeaderIndex)
 
-    expect(unlimitedHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
-    expect(heroModelIndex).toBeGreaterThan(unlimitedHeaderIndex)
+    expect(sectionHeaderIndex).toBeGreaterThan(premiumHeaderIndex)
+    expect(heroModelIndex).toBeGreaterThan(sectionHeaderIndex)
   })
 
   test('collapses to the unlimited hero when the premium default is spent', async () => {
@@ -596,18 +627,23 @@ describe('FreebuffModelSelector tier layout', () => {
     const lines = frame.split('\n')
     const cardLine = (name: string) =>
       lines.findIndex((line) => line.includes('│') && line.includes(name))
+    // Unlimited last since 2026-10-14.
     const order = [
-      lines.findIndex((line) => line.startsWith('UNLIMITED · Experimental models')),
-      cardLine('Solar Pro 4'),
       lines.findIndex((line) => line.startsWith('OPTIMIZED · Strongest')),
-      cardLine('MiMo 2.6 Flash'),
+      // DeepSeek V4.1 Flash leads Optimized as its pick since 2026-10-14.
+      cardLine('DeepSeek V4.1 Flash'),
+      cardLine('MiMo v2.6 Flash Fast'),
+      // GPT-6 Luna sits in Optimized since 2026-10-13.
+      cardLine('GPT-6 Luna'),
       lines.findIndex((line) => line.startsWith('POWERFUL · Frontier')),
       ...(FREEBUFF_ENABLE_FAST_MODE_IN_UI ? [cardLine('DeepSeek V4.1 Flash Fast')] : []),
-      cardLine('GPT-6 Luna'),
+      lines.findIndex((line) => line.startsWith('UNLIMITED · Experimental models')),
+      cardLine('Solar Pro 4'),
     ]
     expect(order.every((at) => at >= 0)).toBe(true)
     expect(order).toEqual([...order].sort((a, b) => a - b))
-    expect(lines[cardLine('MiMo 2.6 Flash') + 1]).toContain('Recommended')
+    expect(lines[cardLine('DeepSeek V4.1 Flash') + 1]).toContain('Recommended')
+    expect(lines[cardLine('MiMo v2.6 Flash Fast') + 1]).not.toContain('Recommended')
     // Flash Fast is not badged Recommended since 2026-10-07.
     if (FREEBUFF_ENABLE_FAST_MODE_IN_UI) {
       expect(lines[cardLine('DeepSeek V4.1 Flash Fast') + 1]).not.toContain('Recommended')
@@ -638,7 +674,7 @@ describe('FreebuffModelSelector tier layout', () => {
       expect(row).toBeGreaterThanOrEqual(0)
       expect(lines[row + 1] ?? '').not.toContain('Paid plan')
     }
-    expect(lines.some((line) => line.includes('MiMo 2.6 Flash'))).toBe(true)
+    expect(lines.some((line) => line.includes('MiMo v2.6 Flash Fast'))).toBe(true)
   })
 
   test('shows MiMo 2.6 Pro to a paying account, with no price caveat', async () => {
@@ -670,9 +706,9 @@ describe('FreebuffModelSelector tier layout', () => {
     const frame = (await renderSelector()).captureCharFrame()
 
     // Natively multimodal: the badge is a real capability claim.
-    expect(rowOf(frame, 'MiMo 2.6 Flash')).toContain('Images')
+    expect(rowOf(frame, 'MiMo v2.6 Flash Fast')).toContain('Images')
     expect(rowOf(frame, 'GPT-6 Luna')).toContain('Images')
-    expect(rowOf(frame, 'MiMo 2.6 Flash')).toContain('Images')
+    expect(rowOf(frame, 'MiMo v2.6 Flash Fast')).toContain('Images')
     // Text-only. They still accept a pasted image (read server-side as a
     // description), but badging them made the label mean nothing — and the
     // badge is what widened the hero card.
@@ -713,7 +749,8 @@ describe('FreebuffModelSelector tier layout', () => {
       .getState()
       .setSelectedModel(FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID)
 
-    const frame = (await renderSelector()).captureCharFrame()
+    // Tall enough for Unlimited, the last section since 2026-10-14.
+    const frame = (await renderSelector(80)).captureCharFrame()
     expect(frame).toContain('UNLIMITED · Experimental models')
     expect(frame).not.toContain('PREMIUM')
     expect(frame).not.toContain('used')
@@ -1058,9 +1095,12 @@ describe('GLM selection uses the applicable meter', () => {
           ? FREEBUFF_GLM_V53_FLASH_MODEL_ID
           : LIMITED_FREEBUFF_HERO_MODEL_ID,
       )
-      if (balance >= 5)
-        // The price reads `5/hr`; the balance lives in the header line.
-        expect(setup.captureCharFrame()).toContain('5 Freebucks/hr')
+      if (balance >= 5) {
+        // GLM is the 1x row, and reads "1x". The balance lives in the header
+        // line.
+        expect(setup.captureCharFrame()).toContain('› GLM 5.3 Flash')
+        expect(setup.captureCharFrame()).toContain('1x')
+      }
     },
   )
 
@@ -1265,7 +1305,7 @@ describe('a paid-only row on an account without a plan', () => {
     const { setup } = await renderOnGemini(false)
     const details = detailLineOf(setup.captureCharFrame())
     expect(details).toContain('Paid plan')
-    expect(details).not.toContain('Freebucks/hr')
+    expect(details).not.toMatch(/\d+x\b/)
   })
 
   test('explains the plan on the first press and starts nothing', async () => {
@@ -1274,7 +1314,7 @@ describe('a paid-only row on an account without a plan', () => {
     await setup.renderOnce()
     const frame = setup.captureCharFrame()
     expect(frame).toContain('Included with a paid plan. Enter opens plans.')
-    expect(frame).not.toContain(`Not enough ${FREEBUCKS_LABEL}`)
+    expect(frame).not.toContain('Not enough hours')
     expect(requested).toEqual([])
   })
 
@@ -1300,7 +1340,7 @@ describe('a paid-only row on an account without a plan', () => {
     const { setup, requested } = await renderOnGemini(true)
     const details = detailLineOf(setup.captureCharFrame())
     expect(details).not.toContain('Paid plan')
-    expect(details).toContain('80 Freebucks/hr')
+    expect(details).toContain('16x')
     flushSync(() => setup.mockInput.pressEnter())
     await setup.renderOnce()
     expect(requested).toEqual([FREEBUFF_GEMINI_38_FLASH_MODEL_ID])
@@ -1353,8 +1393,9 @@ describe('a row the balance cannot cover', () => {
     flushSync(() => setup.mockInput.pressEnter())
     await setup.renderOnce()
     const frame = setup.captureCharFrame()
-    expect(frame).toContain(`Not enough ${FREEBUCKS_LABEL}`)
-    expect(frame).toContain('Enter opens plans')
+    expect(frame).toContain(
+      'Not enough hours — needs 4 hours, 2 hours left. Enter opens plans.',
+    )
     expect(requested).toEqual([])
   })
 
@@ -1380,7 +1421,7 @@ describe('a row the balance cannot cover', () => {
     const { setup, requested } = await renderUnaffordableLuna()
     flushSync(() => setup.mockInput.pressEnter())
     await setup.renderOnce()
-    expect(setup.captureCharFrame()).toContain(`Not enough ${FREEBUCKS_LABEL}`)
+    expect(setup.captureCharFrame()).toContain('Not enough hours')
     expect(requested).toEqual([])
 
     flushSync(() => useFreebuffSessionStore.getState().setSession({
@@ -1398,8 +1439,8 @@ describe('a row the balance cannot cover', () => {
     await setup.renderOnce()
     const frame = setup.captureCharFrame()
     expect(frame).toContain('› GPT-6 Luna')
-    expect(frame).toMatch(/│ +20 Freebucks\/hr/)
-    expect(frame).not.toContain(`Not enough ${FREEBUCKS_LABEL}`)
+    expect(frame).toMatch(/│ +4x/)
+    expect(frame).not.toContain('Not enough hours')
     expect(requested).toEqual([])
 
     flushSync(() => setup.mockInput.pressEnter())
@@ -1423,7 +1464,7 @@ describe('a row the balance cannot cover', () => {
     // Nothing is asking anything before a press; the assertion above is what
     // makes the two cases distinguishable at all.
     expect(setup.captureCharFrame()).not.toContain(
-      `Not enough ${FREEBUCKS_LABEL}`,
+      'Not enough hours',
     )
   })
 })
@@ -1523,7 +1564,7 @@ test('a funded Luna row does not show its exhausted legacy quota in the section 
   useFreebuffModelStore.getState().setSelectedModel(id)
   const setup = await renderSelector()
   await setup.renderOnce()
-  expect(setup.captureCharFrame()).toContain('20 Freebucks/hr')
+  expect(setup.captureCharFrame()).toContain('4x')
   expect(setup.captureCharFrame()).not.toContain('1 of 1 used')
   expect(getSelectedFreebuffModel()).toBe(id)
 })
@@ -1593,8 +1634,9 @@ test.each([
       wake!()
     })
     await setup.renderOnce()
+    // Every priced row reads as its multiplier, a 1x row (5) included.
     expect(setup.captureCharFrame()).toMatch(
-      new RegExp(`Solar Mini 4[^\\n]*\\n[^\\n]*${price} Freebucks/hr`),
+      new RegExp(`Solar Mini 4[^\\n]*\\n[^\\n]*${price / 5}x`),
     )
     // Return to Solar if the price increase moved focus to a cheaper model.
     for (let i = 0; i < 12; i++) {
@@ -1607,7 +1649,7 @@ test.each([
     await setup.renderOnce()
     if (balance < price) {
       expect(requested).toEqual([])
-      expect(setup.captureCharFrame()).toContain(`Not enough ${FREEBUCKS_LABEL}`)
+      expect(setup.captureCharFrame()).toContain('Not enough hours')
     } else {
       expect(requested).toEqual([SOLAR])
     }
@@ -1720,7 +1762,7 @@ describe('unavailable balances in the mounted CLI picker', () => {
       })
       expect(getSelectedFreebuffModel()).toBe(id)
       expect(setup.captureCharFrame()).toContain(
-        'balance temporarily unavailable',
+        'Balance temporarily unavailable',
       )
       expect(setup.captureCharFrame()).not.toContain('0 of 0')
       flushSync(() => setup.mockInput.pressEnter())
@@ -1736,7 +1778,7 @@ describe('unavailable balances in the mounted CLI picker', () => {
         .setSession({ ...pending, freebucks: freebucksFixture(5) })
       await setup.renderOnce()
       expect(setup.captureCharFrame()).not.toContain('unavailable')
-      expect(setup.captureCharFrame()).toContain('5 Freebucks/hr')
+      expect(setup.captureCharFrame()).toContain('1/5 hours daily')
       flushSync(() => setup.mockInput.pressEnter())
       await setup.renderOnce()
       expect(requests).toEqual([id, id])
@@ -1754,7 +1796,7 @@ describe('unavailable balances in the mounted CLI picker', () => {
       await setup.renderOnce()
       expect(requests).toEqual([id, id])
       expect(setup.captureCharFrame()).toContain(
-        'Enter uses 5 from your wallet',
+        'Enter uses 1 hour from your wallet',
       )
       flushSync(() => setup.mockInput.pressEnter())
       await setup.renderOnce()
@@ -1836,7 +1878,9 @@ test.each(['full', 'limited'] as const)(
     flushSync(() => setup.mockInput.pressEnter())
     await setup.renderOnce()
     expect(picked).toEqual([])
-    expect(setup.captureCharFrame()).toContain('Claim earned Freebucks')
+    expect(setup.captureCharFrame()).toContain(
+      'Claim earned hours on admission, then spend 1 hour on this session.',
+    )
     expect(getFreebucksInfo(useFreebuffSessionStore.getState().session!)?.balance).toBe(
       0,
     )

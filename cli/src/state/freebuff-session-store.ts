@@ -120,7 +120,12 @@ export const useFreebuffSessionStore = create<FreebuffSessionStore>(
         )
           return
         if (receipt.status === 'ended' && !receipt.freebucksRefundPending)
-          set({ lastRefund: receipt.freebucksRefund ?? 0, pendingRefund: null })
+          // A settled receipt that names no amount is an abandoned settlement,
+          // not a zero: stop polling, but never claim the hour spent its price.
+          set({
+            lastRefund: receipt.freebucksRefund ?? null,
+            pendingRefund: null,
+          })
       },
       slotKeptForRelaunch: false,
       keepSlotForRelaunch: () => {

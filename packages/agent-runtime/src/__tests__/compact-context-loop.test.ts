@@ -5,6 +5,7 @@
  */
 
 import * as analytics from '@codebuff/common/analytics'
+import { BYOK_RUN_ID_PREFIX } from '@codebuff/common/constants/byok'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { clearMockedModules } from '@codebuff/common/testing/mock-modules'
@@ -26,8 +27,13 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { loopAgentSteps } from '../run-agent-step'
+import {
+  loopAgentSteps,
+  TURN_FAILED_NOTE,
+  USER_PROMPT_REFUSED_NOTE,
+} from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
+import { countTokensMessages } from '../util/token-counter'
 import { createToolCallChunk, mockFileContext } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
@@ -119,6 +125,7 @@ describe('compactContext in loopAgentSteps', () => {
     messageHistory: Message[],
     prompt?: string,
     logged?: unknown[],
+    runtimeOverrides: Record<string, unknown> = {},
   ) => {
     const {
       agentTemplate: _,
@@ -126,7 +133,7 @@ describe('compactContext in loopAgentSteps', () => {
       ...baseRuntimeParams
     } = createTestAgentRuntimeParams()
 
-    runtimeImpl = { ...baseRuntimeParams }
+    runtimeImpl = { ...baseRuntimeParams, ...runtimeOverrides }
     if (logged)
       runtimeImpl.logger = {
         ...baseRuntimeParams.logger,
@@ -207,6 +214,101 @@ describe('compactContext in loopAgentSteps', () => {
     ).toEqual([
       expect.objectContaining({ trigger_reason: 'context_limit' }),
     ])
+  })
+
+  describe('when compaction cannot get under the budget', () => {
+    /** The run's error output appends the stack after the message. */
+    const firstLine = (output: { type: string; message?: string }) =>
+      output.message?.split('\n')[0]
+
+    /** The live request is kept verbatim, so one this large cannot shrink. */
+    const unshrinkable = (): Message[] => [
+      {
+        ...userMessage('LIVE REQUEST BODY '.repeat(5_000)),
+        tags: ['USER_PROMPT'],
+        sentAt: 1_000_000,
+      },
+    ]
+
+    it('points a hosted run at a larger-context model', async () => {
+      const result = await runLoop(overBudget, unshrinkable())
+      expect(runtimeImpl.promptAiSdkStream).not.toHaveBeenCalled()
+      expect(result.output.type).toBe('error')
+      expect(firstLine(result.output)).toBe(
+        "Agent run error: Compaction could not bring this conversation under the model's 4,096-token context budget. History has been preserved. Start a new thread, or switch to a model with a larger context window.",
+      )
+    })
+
+    it('keeps the context window hint for a BYOK run', async () => {
+      const result = await runLoop(overBudget, unshrinkable(), undefined, [], {
+        startAgentRun: async () => `${BYOK_RUN_ID_PREFIX}test-run`,
+      })
+      expect(runtimeImpl.promptAiSdkStream).not.toHaveBeenCalled()
+      expect(result.output.type).toBe('error')
+      expect(firstLine(result.output)).toBe(
+        "Agent run error: Compaction could not bring this conversation under the model's 4,096-token context budget. History has been preserved. Start a new thread, or give a BYOK connection a larger context window if its model supports one.",
+      )
+    })
+
+    it('ends the failed turn in history, so the next turn compacts its prompt', async () => {
+      // Exactly the 4,096-token size guard: accepted, but with the system
+      // prompt and tools the turn is over its budget and cannot compact.
+      const overhead = countTokensMessages([userMessage('')])
+      const prompt = 'X'.repeat((4096 - overhead) * 3)
+      expect(countTokensMessages([userMessage(prompt)])).toBe(4096)
+
+      const first = await runLoop(overBudget, [], prompt)
+      expect(firstLine(first.output)).toStartWith(
+        'Agent run error: Compaction could not bring',
+      )
+      expect(textOf(first.agentState.messageHistory.at(-1)!)).toContain(
+        TURN_FAILED_NOTE,
+      )
+
+      const second = await runLoop(
+        overBudget,
+        first.agentState.messageHistory,
+        'a short follow-up',
+      )
+      expect(second.output.type).not.toBe('error')
+      expect(runtimeImpl.promptAiSdkStream).toHaveBeenCalledTimes(1)
+      const sent = seenMessages[0].map(textOf).join('\n')
+      expect(sent).toContain('<conversation_summary>')
+      expect(sent).toContain('a short follow-up')
+    })
+
+    it('keeps no message the size guard refused', async () => {
+      const first = await runLoop(
+        overBudget,
+        [],
+        'REFUSED PROMPT BODY '.repeat(2_000),
+      )
+      expect(runtimeImpl.promptAiSdkStream).not.toHaveBeenCalled()
+      expect(firstLine(first.output)).toBe(
+        'Agent run error: The new message is too large. Send a smaller excerpt or attach a file instead.',
+      )
+      expect(first.agentState.messageHistory).toHaveLength(1)
+      expect(textOf(first.agentState.messageHistory[0])).toContain(
+        USER_PROMPT_REFUSED_NOTE,
+      )
+
+      await runLoop(overBudget, first.agentState.messageHistory, 'smaller')
+      const sent = seenMessages[0].map(textOf).join('\n')
+      expect(sent).toContain('smaller')
+      expect(sent).not.toContain('REFUSED PROMPT BODY')
+    })
+
+    it('gives a refused mid-turn steering message the refusal note', async () => {
+      const result = await runLoop(overBudget, [], 'hello', undefined, {
+        drainSteeringMessages: async () => ['REFUSED STEERING '.repeat(2_000)],
+      })
+      expect(firstLine(result.output)).toStartWith(
+        'Agent run error: The new message is too large.',
+      )
+      const history = result.agentState.messageHistory
+      expect(textOf(history.at(-1)!)).toContain(USER_PROMPT_REFUSED_NOTE)
+      expect(JSON.stringify(history)).not.toContain('REFUSED STEERING')
+    })
   })
 
   it('leaves the history alone when the agent has not opted in', async () => {

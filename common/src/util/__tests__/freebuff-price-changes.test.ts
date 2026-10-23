@@ -42,7 +42,7 @@ describe('announced Freebucks price changes', () => {
     expect(nextFreebucksPriceChange(expired)).toBe(restored)
     const freeAgain = applyFreebucksPriceChanges(expired, restored)
     expect(freeAgain.prices[solar]).toBe(0)
-    expect(freeAgain.priceNotices[solar]).toBe('0 Freebucks')
+    expect(freeAgain.priceNotices[solar]).toBe('Free')
     expect(nextFreebucksPriceChange(freeAgain)).toBe(metered)
     const meteredAgain = applyFreebucksPriceChanges(freeAgain, metered)
     expect(meteredAgain.prices[solar]).toBe(5)

@@ -34,19 +34,20 @@ Freebuff includes a curated model catalog. The regular picker currently offers:
 
 | Model                       | Access                  | Best for                                                          |
 | --------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| **MiMo 2.6 Flash**          | Full and limited access | The default everywhere; balanced performance with image support   |
+| **MiMo v2.6 Flash Fast**    | Full and limited access | The default everywhere; balanced performance with image support   |
 | **GLM 5.3 Flash**           | Full and limited access | Deepest reasoning, unmetered                                      |
-| **DeepSeek V4.1 Flash** | Full and limited access | Fast coding and tool use, unmetered                               |
-| **DeepSeek V4.1 Flash Fast** | Full access; paid plans at limited access | Fast mode: the same model on DeepSeek's own API, splitting work across parallel subagents and verifying the result; priced on DeepSeek's peak and off-peak hours |
+| **DeepSeek V4.1 Flash 10/17** | Full and limited access | Fast coding and tool use, unmetered                               |
+| **DeepSeek V4.1 Flash Fast 10/17** | Full access; paid plans at limited access | Fast mode: the same model on DeepSeek's own API, splitting work across parallel subagents and verifying the result; priced on DeepSeek's peak and off-peak hours |
 | **GPT-6 Luna**              | Full access             | Strong all-around with native images; runs on OpenAI flex capacity |
 | **MiMo 2.6 Pro**            | Full access             | Xiaomi's stronger reasoning model, with image support |
 | **Solar Mini 4**            | Full and limited access | Upstage's fast, compact model; 524K context, text only |
 | **Solar Pro 4**             | Full and limited access | Upstage's larger, stronger model; 524K context, text only |
 | **Gemini 3.8 Flash**        | Paid plans              | 1M context, and the only model that accepts audio, video and PDF |
 | **Muse Spark 1.3**          | Paid plans              | Meta's agentic coding model; 1M context. When it is busy or unavailable, it answers on DeepSeek V4.1 Flash rather than making you wait |
-| **GPT-6.1 Sol**             | US, or paid plans elsewhere | OpenAI's flagship at a temporary promotional price, one session a day for every account; 1M context, images |
+| **Gemini 4 Argon**          | US, or paid plans elsewhere | Google's flagship reasoning model at a temporary promotional price, one session a day for every account; 1M context, images |
+| **GPT-6.1 Sol**             | US, or paid plans elsewhere | OpenAI's flagship, one session a day for every account; 1M context, images |
 
-Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo 2.6 Flash, Solar Mini 4 and Solar Pro 4 are unmetered at full access and cost no session at all. Models may still serve from a quantized (Q8_0) build.
+Most models draw on your normal daily sessions rather than a separate limit. GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo v2.6 Flash Fast, Solar Mini 4 and Solar Pro 4 are unmetered at full access and cost no session at all. Models may still serve from a quantized (Q8_0) build.
 
 DeepSeek V4 Pro was retired from the catalog; GLM 5.3 Flash replaces it as the deep-reasoning pick.
 
@@ -69,15 +70,17 @@ Freebuff uses specialized agents instead of sending every task through one model
 
 ## Free access
 
-Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access to GLM 5.3 Flash, DeepSeek V4.1 Flash, MiMo 2.6 Flash, Solar Mini 4, and Solar Pro 4. Every model is paid for in Freebucks at the price shown in the picker. The free limited-access allowance is 25 Freebucks a day, or 20 on a VPN or proxy, spent first on every model, GLM included; earned Freebucks go into your wallet and are used after it.
+Freebuff is available in every country. Supported regions receive full access; other regions and VPN users receive limited access to GLM 5.3 Flash, DeepSeek V4.1 Flash 10/17, MiMo v2.6 Flash Fast, Solar Mini 4, and Solar Pro 4. Every model is paid for in hours at the multiplier shown in the picker: an hour of MiMo v2.6 Flash Slow uses one hour of balance, a 3x model uses three. The free limited-access allowance is 5 hours a day, or 4 on a VPN or proxy, spent first on every model, GLM included; earned hours go into your wallet and are used after it. (Balances read in hours since 2026-10-15; 1 hour = 5 Freebucks.)
 
 Text ads support the included models. Freebuff shows the applicable session limits and any model-specific data-use notice before you start.
 
 <!-- BEGIN GENERATED FREEBUFF DATA USE -->
 
-**Is my data used to train AI?** Only when a model or feature says data may be used for AI training. Freebuff or the provider may then keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products.
+**Is my data used to train AI?** Only when a model or feature says data may be used for AI training. Freebuff or the provider may then keep submissions to develop, train, test, evaluate, fine-tune, and improve AI models or products, and Freebuff may share or sell them to third parties. Separately, Freebuff may use your data to train the models that choose and measure ads.
 
-**How is my data used and stored?** We use prompts, messages, agent traces, code, files, and repository data to provide Freebuff. We may analyze prompts and messages to personalize ads. We do not give separately uploaded files or connected repositories to advertising providers. Restricted partners may evaluate connected Cloud repositories, but cannot otherwise use, broadly share, or train on them. See the Privacy Policy for retention, eligibility, and advertising choices.
+**How is my data used and stored?** Freebuff uses your messages, agent traces, and files to run the service and respond to your requests. We may analyze this data, and how you use the app, to personalize ads and train ad models. We do not give separately uploaded files, project files, or connected repositories to advertising providers. Restricted partners may evaluate repositories you connect to Freebuff Cloud, but cannot otherwise use, broadly share, or train on them. See the Privacy Policy for details.
+
+**Does Freebuff read files outside my project?** No, with a few exceptions, such as files an agent reads in the conversation, files you share, and settings like your agent instructions and skills. See the Privacy Policy for details.
 
 See the [Privacy Policy](https://freebuff.com/privacy-policy) for complete details.
 

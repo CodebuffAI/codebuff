@@ -217,7 +217,9 @@ export function glidedDailyBudgetCents(params: {
   // asymptotic. Falls back to linear if either end is zero, where a ratio is
   // undefined.
   const straight =
-    glide.curve === 'exponential' && glide.startCents > 0 && glide.targetCents > 0
+    glide.curve === 'exponential' &&
+    glide.startCents > 0 &&
+    glide.targetCents > 0
       ? glide.startCents *
         Math.pow(glide.targetCents / glide.startCents, progress)
       : glide.startCents + (glide.targetCents - glide.startCents) * progress
@@ -300,7 +302,8 @@ export function deliveryWindowLimit(params: {
   if (cap === 0) return 0
   const windows = 1_440 / DELIVERY_PACE_WINDOW_MINUTES
   const base = cap / windows
-  const unit = (glideHash(`${params.seed}:${params.windowKey}`) / 0xffffffff) * 2 - 1
+  const unit =
+    (glideHash(`${params.seed}:${params.windowKey}`) / 0xffffffff) * 2 - 1
   const jittered = base * (1 + (unit * params.jitterBps) / 10_000)
   // At least one an hour: a campaign tapered to 50/day still has to be able to
   // deliver, and a floor of zero would strand the last stretch of every taper
@@ -412,6 +415,14 @@ export function platformRequiresComment(platform: AdPlatform): boolean {
   return platform !== 'github'
 }
 
+/**
+ * Platforms whose promoted posts the Earn feed does not offer right now.
+ * Reddit is paused (2026-10-13); its posts stay active for advertisers and
+ * resume serving when it is removed here. An engagement already opened can
+ * still be submitted.
+ */
+export const AD_PAUSED_PLATFORMS: readonly AdPlatform[] = ['reddit']
+
 /** Host allowlist per platform, used to validate a submitted post URL. Hosts
  *  are matched exactly or as a subdomain suffix. */
 export const AD_PLATFORM_HOSTS: Record<AdPlatform, readonly string[]> = {
@@ -421,6 +432,50 @@ export const AD_PLATFORM_HOSTS: Record<AdPlatform, readonly string[]> = {
   linkedin: ['linkedin.com', 'lnkd.in'],
   reddit: ['reddit.com', 'redd.it'],
   github: ['github.com'],
+}
+
+/**
+ * Where a promoted post's `preview_image_url` may point: the post's own
+ * platform's image CDN, matched exactly. The Earn feed renders it as an
+ * `<img>` in every viewer's browser, so any other host would see each
+ * viewer's IP for an ad they never clicked, and a freebuff.com URL would be a
+ * same-origin GET carrying the viewer's session. An advertiser's own art goes
+ * through `thumbnail_storage_id`, served from our blob store.
+ */
+export const AD_PLATFORM_IMAGE_HOSTS: Record<AdPlatform, readonly string[]> = {
+  twitter: ['pbs.twimg.com'],
+  linkedin: ['media.licdn.com', 'static.licdn.com'],
+  reddit: ['i.redd.it', 'preview.redd.it', 'external-preview.redd.it'],
+  github: [
+    'opengraph.githubassets.com',
+    'repository-images.githubusercontent.com',
+    'avatars.githubusercontent.com',
+  ],
+}
+
+/** The preview image URL if it is an https URL on the post's own platform's
+ *  image CDN (`AD_PLATFORM_IMAGE_HOSTS`), otherwise null. */
+export function promotedPostImageUrl(
+  platform: AdPlatform,
+  url: string | null | undefined,
+): string | null {
+  if (!url) return null
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return null
+  }
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.username ||
+    parsed.password ||
+    parsed.port
+  )
+    return null
+  return AD_PLATFORM_IMAGE_HOSTS[platform]?.includes(parsed.hostname)
+    ? parsed.href
+    : null
 }
 
 /**

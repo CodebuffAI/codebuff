@@ -55,3 +55,31 @@ test('assets are bundled in name order at every level, whatever readdir returns'
   ]
   expect(bundle.assets?.map((asset) => asset.path)).toEqual(expected)
 })
+
+test('realtime is an explicit true-only managed capability in the deployment manifest', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'local-realtime-files-'))
+  roots.push(root)
+  await writeFile(
+    join(root, 'worker.js'),
+    'export default {fetch:()=>new Response("ok")}',
+  )
+  const manifest = {
+    entrypoint: 'worker.js',
+    compatibilityDate: '2026-10-01',
+    modules: [{ name: 'worker.js', type: 'esm', path: 'worker.js' }],
+  }
+  await writeFile(
+    join(root, 'manifest.json'),
+    JSON.stringify({ ...manifest, realtime: true }),
+  )
+  expect((await bundleSite(root, 'manifest.json')).realtime).toBe(true)
+  for (const realtime of [false, 'true', 1, { class_name: 'Custom' }]) {
+    await writeFile(
+      join(root, 'manifest.json'),
+      JSON.stringify({ ...manifest, realtime }),
+    )
+    await expect(bundleSite(root, 'manifest.json')).rejects.toThrow(
+      'Invalid deploy manifest',
+    )
+  }
+})

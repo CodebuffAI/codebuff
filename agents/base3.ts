@@ -4,6 +4,8 @@ import {
 } from '@codebuff/common/constants/compaction-policy'
 import {
   FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  FREEBUFF_SOLAR_MINI_4_MODEL_ID,
+  FREEBUFF_SOLAR_PRO_4_MODEL_ID,
   freebuffModelIdMatches,
 } from '@codebuff/common/constants/freebuff-models'
 import {
@@ -24,6 +26,45 @@ import {
   type SecretAgentDefinition,
 } from './types/secret-agent-definition'
 
+/**
+ * The models that end a turn on a status line or a plan instead of calling the
+ * tool that does the work, and so get TURN_ENDING_NOTE as `instructionsPrompt`
+ * — the rule again, right after every user message. The system prompt's
+ * TURN_ENDING_RULE alone does not stop them (docs/freebuff-muse-spark.md).
+ * Every copy stays in history, so the cached prefix only grows.
+ *
+ * Muse Spark 1.3 has been here since 2026-10-11, and the note measurably
+ * worked: across the Desktop 0.0.171 -> 0.0.172 boundary its short
+ * status-line turns (no tool call, 20-400 characters) fell from 8.5% to 2.9%
+ * of turns.
+ *
+ * Solar Pro 4 and Solar Mini 4 joined on 2026-10-14, after five reports in a
+ * week ("solar pro keep not replying me when it finish my task", "do not write
+ * code into the project") and this measurement over 24h of completed,
+ * user-initiated Desktop turns (`desktop.turn_completed`), prose-only meaning
+ * zero tool calls and over 1,000 characters of reply:
+ *
+ *   upstage/solar-pro4           12,742 turns  24.0% prose-only
+ *   upstage/solar-mini4           2,302 turns  18.8%
+ *   z-ai/glm-5.3-flash           15,484 turns   6.9%
+ *   deepseek/deepseek-v4-flash   33,165 turns   1.7%
+ *
+ * It is not the user mix: among the 402 users with 3+ turns on both models in
+ * that window, Solar Pro 4 ended 41.7% of turns with no tool call against
+ * DeepSeek V4 Flash's 17.1%. Truncated tool calls (0.25% of turns) and tool
+ * markup written as prose (1.3%, LOWER than DeepSeek's 2.0%) are both far too
+ * small to be the cause.
+ *
+ * The note addresses the status-line half. The long-prose half — a model that
+ * has decided the request was a question — is a prompt question the note's
+ * last sentence arguably licenses, and wants an eval rather than a patch.
+ */
+const TURN_ENDING_NOTE_MODELS = [
+  FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  FREEBUFF_SOLAR_PRO_4_MODEL_ID,
+  FREEBUFF_SOLAR_MINI_4_MODEL_ID,
+]
+
 export function createBase3(
   model: SecretAgentDefinition['model'] = OPUS_MODEL,
   options: {
@@ -40,12 +81,8 @@ export function createBase3(
     compiledModelId?: string
   } = {},
 ): Omit<SecretAgentDefinition, 'id'> {
-  // Muse Spark 1.3 only: the model that ends turns on a status line
-  // (docs/freebuff-muse-spark.md). Follows every user message, and every copy
-  // stays in history, so the cached prefix only grows.
-  const turnEndingNote = freebuffModelIdMatches(
-    options.compiledModelId ?? model,
-    FREEBUFF_MUSE_SPARK_13_CONTRIBUTOR_MODEL_ID,
+  const turnEndingNote = TURN_ENDING_NOTE_MODELS.some((id) =>
+    freebuffModelIdMatches(options.compiledModelId ?? model, id),
   )
   const { lean, ...compactContext }: RootCompactionPolicy =
     options.compaction ?? compactionPolicyForModel(model)
@@ -71,7 +108,10 @@ export function createBase3(
     outputMode: 'last_message',
     includeMessageHistory: true,
     windowedFileReads: true,
-    completionCheck: true,
+    // A root built on this that can spawn lists those agents once, at the end
+    // of its system prompt, not in a message after every user prompt that
+    // stays in history.
+    spawnableAgentsInSystemPrompt: true,
     // Per-model idle gap and token floor (common/src/constants/
     // compaction-policy.ts). Explicit, not `true`: a bare `true` would take
     // the runtime default instead of the model's.
@@ -96,18 +136,21 @@ export function createBase3(
 
 Current date: ${PLACEHOLDER.CURRENT_DATE}.
 
+- Size the work to the request. Do everything the user asked for, completely, and nothing they did not: no unrequested features, refactors, new files, dependencies or polish. A question gets an answer, not a change. A small or specific request gets a direct fix, without a plan, a to-do list or a survey of the codebase.
+- When a request is open-ended or high-level ("build me an app", "improve the onboarding", "make this faster") and reasonable readings differ in size or direction, settle the scope before building: read just enough to ground it, then propose the smallest version that meets the goal, list the main choices, and let the user confirm. Do not build the largest version you can imagine.
 - Match the project's existing conventions. Verify a library is already used in the project before employing it.
 - Prefer editing existing files over creating new ones. Make the fewest changes that address the request.
-- Verify non-trivial changes by running the project's typecheck and relevant tests.
-- Extract the acceptance criteria before implementing: exact output paths, file names, interfaces, schemas, formats, and any performance or resource constraints. Check the actual artifacts against those criteria before finishing.
-- Test the delivered artifact through the interface the user will use. A successful build or exit code alone does not prove the requested behavior. For performance work, measure correctness and timing on representative inputs; do not claim a speedup without a measurement.
+- Note the request's explicit requirements (exact output paths, file names, interfaces, schemas, formats, performance or resource constraints) and check the result against them before finishing.
+- Verify in proportion to the change. A small edit needs at most a quick targeted check. A non-trivial change needs the project's typecheck and the tests that cover it, and the delivered behavior exercised the way the user will use it, through tests, HTTP requests or the DOM: a successful build or exit code alone does not prove it. For performance work, measure correctness and timing on representative inputs; do not claim a speedup without a measurement.
 - Verify the final edited files: after a repair, rerun the affected checks; earlier passing results do not cover later changes. When filtering test or build output through a pipeline, preserve the tested command's exit status (for example, Bash pipefail or explicit status capture), and inspect the failure output.
+- Take screenshots or drive a browser for visual inspection only when the user explicitly asks for a screenshot or a visual check. Otherwise verify UI changes through tests, HTTP responses and the DOM, and leave visual review to the user.
 - Fix the cause of a failing check. Do not skip tests, weaken assertions, swallow errors, or add type/lint suppressions just to make verification pass. If such a change is required by the requested behavior, explain why and verify that behavior. Report checks that failed or could not run as limitations, never as passes.
 - ${options.supportsBackgroundCommands === false ? 'Terminal commands support only SYNC on this host. Use the host-managed preview controls for persistent services; do not request BACKGROUND or use shell backgrounding. Split other long jobs into bounded commands.' : 'Use BACKGROUND for persistent services or long jobs, inspect their logs and readiness, and verify they are still running when required. Do not assume shell backgrounding inside a SYNC command survives tool cleanup.'}
-- Use write_todos to plan and track multi-step tasks. The user watches the list as your live progress: each time you finish an item, call write_todos again with it marked completed before you start the next one, rather than marking everything done at the end.
-- Your responses are displayed in a terminal. Keep them short and concise.
+- Use write_todos only for work with several distinct steps, and list only the steps the request needs, never extras you might add. The user watches the list as your live progress: each time you finish an item, call write_todos again with it marked completed before you start the next one, rather than marking everything done at the end.
+- Keep prose between tool calls brief. When the work is done, finish every tool call first (including marking your last to-do completed), then end with one final message that stands on its own: the outcome first, then what you changed, what you verified, any checks that failed or could not run, and anything the user still needs to do. Do not point back to earlier messages ("as above"); the user may see only this one.
 - ${TURN_ENDING_RULE}
 - Don't run destructive or hard-to-undo commands (git push, resets, deploys) unless the user asks for them.
+- Stay inside the project folder. Do not read, list or search files outside it (the home directory, other projects, app or system folders) unless the user gave you that exact path or asked you to look there, and then only that path, not its parent or sibling folders. If the task seems to need anything else outside the project, ask the user first.
 
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
 

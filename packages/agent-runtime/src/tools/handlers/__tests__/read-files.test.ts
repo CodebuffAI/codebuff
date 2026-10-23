@@ -182,17 +182,15 @@ describe('handleReadFiles with prototype-member paths', () => {
       {
         type: 'json',
         value: [
-          { path: 'a.ts', content: 'content', referencedBy: {} },
+          { path: 'a.ts', content: 'content' },
           {
             path: 'shot.PNG',
             content:
               '[IMAGE] image/png, 2 KB. The image is attached after this result.',
-            referencedBy: {},
           },
           {
             path: 'missing.jpg',
             content: '[FILE_DOES_NOT_EXIST]',
-            referencedBy: {},
           },
         ],
       },

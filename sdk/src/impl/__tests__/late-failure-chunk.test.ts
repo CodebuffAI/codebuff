@@ -22,6 +22,7 @@ import { afterEach, describe, expect, it } from 'bun:test'
 
 import { getModelForRequest } from '../model-provider'
 import {
+  classifyErrorChunkRecovery,
   classifyProviderErrorRecovery,
   classifyThrownStreamRecovery,
 } from '../stream-interruption'
@@ -138,7 +139,11 @@ describe('late failure delivered in band', () => {
     const message =
       'Space Bunny is at capacity right now. Please try again in a few minutes or pick another model.'
     await withServer(
-      errorChunk({ message, code: 'model_at_capacity', type: 'capacity_error' }),
+      errorChunk({
+        message,
+        code: 'model_at_capacity',
+        type: 'capacity_error',
+      }),
       (error) => {
         expect(String(error)).toContain(message)
         expect(isTransientNetworkError(error)).toBe(false)
@@ -148,6 +153,42 @@ describe('late failure delivered in band', () => {
         expect(
           classifyProviderErrorRecovery({ aborted: false, error }),
         ).toBeNull()
+      },
+    )
+  })
+
+  it("reports OUR failed fetch to the upstream as the provider's, not the user's", async () => {
+    // The most common late failure in production: our fetch to the provider
+    // never got headers (undici `TypeError: fetch failed`, cause
+    // UND_ERR_HEADERS_TIMEOUT after ~180s). The server now rewrites that text
+    // (web/src/llm-api/upstream-error-text.ts), but a client in the field
+    // still receives the old wording, and the next runtime phrase we have not
+    // rewritten yet would land here too.
+    await withServer(
+      errorChunk({
+        message: 'Upstream provider error: fetch failed',
+        type: 'upstream_error',
+      }),
+      (error) => {
+        // The trap: the upstream's text carries a phrase that reads as the
+        // CLIENT's own socket dying, so the transport classifier claims it...
+        expect(isTransientNetworkError(error)).toBe(true)
+        expect(
+          classifyThrownStreamRecovery({ aborted: false, error })?.source,
+        ).toBe('stream-interrupted')
+        // ...even though the server announced it as its own upstream failure.
+        expect(
+          classifyProviderErrorRecovery({ aborted: false, error }),
+        ).toMatchObject({ source: 'provider-error' })
+        // The announcement wins: the retry note and the give-up message blame
+        // the provider (and the retry waits), instead of telling the user to
+        // check a connection that is fine and provider settings a free-mode
+        // user does not have.
+        const recovery = classifyErrorChunkRecovery({ aborted: false, error })
+        expect(recovery?.source).toBe('provider-error')
+        expect(recovery?.delayMs).toBeGreaterThan(0)
+        // A user cancel is still never a recovery, by either route.
+        expect(classifyErrorChunkRecovery({ aborted: true, error })).toBeNull()
       },
     )
   })
@@ -167,6 +208,12 @@ describe('late failure delivered in band', () => {
     expect(
       classifyThrownStreamRecovery({ aborted: false, error: cut }),
     ).not.toBeNull()
+    // Nothing announced a provider failure here, so the combined entry point
+    // still calls it a cut stream: classifyProviderErrorRecovery abstains on
+    // anything that is not an APICallError saying so.
+    expect(
+      classifyErrorChunkRecovery({ aborted: false, error: cut })?.source,
+    ).toBe('stream-interrupted')
   })
 
   // The runner service runs the SDK on Node, where a body cut after the

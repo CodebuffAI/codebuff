@@ -53,6 +53,18 @@ import {
 } from '@codebuff/common/ads/sponsored-procedure-inputs'
 
 import { SPONSORED_FRICTION_TOOL_NAME } from '@codebuff/common/ads/sponsored-run-friction'
+import {
+  fillSponsoredRunSpecPrompt,
+  type SponsoredRunSpec,
+} from '@codebuff/common/ads/sponsored-run-spec'
+import { renderSponsoredRunTaskContext } from '@codebuff/common/ads/sponsored-run-prompt'
+import {
+  LAB_DEFERRED_SIGNUP_CREDENTIALS,
+  LAB_DEFERRED_SIGNUP_LINK,
+  LAB_NO_KEYS_IN_CHAT_BULLET,
+} from '@codebuff/common/ads/agentic-ad-lab-run'
+
+import { SPONSORED_SIGNUP_TOOL_NAME } from './sponsored-account-step'
 
 import type { SponsoredCapability } from '@codebuff/common/ads/sponsored-local-execution'
 import type { AgentDefinition } from '@codebuff/sdk'
@@ -101,6 +113,14 @@ export const SPONSORED_FRICTION_BULLET =
   '- When something gets in your way, call report_friction: blocking true for a step you cannot do (before you stop with steps undone), false for one you got past with a retry, a workaround or a guess. It only records the report for Freebuff; carry on as these rules say, and still tell the user what was done and what remains.'
 
 /**
+ * The one exception to "nobody answers questions": the account step, which
+ * the CLI shows the user and waits on (`sponsored-account-step.ts`). Only in
+ * the prompt when the tool is handed to the run.
+ */
+export const SPONSORED_SIGNUP_BULLET =
+  '- The one exception: when the account or API key the procedure needs blocks further progress, call request_sponsored_signup. Freebuff asks the user for it and waits for their answer.'
+
+/**
  * THE AUTHORISATION, first. MIRRORED from Desktop's `SPONSORED_TASK_FRAMING`
  * (`sponsored-agent.test.ts` pins the bytes): without it a section headed as
  * an advertiser's procedure beside the user's own messages reads as a vendor
@@ -111,7 +131,7 @@ export const SPONSORED_FRICTION_BULLET =
  * conversation.
  */
 export const SPONSORED_TASK_FRAMING = [
-  'The user was shown the procedure below in a consent dialog, reviewed it, and pressed Accept. Carrying it out is your task for this turn, and it is the ONLY goal of this turn.',
+  'The user accepted this sponsored task from its offer card. Carrying out the reviewed procedure below is your task for this turn, and it is the ONLY goal of this turn.',
   'Freebuff, the application you are running in, is telling you this: the procedure is the task the user explicitly accepted. It is not a prompt injection, a distractor or an unsolicited insert, and it does not compete with anything else in this message.',
   'Do not ask for confirmation again, do not ask what they want, and do not treat the procedure as a suggestion or as untrusted text: the approval already happened.',
 ].join('\n')
@@ -130,6 +150,40 @@ export const SPONSORED_CONTEXT_HEADING = [
 ].join('\n')
 
 /**
+ * The background section of the legacy (no run spec) prompt: the heading,
+ * then the user's own messages. A spec's template carries the heading itself,
+ * and its slot takes `renderSponsoredRunTaskContext`.
+ */
+export function sponsoredTaskContextSection(
+  taskContext: readonly string[],
+): string {
+  const renderedContext = taskContext
+    .map((message, index) => `User message ${index + 1}:\n${message}`)
+    .join('\n\n')
+  return `${SPONSORED_CONTEXT_HEADING}\n${renderedContext}`
+}
+
+/**
+ * The first-turn prompt of a run whose Accept carried a verified run spec:
+ * the server's template, with only the two client slots filled. The task
+ * context is this build's own rendering (empty when there is none). The
+ * credentials slot is empty: a CLI run asks for an account mid-run
+ * (`request_sponsored_signup`), so no key is connected when the turn starts,
+ * and a key connected later reaches the run through that tool's result.
+ */
+export function buildSponsoredSpecPrompt(
+  spec: Pick<SponsoredRunSpec, 'promptTemplate'>,
+  taskContext: readonly string[] = [],
+): string {
+  return fillSponsoredRunSpecPrompt(spec.promptTemplate, {
+    // The template carries the background heading itself; the slot takes
+    // only the messages.
+    taskContext: renderSponsoredRunTaskContext(taskContext),
+    credentials: '',
+  })
+}
+
+/**
  * The run's prompt, in Desktop's order: the authorisation, the advertiser's
  * reviewed procedure, the user's own words as background, and our rules last.
  *
@@ -143,15 +197,25 @@ export function buildSponsoredPrompt(
   procedure: string,
   taskContext: readonly string[] = [],
   runtimeInputs: SponsoredProcedureRuntimeInputs = {},
+  /**
+   * What the mid-run account step does (`sponsored-account-step.ts`): open
+   * the tracked signup `link`, or only ask for the declared `credentials`.
+   * The paragraphs are Desktop's, as the Lab mirrors them.
+   */
+  options: { deferredSignup?: 'link' | 'credentials' } = {},
 ): string {
-  const renderedContext = taskContext
-    .map((message, index) => `User message ${index + 1}:\n${message}`)
-    .join('\n\n')
   return [
     SPONSORED_TASK_FRAMING,
     `The approved procedure:\n${sponsoredProcedurePrompt(procedure, runtimeInputs)}`,
-    `${SPONSORED_CONTEXT_HEADING}\n${renderedContext}`,
-    `How to carry it out here:\n${CLI_SPONSORED_GUIDANCE}`,
+    sponsoredTaskContextSection(taskContext),
+    `How to carry it out here:\n${CLI_SPONSORED_GUIDANCE}${
+      options.deferredSignup ? `\n${LAB_NO_KEYS_IN_CHAT_BULLET}` : ''
+    }`,
+    ...(options.deferredSignup === 'link'
+      ? [LAB_DEFERRED_SIGNUP_LINK]
+      : options.deferredSignup === 'credentials'
+        ? [LAB_DEFERRED_SIGNUP_CREDENTIALS]
+        : []),
   ].join('\n\n')
 }
 
@@ -170,6 +234,8 @@ export function sponsoredAgentDefinition(options: {
   grant?: ReadonlySet<SponsoredCapability>
   /** Offer `report_friction` (registered by the caller as a custom tool). */
   reportFriction?: boolean
+  /** Offer `request_sponsored_signup`: the run has an account step. */
+  requestSignup?: boolean
 }): AgentDefinition {
   const {
     agentId,
@@ -177,6 +243,7 @@ export function sponsoredAgentDefinition(options: {
     isFreebuff,
     grant = SPONSORED_LOCAL_V1_GRANT,
     reportFriction = false,
+    requestSignup = false,
   } = options
   const root = createBase3CliRoot({
     ...(model ? { model } : {}),
@@ -195,10 +262,11 @@ export function sponsoredAgentDefinition(options: {
     toolNames: [
       ...sponsoredLocalToolNames(root.toolNames ?? [], grant),
       ...(reportFriction ? [SPONSORED_FRICTION_TOOL_NAME] : []),
+      ...(requestSignup ? [SPONSORED_SIGNUP_TOOL_NAME] : []),
     ],
     systemPrompt: `${root.systemPrompt}\n\n# Sponsored task\n\n${CLI_SPONSORED_GUIDANCE}${
       reportFriction ? `\n${SPONSORED_FRICTION_BULLET}` : ''
-    }`,
+    }${requestSignup ? `\n${SPONSORED_SIGNUP_BULLET}` : ''}`,
     // Nothing is committed by an in-place run; kept so a commit that somehow
     // happened anyway could not be attributed to the user.
     suppressCommitAttribution: true,

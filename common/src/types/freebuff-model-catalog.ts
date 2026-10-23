@@ -92,9 +92,17 @@ export const FREEBUFF_CATALOG_STALE_ERROR = 'freebuff_catalog_stale'
 
 const effortSchema = z.enum(REASONING_EFFORTS)
 
+/**
+ * One server-defined pill on a row. Where it shows (2026-10-13): the CLI
+ * draws every badge; Desktop and Web draw a badge beside the model's name
+ * only when its kind is `promotional` or `ending`, or it sets `besideName`
+ * (Desktop since the release that reads it). Any other badge is data those
+ * pickers never show, so a label users must see sets `besideName`.
+ */
 export const freebuffCatalogBadgeSchema = z.object({
-  /** Semantic kind, for clients that style kinds differently. Unknown kinds
-   *  must render as `custom`, never be dropped: a new kind is a server change. */
+  /** Semantic kind, for clients that style kinds differently. An unknown kind
+   *  renders by its tone. `stalled` is also read by the server: it refuses
+   *  sessions on the row while its provider is down. */
   kind: z.string(),
   /** Short text on the pill, e.g. "New", "Promotional". */
   label: z.string(),
@@ -102,6 +110,8 @@ export const freebuffCatalogBadgeSchema = z.object({
   tooltip: z.string().optional(),
   /** Visual emphasis. Unknown tones render as `neutral`. */
   tone: z.string().optional(),
+  /** Draw it beside the model's name in Desktop and Web too (see above). */
+  besideName: z.boolean().optional(),
 })
 export type FreebuffCatalogBadge = z.infer<typeof freebuffCatalogBadgeSchema>
 

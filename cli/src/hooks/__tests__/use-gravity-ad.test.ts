@@ -5,13 +5,22 @@ import {
   dispatchFirstPartyViewAcknowledgement,
   isAnswerMessage,
   isInlineAdEligibleAnswer,
+  isWithheldAdResponse,
   NO_RESPONSE_ADS,
   renderDelaySinceReceipt,
+  rotationStep,
+  sendClickAfterView,
   shouldHideGravityAds,
   visibleResponseAds,
 } from '../use-gravity-ad'
 
+import type { AdResponse } from '../use-gravity-ad'
 import type { ChatMessage } from '../../types/chat'
+import {
+  acknowledgeFirstPartyView,
+  resetFirstPartyViewAckRegistryForTests,
+} from '@codebuff/common/ads/first-party-view-ack'
+
 import type { FirstPartyViewAckRequest } from '@codebuff/common/ads/first-party-view-ack'
 
 const msg = (over: Partial<ChatMessage>): ChatMessage => ({
@@ -217,5 +226,92 @@ describe('shouldHideGravityAds', () => {
         isFreeMode: false,
       }),
     ).toBe(false)
+  })
+})
+
+// Ad click IVT: a real click must not reach the server ahead of its own view,
+// or the sweep would later read it as a view that never arrived.
+describe('sendClickAfterView', () => {
+  test('sends the click only after the in-flight view ack settles', async () => {
+    resetFirstPartyViewAckRegistryForTests()
+    const order: string[] = []
+    let answerView!: (response: Response) => void
+    void acknowledgeFirstPartyView({
+      token: 'imp-1',
+      url: 'https://example.test/api/v1/ads/impression',
+      surface: 'cli_chat',
+      placementId: 'p',
+      clientFamily: 'cli',
+      fetch: () => {
+        order.push('view sent')
+        return new Promise<Response>((resolve) => {
+          answerView = resolve
+        })
+      },
+    })
+    const click = sendClickAfterView('imp-1', async () => {
+      order.push('click sent')
+      return 'ok'
+    })
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    expect(order).toEqual(['view sent'])
+    answerView(new Response(null, { status: 204 }))
+    expect(await click).toBe('ok')
+    expect(order).toEqual(['view sent', 'click sent'])
+    resetFirstPartyViewAckRegistryForTests()
+  })
+
+  test('sends at once when no view is in flight', async () => {
+    resetFirstPartyViewAckRegistryForTests()
+    let sent = false
+    await sendClickAfterView('never-viewed', async () => {
+      sent = true
+    })
+    expect(sent).toBe(true)
+  })
+})
+
+describe('a withheld ad response (COD-906)', () => {
+  const ad = (impUrl: string) => ({ impUrl }) as unknown as AdResponse
+  const cache = () => ({
+    choiceCache: [[ad('cached-1')]] as AdResponse[][],
+    choiceCacheIndex: 0,
+  })
+
+  test('only an empty ads list flagged withheld counts', () => {
+    expect(isWithheldAdResponse({ ads: [], withheld: true })).toBe(true)
+    expect(isWithheldAdResponse({ ads: [], provider: 'gravity' })).toBe(false)
+    expect(isWithheldAdResponse({ ads: [], withheld: 'true' })).toBe(false)
+    expect(isWithheldAdResponse({ ads: [ad('a')], withheld: true })).toBe(false)
+    expect(isWithheldAdResponse(null)).toBe(false)
+  })
+
+  test('clears the slot instead of re-showing a cached ad', () => {
+    const ctrl = cache()
+    expect(rotationStep(ctrl, { withheld: true })).toEqual({
+      show: null,
+      countsAsShown: false,
+    })
+    expect(ctrl.choiceCacheIndex).toBe(0)
+  })
+
+  test('a failed or empty fetch still falls back to the cache', () => {
+    const ctrl = cache()
+    expect(rotationStep(ctrl, null)).toEqual({
+      show: [ad('cached-1')],
+      countsAsShown: true,
+    })
+    expect(rotationStep({ choiceCache: [], choiceCacheIndex: 0 }, null)).toEqual(
+      { show: undefined, countsAsShown: false },
+    )
+  })
+
+  test('served ads are cached and shown', () => {
+    const ctrl = cache()
+    expect(rotationStep(ctrl, { ads: [ad('new')] })).toEqual({
+      show: [ad('new')],
+      countsAsShown: true,
+    })
+    expect(ctrl.choiceCache).toHaveLength(2)
   })
 })

@@ -1,27 +1,58 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod/v4'
 import { bundleSite, readSiteSecret } from './local-files'
+import { prepareNextSite } from './next-prepare'
+import { prepareRealtimeSite } from './realtime-prepare'
+import { SITE_ARGS } from './tools'
 
 import { SitesClientError } from './errors'
 export { SitesClientError } from './errors'
-const uuid = z.string().uuid()
-const environment = z.enum(['preview', 'production'])
-const key = z.string().regex(/^[a-zA-Z0-9_-]{8,128}$/)
-const name = z
-  .string()
-  .regex(/^[A-Z][A-Z0-9_]{0,63}$/)
-  .refine(
-    (s) =>
-      ![
-        'ASSETS',
-        'FREEBUFF_CLIENT_ID',
-        'FREEBUFF_ISSUER',
-        'APP_ORIGIN',
-      ].includes(s),
-  )
+// The SAME objects the tools publish as their input schemas, so a constraint
+// cannot be enforced here without the model being shown it. See `SITE_ARGS`.
+const uuid = SITE_ARGS.siteId
+const environment = SITE_ARGS.environment
+const key = SITE_ARGS.requestId
+const name = SITE_ARGS.bindingName
 const target = z.object({ siteId: uuid, environment })
 const invalid = (message: string) =>
   new SitesClientError(400, 'invalid_site_request', message)
+
+/**
+ * Parse ONE argument, keeping its name on the issue.
+ *
+ * `schema.parse(args.name)` produces an issue with an empty path, so a refusal
+ * could only ever name the failing CHECK and not the argument — the half of
+ * this that a model cannot work around.
+ */
+function field<T>(schema: z.ZodType<T>, argName: string, value: unknown): T {
+  return z.object({ [argName]: schema }).parse({ [argName]: value })[
+    argName
+  ] as T
+}
+
+/**
+ * Name the arguments a Zod check rejected, and nothing else.
+ *
+ * The opaque fallback below exists because a filesystem or validator error may
+ * carry file contents or a secret value. A Zod issue cannot: this reports only
+ * the argument's path and the kind of check that failed, never the value that
+ * failed it and never the issue's own message (`invalid_value` carries the
+ * received literal). Without this an argument the model can fix reads as
+ * "check arguments and workspace files", so it retries the same call.
+ */
+function rejectedArguments(error: z.ZodError): string {
+  const named = [
+    ...new Set(
+      error.issues.map((issue) => {
+        const path = issue.path.map(String).join('.')
+        return path ? `${path} (${issue.code})` : issue.code
+      }),
+    ),
+  ]
+  return named.length > 0
+    ? `Sites rejected these arguments: ${named.join(', ')}. Read the tool's input schema and send values that match it.`
+    : 'Could not prepare the Sites request. Check arguments and workspace files.'
+}
 const IDEMPOTENT_TOOLS = new Set([
   'sites_deploy',
   'sites_add_storage',
@@ -39,6 +70,8 @@ export class SitesClient {
       getToken: () => string | null | undefined
       originApp: 'desktop' | 'web'
       files?: { bundle: typeof bundleSite; secret: typeof readSiteSecret }
+      prepareNext?: typeof prepareNextSite
+      prepareRealtime?: typeof prepareRealtimeSite
       host: string
       fetcher?: (url: string, init: RequestInit) => Promise<Response>
     },
@@ -92,7 +125,9 @@ export class SitesClient {
           sites_usage_unavailable:
             'Hosting usage is being checked. Try again shortly.',
           project_limit:
-            'Your free hosting allowance includes 3 sites. You can continue updating your existing sites.',
+            'Your saved Sites limit has been reached. Delete an unused site to create another.',
+          published_site_limit:
+            'Your free hosting allowance includes 3 published sites. Unpublish every published environment of one site to publish another. Your saved sites and data are preserved.',
           binding_limit:
             'Each site environment includes one database and one storage bucket. Reuse the existing binding.',
           variable_limit:
@@ -103,7 +138,12 @@ export class SitesClient {
           secret_not_found: 'This variable no longer exists. Refresh the list.',
           environment_busy:
             'An operation is running or needs reconciliation. Refresh deployment activity before trying again.',
+          site_deletion_needs_reconciliation:
+            'An earlier operation on this site never reported its result, so deletion is held until it is reconciled. Contact support@freebuff.com to have the site removed.',
           site_deleting: 'This site is being deleted.',
+          subdomain_taken: 'This subdomain is already taken. Try another name.',
+          invalid_subdomain: 'Use 1–63 letters, numbers or hyphens. Start and end with a letter or number; generated addresses and customers are reserved.',
+          production_subdomain_only: 'Switch to Production to customize your Freebuff address.',
           invalid_domain: 'Enter a subdomain such as www.example.com, without a URL or path. Root domains and platform domains are not supported.',
           domain_claimed: 'This domain is already connected or being verified. Remove it from the other site or contact support to recover access.',
           domain_limit: 'Remove the existing domain before connecting another.',
@@ -138,6 +178,11 @@ export class SitesClient {
         'Couldn’t reach Sites. Check your connection and try again.',
       )
     }
+  }
+  async setSubdomain(siteId: string, env: string, raw: unknown, requestId: string) {
+    const input = z.strictObject({ subdomain: z.string().min(1).max(100) }).safeParse(raw)
+    if (!uuid.safeParse(siteId).success || !environment.safeParse(env).success || !key.safeParse(requestId).success || !input.success) throw invalid('Invalid subdomain request.')
+    return this.request(`/${siteId}/environments/${env}/subdomain`, 'POST', input.data, requestId)
   }
   async domainAction(siteId: string, env: string, raw: unknown, requestId: string) {
     const input = z.discriminatedUnion('action', [
@@ -223,7 +268,7 @@ export class SitesClient {
       !(
         suffix.length === 0 ||
         (suffix.length === 1 &&
-          ['operations', 'analytics', 'domains'].includes(suffix[0])) ||
+          ['operations', 'analytics', 'domains', 'subdomain'].includes(suffix[0])) ||
         (suffix.length === 2 &&
           suffix[0] === 'auth' &&
           ['analytics', 'users'].includes(suffix[1])) ||
@@ -238,7 +283,7 @@ export class SitesClient {
     )
       throw invalid('Unknown Sites path.')
     const search = new URLSearchParams()
-    for (const field of ['table', 'offset', 'cursor', 'q', 'days']) {
+    for (const field of ['table', 'offset', 'cursor', 'q', 'days', 'name']) {
       const value = query.get(field)
       if (value !== null && value.length <= 2000) search.set(field, value)
     }
@@ -271,6 +316,32 @@ export class SitesClient {
         throw invalid('Sites mutations are unavailable in plan mode.')
       if (tool === 'sites_list')
         return await this.request('', 'GET', undefined, undefined, signal)
+      if (tool === 'sites_prepare_realtime') {
+        const args = z
+          .object({ projectDirectory: SITE_ARGS.workspacePath.optional() })
+          .strict()
+          .parse(raw)
+        return await (this.options.prepareRealtime ?? prepareRealtimeSite)(
+          cwd,
+          args.projectDirectory ?? '.',
+          signal,
+        )
+      }
+      if (tool === 'sites_prepare_next') {
+        const args = z
+          .object({
+            projectDirectory: SITE_ARGS.workspacePath.optional(),
+            realtime: z.literal(true).optional(),
+          })
+          .strict()
+          .parse(raw)
+        const prepare = this.options.prepareNext ?? prepareNextSite
+        return args.realtime
+          ? await prepare(cwd, args.projectDirectory ?? '.', signal, {
+              realtime: true,
+            })
+          : await prepare(cwd, args.projectDirectory ?? '.', signal)
+      }
       if (tool === 'sites_create') {
         const args = z
           .object({ siteId: uuid, name: z.string().min(1).max(80) })
@@ -325,9 +396,13 @@ export class SitesClient {
           signal,
         )
       }
-      const requestId = key.parse(args.requestId)
+      const requestId = field(key, 'requestId', args.requestId)
       if (tool === 'sites_deploy') {
-        const manifestPath = z.string().min(1).parse(args.manifestPath)
+        const manifestPath = field(
+          SITE_ARGS.workspacePath,
+          'manifestPath',
+          args.manifestPath,
+        )
         const bundle = await (this.options.files?.bundle ?? bundleSite)(
           cwd,
           manifestPath,
@@ -341,20 +416,20 @@ export class SitesClient {
         )
       }
       if (tool === 'sites_add_storage') {
-        const kind = z.enum(['d1', 'r2']).parse(args.kind)
+        const kind = field(z.enum(['d1', 'r2']), 'kind', args.kind)
         return await this.request(
           path + '/' + kind,
           'POST',
-          { name: name.parse(args.name) },
+          { name: field(name, 'name', args.name) },
           requestId,
           signal,
         )
       }
       if (tool === 'sites_set_secret') {
-        const binding = name.parse(args.name)
+        const binding = field(name, 'name', args.name)
         const value = await (this.options.files?.secret ?? readSiteSecret)(
           cwd,
-          z.string().min(1).parse(args.valueFile),
+          field(SITE_ARGS.workspacePath, 'valueFile', args.valueFile),
         )
         return await this.request(
           path + '/secrets/' + binding,
@@ -381,7 +456,9 @@ export class SitesClient {
       return {
         error: 'invalid_site_request',
         message:
-          'Could not prepare the Sites request. Check arguments and workspace files.',
+          error instanceof z.ZodError
+            ? rejectedArguments(error)
+            : 'Could not prepare the Sites request. Check arguments and workspace files.',
       }
     }
   }

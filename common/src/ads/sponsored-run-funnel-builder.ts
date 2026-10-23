@@ -14,8 +14,9 @@
  * test asserts this module imports nothing from billing, and the
  * never-started refund path does not read the stored metadata either.
  *
- * CLOSED AND BOUNDED ON PURPOSE. Every key but `diagnostic_reason` is an enum
- * or a boolean, and `diagnostic_reason` is SCRUBBED (`scrubSponsoredDiagnostic`)
+ * CLOSED AND BOUNDED ON PURPOSE. Scalar facts are enums or booleans; structured
+ * check evidence has bounded IDs, step numbers and categories. The diagnostic
+ * is SCRUBBED (`scrubSponsoredDiagnostic`)
  * and capped at `SPONSORED_FUNNEL_DIAGNOSTIC_MAX` characters. The full,
  * unscrubbed text stays on the Convex row, which is joined by `proposal_id`
  * when an operator needs it; the funnel is for counting, and a counting table
@@ -37,7 +38,12 @@
  * schema module; type imports are erased.
  */
 
-import { isSponsoredExecutionSurface } from './sponsored-execution-surface'
+import {
+  parseSponsoredRunEvidence,
+  sponsoredEvidenceFromReport,
+  type SponsoredRunEvidence,
+} from './sponsored-run-evidence'
+import { isSponsoredRunExecutionSurface } from './sponsored-execution-surface'
 import { SPONSORED_CLIENT_VERSION_PATTERN } from './sponsored-client-version'
 import { SPONSORED_PARTIAL_EDITS_MARKER } from './sponsored-in-place'
 
@@ -108,6 +114,7 @@ export const SPONSORED_RUN_FAILURE_CODES = [
   'never_started_app_quit',
   'never_started_inputs_dropped',
   'never_started_other',
+  'verification_incomplete',
   'partial_edits',
   'funding_refused',
   // Cloud executor refusals (`SponsoredExecutionRefusal` + the sweep).
@@ -239,6 +246,8 @@ export interface SponsoredRunFunnelRowFacts {
     /** `desktop/<v>` or `cli/<v>`, written once at Accept. */
     client_version?: string | null
   } | null
+  run_evidence?: SponsoredRunEvidence
+  last_run_report_payload?: string | null
   diagnostic_reason?: string | null
 }
 
@@ -250,6 +259,8 @@ const OS_BY_SURFACE: Record<string, SponsoredRunOs> = {
   // WSL is a Linux kernel under Windows; the surface keeps the distinction.
   cli_wsl: 'linux',
   desktop_windows: 'windows',
+  // Freebuff Web's browser workspace VMs.
+  cloud_linux: 'linux',
 }
 
 /**
@@ -378,6 +389,7 @@ const TURN_RAN_CODES: ReadonlySet<SponsoredRunFailureCode> = new Set([
   'no_commit',
   'commit_follow_up_failed',
   // Edits of the run's own are a model's work.
+  'verification_incomplete',
   'partial_edits',
 ])
 
@@ -452,28 +464,37 @@ export function buildSponsoredRunFunnelMetadata(args: {
   refusal?: string | null
 }): SponsoredRunFunnelMetadata {
   const { row } = args
-  const executionMode: SponsoredRunExecutionMode = row.project_id
-    ? 'cloud'
-    : row.in_place_execution === true
-      ? 'in_place'
-      : 'worktree'
-  const surface = isSponsoredExecutionSurface(row.execution_surface)
-    ? row.execution_surface
-    : undefined
-  const executionSurface =
-    surface ?? (executionMode === 'cloud' ? ('cloud' as const) : undefined)
   const clientRaw = row.acceptance?.surface ?? row.surface ?? null
   const client = (SPONSORED_RUN_CLIENTS as readonly string[]).includes(
     clientRaw ?? '',
   )
     ? (clientRaw as (typeof SPONSORED_RUN_CLIENTS)[number])
     : undefined
-  const os = surface ? OS_BY_SURFACE[surface] : undefined
+  // A Freebuff Web run executes on OUR Linux VM, in the accepting chat's
+  // worktree, and its row carries no Convex `project_id` (that key belongs to
+  // the retired /cloud executor). It is Cloud execution all the same: the
+  // worker reports it, not a user's machine.
+  const webRun = !row.project_id && client === 'web'
+  const executionMode: SponsoredRunExecutionMode =
+    row.project_id || webRun
+      ? 'cloud'
+      : row.in_place_execution === true
+        ? 'in_place'
+        : 'worktree'
+  const surface = isSponsoredRunExecutionSurface(row.execution_surface)
+    ? row.execution_surface
+    : undefined
+  const executionSurface =
+    surface ?? (executionMode === 'cloud' ? ('cloud' as const) : undefined)
+  const os = surface ? OS_BY_SURFACE[surface] : webRun ? 'linux' : undefined
   const fromState = (SPONSORED_RUN_FROM_STATES as readonly string[]).includes(
     args.fromState ?? '',
   )
     ? (args.fromState as (typeof SPONSORED_RUN_FROM_STATES)[number])
     : undefined
+  const evidence =
+    parseSponsoredRunEvidence(row.run_evidence) ??
+    sponsoredEvidenceFromReport(row.last_run_report_payload)
   const diagnostic = scrubSponsoredDiagnostic(row.diagnostic_reason)
   const clientVersion = row.acceptance?.client_version
   const validClientVersion =
@@ -485,15 +506,18 @@ export function buildSponsoredRunFunnelMetadata(args: {
   let failureCode: SponsoredRunFailureCode | undefined
   let llmCalled: boolean | undefined
   if (args.eventType === 'run_failed') {
-    failureCode = sponsoredRunFailureCode({
-      refusal: args.refusal,
-      diagnosticReason: row.diagnostic_reason,
-    })
+    failureCode = evidence?.verificationPending
+      ? 'verification_incomplete'
+      : sponsoredRunFailureCode({
+          refusal: args.refusal,
+          diagnosticReason: row.diagnostic_reason,
+        })
     if (NO_TURN_CODES.has(failureCode)) llmCalled = false
     else if (TURN_RAN_CODES.has(failureCode)) llmCalled = true
-    // A Cloud row the sweep took out of `accepted` was never queued. A local
-    // one may have run with its advisory `running` report lost, so it stays
-    // unknown.
+    // A Cloud row the sweep took out of `accepted` was never queued, and a
+    // web row never started its turn: the web worker starts one only after
+    // its `running` report landed. A local one may have run with its
+    // advisory `running` report lost, so it stays unknown.
     else if (
       failureCode === 'timed_out' &&
       executionMode === 'cloud' &&
@@ -507,6 +531,7 @@ export function buildSponsoredRunFunnelMetadata(args: {
   }
 
   return {
+    ...(evidence ? { run_evidence: evidence } : {}),
     execution_mode: executionMode,
     ...(executionSurface ? { execution_surface: executionSurface } : {}),
     ...(client ? { client } : {}),
