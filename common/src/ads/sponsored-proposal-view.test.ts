@@ -647,8 +647,8 @@ describe('sponsoredProposalMinimized', () => {
   })
 })
 
-// COD-824: what an offer will ask of the user is said before Accept, and the
-// pill follows the run from Accept onwards.
+// COD-824: the plan rides the offer row and the pill follows the run from
+// Accept onwards. The offer card itself no longer summarises the plan.
 describe('offer plan and progress pill', () => {
   const PLAN = {
     step_count: 6,
@@ -656,24 +656,20 @@ describe('offer plan and progress pill', () => {
     estimate_seconds: 240,
   }
 
-  test('VM-41 an offered card with a plan says its steps, estimate and the step that needs the user', () => {
+  test('VM-41 an offered card with a plan keeps the plan for the pill and says nothing of it', () => {
     const v = view({ state: 'offered', offer_plan: PLAN })
-    expect(v.offerSummary).toBe(
-      '6 steps · ~4 min · 1 needs you (Archil account)',
-    )
     expect(v.offerPlan).toEqual({
       stepCount: 6,
       needsUser: ['Archil account'],
       estimateSeconds: 240,
     })
-    // Only the offer speaks it; past Accept the pill does.
-    for (const state of ALL_STATES.filter((s) => s !== 'offered')) {
-      expect(view({ state, offer_plan: PLAN }).offerSummary).toBeNull()
+    expect('offerSummary' in v).toBe(false)
+    for (const field of [v.headline, v.body]) {
+      expect(field).not.toContain('needs you')
     }
   })
 
   test('VM-42 no plan, or a malformed one, leaves the card as it was', () => {
-    expect(view({ state: 'offered' }).offerSummary).toBeNull()
     expect(view({ state: 'offered' }).offerPlan).toBeNull()
     for (const offer_plan of [
       { ...PLAN, step_count: -1 },
@@ -687,7 +683,6 @@ describe('offer plan and progress pill', () => {
         offer_plan: offer_plan as unknown as SponsoredProposalRow['offer_plan'],
       })
       expect(v.offerPlan).toBeNull()
-      expect(v.offerSummary).toBeNull()
     }
   })
 

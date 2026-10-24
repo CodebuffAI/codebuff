@@ -908,27 +908,28 @@ describe('the card claims no bare keys while its menu is closed', () => {
   })
 })
 
-// COD-824: the same strings as Desktop, from the shared view model.
-describe('steps, estimate and who is needed, before Accept', () => {
+// COD-824: the same strings as Desktop, from the shared view model. The offer
+// itself no longer summarises the plan; only the pill speaks, from Accept on.
+describe('the offer plan and the pill', () => {
   const PLAN = {
     step_count: 6,
     needs_user: ['Archil account'],
     estimate_seconds: 240,
   }
 
-  test('the offer says its steps, estimate and the step that needs the user', async () => {
+  test('the offer says nothing of the plan before Accept', async () => {
     const frame = await render(
       blockFor({ ...SPONSORED_ROW_FIXTURES.offered, offer_plan: PLAN }),
       60,
     )
-    expect(frame).toContain('6 steps · ~4 min · 1 needs you (Archil account)')
+    expect(frame).not.toContain('needs you')
+    expect(frame).not.toContain('6 steps')
   })
 
   test('the pill follows this machine’s run from Accept onwards', async () => {
     const row = { ...SPONSORED_ROW_FIXTURES.offered, offer_plan: PLAN }
     const queued = await renderWithRun(row, 'queued')
     expect(queued).toContain('0/6 · Starting')
-    // The offer line goes once a run exists: the pill speaks from here.
     expect(queued).not.toContain('needs you (Archil account)')
     expect(await renderWithRun(row, 'delivered')).toContain('6/6 ✓')
   })

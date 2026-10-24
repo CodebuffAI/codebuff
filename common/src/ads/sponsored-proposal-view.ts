@@ -3,10 +3,7 @@ import {
   sponsoredDoneStepCount,
 } from './sponsored-procedure-steps'
 import { sanitizeAdUrl } from '../util/ad-creative-safety'
-import {
-  sponsoredOfferPlanFromWire,
-  sponsoredOfferSummary,
-} from './sponsored-offer-plan'
+import { sponsoredOfferPlanFromWire } from './sponsored-offer-plan'
 
 import type {
   SponsoredOfferPlan,
@@ -534,13 +531,11 @@ export type SponsoredProposalViewModel = {
   doneStepCount: number
   /** "3/8" ({@link formatSponsoredStepCount}); null with no steps. */
   stepCountLabel: string | null
-  /** The validated `offer_plan`, or null. Feeds `sponsoredProgressPill`. */
-  offerPlan: SponsoredOfferPlan | null
   /**
-   * "6 steps · ~4 min · 1 needs you (Archil account)", on `offered` only, or
-   * null when there is no plan to say it from.
+   * The validated `offer_plan`, or null. Feeds `sponsoredProgressPill` from
+   * Accept onwards; the offer itself says nothing of it.
    */
-  offerSummary: string | null
+  offerPlan: SponsoredOfferPlan | null
   logoToken: string | null
   logoSrc: string | null
   pullRequestHref: string | null
@@ -721,8 +716,6 @@ export function sponsoredProposalViewModel(
       steps.length,
     ),
     offerPlan,
-    offerSummary:
-      row.state === 'offered' ? sponsoredOfferSummary(offerPlan) : null,
     logoToken,
     logoSrc: sponsoredLogoSrc(row.advertiser_logo_token),
     pullRequestHref,

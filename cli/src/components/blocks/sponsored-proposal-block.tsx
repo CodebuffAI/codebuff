@@ -495,9 +495,6 @@ export const SponsoredProposalBlock: React.FC<{
           inner,
         )}
       </text>
-      {view.state === 'offered' && !run && view.offerSummary && (
-        <text style={{ fg: theme.muted }}>{view.offerSummary}</text>
-      )}
       {showBody && <text style={{ fg: theme.muted }}>{view.body}</text>}
       {showBody && canRun && (
         <text style={{ fg: theme.muted }}>
