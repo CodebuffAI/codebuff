@@ -1456,8 +1456,8 @@ export function canFreebuffModelSpawnGeminiThinker(modelId: string): boolean {
 export const FREEBUFF_MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   [FREEBUFF_MINIMAX_M3_MODEL_ID]: 524_288,
   [FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID]: 1_048_576,
-  // Fast mode is the same upstream model on DeepSeek's own API, so the
-  // rejection above is its rejection too.
+  // Fast mode is the same upstream model, so the rejection above is its
+  // rejection too.
   [FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID]: 1_048_576,
   // Read off the rejection above on 2026-08-12 — the same window as Flash, and
   // the entry Pro had been missing since it shipped. Absent, base-chat gave a
@@ -1813,20 +1813,20 @@ const DEEPSEEK_V4_FLASH_MODEL = {
  *    parallel worker subagents that share its prompt cache, and verifies the
  *    combined result itself. Several requests in flight at once is the whole
  *    point, which is why it cannot ride the Flash row.
- *  - It is served ONLY by DeepSeek's own API. The Flash row's granted sessions
- *    lead on the rationed Luminal lane, whose per-session cap and bimodal
- *    decode speed are the wrong fit for a fan-out; the fast row is excluded
- *    from that grant at admission and runs a single direct lane in the router
- *    (web/src/llm-api/deepseek-router.ts).
+ *  - It was served ONLY by DeepSeek's own API until 2026-10-24, when it moved
+ *    to Luminal with direct behind it (web/src/llm-api/fast-mode-luminal.ts):
+ *    the same V4.1 build at ~0.6x the cost, and as fast under the fan-out (six
+ *    parallel requests on a shared prefix: Luminal 176 tok/s, direct 167). It
+ *    still takes no Luminal admission slot: the row's own price meters it.
  *
  * Priced on DeepSeek's own clock (freebuff-freebucks.ts): 50 Freebucks in
  * the weekday window where DeepSeek direct doubles, 25 the rest of the time.
- * The harness spends about 1.3x base3 per task, and DeepSeek direct bills
- * 1.7x Luminal off-peak and 3.4x at peak on the same tokens.
+ * The harness spends about 1.3x base3 per task. The price was set while the
+ * row ran on direct, which bills 1.7x Luminal off-peak and 3.4x at peak.
  *
  * Everything else tracks the Flash row on purpose — the same DeepSeek data-use
- * terms, the same effort ladder, and `multimodal: true` because the direct
- * lane is the one lane that reads images. Plan-only at limited access, on
+ * terms, the same effort ladder, and `multimodal: true` because Luminal and
+ * direct both read images. Plan-only at limited access, on
  * MiMo 2.6 Pro's terms: open to every full-access account, metered in
  * Freebucks at its own price.
  */
@@ -1837,7 +1837,7 @@ const DEEPSEEK_V4_FLASH_FAST_MODEL = {
   displayName: 'DeepSeek V4.1 Flash Fast 10/17',
   tagline: 'Parallel agents',
   taglineTooltip:
-    'Gathers context with parallel subagents. Runs on DeepSeek’s own API.',
+    'Gathers context with parallel subagents.',
   availability: 'always',
   // Inert while `always`; names the row this one is a variant of.
   unavailableFallback: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
