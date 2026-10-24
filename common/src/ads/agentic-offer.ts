@@ -13,8 +13,11 @@
  * drawn. The card UX is being reworked, and the rework must not need a
  * contract change -- an invitation carries the existing invitation payload,
  * and a proposal is read from the proposal routes as every proposal already
- * is. The response objects are not `.strict()`, so the server may add fields
- * without a version bump and an older client simply drops them.
+ * is. Since revamp S10 a proposal may also carry its `preview`: the two
+ * answers those routes would give, so the card draws and Accept is one POST
+ * without a second read. The response objects are not `.strict()`, so the
+ * server may add fields without a version bump and an older client simply
+ * drops them.
  *
  * CUTOVER. There is no server knob: the Desktop release that sends
  * `agenticOfferRoute: 1` is the cutover. For such a client this endpoint
@@ -52,6 +55,9 @@ import {
   MAX_REPO_FACT_PATHS,
   type SponsoredRepoFacts,
 } from './sponsored-skill-fit'
+
+/** `offerPreviewVersion` on a request whose client draws the offer's preview. */
+export const AGENTIC_OFFER_PREVIEW_VERSION = 1
 
 /** `agenticOfferRoute` on an `/api/ads` request, and `v` on this route's wire. */
 export const AGENTIC_OFFER_ROUTE_VERSION = 1
@@ -218,6 +224,13 @@ export const agenticOfferRequestSchema = z.object({
    */
   runSpecVersion: z.literal(SPONSORED_RUN_SPEC_VERSION).optional(),
   /**
+   * `1`: this client draws a proposal's card from the offer's `preview` and
+   * Accepts with one POST (S10). Only then does the server build the
+   * preview: it costs two reads per proposal, which a client that reads the
+   * proposal routes itself would pay twice. Absent is every released build.
+   */
+  offerPreviewVersion: z.literal(AGENTIC_OFFER_PREVIEW_VERSION).optional(),
+  /**
    * `SPONSORED_CONVERSION_TOOLS_VERSION`: this client has the sponsored
    * conversion tools (`sponsored-conversion.ts`), so a skill with a
    * conversion definition may be offered to it. Unknown here and read with
@@ -287,6 +300,36 @@ const agenticOfferNoneSchema = z.object({
   reason: z.enum(AGENTIC_OFFER_NONE_REASONS),
 })
 
+/**
+ * A proposal's card and Accept preview, carried on the offer (agentic ads
+ * revamp S10, E3). Each part is EXACTLY the body a read would answer, so a
+ * client handles it as it handles that read:
+ *
+ * - `proposal`: `GET /api/v1/ads/proposal`'s `proposal` (the card row, with
+ *   its `offer_plan`);
+ * - `accept`: `GET /api/v1/ads/proposal/{id}/accept`'s 200 body (the
+ *   procedure the Accept binds, its SHA-256, the acceptance criteria and the
+ *   skill), the same checks having passed.
+ *
+ * Advisory, never authority: every click-time check stays in the Accept POST,
+ * which answers 409 `procedure_changed` (with the new `preview`) when the
+ * procedure moved. Sent only to a request with `offerPreviewVersion: 1`, and
+ * absent whenever either read would not answer 200 for this proposal or did
+ * not answer in time; the client then reads as before.
+ */
+export const agenticOfferPreviewSchema = z.object({
+  proposal: z.object({ _id: z.string().min(1) }).loose(),
+  accept: z
+    .object({
+      proposalId: z.string().min(1),
+      procedure: z.string().min(1),
+      procedureSha256: z.string().regex(/^[a-f0-9]{64}$/),
+    })
+    .loose(),
+})
+
+export type AgenticOfferPreview = z.infer<typeof agenticOfferPreviewSchema>
+
 const agenticOfferMadeSchema = z.discriminatedUnion('kind', [
   z.object({
     v: z.literal(AGENTIC_OFFER_ROUTE_VERSION),
@@ -298,7 +341,10 @@ const agenticOfferMadeSchema = z.discriminatedUnion('kind', [
     v: z.literal(AGENTIC_OFFER_ROUTE_VERSION),
     decision: z.literal('offer'),
     kind: z.literal('proposal'),
-    /** Read it through `GET /api/v1/ads/proposal` like every other proposal. */
+    /**
+     * Read it through `GET /api/v1/ads/proposal` like every other proposal,
+     * unless `preview` already carries that answer.
+     */
     proposalId: z.string().min(1),
     campaignId: z.string().min(1),
     /**
@@ -306,6 +352,11 @@ const agenticOfferMadeSchema = z.discriminatedUnion('kind', [
      * reason to withhold Accept. Absent when the machine matches or is unknown.
      */
     environmentWarning: sponsoredEnvironmentWarningSchema.optional(),
+    /**
+     * The card and Accept preview (S10, `agenticOfferPreviewSchema`). A
+     * malformed one is dropped, never a reason to refuse the offer.
+     */
+    preview: agenticOfferPreviewSchema.optional().catch(undefined),
   }),
 ])
 
