@@ -1818,11 +1818,10 @@ const DEEPSEEK_V4_FLASH_MODEL = {
  *    parallel worker subagents that share its prompt cache, and verifies the
  *    combined result itself. Several requests in flight at once is the whole
  *    point, which is why it cannot ride the Flash row.
- *  - It was served ONLY by DeepSeek's own API until 2026-10-24, when it moved
- *    to Luminal with direct behind it (web/src/llm-api/fast-mode-luminal.ts):
- *    the same V4.1 build at ~0.6x the cost, and as fast under the fan-out (six
- *    parallel requests on a shared prefix: Luminal 176 tok/s, direct 167). It
- *    still takes no Luminal admission slot: the row's own price meters it.
+ *  - It is served by DeepSeek's own API. A move to Luminal (2026-10-24,
+ *    web/src/llm-api/fast-mode-luminal.ts) was rolled back the same night:
+ *    under production load Luminal decoded at a p50 of 137 tok/s against
+ *    direct's ~220, and this row is sold on speed.
  *
  * Priced on DeepSeek's own clock (freebuff-freebucks.ts): 50 Freebucks in
  * the weekday window where DeepSeek direct doubles, 25 the rest of the time.
@@ -1842,7 +1841,7 @@ const DEEPSEEK_V4_FLASH_FAST_MODEL = {
   displayName: 'DeepSeek V4.1 Flash Fast 10/17',
   tagline: 'Parallel agents',
   taglineTooltip:
-    'Gathers context with parallel subagents.',
+    'Gathers context with parallel subagents. Runs on DeepSeek’s own API.',
   availability: 'always',
   // Inert while `always`; names the row this one is a variant of.
   unavailableFallback: FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
