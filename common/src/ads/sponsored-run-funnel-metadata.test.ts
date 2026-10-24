@@ -260,6 +260,7 @@ describe('sponsoredRunFailureCode', () => {
       'interrupted',
     ],
     ['turn grant-expired; the turn recorded no file edits', 'grant_expired'],
+    ['turn grant-expired: the active window was spent', 'grant_expired'],
     ['turn error; the verdict could not be decided: boom', 'verdict_undecided'],
     [
       'turn completed; the worktree has uncommitted changes; commit follow-up was queued but never started within 30s',

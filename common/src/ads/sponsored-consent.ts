@@ -34,7 +34,7 @@ export const SPONSORED_CONSENT_SENTENCE =
  * (`SPONSORED_IN_PLACE_SENTENCE` in `mcp-consent-bridge.cjs`).
  */
 export const SPONSORED_CONSENT_IN_PLACE_SENTENCE =
-  ' is sponsoring this agent run, so it’s free for you. Freebuff’s agent edits the files in the folder below and commits nothing. You can stop it anytime and undo it after.'
+  ' is sponsoring this agent run, so it’s free for you. Freebuff’s agent edits the files in the folder below and commits nothing. It runs in the background so you can keep working, and you can undo it after.'
 
 /**
  * The second sentence, shown ONLY where the run has no OS sandbox: Windows (COD-642). Plain words

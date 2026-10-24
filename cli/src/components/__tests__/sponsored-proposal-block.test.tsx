@@ -208,7 +208,7 @@ describe('every state, at every width', () => {
     expect(flat).toContain('free for you')
     expect(flat).toContain('edits the files in the folder below')
     expect(flat).toContain('commits nothing')
-    expect(flat).toContain('stop it anytime and undo it after')
+    expect(flat).toContain('runs in the background so you can keep working')
     expect(consented).toContain(CONSENT.folder)
     expect(consented).not.toContain('its own branch')
     expect(consented).toContain('> No')
