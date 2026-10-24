@@ -11,10 +11,13 @@ import {
   SPONSORED_RUN_DEFERRED_SIGNUP_LINK,
   SPONSORED_RUN_DESKTOP_IN_PLACE_GUIDANCE,
   SPONSORED_RUN_DESKTOP_WORKTREE_GUIDANCE,
+  SPONSORED_RUN_LAYER1_FRAME,
+  SPONSORED_RUN_LAYER1_REPORT,
   SPONSORED_RUN_RESULT_REPORT,
   SPONSORED_RUN_SCOPE_GUIDANCE,
   SPONSORED_RUN_TASK_FRAMING,
   SPONSORED_RUN_WEB_GUIDANCE,
+  buildSponsoredRunLayer1PromptTemplate,
   buildSponsoredRunPromptTemplate,
   buildSponsoredRunSpec,
   renderSponsoredRunTaskContext,
@@ -25,6 +28,7 @@ import {
   fillSponsoredRunSpecPrompt,
 } from './sponsored-run-spec'
 import { renderSponsoredSkillProcedure } from './sponsored-skill'
+import { buildLayer2Skill } from './sponsored-skill-layer2'
 import { resolveSponsoredSkill } from './sponsored-skills/registry'
 
 const PROCEDURE = 'Add the Example SDK.\n1. Install it.\n2. Wire it up.'
@@ -278,6 +282,89 @@ describe('buildSponsoredRunSpec', () => {
         advertiserLink: null,
       }),
     )
+  })
+})
+
+describe('Layer 1 frame for a Layer 2 skill', () => {
+  const built = buildLayer2Skill(
+    {
+      id: 'example-search',
+      advertiser: 'example',
+      goal: 'Add Example search to one existing search box in this app.',
+      docsUrl: 'https://docs.example.com',
+      signupUrl: 'https://example.com/signup?utm_source=freebuff&bfcid={bfcid}',
+      packages: [{ ecosystem: 'npm', name: 'example-sdk', version: '1.2.3' }],
+      envKeys: ['EXAMPLE_API_KEY'],
+      consent: { title: 'Add Example search', summary: 'Adds Example search.' },
+    },
+    '1.0.0',
+  )
+  if (!built.ok) throw new Error(JSON.stringify(built.errors))
+  const skill = built.skill
+  const procedure = renderSponsoredSkillProcedure(skill)
+  const spec = (surface: 'desktop' | 'cli' | 'web') =>
+    buildSponsoredRunSpec({
+      procedure,
+      skill,
+      surface,
+      inPlace: true,
+      advertiserLink: null,
+    })
+
+  test('gets the short frame, the procedure, both slots and the report', () => {
+    const template = spec('desktop').promptTemplate
+    expect(template).toBe(
+      buildSponsoredRunLayer1PromptTemplate({
+        surface: 'desktop',
+        procedure,
+        advertiserLink: null,
+      }),
+    )
+    expect(template.startsWith(SPONSORED_RUN_LAYER1_FRAME)).toBe(true)
+    expect(template).toContain(`The approved procedure:\n${procedure}`)
+    expect(template).toContain(SPONSORED_RUN_SPEC_SLOTS.taskContext)
+    expect(template).toContain(SPONSORED_RUN_SPEC_SLOTS.credentials)
+    expect(template.endsWith(SPONSORED_RUN_LAYER1_REPORT)).toBe(true)
+    expect(template).not.toContain(SPONSORED_RUN_SCOPE_GUIDANCE)
+  })
+
+  test('opens with the sentence the prompt classifier keys on', () => {
+    expect(
+      SPONSORED_RUN_LAYER1_FRAME.startsWith(
+        'The user accepted this sponsored task from its offer card.',
+      ),
+    ).toBe(true)
+  })
+
+  test('only Cloud adds the lockfile restore line', () => {
+    expect(spec('web').promptTemplate).toContain('npm ci')
+    expect(spec('desktop').promptTemplate).not.toContain('npm ci')
+    expect(spec('cli').promptTemplate).not.toContain('npm ci')
+  })
+
+  test('the frame is a fraction of the long one', () => {
+    const short = fill(spec('desktop').promptTemplate)
+    const long = fill(
+      buildSponsoredRunPromptTemplate({
+        surface: 'desktop',
+        inPlace: true,
+        procedure,
+        advertiserLink: null,
+      }),
+    )
+    expect(short.length).toBeLessThan(long.length / 2)
+  })
+
+  test('a registered skill keeps its long frame', () => {
+    const registered = resolveSponsoredSkill('exa-web-search-feature@2.0.0')!
+    const template = buildSponsoredRunSpec({
+      procedure: renderSponsoredSkillProcedure(registered),
+      skill: registered,
+      surface: 'desktop',
+      inPlace: true,
+      advertiserLink: null,
+    }).promptTemplate
+    expect(template.startsWith(SPONSORED_RUN_TASK_FRAMING)).toBe(true)
   })
 })
 
