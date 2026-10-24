@@ -2476,6 +2476,11 @@ const MINIMAX_M3_MODEL = {
   // reaches a pool through a model that never survives admission — but it stays
   // true so that restoring the row is one edit to the paused list rather than
   // two that must agree.
+  // RETIRED for good on 2026-10-24 (product: no MiniMax in Freebuff), with the
+  // catalog-only MiniMax M3.1 Flash. The row, its roots and its allowlist
+  // entries are now the RECOGNITION half of that retirement, not leftovers:
+  // they are what lets session admission and the completions 410 tell a
+  // released binary to update. minimax-retired.test.ts pins both halves.
   premium: true,
   multimodal: true,
   // MiniMax M3 supports adaptive thinking or disabled thinking, but no effort
