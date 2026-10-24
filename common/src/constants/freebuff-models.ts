@@ -14,7 +14,6 @@ import {
 } from './freebuff-peak-hours'
 import { mimoModels } from './model-config'
 import { SOLAR_PRO_4_OFFER, SOLAR_PROMOTIONAL } from './freebuff-solar-promo'
-import { GEMINI_4_ARGON_ENDING_SOON } from './freebuff-sol-promo'
 import {
   FREEBUFF_DEEPSEEK_V4_FLASH_FAST_MODEL_ID,
   FREEBUFF_DEEPSEEK_V4_FLASH_MODEL_ID,
@@ -147,6 +146,12 @@ export interface FreebuffModelOption {
    *  deal actually ends (or update the copy if it is extended). `short` is
    *  the CLI's form, which has no tooltip and little width. */
   dealEndingSoon?: { tooltip: string; short: string }
+  /** A row we are RETIRING: rendered as a "Leaving" badge (kind
+   *  `ending`, which every picker draws beside the name) whose tooltip is
+   *  `tooltip`, and as the price notice released CLI and Desktop builds show in
+   *  place of the tagline (`short`). Distinct from `dealEndingSoon`, which is
+   *  a price ending, not the model. */
+  leavingSoon?: { tooltip: string; short: string }
   /** A price change we have decided on but not yet made: rendered as a
    *  "Price change" badge (kind `ending`, which every picker draws beside the
    *  name) whose tooltip is `tooltip`. Clear it once the new price is live. */
@@ -2521,6 +2526,15 @@ const GPT_5_6_LUNA_MODEL = {
   // difference in either direction would not be.
 } as const satisfies FreebuffModelOption
 
+/** The rows being retired (product, 2026-10-24): Gemini 4 Argon, Gemini 3.8
+ *  Flash and the full Claude Haiku 5.5 row. Each carries a "Leaving" badge
+ *  until it goes (product: "Leaving", not "Leaving soon"). */
+export const FREEBUFF_LEAVING_SOON = {
+  short: 'Leaving',
+  tooltip:
+    'This model is leaving Freebuff soon. Pick another model to keep working without interruption.',
+} as const
+
 /** The tooltip on every "Price change" badge (2026-10-21, product). */
 export const FREEBUFF_PRICE_CHANGE_TOOLTIP =
   'This model’s price will change soon to reflect what our provider charges (out of our control).'
@@ -2602,9 +2616,9 @@ const GEMINI_4_ARGON_MODEL = {
   // PROMOTIONAL, by product decision (2026-10-13): 100 Freebucks is a
   // temporary price (FREEBUFF_GEMINI_4_ARGON_MODEL_ID), and the label says so
   // rather than letting a user build a habit on it.
-  // ENDING SOON, by product decision (2026-10-22): the one pill, replacing
-  // Promotional and Price change (GEMINI_4_ARGON_ENDING_SOON).
-  dealEndingSoon: GEMINI_4_ARGON_ENDING_SOON,
+  // LEAVING SOON, by product decision (2026-10-24): the row is being
+  // retired. Its "Ending soon" price pill went at the 2026-10-23 repricing.
+  leavingSoon: FREEBUFF_LEAVING_SOON,
   taglineTooltip:
     'On Google flex capacity, with a standard-tier backup when it’s busy.',
 } as const satisfies FreebuffModelOption
@@ -2686,7 +2700,9 @@ const SOLAR_MINI_4_MODEL = {
 const GEMINI_38_FLASH_MODEL = {
   id: FREEBUFF_GEMINI_38_FLASH_MODEL_ID,
   displayName: 'Gemini 3.8 Flash',
-  priceChange: { tooltip: FREEBUFF_PRICE_CHANGE_TOOLTIP },
+  // Being retired (product, 2026-10-24). Its Price change pill went at the
+  // 2026-10-23 repricing.
+  leavingSoon: FREEBUFF_LEAVING_SOON,
   // The 1M context is the thing a user picks this row FOR, and it is the
   // largest in the catalog by a wide margin.
   tagline: '1M context',
