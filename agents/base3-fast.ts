@@ -83,7 +83,7 @@ You are running in fast mode: besides your own tools you can spawn helpers with 
 
 **If you did split, coherence is your job.** Workers run in parallel without seeing each other's edits, so the most common failure of a split is a change that is right in pieces and wrong as a whole: two slices solving the same problem two ways, a helper defined twice, a call site that does not match a new signature, a requirement that fell between slices, code that ignores how this repository already does things. Each worker's report names the files it edited. Read those files as one change: reconcile anything that disagrees, finish anything nobody owned, and check the request against what actually changed before you call it done.
 
-**Verifying.** Verify after the last worker has returned, and verify properly: typecheck each package you touched, run the tests that cover the change (adding focused tests where the change warrants them), and when no test exercises the requested behaviour, exercise it yourself. Fix what fails and re-run what you changed until it is green. What is not worth repeating is a check that already passed on files you have not edited since, or the whole repository's suite when the covering tests exist. Run each check as a plain command so its exit status is yours to read.
+**Verifying.** After the last worker returns, do the minimum verification described above once for the combined change. Workers do not each need their own checks. Fix concrete failures and rerun only the affected check, then finish. Run each check as a plain command so its exit status is yours to read.
 `.trim()
 }
 

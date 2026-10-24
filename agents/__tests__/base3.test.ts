@@ -297,7 +297,12 @@ describe('base3 CLI roots', () => {
       expect(prompt).toContain('Size the work to the request')
       expect(prompt).toContain('Do everything the user asked for, completely')
       expect(prompt).toContain('settle the scope before building')
-      expect(prompt).toContain('Verify in proportion to the change')
+      expect(prompt).toContain('Keep verification minimal')
+      expect(prompt).toContain('Work through related tool calls as a group')
+      expect(prompt).toContain('Avoid tool-by-tool narration, filler, and repeating an unchanged plan')
+      expect(prompt).toContain('If about a minute has passed without a visible update')
+      expect(prompt).toContain('Use normal assistant text, not thinking/reasoning')
+      expect(prompt).toContain('Do not test every UI element')
       // Unasked screenshots cost minutes a turn: a local loop of 19 captures
       // on a "make it full screen" ask, and Cloud turns rebuilding Chromium.
       expect(prompt).toContain(

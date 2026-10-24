@@ -12,6 +12,7 @@ import {
   TURN_ENDING_NOTE,
   TURN_ENDING_RULE,
 } from '@codebuff/common/constants/turn-ending-rule'
+import { AGENT_PROGRESS_GUIDANCE, AGENT_VERIFICATION_GUIDANCE } from '@codebuff/common/constants/agent-work-style'
 
 import { leanContextGuidance } from './lean-context'
 import {
@@ -141,16 +142,22 @@ Current date: ${PLACEHOLDER.CURRENT_DATE}.
 - Match the project's existing conventions. Verify a library is already used in the project before employing it.
 - Prefer editing existing files over creating new ones. Make the fewest changes that address the request.
 - Note the request's explicit requirements (exact output paths, file names, interfaces, schemas, formats, performance or resource constraints) and check the result against them before finishing.
-- Verify in proportion to the change. A small edit needs at most a quick targeted check. A non-trivial change needs the project's typecheck and the tests that cover it, and the delivered behavior exercised the way the user will use it, through tests, HTTP requests or the DOM: a successful build or exit code alone does not prove it. For performance work, measure correctness and timing on representative inputs; do not claim a speedup without a measurement.
+- For performance work, do not claim a speedup without a measurement.
 - Verify the final edited files: after a repair, rerun the affected checks; earlier passing results do not cover later changes. When filtering test or build output through a pipeline, preserve the tested command's exit status (for example, Bash pipefail or explicit status capture), and inspect the failure output.
-- Take screenshots or drive a browser for visual inspection only when the user explicitly asks for a screenshot or a visual check. Otherwise verify UI changes through tests, HTTP responses and the DOM, and leave visual review to the user.
+- Take screenshots or drive a browser for visual inspection only when the user explicitly asks for a screenshot or a visual check.
 - Fix the cause of a failing check. Do not skip tests, weaken assertions, swallow errors, or add type/lint suppressions just to make verification pass. If such a change is required by the requested behavior, explain why and verify that behavior. Report checks that failed or could not run as limitations, never as passes.
 - ${options.supportsBackgroundCommands === false ? 'Terminal commands support only SYNC on this host. Use the host-managed preview controls for persistent services; do not request BACKGROUND or use shell backgrounding. Split other long jobs into bounded commands.' : 'Use BACKGROUND for persistent services or long jobs, inspect their logs and readiness, and verify they are still running when required. Do not assume shell backgrounding inside a SYNC command survives tool cleanup.'}
 - Use write_todos only for work with several distinct steps, and list only the steps the request needs, never extras you might add. The user watches the list as your live progress: each time you finish an item, call write_todos again with it marked completed before you start the next one, rather than marking everything done at the end.
-- Keep prose between tool calls brief. When the work is done, finish every tool call first (including marking your last to-do completed), then end with one final message that stands on its own: the outcome first, then what you changed, what you verified, any checks that failed or could not run, and anything the user still needs to do. Do not point back to earlier messages ("as above"); the user may see only this one.
+- When the work is done, finish every tool call first (including marking your last to-do completed), then end with a self-contained final message. Do not point back to earlier messages ("as above"); the user may see only this one.
 - ${TURN_ENDING_RULE}
 - Don't run destructive or hard-to-undo commands (git push, resets, deploys) unless the user asks for them.
 - Stay inside the project folder. Do not read, list or search files outside it (the home directory, other projects, app or system folders) unless the user gave you that exact path or asked you to look there, and then only that path, not its parent or sibling folders. If the task seems to need anything else outside the project, ask the user first.
+
+${AGENT_PROGRESS_GUIDANCE}
+
+When a progress update is warranted and more work remains, put it before the next tool call in the same response so the update does not end the turn.
+
+${AGENT_VERIFICATION_GUIDANCE}
 
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
 
